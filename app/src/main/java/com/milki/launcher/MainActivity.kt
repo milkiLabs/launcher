@@ -3,10 +3,12 @@ package com.milki.launcher
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,15 +22,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.graphics.drawable.toBitmap
 import com.milki.launcher.ui.theme.LauncherTheme
 
 data class AppInfo(
     val name: String,
     val packageName: String,
-    val launchIntent: Intent?
+    val launchIntent: Intent?,
+    val icon: Drawable?
 )
 
 class MainActivity : ComponentActivity() {
@@ -70,7 +75,8 @@ class MainActivity : ComponentActivity() {
                 AppInfo(
                     name = resolveInfo.loadLabel(pm).toString(),
                     packageName = resolveInfo.activityInfo.packageName,
-                    launchIntent = pm.getLaunchIntentForPackage(resolveInfo.activityInfo.packageName)
+                    launchIntent = pm.getLaunchIntentForPackage(resolveInfo.activityInfo.packageName),
+                    icon = resolveInfo.loadIcon(pm)
                 )
             }
             .sortedBy { it.name.lowercase() }
@@ -126,11 +132,12 @@ fun AppSearchDialog(
     val focusRequester = remember { FocusRequester() }
     
     val filteredApps = remember(searchQuery, installedApps) {
-        if (searchQuery.isEmpty()) {
+        val trimmedQuery = searchQuery.trim()
+        if (trimmedQuery.isEmpty()) {
             installedApps
         } else {
             installedApps.filter { 
-                it.name.contains(searchQuery, ignoreCase = true)
+                it.name.contains(trimmedQuery, ignoreCase = true)
             }
         }
     }
@@ -193,10 +200,22 @@ fun AppListItem(
             .clickable(onClick = onClick),
         color = Color.Transparent
     ) {
-        Text(
-            text = appInfo.name,
+        Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.bodyLarge
-        )
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            appInfo.icon?.let { drawable ->
+                Image(
+                    bitmap = drawable.toBitmap(48, 48).asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            Text(
+                text = appInfo.name,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
     }
 }
