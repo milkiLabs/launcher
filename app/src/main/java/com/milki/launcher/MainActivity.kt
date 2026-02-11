@@ -1,5 +1,6 @@
 package com.milki.launcher
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -29,7 +30,18 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.core.graphics.drawable.toBitmap
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.ui.theme.LauncherTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "launcher_prefs")
 
 data class AppInfo(
     val name: String,
@@ -41,10 +53,17 @@ data class AppInfo(
 class MainActivity : ComponentActivity() {
     private var showSearch by mutableStateOf(false)
     private val installedApps = mutableStateListOf<AppInfo>()
+    private val recentApps = mutableStateListOf<AppInfo>()
+    
+    private val recentAppsKey = stringPreferencesKey("recent_apps")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         loadInstalledApps()
+        
+        lifecycleScope.launch {
+            loadRecentApps()
+        }
         
         setContent {
             LauncherTheme {
@@ -53,6 +72,7 @@ class MainActivity : ComponentActivity() {
                     onShowSearch = { showSearch = true },
                     onHideSearch = { showSearch = false },
                     installedApps = installedApps,
+                    recentApps = recentApps,
                     onLaunchApp = { launchApp(it) }
                 )
             }
@@ -86,9 +106,51 @@ class MainActivity : ComponentActivity() {
         installedApps.clear()
         installedApps.addAll(apps)
     }
+    
+    private suspend fun loadRecentApps() {
+        val recentPackages = dataStore.data.map { preferences ->
+            preferences[recentAppsKey] ?: ""
+        }.first().split(",").filter { it.isNotEmpty() }
+        
+        val pm = packageManager
+        val apps = recentPackages.mapNotNull { packageName ->
+            try {
+                val appInfo = pm.getApplicationInfo(packageName, 0)
+                AppInfo(
+                    name = pm.getApplicationLabel(appInfo).toString(),
+                    packageName = packageName,
+                    launchIntent = pm.getLaunchIntentForPackage(packageName),
+                    icon = pm.getApplicationIcon(packageName)
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
+        recentApps.clear()
+        recentApps.addAll(apps)
+    }
+    
+    private fun saveRecentApp(packageName: String) {
+        lifecycleScope.launch {
+            dataStore.edit { preferences ->
+                val current = preferences[recentAppsKey] ?: ""
+                val recentPackages = current.split(",")
+                    .filter { it.isNotEmpty() }
+                    .toMutableList()
+                
+                recentPackages.remove(packageName)
+                recentPackages.add(0, packageName)
+                
+                preferences[recentAppsKey] = recentPackages.take(5).joinToString(",")
+            }
+            loadRecentApps()
+        }
+    }
 
     private fun launchApp(appInfo: AppInfo) {
         appInfo.launchIntent?.let { startActivity(it) }
+        saveRecentApp(appInfo.packageName)
         showSearch = false
     }
 }
@@ -99,6 +161,7 @@ fun LauncherScreen(
     onShowSearch: () -> Unit,
     onHideSearch: () -> Unit,
     installedApps: List<AppInfo>,
+    recentApps: List<AppInfo>,
     onLaunchApp: (AppInfo) -> Unit
 ) {
     Box(
@@ -118,6 +181,7 @@ fun LauncherScreen(
     if (showSearch) {
         AppSearchDialog(
             installedApps = installedApps,
+            recentApps = recentApps,
             onDismiss = onHideSearch,
             onLaunchApp = onLaunchApp
         )
@@ -127,19 +191,20 @@ fun LauncherScreen(
 @Composable
 fun AppSearchDialog(
     installedApps: List<AppInfo>,
+    recentApps: List<AppInfo>,
     onDismiss: () -> Unit,
     onLaunchApp: (AppInfo) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    // Enhanced Filtering: Search by Name OR Package Name
-    val filteredApps = remember(searchQuery, installedApps) {
+    // Filtering: Search by Name OR Package Name
+    val filteredApps = remember(searchQuery, installedApps, recentApps) {
         if (searchQuery.isBlank()) {
-            installedApps
+            recentApps
         } else {
             installedApps.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
+                it.name.contains(searchQuery.trim(), ignoreCase = true) ||
                         it.packageName.contains(searchQuery, ignoreCase = true)
             }
         }
@@ -175,6 +240,14 @@ fun AppSearchDialog(
                     placeholder = { Text("Search apps...") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onDone = {
+                            filteredApps.firstOrNull()?.let { onLaunchApp(it) }
+                        }
+                    ),
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
@@ -192,7 +265,7 @@ fun AppSearchDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No apps found",
+                            text = if (searchQuery.isBlank()) "No recent apps" else "No apps found",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyLarge
                         )
