@@ -157,15 +157,16 @@ fun AppSearchDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false // Helps with IME (Keyboard) padding
-            )
+            decorFitsSystemWindows = true
+        )
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .fillMaxHeight(0.7f)
-                .imePadding(), // 3. Push content up when keyboard opens
-
+                .fillMaxHeight(0.8f)
+                .imePadding()
+                .navigationBarsPadding()
+                .statusBarsPadding(),
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 8.dp
@@ -200,7 +201,6 @@ fun AppSearchDialog(
 
 
                 if (filteredApps.isEmpty()) {
-                    // 5. Empty State
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -233,7 +233,6 @@ fun AppSearchDialog(
 
     // Auto-focus the keyboard when dialog opens
     LaunchedEffect(Unit) {
-        // A slight delay is sometimes needed for the Dialog window to settle
         kotlinx.coroutines.delay(10)
         focusRequester.requestFocus()
     }
