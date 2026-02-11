@@ -23,10 +23,35 @@
 
 ## Performance Improvements
 
-🔹 Cache icons as Bitmap once
-Currently:
-drawable.toBitmap(48, 48)
-That happens on recomposition.
-Better:
-Convert during loadInstalledApps()
-Store as ImageBitmap
+Search algorithm is O(n)
+
+Totally fine for 200 apps.
+
+But if you add:
+
+contacts
+
+shortcuts
+
+settings
+
+commands
+
+You will need indexing or fuzzy search.
+
+
+
+
+
+
+Missing lifecycle handling for app changes
+
+Launcher must react to:
+
+install
+
+uninstall
+
+update
+
+You currently don’t listen to package broadcasts.
