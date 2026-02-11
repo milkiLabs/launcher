@@ -3,13 +3,8 @@ package com.milki.launcher
 import android.app.Application
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.drawable.Drawable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -27,20 +22,10 @@ import kotlinx.coroutines.withContext
 
 private val android.content.Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "launcher_prefs")
 
-// Helper extension to convert Drawable to ImageBitmap efficiently
-fun Drawable.toImageBitmap(size: Int): ImageBitmap {
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    this.setBounds(0, 0, canvas.width, canvas.height)
-    this.draw(canvas)
-    return bitmap.asImageBitmap()
-}
-
 data class AppInfo(
     val name: String,
     val packageName: String,
-    val launchIntent: Intent?,
-    val icon: ImageBitmap?
+    val launchIntent: Intent?
 ) {
     // Cache lowercase for faster filtering
     val nameLower: String by lazy { name.lowercase() }
@@ -66,21 +51,15 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                     addCategory(Intent.CATEGORY_LAUNCHER)
                 }
                 
-                // Calculate icon size in pixels (48dp)
-                val iconSizePx = (getApplication<Application>().resources.displayMetrics.density * 48).toInt()
-                
                 val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
                 
-                // Load icons in parallel for faster startup
+                // Load app info in parallel (without icons)
                 val apps = resolveInfos.map { resolveInfo ->
                     async {
-                        val rawDrawable = resolveInfo.loadIcon(pm)
                         AppInfo(
                             name = resolveInfo.loadLabel(pm).toString(),
                             packageName = resolveInfo.activityInfo.packageName,
-                            launchIntent = pm.getLaunchIntentForPackage(resolveInfo.activityInfo.packageName),
-                            // Convert to ImageBitmap once, in background
-                            icon = rawDrawable.toImageBitmap(iconSizePx)
+                            launchIntent = pm.getLaunchIntentForPackage(resolveInfo.activityInfo.packageName)
                         )
                     }
                 }.awaitAll().sortedBy { it.nameLower }
@@ -102,18 +81,14 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 }.first().split(",").filter { it.isNotEmpty() }
                 
                 val pm = getApplication<Application>().packageManager
-                val iconSizePx = (getApplication<Application>().resources.displayMetrics.density * 48).toInt()
                 
                 val apps = recentPackages.mapNotNull { packageName ->
                     try {
                         val appInfo = pm.getApplicationInfo(packageName, 0)
-                        val rawIcon = pm.getApplicationIcon(packageName)
                         AppInfo(
                             name = pm.getApplicationLabel(appInfo).toString(),
                             packageName = packageName,
-                            launchIntent = pm.getLaunchIntentForPackage(packageName),
-                            // Convert to ImageBitmap once, in background
-                            icon = rawIcon.toImageBitmap(iconSizePx)
+                            launchIntent = pm.getLaunchIntentForPackage(packageName)
                         )
                     } catch (e: Exception) {
                         null

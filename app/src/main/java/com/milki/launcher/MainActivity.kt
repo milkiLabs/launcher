@@ -25,6 +25,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.milki.launcher.ui.theme.LauncherTheme
 
 class MainActivity : ComponentActivity() {
@@ -253,14 +255,17 @@ fun AppListItem(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            appInfo.icon?.let { imageBitmap ->
-                Image(
-                    bitmap = imageBitmap,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-            }
+            // Lazy load icon using Coil with LRU cache
+            val painter = rememberAsyncImagePainter(
+                model = AppIconRequest(appInfo.packageName)
+            )
+            
+            Image(
+                painter = painter,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = appInfo.name,
                 style = MaterialTheme.typography.bodyLarge
