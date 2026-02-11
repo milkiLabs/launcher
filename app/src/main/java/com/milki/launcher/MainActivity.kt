@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -23,13 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.core.graphics.drawable.toBitmap
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -37,17 +39,28 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.ui.theme.LauncherTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "launcher_prefs")
+
+// Helper extension to convert Drawable to ImageBitmap efficiently
+fun Drawable.toImageBitmap(size: Int): ImageBitmap {
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    this.setBounds(0, 0, canvas.width, canvas.height)
+    this.draw(canvas)
+    return bitmap.asImageBitmap()
+}
 
 data class AppInfo(
     val name: String,
     val packageName: String,
     val launchIntent: Intent?,
-    val icon: Drawable?
+    val icon: ImageBitmap?
 )
 
 class MainActivity : ComponentActivity() {
@@ -60,9 +73,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        loadInstalledApps()
         
+        // Load apps in background to avoid blocking UI
         lifecycleScope.launch {
+            loadInstalledApps()
             loadRecentApps()
         }
         
@@ -96,49 +110,64 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun loadInstalledApps() {
+    private suspend fun loadInstalledApps() = withContext(Dispatchers.IO) {
         val pm = packageManager
         val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
         
+        // Calculate icon size in pixels (48dp)
+        val iconSizePx = (resources.displayMetrics.density * 48).toInt()
+        
         val apps = pm.queryIntentActivities(mainIntent, 0)
             .map { resolveInfo ->
+                val rawDrawable = resolveInfo.loadIcon(pm)
                 AppInfo(
                     name = resolveInfo.loadLabel(pm).toString(),
                     packageName = resolveInfo.activityInfo.packageName,
                     launchIntent = pm.getLaunchIntentForPackage(resolveInfo.activityInfo.packageName),
-                    icon = resolveInfo.loadIcon(pm)
+                    // Convert to ImageBitmap once, in background
+                    icon = rawDrawable.toImageBitmap(iconSizePx)
                 )
             }
             .sortedBy { it.name.lowercase() }
         
-        installedApps.clear()
-        installedApps.addAll(apps)
+        // Update UI state on main thread
+        withContext(Dispatchers.Main) {
+            installedApps.clear()
+            installedApps.addAll(apps)
+        }
     }
     
-    private suspend fun loadRecentApps() {
+    private suspend fun loadRecentApps() = withContext(Dispatchers.IO) {
         val recentPackages = dataStore.data.map { preferences ->
             preferences[recentAppsKey] ?: ""
         }.first().split(",").filter { it.isNotEmpty() }
         
         val pm = packageManager
+        val iconSizePx = (resources.displayMetrics.density * 48).toInt()
+        
         val apps = recentPackages.mapNotNull { packageName ->
             try {
                 val appInfo = pm.getApplicationInfo(packageName, 0)
+                val rawIcon = pm.getApplicationIcon(packageName)
                 AppInfo(
                     name = pm.getApplicationLabel(appInfo).toString(),
                     packageName = packageName,
                     launchIntent = pm.getLaunchIntentForPackage(packageName),
-                    icon = pm.getApplicationIcon(packageName)
+                    // Convert to ImageBitmap once, in background
+                    icon = rawIcon.toImageBitmap(iconSizePx)
                 )
             } catch (e: Exception) {
                 null
             }
         }
         
-        recentApps.clear()
-        recentApps.addAll(apps)
+        // Update UI state on main thread
+        withContext(Dispatchers.Main) {
+            recentApps.clear()
+            recentApps.addAll(apps)
+        }
     }
     
     private fun saveRecentApp(packageName: String) {
@@ -348,9 +377,9 @@ fun AppListItem(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            appInfo.icon?.let { drawable ->
+            appInfo.icon?.let { imageBitmap ->
                 Image(
-                    bitmap = drawable.toBitmap(48, 48).asImageBitmap(),
+                    bitmap = imageBitmap,
                     contentDescription = null,
                     modifier = Modifier.size(40.dp)
                 )
