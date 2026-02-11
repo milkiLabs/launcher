@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.core.graphics.drawable.toBitmap
 import com.milki.launcher.ui.theme.LauncherTheme
 
@@ -130,14 +132,15 @@ fun AppSearchDialog(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-    
+
+    // Enhanced Filtering: Search by Name OR Package Name
     val filteredApps = remember(searchQuery, installedApps) {
-        val trimmedQuery = searchQuery.trim()
-        if (trimmedQuery.isEmpty()) {
+        if (searchQuery.isBlank()) {
             installedApps
         } else {
-            installedApps.filter { 
-                it.name.contains(trimmedQuery, ignoreCase = true)
+            installedApps.filter {
+                it.name.contains(searchQuery, ignoreCase = true) ||
+                        it.packageName.contains(searchQuery, ignoreCase = true)
             }
         }
     }
@@ -146,12 +149,17 @@ fun AppSearchDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false // Helps with IME (Keyboard) padding
+            )
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .fillMaxHeight(0.7f),
+                .fillMaxHeight(0.7f)
+                .imePadding(), // 3. Push content up when keyboard opens
+
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 8.dp
@@ -166,24 +174,48 @@ fun AppSearchDialog(
                         .focusRequester(focusRequester),
                     placeholder = { Text("Search apps...") },
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors()
+                    colors = OutlinedTextFieldDefaults.colors(),
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    }
                 )
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredApps) { app ->
-                        AppListItem(
-                            appInfo = app,
-                            onClick = { onLaunchApp(app) }
+
+                if (filteredApps.isEmpty()) {
+                    // 5. Empty State
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No apps found",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyLarge
                         )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredApps) { app ->
+                            AppListItem(
+                                appInfo = app,
+                                onClick = { onLaunchApp(app) }
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
+    // Auto-focus the keyboard when dialog opens
     LaunchedEffect(Unit) {
+        // A slight delay is sometimes needed for the Dialog window to settle
         kotlinx.coroutines.delay(10)
         focusRequester.requestFocus()
     }
