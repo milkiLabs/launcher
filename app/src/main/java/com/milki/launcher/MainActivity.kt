@@ -52,6 +52,7 @@ data class AppInfo(
 
 class MainActivity : ComponentActivity() {
     private var showSearch by mutableStateOf(false)
+    private var searchQuery by mutableStateOf("")
     private val installedApps = mutableStateListOf<AppInfo>()
     private val recentApps = mutableStateListOf<AppInfo>()
     
@@ -69,8 +70,13 @@ class MainActivity : ComponentActivity() {
             LauncherTheme {
                 LauncherScreen(
                     showSearch = showSearch,
+                    searchQuery = searchQuery,
                     onShowSearch = { showSearch = true },
-                    onHideSearch = { showSearch = false },
+                    onHideSearch = { 
+                        showSearch = false
+                        searchQuery = ""
+                    },
+                    onSearchQueryChange = { searchQuery = it },
                     installedApps = installedApps,
                     recentApps = recentApps,
                     onLaunchApp = { launchApp(it) }
@@ -82,7 +88,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.action == Intent.ACTION_MAIN) {
-            showSearch = !showSearch
+            when {
+                !showSearch -> showSearch = true
+                searchQuery.isNotEmpty() -> searchQuery = ""
+                else -> showSearch = false
+            }
         }
     }
 
@@ -152,14 +162,17 @@ class MainActivity : ComponentActivity() {
         appInfo.launchIntent?.let { startActivity(it) }
         saveRecentApp(appInfo.packageName)
         showSearch = false
+        searchQuery = ""
     }
 }
 
 @Composable
 fun LauncherScreen(
     showSearch: Boolean,
+    searchQuery: String,
     onShowSearch: () -> Unit,
     onHideSearch: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     installedApps: List<AppInfo>,
     recentApps: List<AppInfo>,
     onLaunchApp: (AppInfo) -> Unit
@@ -180,6 +193,8 @@ fun LauncherScreen(
 
     if (showSearch) {
         AppSearchDialog(
+            searchQuery = searchQuery,
+            onSearchQueryChange = onSearchQueryChange,
             installedApps = installedApps,
             recentApps = recentApps,
             onDismiss = onHideSearch,
@@ -190,12 +205,13 @@ fun LauncherScreen(
 
 @Composable
 fun AppSearchDialog(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     installedApps: List<AppInfo>,
     recentApps: List<AppInfo>,
     onDismiss: () -> Unit,
     onLaunchApp: (AppInfo) -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
     // Filtering: Search by Name OR Package Name with priority ranking
@@ -255,7 +271,7 @@ fun AppSearchDialog(
             Column(modifier = Modifier.fillMaxSize()) {
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    onValueChange = onSearchQueryChange,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
@@ -273,7 +289,7 @@ fun AppSearchDialog(
                     ),
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
+                            IconButton(onClick = { onSearchQueryChange("") }) {
                                 Icon(Icons.Default.Close, contentDescription = "Clear search")
                             }
                         }
