@@ -234,7 +234,8 @@ fun AppSearchDialog(
     }
 
     // Auto-focus the keyboard when dialog opens
-    LaunchedEffect(focusRequester) {
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(10)
         focusRequester.requestFocus()
     }
 }
