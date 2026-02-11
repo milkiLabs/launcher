@@ -35,6 +35,9 @@ data class AppInfo(
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
     private val recentAppsKey = stringPreferencesKey("recent_apps")
     
+    // Limit parallelism to avoid memory spikes with 150+ apps
+    private val limitedDispatcher = Dispatchers.IO.limitedParallelism(8)
+    
     val installedApps: SnapshotStateList<AppInfo> = mutableStateListOf()
     val recentApps: SnapshotStateList<AppInfo> = mutableStateListOf()
     
@@ -45,7 +48,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
     
     private fun loadInstalledApps() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+            withContext(limitedDispatcher) {
                 val pm = getApplication<Application>().packageManager
                 val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
                     addCategory(Intent.CATEGORY_LAUNCHER)
@@ -53,16 +56,19 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 
                 val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
                 
-                // Load app info in parallel (without icons)
-                val apps = resolveInfos.map { resolveInfo ->
-                    async {
-                        AppInfo(
-                            name = resolveInfo.loadLabel(pm).toString(),
-                            packageName = resolveInfo.activityInfo.packageName,
-                            launchIntent = pm.getLaunchIntentForPackage(resolveInfo.activityInfo.packageName)
-                        )
-                    }
-                }.awaitAll().sortedBy { it.nameLower }
+                // Load app info with controlled parallelism to avoid memory spikes
+                // Process in chunks of 8 instead of launching 150+ coroutines at once
+                val apps = resolveInfos.chunked(8).flatMap { chunk ->
+                    chunk.map { resolveInfo ->
+                        async {
+                            AppInfo(
+                                name = resolveInfo.loadLabel(pm).toString(),
+                                packageName = resolveInfo.activityInfo.packageName,
+                                launchIntent = pm.getLaunchIntentForPackage(resolveInfo.activityInfo.packageName)
+                            )
+                        }
+                    }.awaitAll()
+                }.sortedBy { it.nameLower }
                 
                 // Update UI state on main thread
                 withContext(Dispatchers.Main) {
