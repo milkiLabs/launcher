@@ -11,6 +11,8 @@
   - App info
   - Uninstall
   - Open in split screen
+- add prefix support: f {file}=> search files, c {contact}=> search contacts. yt {query}=> search youtube
+- make user create custom macros and automation. cm => call mom,
 - ***
 
 ## Features:

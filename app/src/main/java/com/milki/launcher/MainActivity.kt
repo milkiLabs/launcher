@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -40,6 +41,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.ui.theme.LauncherTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -61,7 +64,11 @@ data class AppInfo(
     val packageName: String,
     val launchIntent: Intent?,
     val icon: ImageBitmap?
-)
+) {
+    // Cache lowercase for faster filtering
+    val nameLower: String by lazy { name.lowercase() }
+    val packageLower: String by lazy { packageName.lowercase() }
+}
 
 class MainActivity : ComponentActivity() {
     private var showSearch by mutableStateOf(false)
@@ -119,8 +126,11 @@ class MainActivity : ComponentActivity() {
         // Calculate icon size in pixels (48dp)
         val iconSizePx = (resources.displayMetrics.density * 48).toInt()
         
-        val apps = pm.queryIntentActivities(mainIntent, 0)
-            .map { resolveInfo ->
+        val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
+        
+        // Load icons in parallel for faster startup
+        val apps = resolveInfos.map { resolveInfo ->
+            async {
                 val rawDrawable = resolveInfo.loadIcon(pm)
                 AppInfo(
                     name = resolveInfo.loadLabel(pm).toString(),
@@ -130,7 +140,7 @@ class MainActivity : ComponentActivity() {
                     icon = rawDrawable.toImageBitmap(iconSizePx)
                 )
             }
-            .sortedBy { it.name.lowercase() }
+        }.awaitAll().sortedBy { it.nameLower }
         
         // Update UI state on main thread
         withContext(Dispatchers.Main) {
@@ -243,32 +253,28 @@ fun AppSearchDialog(
 ) {
     val focusRequester = remember { FocusRequester() }
 
-    // Filtering: Search by Name OR Package Name with priority ranking
+    // Use remember with proper dependencies for filtering
     val filteredApps = remember(searchQuery, installedApps, recentApps) {
         if (searchQuery.isBlank()) {
             recentApps
         } else {
-            val query = searchQuery.trim()
+            val queryLower = searchQuery.trim().lowercase()
             val exactMatches = mutableListOf<AppInfo>()
             val startsWithMatches = mutableListOf<AppInfo>()
             val containsMatches = mutableListOf<AppInfo>()
             
             installedApps.forEach { app ->
-                val nameLower = app.name.lowercase()
-                val queryLower = query.lowercase()
-                val packageLower = app.packageName.lowercase()
-                
                 when {
-                    // Exact match (name or package)
-                    nameLower == queryLower || packageLower == queryLower -> {
+                    // Exact match (name or package) - use cached lowercase
+                    app.nameLower == queryLower || app.packageLower == queryLower -> {
                         exactMatches.add(app)
                     }
                     // Starts with (name or package)
-                    nameLower.startsWith(queryLower) || packageLower.startsWith(queryLower) -> {
+                    app.nameLower.startsWith(queryLower) || app.packageLower.startsWith(queryLower) -> {
                         startsWithMatches.add(app)
                     }
                     // Contains (name or package)
-                    nameLower.contains(queryLower) || packageLower.contains(queryLower) -> {
+                    app.nameLower.contains(queryLower) || app.packageLower.contains(queryLower) -> {
                         containsMatches.add(app)
                     }
                 }
@@ -342,7 +348,11 @@ fun AppSearchDialog(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(filteredApps) { app ->
+                        items(
+                            items = filteredApps,
+                            key = { app -> app.packageName },
+                            contentType = { "app_item" }
+                        ) { app ->
                             AppListItem(
                                 appInfo = app,
                                 onClick = { onLaunchApp(app) }
