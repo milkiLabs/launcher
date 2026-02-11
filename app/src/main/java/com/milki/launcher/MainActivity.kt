@@ -198,15 +198,38 @@ fun AppSearchDialog(
     var searchQuery by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
-    // Filtering: Search by Name OR Package Name
+    // Filtering: Search by Name OR Package Name with priority ranking
     val filteredApps = remember(searchQuery, installedApps, recentApps) {
         if (searchQuery.isBlank()) {
             recentApps
         } else {
-            installedApps.filter {
-                it.name.contains(searchQuery.trim(), ignoreCase = true) ||
-                        it.packageName.contains(searchQuery, ignoreCase = true)
+            val query = searchQuery.trim()
+            val exactMatches = mutableListOf<AppInfo>()
+            val startsWithMatches = mutableListOf<AppInfo>()
+            val containsMatches = mutableListOf<AppInfo>()
+            
+            installedApps.forEach { app ->
+                val nameLower = app.name.lowercase()
+                val queryLower = query.lowercase()
+                val packageLower = app.packageName.lowercase()
+                
+                when {
+                    // Exact match (name or package)
+                    nameLower == queryLower || packageLower == queryLower -> {
+                        exactMatches.add(app)
+                    }
+                    // Starts with (name or package)
+                    nameLower.startsWith(queryLower) || packageLower.startsWith(queryLower) -> {
+                        startsWithMatches.add(app)
+                    }
+                    // Contains (name or package)
+                    nameLower.contains(queryLower) || packageLower.contains(queryLower) -> {
+                        containsMatches.add(app)
+                    }
+                }
             }
+            
+            exactMatches + startsWithMatches + containsMatches
         }
     }
 
