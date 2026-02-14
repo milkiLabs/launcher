@@ -14,6 +14,8 @@
 - add prefix support: f {file}=> search files, c {contact}=> search contacts. yt {query}=> search youtube
 - make user create custom macros and automation. cm => call mom,
 - when dialog is open, when clicking back button it closes the keyboard the user has to press back again to close dialog. back button should close dialog in one tap.
+- make a prompt to let user set up default launcher.
+- contact query should trim white spaces.
 - ***
 
 ## Features:
@@ -51,4 +53,3 @@ uninstall
 update
 
 You currently don’t listen to package broadcasts.
-

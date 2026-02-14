@@ -7,6 +7,9 @@
       By default, apps can no longer see all installed apps. We must declare which apps we need to query.
       Without this section, PackageManager.queryIntentActivities() would return an empty list or only system apps!
     -->
+    <!-- Permission to read contacts for contacts search feature -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <queries>
         <!-- 
           Query apps that have MAIN action in their intent filter.
