@@ -1,10 +1,6 @@
 /**
  * AppIconFetcher.kt - Custom Coil component for loading Android app icons
  * 
- * This file contains a custom Coil Fetcher that teaches the Coil image loading
- * library how to load Android app icons from package names. Since Coil doesn't
- * know about Android's PackageManager by default, we create this custom component.
- * 
  * The file contains:
  * - AppIconRequest: A data class to identify app icon requests
  * - AppIconFetcher: The Fetcher implementation that loads icons
@@ -15,40 +11,13 @@
 
 package com.milki.launcher
 
-// ============================================================================
-// IMPORTS - Domain Layer (Inner Circle)
-// ============================================================================
-// AppIconRequest is a domain model used for icon loading requests.
-// By importing from domain layer, we follow Clean Architecture principles
-// where data layer depends on domain layer.
 import com.milki.launcher.domain.model.AppIconRequest
-
-// ============================================================================
-// IMPORTS - Android Framework
-// ============================================================================
-// PackageManager is the system service that provides app information,
-// including the ability to load app icons
 import android.content.pm.PackageManager
-
-// ============================================================================
-// IMPORTS - Coil (Image Loading)
-// ============================================================================
-// ImageLoader is Coil's main class - we receive it in the Factory
 import coil.ImageLoader
-
-// DataSource indicates where the image came from (MEMORY, DISK, NETWORK)
 import coil.decode.DataSource
-
-// DrawableResult is used when the fetcher returns a Drawable (not a Bitmap)
 import coil.fetch.DrawableResult
-
-// FetchResult is the base type for all fetch results
 import coil.fetch.FetchResult
-
-// Fetcher is the interface we implement to create custom loaders
 import coil.fetch.Fetcher
-
-// Options contains metadata about the request (size, context, etc.)
 import coil.request.Options
 
 // ============================================================================
