@@ -678,6 +678,191 @@ buildTypes {
 
 ---
 
+## Signing Configuration
+
+### Why Sign Your App?
+
+Android requires all APKs and App Bundles (AAB) to be digitally signed with a certificate before they can be installed or distributed. Signing serves two purposes:
+
+1. **Authentication**: Verifies the app comes from you (the developer)
+2. **Integrity**: Ensures the app hasn't been modified since you signed it
+
+### Keystore vs Key
+
+**Keystore (.jks or .keystore file)**:
+- A container that holds one or more keys
+- Protected by a password (`storePassword`)
+- Like a "safe" that holds your signing keys
+
+**Key (or Alias)**:
+- An individual signing certificate within the keystore
+- Each key has a unique name (alias) and password
+- Like an individual "key" inside the safe
+
+### Setting Up Signing with keystore.properties
+
+#### Step 1: Create Your Keystore
+
+Generate a new keystore with a release key:
+
+```bash
+# Navigate to a secure location (e.g., ~/.android/ or ~/secrets/)
+cd ~/.android/
+
+# Generate the keystore
+keytool -genkey -v \
+  -keystore my-release-key.keystore \
+  -alias my-key-alias \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
+
+**Parameters explained**:
+- `-keystore`: Name of the keystore file
+- `-alias`: Name for your key (choose something descriptive)
+- `-keyalg RSA`: Encryption algorithm
+- `-keysize 2048`: Key size (2048 bits is standard)
+- `-validity 10000`: How long the key is valid (in days, ~27 years)
+
+**Important**: This keystore file is critical! If you lose it, you cannot update your app on the Play Store. Back it up securely.
+
+#### Step 2: Create keystore.properties
+
+Create a file named `keystore.properties` in the **project root directory** (same level as `settings.gradle.kts`):
+
+```properties
+# keystore.properties - Signing configuration
+# DO NOT commit this file to version control!
+# Add to .gitignore
+
+# Path to your keystore file
+# Can be absolute or relative to the app/ directory
+storeFile=/home/username/.android/my-release-key.keystore
+
+# Password for the keystore file
+storePassword=your-store-password
+
+# Alias name for the key
+keyAlias=my-key-alias
+
+# Password for the key
+keyPassword=your-key-password
+```
+
+**Security Note**: Keep `keystore.properties` out of version control. Add it to `.gitignore`:
+```bash
+# Add to .gitignore
+keystore.properties
+*.keystore
+*.jks
+```
+
+#### Step 3: How It Works
+
+The app-level `build.gradle.kts` now automatically loads signing configuration from `keystore.properties`:
+
+```kotlin
+// Load keystore properties from root directory
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+// Configure signing
+android {
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+    
+    buildTypes {
+        release {
+            // ... other config ...
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+}
+```
+
+**Key benefits**:
+1. **Secure**: Passwords not hardcoded in build.gradle.kts
+2. **Flexible**: Different developers can use different keystores
+3. **Safe**: Build works even without keystore.properties (unsigned release APK)
+
+### Building Signed Release APK
+
+Once configured, build your signed release APK:
+
+```bash
+# Build signed release APK
+./gradlew assembleRelease
+
+# Output location:
+# app/build/outputs/apk/release/app-release.apk
+```
+
+The APK will be automatically signed with your release key.
+
+### Verifying APK is Signed
+
+Check if your APK is properly signed:
+
+```bash
+# Verify signing
+apksigner verify -v app/build/outputs/apk/release/app-release.apk
+
+# View certificate info
+keytool -printcert -jarfile app/build/outputs/apk/release/app-release.apk
+```
+
+### Troubleshooting
+
+**"Keystore file does not exist"**:
+- Check the path in `keystore.properties` is correct
+- Use absolute paths to avoid confusion
+
+**"Cannot recover key"**:
+- Wrong `keyPassword` in properties file
+- Key alias doesn't exist in keystore
+
+**"Keystore was tampered with"**:
+- Wrong `storePassword` in properties file
+- Keystore file is corrupted
+
+**Build succeeds but APK is unsigned**:
+- `keystore.properties` file doesn't exist in project root
+- File exists but properties are misspelled
+- Build command didn't include `assembleRelease`
+
+### Signing Config Comparison
+
+| Build Type | Signed With | Use Case |
+|------------|-------------|----------|
+| Debug | Debug keystore (auto-generated) | Development, testing |
+| Release (no config) | Not signed (or fails) | - |
+| Release (with config) | Your release keystore | Distribution, Play Store |
+
+### Best Practices
+
+1. **Backup your keystore**: Store in multiple secure locations (password manager, encrypted drive)
+2. **Use strong passwords**: Both store and key passwords should be secure
+3. **Don't commit secrets**: Keep `keystore.properties` and `.jks` files out of git
+4. **Use consistent keys**: All releases must use the same key for updates
+5. **Set long validity**: Use 25+ years so you don't have to rotate keys
+
+---
+
 ## Compile Options
 
 ### Java Compatibility

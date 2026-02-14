@@ -29,6 +29,39 @@ plugins {
 }
 
 // ============================================================================
+// IMPORTS
+// ============================================================================
+// Import standard Java classes needed for loading keystore properties
+// Properties: Java class for handling key=value property files
+// FileInputStream: Java class for reading files as byte streams
+import java.util.Properties
+import java.io.FileInputStream
+
+// ============================================================================
+// LOAD KEYSTORE PROPERTIES
+// ============================================================================
+// Load signing configuration from keystore.properties file.
+// This file is kept outside version control for security (contains passwords).
+// Location: project root directory (same level as settings.gradle.kts)
+// The properties file contains:
+//   - storeFile: Path to the .jks keystore file
+//   - storePassword: Password for the keystore
+//   - keyAlias: Name of the key inside the keystore
+//   - keyPassword: Password for the specific key
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+
+// Create a Properties object to hold the loaded key-value pairs
+val keystoreProperties = Properties()
+
+// Only load properties if the file exists
+// This prevents build failures if the file is missing (e.g., in CI/CD without signing)
+if (keystorePropertiesFile.exists()) {
+    // Load the properties from the file
+    // FileInputStream reads the file, load() parses the key=value format
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+// ============================================================================
 // ANDROID CONFIGURATION
 // ============================================================================
 android {
@@ -86,6 +119,39 @@ android {
     }
 
     // ------------------------------------------------------------------------
+    // SIGNING CONFIGS
+    // ------------------------------------------------------------------------
+    // Signing configurations define how the app is digitally signed.
+    // Android requires all APKs/AABs to be signed before installation.
+    // Release builds must be signed with a private key (keystore).
+    // Debug builds are automatically signed with a debug keystore.
+    signingConfigs {
+        // Create a "release" signing configuration
+        // This uses the properties loaded from keystore.properties
+        create("release") {
+            // Only configure signing if keystore.properties exists
+            // This allows building unsigned release APKs when the file is missing
+            if (keystorePropertiesFile.exists()) {
+                // Path to the keystore file (.jks or .keystore)
+                // getProperty() retrieves the value from the Properties object
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                
+                // Password for the keystore file itself
+                // This unlocks the keystore container
+                storePassword = keystoreProperties.getProperty("storePassword")
+                
+                // Alias name for the specific key within the keystore
+                // A keystore can contain multiple keys, each with a unique alias
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                
+                // Password for the specific key (can be different from storePassword)
+                // This unlocks the individual signing key
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
     // BUILD TYPES
     // ------------------------------------------------------------------------
     // Different configurations for building the app
@@ -105,12 +171,24 @@ android {
                 // App-specific ProGuard rules
                 "proguard-rules.pro"
             )
+            
+            // ----------------------------------------------------------------
+            // SIGNING CONFIGURATION FOR RELEASE
+            // ----------------------------------------------------------------
+            // Apply the "release" signing config defined above
+            // This signs the APK/AAB with your private release key
+            // Without this, release builds would be unsigned (debug key is NOT used)
+            // Only set if keystore.properties exists to avoid build errors
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         
         // Debug build (not explicitly configured, uses defaults)
         // - Includes debug symbols
         // - No code optimization
         // - Faster builds
+        // - Automatically signed with debug keystore (~/.android/debug.keystore)
         // - debug { } block would go here if needed
     }
     
