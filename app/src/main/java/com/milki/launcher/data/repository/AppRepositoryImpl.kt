@@ -1,15 +1,5 @@
 /**
  * AppRepositoryImpl.kt - Implementation of AppRepository interface
- * 
- * This file is part of the Data layer in Clean Architecture.
- * The Data layer implements the interfaces defined in the Domain layer.
- * This is where we interact with Android framework (PackageManager, DataStore).
- * 
- * The Data layer depends on the Domain layer (inner circle), following
- * the Dependency Rule: dependencies point inward toward the domain.
- * 
- * Location: data/repository/AppRepositoryImpl.kt
- * Architecture Layer: Data (outer layer, implements Domain interface)
  */
 
 package com.milki.launcher.data.repository
@@ -19,18 +9,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 
-// DataStore imports for persisting recent apps
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 
-// Domain layer imports (inner circle)
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
 
-// Coroutine imports for async operations
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -40,17 +27,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Implementation of AppRepository that uses Android's PackageManager and DataStore.
- * 
- * This class knows about:
- * - How to query PackageManager for installed apps
- * - How to use DataStore for persistence
- * - How to manage coroutines and threading
- * 
- * This class does NOT know about:
- * - UI (Compose, Views, etc.)
- * - ViewModel or business logic
- * - When to load data (that's ViewModel's job)
- * 
+
  * @param application The Application instance for accessing system services
  */
 class AppRepositoryImpl(
@@ -63,9 +40,6 @@ class AppRepositoryImpl(
     
     /**
      * Extension property to create/access DataStore.
-     * 
-     * DataStore is Android's modern replacement for SharedPreferences.
-     * It's type-safe, uses coroutines, and provides transactional consistency.
      * 
      * The 'by preferencesDataStore' delegate creates the DataStore lazily
      * and caches it for future use.

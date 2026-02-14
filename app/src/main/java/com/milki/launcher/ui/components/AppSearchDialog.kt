@@ -1,20 +1,9 @@
 /**
  * AppSearchDialog.kt - Full-featured search dialog component
- * 
- * This file is part of the UI layer in Clean Architecture.
- * This component is self-contained and manages the search dialog UI,
- * including the search field, app list, filtering logic, and keyboard handling.
- * 
- * The dialog receives data and callbacks from the parent but manages
- * its own internal state (like focus management and filtering).
- * 
- * Location: ui/components/AppSearchDialog.kt
- * Architecture Layer: Presentation (UI components)
  */
 
 package com.milki.launcher.ui.components
 
-// Android & Compose imports
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,16 +23,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-
-// Domain model import
 import com.milki.launcher.domain.model.AppInfo
-
-// Coroutines for async operations
 import kotlinx.coroutines.delay
 
 /**
- * AppSearchDialog displays a modal dialog with app search functionality.
- * 
  * Features:
  * - Search text field with auto-focus and keyboard handling
  * - Smart filtering (exact match > startsWith > contains)
@@ -51,9 +34,6 @@ import kotlinx.coroutines.delay
  * - Empty state when no apps match
  * - "Done" button on keyboard launches first app
  * - Back button closes the dialog
- * 
- * This component is self-contained. It receives data via parameters
- * and notifies the parent of user actions via callbacks.
  * 
  * @param searchQuery Current search text (controlled from parent)
  * @param onSearchQueryChange Called when user types (parent updates state)
@@ -119,15 +99,9 @@ fun AppSearchDialog(
             decorFitsSystemWindows = true
         )
     ) {
-        /**
-         * Surface provides Material Design container with styling.
-         * It handles background color, elevation, and shape.
-         */
         Surface(
             modifier = Modifier
-                // Width: 90% of screen
                 .fillMaxWidth(0.9f)
-                // Height: 80% of screen
                 .fillMaxHeight(0.8f)
                 // Pad for on-screen keyboard
                 .imePadding()
@@ -135,11 +109,9 @@ fun AppSearchDialog(
                 .navigationBarsPadding()
                 // Pad for status bar (time, battery)
                 .statusBarsPadding(),
-            // Rounded corners for modern look
+
             shape = RoundedCornerShape(16.dp),
-            // Use theme surface color (adapts to light/dark mode)
             color = MaterialTheme.colorScheme.surface,
-            // Elevation creates shadow/depth
             tonalElevation = 8.dp
         ) {
             /**
@@ -197,9 +169,6 @@ fun AppSearchDialog(
 /**
  * SearchTextField - The search input field at the top of the dialog.
  * 
- * This is a private composable extracted for cleaner code organization.
- * Being private means it can only be used within this file.
- * 
  * @param searchQuery Current text value
  * @param onSearchQueryChange Callback when text changes
  * @param focusRequester Used to auto-focus the field
@@ -254,9 +223,6 @@ private fun SearchTextField(
 /**
  * AppList - Displays a scrollable list of apps.
  * 
- * Uses LazyColumn for efficient scrolling with many items.
- * LazyColumn only composes visible items, saving memory.
- * 
  * @param apps List of apps to display (already filtered)
  * @param onLaunchApp Callback when user taps an app
  */
@@ -266,18 +232,11 @@ private fun AppList(
     onLaunchApp: (AppInfo) -> Unit
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        /**
-         * items() creates a list item for each app.
-         * 
-         * key = { app.packageName } helps Compose identify items efficiently
-         * contentType = { "app_item" } helps Compose optimize recomposition
-         */
         items(
             items = apps,
             key = { it.packageName },
             contentType = { "app_item" }
         ) { app ->
-            // Reuse our AppListItem component
             AppListItem(
                 appInfo = app,
                 onClick = { onLaunchApp(app) }
@@ -288,8 +247,6 @@ private fun AppList(
 
 /**
  * EmptyState - Displayed when no apps match the search or no recent apps.
- * 
- * Shows different messages based on whether user is searching or not.
  * 
  * @param searchQuery Current search text (determines which message to show)
  */
@@ -315,13 +272,8 @@ private fun EmptyState(searchQuery: String) {
 /**
  * Filter apps using a smart matching algorithm.
  * 
- * This is a pure function with no side effects - given the same inputs,
- * it always returns the same output. Pure functions are:
- * - Easy to test
- * - Easy to reason about
- * - Thread-safe
- * - Can be cached/memoized
- * 
+ * This is a pure function with no side effects
+
  * Priority order for results:
  * 1. Exact matches (highest priority)
  * 2. Starts with matches (medium priority)

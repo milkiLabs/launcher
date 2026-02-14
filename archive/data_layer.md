@@ -1,0 +1,6 @@
+- The Data layer implements the interfaces defined in the Domain layer.
+- This is where we interact with Android framework (PackageManager, DataStore).
+-
+- The Data layer depends on the Domain layer (inner circle), following
+- the Dependency Rule: dependencies point inward toward the domain.
+-

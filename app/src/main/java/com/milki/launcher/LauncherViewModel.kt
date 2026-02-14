@@ -1,54 +1,25 @@
 /**
  * LauncherViewModel.kt - Business logic and data management for the Milki Launcher
  * 
- * This ViewModel follows the MVVM (Model-View-ViewModel) architecture pattern.
  * It's responsible for:
  * - Coordinating between the UI and data layers
  * - Managing UI state (lists of apps)
  * - Delegating data operations to the Repository
- * 
- * After SOLID refactoring:
- * - No longer directly uses PackageManager or DataStore
- * - Depends on AppRepository interface (abstraction)
- * - Much cleaner and focused on UI state management only
- * 
- * Architecture:
- * - Depends on Domain layer (AppRepository interface)
- * - Data layer (AppRepositoryImpl) provides the actual implementation
- * - UI layer (MainActivity, Composables) observes this ViewModel
- * 
- * For detailed documentation, see: docs/LauncherViewModel.md
  */
 
 package com.milki.launcher
-
-// Android Application class - needed for creating Repository
 import android.app.Application
-
-// Compose State - for observable UI state
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-
-// ViewModel base classes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-
-// Domain layer imports (inner circle)
 import com.milki.launcher.data.repository.AppRepositoryImpl
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
-
-// Coroutines for async operations
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * LauncherViewModel manages UI state and coordinates data operations.
- * 
- * After SOLID refactoring, this ViewModel is much simpler:
- * - Before: 511 lines with direct PackageManager and DataStore usage
- * - After: ~90 lines, delegates data access to Repository
- * 
  * Key responsibilities:
  * 1. Expose observable state (installedApps, recentApps)
  * 2. Load initial data when ViewModel is created
@@ -78,10 +49,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      *     private val repository: AppRepository  // Injected!
      * ) : AndroidViewModel(application)
      * 
-     * For simplicity in this educational project, we create it here.
-     * The important thing is that we depend on the INTERFACE (AppRepository),
-     * not the concrete implementation (AppRepositoryImpl).
-     * 
      * This follows the Dependency Inversion Principle (DIP):
      * - High-level module (ViewModel) depends on abstraction (interface)
      * - Not on low-level details (implementation)
@@ -110,8 +77,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      * 
      * This list is automatically updated when the repository's Flow emits
      * a new value. We don't need to manually refresh it after saving an app!
-     * 
-     * The Flow observation pattern (see init block) handles updates automatically.
      */
     val recentApps: SnapshotStateList<AppInfo> = mutableStateListOf()
     
@@ -152,10 +117,10 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      */
     private fun loadInstalledApps() {
         viewModelScope.launch {
-            // Get apps from repository (runs on background thread internally)
+            // Get apps from repository
             val apps = repository.getInstalledApps()
             
-            // Update state (must be on Main thread, viewModelScope handles this)
+            // Update state
             installedApps.clear()
             installedApps.addAll(apps)
         }
@@ -168,12 +133,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
      * 1. Listens to repository.getRecentApps() Flow
      * 2. Updates the recentApps list whenever data changes
      * 3. Runs continuously while ViewModel exists
-     * 
-     * Benefits of Flow:
-     * - Automatic updates: When saveRecentApp() is called, DataStore updates,
-     *   Flow emits new value, UI updates automatically
-     * - No manual refresh needed
-     * - Lifecycle-aware (cancelled when ViewModel cleared)
      */
     private fun observeRecentApps() {
         viewModelScope.launch {
@@ -198,7 +157,6 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             // Repository updates DataStore
             repository.saveRecentApp(packageName)
-            // Note: No need to manually reload! Flow handles it automatically.
         }
     }
 }

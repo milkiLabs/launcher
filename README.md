@@ -13,6 +13,7 @@
   - Open in split screen
 - add prefix support: f {file}=> search files, c {contact}=> search contacts. yt {query}=> search youtube
 - make user create custom macros and automation. cm => call mom,
+- when dialog is open, when clicking back button it closes the keyboard the user has to press back again to close dialog. back button should close dialog in one tap.
 - ***
 
 ## Features:
@@ -39,11 +40,6 @@ commands
 
 You will need indexing or fuzzy search.
 
-
-
-
-
-
 Missing lifecycle handling for app changes
 
 Launcher must react to:
@@ -55,3 +51,4 @@ uninstall
 update
 
 You currently don’t listen to package broadcasts.
+

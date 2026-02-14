@@ -1,4 +1,5 @@
 - don't run gradle commands: build,test etc.
 - please write down extensive documentation and very detailed incode comments. this project is meant to be for educational purposes for people who are very new to android. i don't care about best practices or writing concise comments etc. comment everything and write documentation files in docs
-- don't write comments for already existing code. write comments for new code or features you add or new behaviour you change.
+- don't document existing code unless you changed implementation or changes it's behavior etc.
+- update relevant docs/
 - don't add @preview composables

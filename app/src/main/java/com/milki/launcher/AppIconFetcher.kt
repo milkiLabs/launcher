@@ -16,11 +16,16 @@
 package com.milki.launcher
 
 // ============================================================================
+// IMPORTS - Domain Layer (Inner Circle)
+// ============================================================================
+// AppIconRequest is a domain model used for icon loading requests.
+// By importing from domain layer, we follow Clean Architecture principles
+// where data layer depends on domain layer.
+import com.milki.launcher.domain.model.AppIconRequest
+
+// ============================================================================
 // IMPORTS - Android Framework
 // ============================================================================
-// Context is needed to access the PackageManager system service
-import android.content.Context
-
 // PackageManager is the system service that provides app information,
 // including the ability to load app icons
 import android.content.pm.PackageManager
@@ -47,7 +52,7 @@ import coil.fetch.Fetcher
 import coil.request.Options
 
 // ============================================================================
-// DATA CLASS: AppIconRequest
+// FETCHER: AppIconFetcher
 // ============================================================================
 /**
  * Wrapper class to identify app icon requests.
