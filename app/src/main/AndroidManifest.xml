@@ -2,12 +2,63 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      The <queries> element declares what other apps our app needs to interact with.
+      By default, apps can no longer see all installed apps. We must declare which apps we need to query.
+      Without this section, PackageManager.queryIntentActivities() would return an empty list or only system apps!
+    -->
     <queries>
+        <!-- 
+          Query apps that have MAIN action in their intent filter.
+          This matches all apps that have launcher icons (apps that can be launched).
+          
+          Alternative approaches:
+          1. Query specific packages: <package android:name="com.example.app" />
+          2. Query all packages (requires special permission): 
+             <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+          
+          Our approach is best - only query what we need (launcher apps).
+        -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
         </intent>
     </queries>
 
+    <!--
+      Custom Application class for app-wide initialization.
+      Points to com.milki.launcher.LauncherApplication
+      
+      This is REQUIRED for our custom Coil configuration to work.
+      Without this, Android uses default Application class and our
+      ImageLoaderFactory implementation wont be called.
+      
+      android:allowBackup="true" - Allow Android's auto-backup feature.
+      When enabled, app data is backed up to Google Drive and restored
+      on new devices or after reinstallation.
+      What gets backed up: DataStore files (our recent apps list!)
+      
+      android:dataExtractionRules - Configuration for device-to-device data transfers.
+      Points to XML file defining what data can be transferred.
+      
+      android:fullBackupContent - Configuration for cloud backup (Google Drive).
+      Points to XML file defining what data to backup.
+      
+      android:icon - App icon resource reference.
+      @mipmap/ic_launcher points to multiple density versions.
+      
+      android:label - App display name.
+      @string/app_name references res/values/strings.xml
+      Shows in: Settings, launcher, share dialogs
+      
+      android:roundIcon - Round icon for devices with circular icon masks.
+      Modern Android devices use this for adaptive icons.
+      
+      android:supportsRtl - Support right-to-left (RTL) layouts.
+      Required for Arabic, Hebrew, and other RTL languages.
+      
+      android:theme - Default theme for all activities.
+      @style/Theme.Launcher references res/values/themes.xml
+    -->
     <application
         android:name=".LauncherApplication"
         android:allowBackup="true"
@@ -18,16 +69,71 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Launcher">
+        
+        <!--
+          ===================================================================
+          MAIN ACTIVITY
+          ===================================================================
+          The MainActivity is the entry point of our launcher.
+          
+          Special configuration for launcher apps:
+          1. launchMode="singleTask" - Only one instance exists
+          2. Intent filter with HOME category - Makes it a home screen
+          3. exported="true" - Required for system to launch it
+          
+          android:exported="true" - Allow other apps (including the system) to launch this Activity.
+          REQUIRED for launcher activities - the system needs to start it
+          when user presses Home button.
+          
+          android:label="@string/app_name" - Display name shown in system launcher (same as app name)
+          
+          android:launchMode="singleTask" - Control how Activity instances are created.
+          singleTask = Only one instance can exist. If already running,
+          it's brought to front instead of creating new instance.
+          This is crucial for launchers - we don't want multiple
+          launcher instances in the back stack.
+          
+          android:theme="@style/Theme.Launcher" - Theme for this Activity (can override application theme)
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:launchMode="singleTask"
             android:theme="@style/Theme.Launcher">
+            
+            <!--
+              ===============================================================
+              INTENT FILTER - MAKES THIS A LAUNCHER
+              ===============================================================
+              This intent filter is what makes our app a home screen replacement.
+              
+              Required combination for launcher:
+              - action MAIN: Entry point of the app
+              - category HOME: Identifies as home screen
+              - category DEFAULT: Can handle implicit intents
+              - category LAUNCHER: Shows in app drawer
+              
+              When user presses Home button, system sends ACTION_MAIN with
+              CATEGORY_HOME. Our Activity handles this and becomes the home screen.
+            -->
             <intent-filter>
+                <!-- Main entry point action -->
                 <action android:name="android.intent.action.MAIN" />
+                
+                <!-- 
+                  HOME category - THIS MAKES IT A LAUNCHER!
+                  Without this, it's just a regular app.
+                -->
                 <category android:name="android.intent.category.HOME" />
+                
+                <!-- Default category for implicit intents -->
                 <category android:name="android.intent.category.DEFAULT" />
+                
+                <!-- 
+                  LAUNCHER category - Shows app icon in system launcher.
+                  Without this, app wouldn't appear in app drawer!
+                -->
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
