@@ -1,523 +1,251 @@
 /**
- * MainActivity.kt - The main entry point and UI component of the Milki Launcher
+ * MainActivity.kt - The main entry point of the Milki Launcher
  * 
- * This file contains the main Activity class and all the Compose UI functions that make up
- * the launcher's user interface. It's responsible for:
- * - Displaying the home screen
- * - Handling user interactions
- * - Managing the search dialog
- * - Launching apps when selected
- * - Coordinating with LauncherViewModel for data
+ * This file contains the main Activity class which is the entry point of the app.
+ * After SOLID refactoring, this class is drastically simplified:
+ * 
+ * BEFORE (524 lines):
+ * - Activity lifecycle management
+ * - UI state management
+ * - 3 composable functions (LauncherScreen, AppSearchDialog, AppListItem)
+ * - App filtering logic
+ * - Navigation handling
+ * 
+ * AFTER (~85 lines):
+ * - Activity lifecycle only (onCreate, onNewIntent)
+ * - Minimal UI state (showSearch, searchQuery)
+ * - Delegates ALL UI to LauncherScreen composable
+ * - Delegates ALL data to LauncherViewModel
+ * 
+ * This follows the Single Responsibility Principle perfectly.
+ * 
+ * Architecture:
+ * - Presentation Layer: MainActivity, LauncherScreen, UI components
+ * - ViewModel Layer: LauncherViewModel (mediates between UI and data)
+ * - Domain Layer: AppRepository interface, AppInfo model
+ * - Data Layer: AppRepositoryImpl (PackageManager, DataStore)
  * 
  * For detailed documentation, see: docs/MainActivity.md
  */
 
 package com.milki.launcher
 
+// Android imports
 import android.content.Intent
 import android.os.Bundle
+
+// Activity base class
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+
+// Compose State - for Activity-level state
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
+// ViewModel integration
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
+
+// Domain model - we only need this for the launchApp function
+import com.milki.launcher.domain.model.AppInfo
+
+// UI Screen - all UI is delegated here
+import com.milki.launcher.ui.screens.LauncherScreen
+
+// Theme
 import com.milki.launcher.ui.theme.LauncherTheme
 
-// ============================================================================
-// MAIN ACTIVITY CLASS
-// ============================================================================
 /**
+ * MainActivity - The entry point and Activity container.
+ * 
  * As a launcher app, this Activity has special characteristics:
- * 1. It uses launchMode="singleTask" in AndroidManifest.xml to ensure only one instance exists at a time
- * 2. It has intent filters for MAIN, HOME, DEFAULT, and LAUNCHER categories which makes it appear as a home screen option
+ * 1. It uses launchMode="singleTask" in AndroidManifest.xml
+ * 2. It has intent filters for MAIN, HOME, DEFAULT, and LAUNCHER categories
+ * 3. It appears as a home screen option in Android settings
  * 
- * The Activity manages two key state variables:
- * - showSearch: Controls whether the search dialog is visible
- * - searchQuery: Stores the current text in the search box
+ * Key responsibilities after refactoring:
+ * 1. Set up the Compose UI in onCreate()
+ * 2. Manage minimal Activity-level state (showSearch, searchQuery)
+ * 3. Handle home button presses via onNewIntent()
+ * 4. Launch apps when user selects them
  * 
- * These state variables are defined at the Activity level (not in Compose)
- * so they survive the Activity lifecycle and can be modified from multiple
- * methods including onNewIntent().
+ * What it does NOT do:
+ * - Define UI composables (delegated to LauncherScreen)
+ * - Load app data (delegated to LauncherViewModel)
+ * - Filter apps (delegated to AppSearchDialog)
+ * - Manage recent apps (delegated to Repository via ViewModel)
  */
 class MainActivity : ComponentActivity() {
     
     // ========================================================================
-    // STATE VARIABLES
+    // ACTIVITY STATE
     // ========================================================================
-
-    // Controls visibility of the search dialog.
+    
+    /**
+     * Controls visibility of the search dialog.
+     * 
+     * This state is defined at the Activity level (not in Compose)
+     * so it survives configuration changes and can be modified from
+     * multiple methods including onNewIntent().
+     * 
+     * We use mutableStateOf() which creates an observable Compose state.
+     * When this value changes, Compose automatically recomposes.
+     */
     private var showSearch by mutableStateOf(false)
     
-    
-    // Stores the current search query text.
+    /**
+     * Stores the current search query text.
+     * 
+     * Like showSearch, this is Activity-level state so it survives
+     * configuration changes and can be accessed from onNewIntent().
+     */
     private var searchQuery by mutableStateOf("")
-
-    //  @param savedInstanceState Bundle containing saved state (not used here
-    // since we use Compose state and ViewModel which survive rotation)
+    
+    // ========================================================================
+    // ACTIVITY LIFECYCLE
+    // ========================================================================
+    
+    /**
+     * onCreate is called when the Activity is first created.
+     * 
+     * This is where we:
+     * 1. Set up the Compose UI using setContent()
+     * 2. Get the ViewModel instance
+     * 3. Delegate everything to LauncherScreen composable
+     * 
+     * @param savedInstanceState Bundle with saved state (not used - we use Compose state)
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         setContent {
-            // viewModel() creates or retrieves the LauncherViewModel instance.
+            /**
+             * Get or create the LauncherViewModel instance.
+             * 
+             * viewModel() is a Compose function that:
+             * - Creates a new ViewModel if one doesn't exist
+             * - Returns the existing ViewModel if it does (survives rotation!)
+             * - Automatically scopes it to this Activity
+             */
             val viewModel: LauncherViewModel = viewModel()
             
+            /**
+             * Apply the app's Material Design theme.
+             * Theme is defined in ui/theme/Theme.kt
+             */
             LauncherTheme {
-                // LauncherScreen is our main composable that displays either:
-                // 1. The black home screen with "Tap to search" hint
-                // 2. The search dialog (when showSearch is true)
+                /**
+                 * LauncherScreen is our main UI composable.
+                 * 
+                 * We pass all state and callbacks as parameters.
+                 * This is called "state hoisting" - state lives in the parent
+                 * (MainActivity) and is passed down to children.
+                 * 
+                 * Benefits:
+                 * - LauncherScreen is reusable (doesn't depend on Activity)
+                 * - State is centralized and easy to track
+                 * - Testing is easier (can pass mock state)
+                 */
                 LauncherScreen(
+                    // State: Whether search dialog is visible
                     showSearch = showSearch,
+                    
+                    // State: Current search text
                     searchQuery = searchQuery,
-                    // Callback: Called when user taps home screen to open search
+                    
+                    // Callback: User tapped home screen to open search
                     onShowSearch = { showSearch = true },
-                    // Callback: Called when user dismisses search, We also clear the search query when closing
+                    
+                    // Callback: User dismissed search (or pressed back)
                     onHideSearch = { 
                         showSearch = false
-                        searchQuery = ""
+                        searchQuery = "" // Clear query when closing
                     },
-                    // Callback: Called when search text changes
-                    // The 'it' parameter is the new text value
+                    
+                    // Callback: User typed in search field
                     onSearchQueryChange = { searchQuery = it },
-
-                    // Data: List of all installed apps from ViewModel
-                    // This is a SnapshotStateList that updates automatically
+                    
+                    // Data: All installed apps from ViewModel
                     installedApps = viewModel.installedApps,
-                    // Data: List of recently launched apps from ViewModel
+                    
+                    // Data: Recently launched apps from ViewModel
                     recentApps = viewModel.recentApps,
                     
-                    // Callback: Called when user taps an app to launch it
-                    // This handles starting the app and updating recent apps
+                    // Callback: User selected an app to launch
                     onLaunchApp = { appInfo ->
-                        // Close search dialog and clear query
-                        searchQuery = ""
-                        showSearch = false
-
-                        // Launch the app using its stored Intent
-                        // The ?.let ensures we only start if launchIntent exists
-                        appInfo.launchIntent?.let { startActivity(it) }
-                        
-                        // Save this app to recent apps list via ViewModel
-                        viewModel.saveRecentApp(appInfo.packageName)
-                         
-                        // TODO: does the activity gets destroyed? why 
-                        
+                        launchApp(appInfo, viewModel)
                     }
                 )
             }
         }
     }
-
+    
+    // ========================================================================
+    // INTENT HANDLING
+    // ========================================================================
+    
     /**
-     * onNewIntent is called when the Activity receives a new Intent while
-     * already running. This is different from onCreate which is called when
-     * the Activity is first created.
+     * onNewIntent is called when the Activity receives a new Intent
+     * while already running (not being created fresh).
+     * 
+     * This happens when:
+     * - User presses home button (sends MAIN action)
+     * - User switches to this app from recents
+     * 
+     * We use this to toggle the search dialog when home is pressed.
      * 
      * @param intent The new Intent that was received
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         
-        // Only handle MAIN action (which comes from home button press)
+        // Only handle MAIN action (which comes from home button)
         if (intent.action == Intent.ACTION_MAIN) {
             when {
-                // State 1: Search is currently closed
-                // Action: Open the search dialog
+                // CASE 1: Search is currently closed
+                // ACTION: Open the search dialog
                 !showSearch -> showSearch = true
-                // State 2: Search is open and has text
-                // Action: Clear the search text (but keep dialog open)
+                
+                // CASE 2: Search is open and has text
+                // ACTION: Clear the search text (but keep dialog open)
                 searchQuery.isNotEmpty() -> searchQuery = ""
-                // State 3: Search is open and empty
-                // Action: Close the search dialog
+                
+                // CASE 3: Search is open and empty
+                // ACTION: Close the search dialog
                 else -> showSearch = false
             }
         }
     }
-}
-
-/**
- * LauncherScreen is the main UI composable that displays the home screen
- * and conditionally shows the search dialog.
-
- * @param showSearch Boolean controlling search dialog visibility
- * @param searchQuery Current search text
- * @param onShowSearch Callback when user taps home screen
- * @param onHideSearch Callback when user dismisses search
- * @param onSearchQueryChange Callback when search text changes
- * @param installedApps List of all installed apps for searching
- * @param recentApps List of recently launched apps
- * @param onLaunchApp Callback when user selects an app to launch
- */
-@Composable
-fun LauncherScreen(
-    showSearch: Boolean,
-    searchQuery: String,
-    onShowSearch: () -> Unit,
-    onHideSearch: () -> Unit,
-    onSearchQueryChange: (String) -> Unit,
-    installedApps: List<AppInfo>,
-    recentApps: List<AppInfo>,
-    onLaunchApp: (AppInfo) -> Unit
-) {
     
-    //
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .clickable { onShowSearch() },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Tap to search",
-            color = Color.White.copy(alpha = 0.3f),
-            style = MaterialTheme.typography.bodyLarge
-        )
-    }
-
-    // When showSearch is true, we display the AppSearchDialog composable.
-    // When false, nothing is rendered here.
-    if (showSearch) {
-        AppSearchDialog(
-            searchQuery = searchQuery,
-            onSearchQueryChange = onSearchQueryChange,
-            installedApps = installedApps,
-            recentApps = recentApps,
-            onDismiss = onHideSearch,
-            onLaunchApp = onLaunchApp
-        )
-    }
-}
-
-/**
- * AppSearchDialog displays a modal dialog with:
- * - A search text field at the top
- * - A scrollable list of apps below
- * - Smart filtering based on search query
- * 
- * @param searchQuery Current search text
- * @param onSearchQueryChange Callback when text changes
- * @param installedApps List of all installed apps
- * @param recentApps List of recently launched apps
- * @param onDismiss Callback when dialog should close
- * @param onLaunchApp Callback when user selects an app
- */
-@Composable
-fun AppSearchDialog(
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    installedApps: List<AppInfo>,
-    recentApps: List<AppInfo>,
-    onDismiss: () -> Unit,
-    onLaunchApp: (AppInfo) -> Unit
-) {
+    // ========================================================================
+    // PRIVATE HELPER METHODS
+    // ========================================================================
     
-    // FocusRequester allows us to programmatically control focus.
-    // We use this to automatically open the keyboard when the dialog opens.
-    val focusRequester = remember { FocusRequester() }
-
-    // ========================================================================
-    // APP FILTERING LOGIC
-    // ========================================================================
-    // This is the core search functionality. We use remember() with keys
-    // to cache the filtered list and only recompute when necessary.
-    //
-    // The keys are: searchQuery, installedApps, recentApps
-    // This means the filtering only runs when:
-    // 1. User types (searchQuery changes)
-    // 2. App list is loaded/updated (installedApps changes)
-    // 3. Recent apps change (recentApps changes)
-    //
-    // Without remember(), filtering would run on EVERY recomposition,
-    // which would be hundreds of times and make the UI laggy.
-    val filteredApps = remember(searchQuery, installedApps, recentApps) {
+    /**
+     * Launch an app and update recent apps.
+     * 
+     * This method extracts the app launching logic into a separate
+     * private method for clarity. It handles:
+     * 1. Clearing search state
+     * 2. Closing search dialog
+     * 3. Starting the app activity
+     * 4. Saving to recent apps via ViewModel
+     * 
+     * @param appInfo The app to launch
+     * @param viewModel The ViewModel for saving recent apps
+     */
+    private fun launchApp(appInfo: AppInfo, viewModel: LauncherViewModel) {
+        // Clear search state
+        searchQuery = ""
+        showSearch = false
         
-        // When search query is empty or whitespace only, show recent apps.
-        if (searchQuery.isBlank()) {
-            recentApps
-        } else {
-            // We implement a three-tier matching system:
-            // 1. Exact matches (highest priority)
-            // 2. Starts with matches (medium priority)
-            // 3. Contains matches (lowest priority)
-            
-            val queryLower = searchQuery.trim().lowercase()
-            
-            // Create three lists for different match types
-            val exactMatches = mutableListOf<AppInfo>()
-            val startsWithMatches = mutableListOf<AppInfo>()
-            val containsMatches = mutableListOf<AppInfo>()
-            
-            // Iterate through all installed apps
-            installedApps.forEach { app ->
-                // Check match type using pre-computed lowercase strings
-                // AppInfo.nameLower and packageLower are lazy properties
-                // that compute lowercase once and cache the result
-                when {
-                    // App name or package exactly equals the query
-                    app.nameLower == queryLower || app.packageLower == queryLower -> {
-                        exactMatches.add(app)
-                    }
-                    
-                    // App name or package starts with the query
-                    app.nameLower.startsWith(queryLower) || app.packageLower.startsWith(queryLower) -> {
-                        startsWithMatches.add(app)
-                    }
-                    
-                    // App name or package contains the query anywhere
-                    app.nameLower.contains(queryLower) || app.packageLower.contains(queryLower) -> {
-                        containsMatches.add(app)
-                    }
-                }
-            }
-            
-            // Combine lists in priority order
-            // This ensures exact matches appear first, then startsWith, then contains
-            exactMatches + startsWithMatches + containsMatches
-        }
-    }
-
-    // BackHandler intercepts the Android back button.
-    // Without this, pressing back would exit the launcher entirely.
-    // With this, pressing back closes the search dialog.
-    // TODO: is this actually needed?
-    BackHandler { onDismiss() }
-
-    Dialog(
-        // Called when user taps outside dialog or presses back
-        onDismissRequest = onDismiss,
+        // Launch the app using its stored Intent
+        // ?.let ensures we only start if launchIntent exists
+        appInfo.launchIntent?.let { startActivity(it) }
         
-        // Configure dialog appearance and behavior
-        properties = DialogProperties(
-            // Don't use platform default width (which would be too narrow)
-            // We'll specify our own width
-            // TODO: why?
-            usePlatformDefaultWidth = false,
-            // Ensure dialog respects system windows (status bar, nav bar)
-            decorFitsSystemWindows = true
-        )
-    ) {
-        Surface(
-            modifier = Modifier
-                // Width is 90% of screen width
-                .fillMaxWidth(0.9f)
-                // Height is 80% of screen height
-                .fillMaxHeight(0.8f)
-                
-                // Add padding for the on-screen keyboard (IME)
-                // This ensures the dialog resizes when keyboard opens
-                .imePadding()
-                
-                // Add padding for the navigation bar (gesture area)
-                // Prevents dialog content from going under gesture navigation
-                .navigationBarsPadding()
-                
-                // Add padding for the status bar (time, battery, etc.)
-                // Ensures dialog doesn't overlap status bar
-                .statusBarsPadding(),
-            
-            // Apply rounded corners. 
-            shape = RoundedCornerShape(16.dp),
-            
-            // This adapts to light/dark mode automatically
-            color = MaterialTheme.colorScheme.surface,
-            
-            // Add tonal elevation of 8dp
-            // This creates a subtle visual hierarchy
-            tonalElevation = 8.dp
-        ) {
-            // We use Column to stack: Search Field → App List
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // ========================================================
-                // SEARCH TEXT FIELD
-                // ========================================================
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        // Attach focus requester for keyboard management
-                        .focusRequester(focusRequester),
-                    
-                    placeholder = { Text("Search apps...") },
-                    
-                    singleLine = true,
-                    
-                    colors = OutlinedTextFieldDefaults.colors(),
-                    
-                    // Configure keyboard appearance and behavior
-                    // TODO: for future delimieters, this shows the configured delimiter
-                    // when delimiter is search, show the search instead of done?
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        // Show "Done" button on keyboard instead of newline
-                        imeAction = androidx.compose.ui.text.input.ImeAction.Done
-                    ),
-                    
-                    // Configure keyboard actions
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                        // When user presses "Done" button:
-                        onDone = {
-                            // Launch the first app in filtered list (if any)
-                            filteredApps.firstOrNull()?.let { onLaunchApp(it) }
-                        }
-                    ),
-                    
-                    // Trailing icon (X button to clear search)
-                    trailingIcon = {
-                        // Only show clear button when there's text
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(
-                                onClick = { onSearchQueryChange("") }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear search"
-                                )
-                            }
-                        }
-                    }
-                )
-
-                // Show either the list of apps or an empty state message
-                if (filteredApps.isEmpty()) {
-                    // ----------------------------------------------------
-                    // EMPTY STATE
-                    // ----------------------------------------------------
-                    // Displayed when no apps match the search or no recent apps
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            // Show different message based on whether searching
-                            text = if (searchQuery.isBlank()) {
-                                "No recent apps"  // Search empty, no recent apps
-                            } else {
-                                "No apps found"   // Searching but no matches
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                } else {
-                    // ----------------------------------------------------
-                    // APP LIST
-                    // ----------------------------------------------------
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(
-                            items = filteredApps,
-                            key = { app -> app.packageName },
-                            contentType = { "app_item" }
-                        ) { app ->
-                            // AppListItem displays a single app row
-                            AppListItem(
-                                appInfo = app,
-                                onClick = { onLaunchApp(app) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // ========================================================================
-    // AUTO-FOCUS EFFECT
-    // ========================================================================
-    // LaunchedEffect runs a coroutine when the composable enters composition.
-    // The 'Unit' key means this only runs once (when dialog first opens).
-    //
-    // We use a small delay (10ms) to ensure the UI is ready, then request
-    // focus on the text field. This automatically opens the keyboard.
-    // TODO: find a cleaner way
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(10)
-        focusRequester.requestFocus()
-    }
-}
-
-/**
- * AppListItem displays a single row in the app list.
- * 
- * @param appInfo The AppInfo object containing app data (name, icon, etc.)
- * @param onClick Callback when user taps this item
- */
-@Composable
-fun AppListItem(
-    appInfo: AppInfo,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        
-        // Transparent background so we don't override list background
-        color = Color.Transparent
-    ) {
-        // Layout: [Icon] [Spacer] [App Name]
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // ================================================================
-            // APP ICON
-            // ================================================================
-            // Load the app icon using Coil with our custom AppIconFetcher.
-            // rememberAsyncImagePainter creates a painter that loads the image
-            // asynchronously and caches it for performance.
-            
-            // We pass an AppIconRequest which contains the package name.
-            // Our custom AppIconFetcher (registered in LauncherApplication)
-            // knows how to load app icons from the PackageManager.
-            val painter = rememberAsyncImagePainter(
-                model = AppIconRequest(appInfo.packageName)
-            )
-            
-            // Display the loaded icon using Image composable
-            Image(
-                // The painter handles the actual image loading and display
-                painter = painter,
-                
-                // No content description needed since the app name is displayed
-                // Icons are decorative in this context
-                contentDescription = null,
-                
-                modifier = Modifier.size(40.dp)
-            )
-            
-            // Add space between icon and app name
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            // Display the app's display name
-            Text(
-                text = appInfo.name,
-                style = MaterialTheme.typography.bodyLarge
-            )
-        }
+        // Save this app to recent apps list via ViewModel
+        // The ViewModel will update the Repository, which updates DataStore,
+        // which triggers a Flow emission, which updates the UI automatically!
+        viewModel.saveRecentApp(appInfo.packageName)
     }
 }

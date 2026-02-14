@@ -1,76 +1,15 @@
 # Refactoring MainActivity to Follow SOLID Principles
 
-This guide explains how to split the monolithic `MainActivity.kt` into multiple files following SOLID principles. This refactoring improves maintainability, testability, and makes the codebase easier to understand for beginners.
-
-## Table of Contents
-
-1. [Current Architecture Problems](#current-architecture-problems)
-2. [SOLID Principles Overview](#solid-principles-overview)
-3. [Target Architecture](#target-architecture)
-4. [Step-by-Step Refactoring](#step-by-step-refactoring)
-5. [File Structure After Refactoring](#file-structure-after-refactoring)
-6. [Benefits of This Approach](#benefits-of-this-approach)
-
----
-
 ## Current Architecture Problems
 
 The current `MainActivity.kt` (524 lines) violates several SOLID principles:
-
-### 1. Single Responsibility Principle (SRP) Violation
-
-**Problem:** MainActivity has multiple responsibilities:
-- Activity lifecycle management
-- UI state management (showSearch, searchQuery)
-- Contains 3 different UI composables (LauncherScreen, AppSearchDialog, AppListItem)
-- Handles app filtering logic
-- Manages navigation/intent handling
-
-**Impact:** Changes to one aspect (e.g., UI design) require modifying the same file as activity logic changes. This increases the risk of bugs and makes testing difficult.
-
-### 2. Open/Closed Principle Violation
-
-**Problem:** To add a new feature (e.g., a settings screen), we must:
-- Open MainActivity.kt
-- Add new state variables
-- Add new composable functions
-- Modify existing code
-
-**Impact:** Existing working code must be modified to add features, risking regressions.
-
-### 3. Dependency Inversion Violation
-
-**Problem:** 
-- `AppSearchDialog` directly depends on concrete `AppInfo` class
-- `AppListItem` directly uses Coil's `rememberAsyncImagePainter`
-- No abstraction layers between UI and data
-
-**Impact:** UI components are tightly coupled to implementation details, making them hard to reuse or test in isolation.
-
----
-
-## SOLID Principles Overview
-
-| Principle | Definition | Goal |
-|-----------|------------|------|
-| **S**ingle Responsibility | A class/module should have one reason to change | Each file does one thing well |
-| **O**pen/Closed | Open for extension, closed for modification | Add features without changing existing code |
-| **L**iskov Substitution | Subtypes must be substitutable for base types | Use interfaces/abstractions |
-| **I**nterface Segregation | Many small interfaces > one large interface | Clients don't depend on methods they don't use |
-| **D**ependency Inversion | Depend on abstractions, not concretions | Use interfaces, dependency injection |
-
----
-
-## Target Architecture
-
-After refactoring, the architecture will be:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              PRESENTATION LAYER                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  MainActivity.kt (50 lines)                                            │ │
+│  │  MainActivity.kt                                                       │ │
 │  │  - Activity lifecycle only                                             │ │
 │  │  - Delegates all UI to LauncherScreen                                  │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
@@ -93,14 +32,14 @@ After refactoring, the architecture will be:
 │  │  - Reusable across different screens                                   │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                           DOMAIN LAYER (Business Logic)                      │
+│                           DOMAIN LAYER (Business Logic)                     │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌──────────────────────────────┐  ┌──────────────────────────────────────┐ │
 │  │  domain/model/AppInfo.kt     │  │  domain/repository/AppRepository.kt  │ │
 │  │  - Data class definition     │  │  - Interface defining data contract  │ │
 │  └──────────────────────────────┘  └──────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                           DATA LAYER (Implementation)                        │
+│                           DATA LAYER (Implementation)                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
 │  │  data/repository/AppRepositoryImpl.kt                                  │ │
@@ -108,10 +47,10 @@ After refactoring, the architecture will be:
 │  │  - Uses PackageManager and DataStore                                   │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                           VIEWMODEL LAYER                                    │
+│                           VIEWMODEL LAYER                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  LauncherViewModel.kt (refactored)                                     │ │
+│  │  LauncherViewModel.kt                                                  │ │
 │  │  - Depends on AppRepository interface                                  │ │
 │  │  - No direct PackageManager/DataStore usage                            │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
@@ -135,10 +74,10 @@ import android.content.Intent
 
 /**
  * AppInfo represents a single installed application.
- * 
- * This is a domain model - it represents business data independent of 
+ *
+ * This is a domain model - it represents business data independent of
  * any framework (Android, Compose, etc.). It can be used anywhere in the app.
- * 
+ *
  * @property name The display name of the app
  * @property packageName The unique package identifier
  * @property launchIntent Intent to launch the app (null if not launchable)
@@ -153,7 +92,7 @@ data class AppInfo(
      * Used for case-insensitive search matching.
      */
     val nameLower: String by lazy { name.lowercase() }
-    
+
     /**
      * Cached lowercase version of the package name.
      * Used for case-insensitive search matching by package.
@@ -163,6 +102,7 @@ data class AppInfo(
 ```
 
 **Why this follows SOLID:**
+
 - **SRP:** This file only defines the data structure
 - **OCP:** New fields can be added without changing existing code
 - **DIP:** Domain model doesn't depend on Android framework details
@@ -181,48 +121,48 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * AppRepository defines the contract for app data operations.
- * 
+ *
  * This interface follows the Repository pattern from Domain-Driven Design.
  * It abstracts WHERE data comes from (PackageManager, database, network)
  * so the ViewModel doesn't need to know.
- * 
+ *
  * Benefits:
  * - ViewModel can be tested with a mock implementation
  * - Data source can be changed (e.g., add caching) without changing ViewModel
  * - Single place to modify if data fetching logic changes
- * 
+ *
  * This is the "D" in SOLID - Dependency Inversion.
  * High-level modules (ViewModel) depend on this abstraction,
  * not on low-level details (PackageManager, DataStore).
  */
 interface AppRepository {
-    
+
     /**
      * Get all installed apps that have launcher icons.
-     * 
+     *
      * This is a suspend function because it may take time to query the system.
      * The apps are already sorted alphabetically.
-     * 
+     *
      * @return List of AppInfo objects representing installed apps
      */
     suspend fun getInstalledApps(): List<AppInfo>
-    
+
     /**
      * Get recently launched apps.
-     * 
+     *
      * Returns a Flow so the UI can observe changes automatically.
      * When recent apps change, the Flow emits a new list.
-     * 
+     *
      * @return Flow of recent apps list (updates when data changes)
      */
     fun getRecentApps(): Flow<List<AppInfo>>
-    
+
     /**
      * Save an app to the recent apps list.
-     * 
+     *
      * This adds the app to the front of the list and removes duplicates.
      * The list is limited to 5 apps maximum.
-     * 
+     *
      * @param packageName The package name of the app to save
      */
     suspend fun saveRecentApp(packageName: String)
@@ -230,6 +170,7 @@ interface AppRepository {
 ```
 
 **Why this follows SOLID:**
+
 - **ISP:** Clean, focused interface with only 3 methods
 - **DIP:** ViewModel will depend on this interface, not concrete implementation
 - **SRP:** Defines the contract, doesn't implement it
@@ -265,38 +206,38 @@ import kotlinx.coroutines.withContext
 
 /**
  * Implementation of AppRepository that uses Android's PackageManager and DataStore.
- * 
+ *
  * This is the low-level implementation that knows about:
  * - How to query PackageManager
  * - How to use DataStore
  * - How to manage coroutines and threading
- * 
+ *
  * The ViewModel doesn't know about any of this - it just calls the interface methods.
  */
 class AppRepositoryImpl(
     private val application: Application
 ) : AppRepository {
-    
+
     /**
      * DataStore instance for persisting recent apps.
      * This is specific to the implementation, not exposed in the interface.
      */
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "launcher_prefs")
-    
+
     /**
      * Key used to store recent apps in DataStore.
      */
     private val recentAppsKey = stringPreferencesKey("recent_apps")
-    
+
     /**
      * Dispatcher that limits parallel operations to 8 at a time.
      * Prevents memory spikes when loading many apps.
      */
     private val limitedDispatcher = Dispatchers.IO.limitedParallelism(8)
-    
+
     /**
      * Load all installed apps from PackageManager.
-     * 
+     *
      * Implementation details:
      * 1. Query PackageManager for MAIN/LAUNCHER activities
      * 2. Process in chunks of 8 for memory efficiency
@@ -305,15 +246,15 @@ class AppRepositoryImpl(
     override suspend fun getInstalledApps(): List<AppInfo> {
         return withContext(limitedDispatcher) {
             val pm = application.packageManager
-            
+
             // Create intent to find all launcher apps
             val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
-            
+
             // Query the system
             val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
-            
+
             // Process in chunks for memory efficiency
             resolveInfos.chunked(8).flatMap { chunk ->
                 chunk.map { resolveInfo ->
@@ -330,20 +271,20 @@ class AppRepositoryImpl(
             }.sortedBy { it.nameLower }
         }
     }
-    
+
     /**
      * Get recent apps as a Flow.
-     * 
+     *
      * Flow allows the UI to observe changes automatically.
      * Whenever recent apps are updated, the Flow emits a new list.
      */
     override fun getRecentApps(): Flow<List<AppInfo>> {
         return application.dataStore.data.map { preferences ->
-            val recentPackages = preferences[recentAppsKey]?.split(",")?.filter { it.isNotEmpty() } 
+            val recentPackages = preferences[recentAppsKey]?.split(",")?.filter { it.isNotEmpty() }
                 ?: emptyList()
-            
+
             val pm = application.packageManager
-            
+
             // Convert package names to AppInfo objects
             recentPackages.mapNotNull { packageName ->
                 try {
@@ -360,10 +301,10 @@ class AppRepositoryImpl(
             }
         }
     }
-    
+
     /**
      * Save an app to recent apps list.
-     * 
+     *
      * Implementation details:
      * 1. Read current list from DataStore
      * 2. Remove if already exists (to move to front)
@@ -374,15 +315,15 @@ class AppRepositoryImpl(
     override suspend fun saveRecentApp(packageName: String) {
         application.dataStore.edit { preferences ->
             val current = preferences[recentAppsKey] ?: ""
-            
+
             val recentPackages = current.split(",")
                 .filter { it.isNotEmpty() }
                 .toMutableList()
-            
+
             // Remove if exists, then add to front
             recentPackages.remove(packageName)
             recentPackages.add(0, packageName)
-            
+
             // Save limited to 5 apps
             preferences[recentAppsKey] = recentPackages.take(5).joinToString(",")
         }
@@ -391,6 +332,7 @@ class AppRepositoryImpl(
 ```
 
 **Why this follows SOLID:**
+
 - **SRP:** Only handles data access, nothing else
 - **OCP:** Can add caching or other features without changing ViewModel
 - **DIP:** Implements the interface abstraction
@@ -416,38 +358,38 @@ import kotlinx.coroutines.launch
 
 /**
  * LauncherViewModel coordinates between the UI and data layers.
- * 
+ *
  * After refactoring:
  * - No longer knows about PackageManager or DataStore (moved to Repository)
  * - Depends on AppRepository interface (abstraction)
  * - Focuses on UI state management only
- * 
+ *
  * This is much cleaner and follows SRP better.
  */
 class LauncherViewModel(application: Application) : AndroidViewModel(application) {
-    
+
     /**
      * Repository instance - normally injected via Dependency Injection.
      * For simplicity, we create it here, but in production use Hilt or Koin.
      */
     private val repository: AppRepository = AppRepositoryImpl(application)
-    
+
     /**
      * Observable list of installed apps.
      * UI automatically updates when this changes.
      */
     val installedApps: SnapshotStateList<AppInfo> = mutableStateListOf()
-    
+
     /**
      * Observable list of recent apps.
      */
     val recentApps: SnapshotStateList<AppInfo> = mutableStateListOf()
-    
+
     init {
         loadInstalledApps()
         observeRecentApps()
     }
-    
+
     /**
      * Load installed apps from repository.
      */
@@ -458,7 +400,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             installedApps.addAll(apps)
         }
     }
-    
+
     /**
      * Observe recent apps from repository.
      * Uses Flow to automatically update when data changes.
@@ -471,7 +413,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
             }
         }
     }
-    
+
     /**
      * Save app to recent apps via repository.
      */
@@ -485,6 +427,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 ```
 
 **Why this follows SOLID:**
+
 - **SRP:** Only manages UI state, delegates data operations
 - **DIP:** Depends on AppRepository interface, not implementation
 - **OCP:** Can swap repository implementation without changing ViewModel
@@ -515,11 +458,11 @@ import com.milki.launcher.domain.model.AppInfo
 
 /**
  * AppListItem displays a single row in the app list.
- * 
+ *
  * This is a reusable component that can be used anywhere in the app
  * where you need to display an app. It's completely self-contained
  * and doesn't know about the surrounding screen or dialog.
- * 
+ *
  * @param appInfo The app to display
  * @param onClick Called when user taps this item
  * @param modifier Optional modifier for customization
@@ -544,15 +487,15 @@ fun AppListItem(
             val painter = rememberAsyncImagePainter(
                 model = AppIconRequest(appInfo.packageName)
             )
-            
+
             Image(
                 painter = painter,
                 contentDescription = null,
                 modifier = Modifier.size(40.dp)
             )
-            
+
             Spacer(modifier = Modifier.width(12.dp))
-            
+
             // App name
             Text(
                 text = appInfo.name,
@@ -564,6 +507,7 @@ fun AppListItem(
 ```
 
 **Why this follows SOLID:**
+
 - **SRP:** Only displays one app list item
 - **ISP:** Simple interface with just 2 required parameters
 - **OCP:** Can be styled or extended without changing existing code
@@ -604,7 +548,7 @@ import kotlinx.coroutines.delay
  * - Recent apps when search is empty
  * - Empty state handling
  * - Keyboard actions (Done launches first app)
- * 
+ *
  * This component is self-contained and reusable. It manages its own
  * internal state (filtering logic) but receives data and callbacks
  * from the parent.
@@ -620,15 +564,15 @@ fun AppSearchDialog(
 ) {
     // Focus requester for auto-opening keyboard
     val focusRequester = remember { FocusRequester() }
-    
+
     // Filter apps based on search query using smart matching
     val filteredApps = remember(searchQuery, installedApps, recentApps) {
         filterApps(searchQuery, installedApps, recentApps)
     }
-    
+
     // Handle back button to close dialog
     BackHandler { onDismiss() }
-    
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -653,11 +597,11 @@ fun AppSearchDialog(
                     searchQuery = searchQuery,
                     onSearchQueryChange = onSearchQueryChange,
                     focusRequester = focusRequester,
-                    onLaunchFirstApp = { 
+                    onLaunchFirstApp = {
                         filteredApps.firstOrNull()?.let { onLaunchApp(it) }
                     }
                 )
-                
+
                 // App list or empty state
                 if (filteredApps.isEmpty()) {
                     EmptyState(searchQuery = searchQuery)
@@ -670,7 +614,7 @@ fun AppSearchDialog(
             }
         }
     }
-    
+
     // Auto-focus text field when dialog opens
     LaunchedEffect(Unit) {
         delay(10)
@@ -754,12 +698,12 @@ private fun EmptyState(searchQuery: String) {
 
 /**
  * Filter apps using smart matching algorithm.
- * 
+ *
  * Priority order:
  * 1. Exact matches (highest priority)
  * 2. Starts with matches (medium priority)
  * 3. Contains matches (lowest priority)
- * 
+ *
  * When search is empty, returns recent apps.
  */
 private fun filterApps(
@@ -770,12 +714,12 @@ private fun filterApps(
     if (searchQuery.isBlank()) {
         return recentApps
     }
-    
+
     val queryLower = searchQuery.trim().lowercase()
     val exactMatches = mutableListOf<AppInfo>()
     val startsWithMatches = mutableListOf<AppInfo>()
     val containsMatches = mutableListOf<AppInfo>()
-    
+
     installedApps.forEach { app ->
         when {
             app.nameLower == queryLower || app.packageLower == queryLower -> {
@@ -789,12 +733,13 @@ private fun filterApps(
             }
         }
     }
-    
+
     return exactMatches + startsWithMatches + containsMatches
 }
 ```
 
 **Why this follows SOLID:**
+
 - **SRP:** Only handles search dialog functionality
 - **OCP:** Extracted helper composables can be extended independently
 - **ISP:** Clear, focused parameters
@@ -821,15 +766,15 @@ import com.milki.launcher.ui.components.AppSearchDialog
 
 /**
  * LauncherScreen is the main home screen of the launcher.
- * 
+ *
  * It displays:
  * - A black background (when search is closed)
  * - "Tap to search" hint text
  * - The search dialog (when showSearch is true)
- * 
+ *
  * This screen coordinates between the home state and search dialog
  * but delegates all implementation details to child components.
- * 
+ *
  * @param showSearch Whether the search dialog is visible
  * @param searchQuery Current search text
  * @param onShowSearch Called when user taps the home screen
@@ -864,7 +809,7 @@ fun LauncherScreen(
             style = MaterialTheme.typography.bodyLarge
         )
     }
-    
+
     // Search dialog (conditionally shown)
     if (showSearch) {
         AppSearchDialog(
@@ -880,6 +825,7 @@ fun LauncherScreen(
 ```
 
 **Why this follows SOLID:**
+
 - **SRP:** Only handles the launcher screen layout
 - **DIP:** Uses AppSearchDialog abstraction, not implementation details
 - **OCP:** Can add new screens without changing existing code
@@ -904,34 +850,34 @@ import com.milki.launcher.ui.theme.LauncherTheme
 
 /**
  * MainActivity - The entry point of the Milki Launcher.
- * 
+ *
  * After refactoring, this class is drastically simplified:
  * - Only manages Activity lifecycle
  * - Delegates all UI to LauncherScreen
  * - No longer contains composable functions
  * - Much easier to understand and maintain
- * 
+ *
  * This follows SRP perfectly - it has ONE responsibility:
  * Coordinating the Activity lifecycle and delegating to UI.
  */
 class MainActivity : ComponentActivity() {
-    
+
     // State managed at Activity level to survive configuration changes
     private var showSearch by mutableStateOf(false)
     private var searchQuery by mutableStateOf("")
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         setContent {
             val viewModel: LauncherViewModel = viewModel()
-            
+
             LauncherTheme {
                 LauncherScreen(
                     showSearch = showSearch,
                     searchQuery = searchQuery,
                     onShowSearch = { showSearch = true },
-                    onHideSearch = { 
+                    onHideSearch = {
                         showSearch = false
                         searchQuery = ""
                     },
@@ -943,14 +889,14 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     /**
      * Handle home button presses while Activity is running.
      * Toggle search dialog or clear search text.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        
+
         if (intent.action == Intent.ACTION_MAIN) {
             when {
                 !showSearch -> showSearch = true
@@ -959,7 +905,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     /**
      * Launch an app and update recent apps.
      * Extracted to a private method for clarity.
@@ -974,6 +920,7 @@ class MainActivity : ComponentActivity() {
 ```
 
 **Why this follows SOLID:**
+
 - **SRP:** Only Activity lifecycle management
 - **OCP:** Can add new features without modifying this file
 - **DIP:** Depends on LauncherScreen abstraction
@@ -984,22 +931,22 @@ class MainActivity : ComponentActivity() {
 
 ```
 app/src/main/java/com/milki/launcher/
-├── MainActivity.kt                              # 50 lines (was 524)
-├── LauncherViewModel.kt                         # 70 lines (was 511)
+├── MainActivity.kt
+├── LauncherViewModel.kt
 ├── LauncherApplication.kt                       # Unchanged
 ├── AppIconFetcher.kt                           # Unchanged
 │
-├── domain/                                     # NEW: Business logic
+├── domain/                                     # Business logic
 │   ├── model/
 │   │   └── AppInfo.kt                          # Data class
 │   └── repository/
 │       └── AppRepository.kt                    # Interface
 │
-├── data/                                       # NEW: Implementation
+├── data/                                       # Implementation
 │   └── repository/
 │       └── AppRepositoryImpl.kt                # Implementation
 │
-└── ui/                                         # NEW: UI layer
+└── ui/                                         # UI layer
     ├── screens/
     │   └── LauncherScreen.kt                   # Main screen
     └── components/
@@ -1009,58 +956,7 @@ app/src/main/java/com/milki/launcher/
 
 ---
 
-## Benefits of This Approach
-
-### 1. Maintainability
-- Each file is small and focused (50-200 lines vs 500+)
-- Changes are isolated to specific components
-- New developers can understand the codebase faster
-
-### 2. Testability
-- **ViewModel** can be tested with mock `AppRepository`
-- **UI Components** can be previewed and tested in isolation
-- **Repository** can be tested without Android framework
-
-### 3. Reusability
-- `AppListItem` can be used in any screen
-- `AppSearchDialog` could be reused for different data types
-- `AppRepository` interface allows swapping implementations
-
-### 4. Scalability
-- Adding a settings screen? Create `ui/screens/SettingsScreen.kt`
-- Adding a favorites feature? Extend `AppRepository` interface
-- Adding caching? Modify `AppRepositoryImpl` only
-
-### 5. Team Collaboration
-- Multiple developers can work on different files simultaneously
-- Clear interfaces prevent merge conflicts
-- Well-defined boundaries reduce communication overhead
-
-### 6. SOLID Compliance
-
-| Principle | Before | After |
-|-----------|--------|-------|
-| **SRP** | MainActivity had 5+ responsibilities | Each file has 1 responsibility |
-| **OCP** | Had to modify MainActivity to add features | Can extend without modifying existing files |
-| **LSP** | Not applicable | Repository interface allows substitutions |
-| **ISP** | Not applicable | Small, focused interfaces |
-| **DIP** | ViewModel depended on Android classes | Depends on abstractions |
-
----
-
-## Summary
-
-By splitting MainActivity into multiple files following SOLID principles:
-
 1. **Domain Layer** - Defines business entities and contracts (interfaces)
 2. **Data Layer** - Implements data access (can be swapped/tested)
-3. **ViewModel Layer** - Manages UI state (cleaner, testable)
+3. **ViewModel Layer** - Manages UI state
 4. **UI Layer** - Reusable components and screens
-
-The codebase becomes:
-- Easier to understand (small, focused files)
-- Easier to test (isolated components)
-- Easier to extend (plugin architecture)
-- Easier to maintain (clear boundaries)
-
-This architecture follows industry best practices and prepares the codebase for future growth while remaining educational for beginners learning Android development.

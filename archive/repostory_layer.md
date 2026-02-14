@@ -1,0 +1,7 @@
+- The Repository pattern abstracts WHERE data comes from so the rest of
+- the app doesn't need to know about Android's PackageManager, databases,
+- or network APIs.
+-
+- This interface is the "D" in SOLID - Dependency Inversion Principle.
+- High-level modules (like ViewModel) depend on this abstraction,
+- not on low-level implementation details.

@@ -1,0 +1,7 @@
+- This file is part of the Domain layer in Clean Architecture.
+- Domain models are framework-agnostic - they don't depend on Android, Compose,
+- or any external libraries. They represent pure business data.
+-
+- The Domain layer is the innermost layer and should have zero dependencies
+- on other layers. This makes it highly reusable and testable.
+-
