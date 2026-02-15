@@ -21,9 +21,9 @@ class FilterAppsUseCase {
      * Filter apps based on a search query.
      *
      * Uses a priority-based matching algorithm:
-     * 1. Exact matches (name or package equals query exactly)
-     * 2. Starts-with matches (name or package starts with query)
-     * 3. Contains matches (name or package contains query anywhere)
+     * 1. Exact matches (name equals query exactly)
+     * 2. Starts-with matches (name starts with query)
+     * 3. Contains matches (name contains query anywhere)
      *
      * When the query is empty, returns recent apps instead of all apps.
      *
@@ -52,16 +52,16 @@ class FilterAppsUseCase {
         // Categorize each app based on match type
         installedApps.forEach { app ->
             when {
-                // Exact match: name or package equals query exactly
-                app.nameLower == queryLower || app.packageLower == queryLower -> {
+                // Exact match: name equals query exactly
+                app.nameLower == queryLower -> {
                     exactMatches.add(app)
                 }
-                // Starts with: name or package starts with query
-                app.nameLower.startsWith(queryLower) || app.packageLower.startsWith(queryLower) -> {
+                // Starts with: name starts with query
+                app.nameLower.startsWith(queryLower) -> {
                     startsWithMatches.add(app)
                 }
-                // Contains: name or package contains query anywhere
-                app.nameLower.contains(queryLower) || app.packageLower.contains(queryLower) -> {
+                // Contains: name contains query anywhere
+                app.nameLower.contains(queryLower) -> {
                     containsMatches.add(app)
                 }
             }
@@ -120,9 +120,9 @@ class FilterAppsUseCase {
      */
     private fun getMatchType(app: AppInfo, queryLower: String): MatchType? {
         return when {
-            app.nameLower == queryLower || app.packageLower == queryLower -> MatchType.EXACT
-            app.nameLower.startsWith(queryLower) || app.packageLower.startsWith(queryLower) -> MatchType.STARTS_WITH
-            app.nameLower.contains(queryLower) || app.packageLower.contains(queryLower) -> MatchType.CONTAINS
+            app.nameLower == queryLower -> MatchType.EXACT
+            app.nameLower.startsWith(queryLower) -> MatchType.STARTS_WITH
+            app.nameLower.contains(queryLower) -> MatchType.CONTAINS
             else -> null
         }
     }
@@ -131,8 +131,8 @@ class FilterAppsUseCase {
      * Match type enum for prioritizing results.
      */
     enum class MatchType {
-        EXACT,       // Name or package equals query exactly
-        STARTS_WITH, // Name or package starts with query
-        CONTAINS     // Name or package contains query anywhere
+        EXACT,       // Name equals query exactly
+        STARTS_WITH, // Name starts with query
+        CONTAINS     // Name contains query anywhere
     }
 }

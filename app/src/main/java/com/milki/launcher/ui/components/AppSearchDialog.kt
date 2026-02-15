@@ -15,6 +15,12 @@
  *
  * This follows the Unidirectional Data Flow (UDF) pattern:
  * State flows down, Events flow up.
+ *
+ * RELATED FILES:
+ * - SearchResultsList.kt: Contains the list/grid containers for results
+ * - SearchResultItems.kt: Contains individual result item composables
+ * - AppGridItem.kt: Grid item for displaying apps
+ * - AppListItem.kt: List item for displaying apps
  */
 
 package com.milki.launcher.ui.components
@@ -22,23 +28,13 @@ package com.milki.launcher.ui.components
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,9 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -62,6 +56,19 @@ import kotlinx.coroutines.delay
  * This is a stateless composable that receives all data via SearchUiState
  * and communicates user actions via callbacks.
  *
+ * STATE MANAGEMENT:
+ * - uiState: Contains all display data (query, results, provider config)
+ * - onQueryChange: Emits when user types in search field
+ * - onDismiss: Emits when dialog should close
+ * - onResultClick: Emits when user clicks a search result
+ *
+ * UNIDIRECTIONAL DATA FLOW:
+ * ┌─────────────┐     State      ┌──────────────────┐
+ * │ ViewModel   │ ─────────────→ │ AppSearchDialog  │
+ * │             │                │                  │
+ * │             │ ←───────────── │                  │
+ * └─────────────┘    Events      └──────────────────┘
+ *
  * @param uiState Current search state from ViewModel
  * @param onQueryChange Called when user types in search field
  * @param onDismiss Called when dialog should close
@@ -74,10 +81,27 @@ fun AppSearchDialog(
     onDismiss: () -> Unit,
     onResultClick: (SearchResult) -> Unit
 ) {
+    /**
+     * FocusRequester allows us to programmatically request focus
+     * on the text field when the dialog opens. This provides a
+     * better user experience by immediately showing the keyboard.
+     */
     val focusRequester = remember { FocusRequester() }
 
+    /**
+     * BackHandler intercepts the system back button.
+     * When pressed, it calls onDismiss to close the dialog
+     * instead of navigating back in the activity.
+     */
     BackHandler { onDismiss() }
 
+    /**
+     * Dialog is the main container for the search UI.
+     *
+     * PROPERTIES:
+     * - usePlatformDefaultWidth = false: Allows custom sizing
+     * - decorFitsSystemWindows = true: Properly handles window insets
+     */
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -85,6 +109,16 @@ fun AppSearchDialog(
             decorFitsSystemWindows = true
         )
     ) {
+        /**
+         * Surface provides the background and elevation for the dialog.
+         * It uses the theme's surface color and has rounded corners
+         * for a modern, card-like appearance.
+         *
+         * SIZE:
+         * - 90% of screen width
+         * - 80% of screen height
+         * - Plus padding for system bars (IME, navigation, status)
+         */
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
@@ -97,6 +131,10 @@ fun AppSearchDialog(
             tonalElevation = 8.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                /**
+                 * SearchTextFieldWithIndicator is the search input field
+                 * with a color-coded indicator bar showing the active mode.
+                 */
                 SearchTextFieldWithIndicator(
                     searchQuery = uiState.query,
                     onSearchQueryChange = onQueryChange,
@@ -109,6 +147,10 @@ fun AppSearchDialog(
                     onClear = { onQueryChange("") }
                 )
 
+                /**
+                 * Show either the empty state or results list.
+                 * The decision is based on whether results are empty.
+                 */
                 if (uiState.results.isEmpty()) {
                     EmptyState(
                         searchQuery = uiState.query,
@@ -116,6 +158,10 @@ fun AppSearchDialog(
                         prefixHint = uiState.prefixHint
                     )
                 } else {
+                    /**
+                     * SearchResultsList handles the display of results.
+                     * It automatically chooses between grid and list layouts.
+                     */
                     SearchResultsList(
                         results = uiState.results,
                         activeProviderConfig = uiState.activeProviderConfig,
@@ -126,6 +172,14 @@ fun AppSearchDialog(
         }
     }
 
+    /**
+     * LaunchedEffect runs when the dialog is first composed.
+     * We use a small delay (10ms) before requesting focus to ensure
+     * the text field is fully laid out before we try to focus it.
+     *
+     * Without this delay, the focus request might fail on some devices
+     * or the keyboard might not appear properly.
+     */
     LaunchedEffect(Unit) {
         delay(10)
         focusRequester.requestFocus()
@@ -134,6 +188,27 @@ fun AppSearchDialog(
 
 /**
  * SearchTextFieldWithIndicator - Search input with mode indicator bar.
+ *
+ * This composable provides:
+ * 1. An OutlinedTextField for search input
+ * 2. A color-coded indicator bar showing the active search mode
+ * 3. Provider info text when a special mode is active
+ *
+ * VISUAL HIERARCHY:
+ * ┌────────────────────────────────────┐
+ * │ [icon] [Search field....] [X]     │
+ * ├────────────────────────────────────┤
+ * │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ ← Indicator bar (colored)
+ * │ [icon] Provider: description       │ ← Mode info (when active)
+ * └────────────────────────────────────┘
+ *
+ * @param searchQuery Current text in the search field
+ * @param onSearchQueryChange Callback when text changes
+ * @param focusRequester FocusRequester for the text field
+ * @param activeProviderConfig Current search provider (null for default app search)
+ * @param placeholderText Placeholder text to show when field is empty
+ * @param onLaunchFirstResult Callback when user presses "Done" on keyboard
+ * @param onClear Callback when user taps the clear button
  */
 @Composable
 private fun SearchTextFieldWithIndicator(
@@ -145,12 +220,25 @@ private fun SearchTextFieldWithIndicator(
     onLaunchFirstResult: () -> Unit,
     onClear: () -> Unit
 ) {
+    /**
+     * Animate the indicator color when the provider changes.
+     * This creates a smooth visual transition between search modes.
+     */
     val indicatorColor by animateColorAsState(
         targetValue = activeProviderConfig?.color ?: MaterialTheme.colorScheme.primary,
         label = "indicator_color"
     )
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        /**
+         * OutlinedTextField is the main search input.
+         *
+         * FEATURES:
+         * - Leading icon: Shows the active provider's icon (or default search)
+         * - Trailing icon: Clear button (only shown when text exists)
+         * - Single line: Prevents multiline input
+         * - ImeAction.Done: Shows "Done" button on keyboard
+         */
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchQueryChange,
@@ -164,6 +252,10 @@ private fun SearchTextFieldWithIndicator(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { onLaunchFirstResult() }),
             leadingIcon = {
+                /**
+                 * Show the active provider's icon when a special mode is active.
+                 * The icon is tinted with the provider's color for visual consistency.
+                 */
                 activeProviderConfig?.let { config ->
                     Icon(
                         imageVector = config.icon,
@@ -173,6 +265,10 @@ private fun SearchTextFieldWithIndicator(
                 }
             },
             trailingIcon = {
+                /**
+                 * Clear button only appears when there's text to clear.
+                 * This reduces visual clutter when the field is empty.
+                 */
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = onClear) {
                         Icon(
@@ -184,6 +280,17 @@ private fun SearchTextFieldWithIndicator(
             }
         )
 
+        /**
+         * Indicator bar below the text field.
+         *
+         * PURPOSE:
+         * - Provides a visual cue for the active search mode
+         * - Height changes based on whether a special mode is active
+         * - Color animates smoothly when switching modes
+         *
+         * The slightly taller bar (4dp vs 2dp) when a provider is active
+         * draws more attention to the active mode.
+         */
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -194,6 +301,12 @@ private fun SearchTextFieldWithIndicator(
                 .background(indicatorColor)
         )
 
+        /**
+         * Provider info row - only shown when a special mode is active.
+         *
+         * This provides additional context about what the current mode does,
+         * helping users understand the different search options.
+         */
         if (activeProviderConfig != null) {
             Row(
                 modifier = Modifier
@@ -216,397 +329,11 @@ private fun SearchTextFieldWithIndicator(
                 )
             }
         } else {
+            /**
+             * When no special mode is active, add spacing to maintain
+             * consistent layout height between mode switches.
+             */
             Spacer(modifier = Modifier.height(8.dp))
-        }
-    }
-}
-
-/**
- * SearchResultsList - Displays search results in either a grid or list layout.
- *
- * LAYOUT DECISION:
- * - If ALL results are AppSearchResult → Show 2x4 grid (8 apps max)
- * - If MIXED result types → Show traditional vertical list
- *
- * This design choice prioritizes:
- * - Grid for quick app access (most common use case)
- * - List for mixed results (web search, contacts, etc.)
- *
- * PERFORMANCE:
- * - Grid uses LazyVerticalGrid with fixed 4 columns
- * - Both use stable keys for efficient recomposition
- * - Only the first 8 app results are shown in grid
- */
-@Composable
-private fun SearchResultsList(
-    results: List<SearchResult>,
-    activeProviderConfig: SearchProviderConfig?,
-    onResultClick: (SearchResult) -> Unit
-) {
-    /**
-     * Check if all results are app results.
-     * If true, we can display them in a compact grid layout.
-     * If false (mixed types), we use the traditional list layout.
-     */
-    val allAppResults = results.all { it is AppSearchResult }
-
-    if (allAppResults && results.isNotEmpty()) {
-        /**
-         * GRID LAYOUT for app-only results.
-         *
-         * This is the primary use case: user searches for apps
-         * or views recent apps. The grid shows 8 apps in a
-         * compact 2-row × 4-column layout.
-         *
-         * Benefits:
-         * - More apps visible at once
-         * - Faster visual scanning (grid pattern is easier to scan)
-         * - Takes up less vertical space
-         */
-        AppResultsGrid(
-            appResults = results.filterIsInstance<AppSearchResult>(),
-            onResultClick = onResultClick
-        )
-    } else {
-        /**
-         * LIST LAYOUT for mixed result types.
-         *
-         * Used when results include web search, contacts, YouTube, etc.
-         * These result types have more information and need more
-         * horizontal space, so a list is more appropriate.
-         */
-        MixedResultsList(
-            results = results,
-            activeProviderConfig = activeProviderConfig,
-            onResultClick = onResultClick
-        )
-    }
-}
-
-/**
- * AppResultsGrid - Displays app results in a 2×4 grid layout.
- *
- * GRID CONFIGURATION:
- * - 4 columns (fixed width, evenly distributed)
- * - 2 rows (implicit, based on number of items)
- * - Maximum 8 items (limited by ViewModel)
- *
- * The grid is non-scrollable because:
- * - We only show 8 items max
- * - This keeps the UI simple and predictable
- * - Users can refine their search if they need different apps
- *
- * @param appResults List of app search results to display
- * @param onResultClick Callback when an app is clicked
- */
-@Composable
-private fun AppResultsGrid(
-    appResults: List<AppSearchResult>,
-    onResultClick: (SearchResult) -> Unit
-) {
-    /**
-     * LazyVerticalGrid arranges items in a grid pattern.
-     * Unlike a regular Row/Column arrangement, LazyVerticalGrid:
-     * - Handles items lazily (only composes visible items)
-     * - Provides consistent spacing
-     * - Is more performant for larger datasets
-     *
-     * Even though we only have 8 items, LazyVerticalGrid
-     * provides a clean API for grid layouts.
-     */
-    LazyVerticalGrid(
-        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        /**
-         * items() creates a grid item for each result.
-         * key = { it.appInfo.packageName } ensures stable identity
-         * across recompositions, which improves performance.
-         */
-        items(
-            items = appResults,
-            key = { it.appInfo.packageName }
-        ) { result ->
-            AppGridItem(
-                appInfo = result.appInfo,
-                onClick = { onResultClick(result) }
-            )
-        }
-    }
-}
-
-/**
- * MixedResultsList - Displays mixed result types in a scrollable list.
- *
- * This is the fallback layout when results contain non-app types.
- * Uses the traditional vertical list with larger items that can
- * display additional information (like contact phone numbers).
- *
- * @param results List of search results (can be any type)
- * @param activeProviderConfig Current search provider configuration
- * @param onResultClick Callback when a result is clicked
- */
-@Composable
-private fun MixedResultsList(
-    results: List<SearchResult>,
-    activeProviderConfig: SearchProviderConfig?,
-    onResultClick: (SearchResult) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize()
-    ) {
-        items(
-            items = results,
-            key = { it.id }
-        ) { result ->
-            when (result) {
-                is AppSearchResult -> {
-                    AppListItem(
-                        appInfo = result.appInfo,
-                        onClick = { onResultClick(result) }
-                    )
-                }
-                is WebSearchResult -> {
-                    WebSearchResultItem(
-                        result = result,
-                        accentColor = activeProviderConfig?.color ?: MaterialTheme.colorScheme.primary,
-                        onClick = { onResultClick(result) }
-                    )
-                }
-                is ContactSearchResult -> {
-                    ContactSearchResultItem(
-                        result = result,
-                        accentColor = activeProviderConfig?.color ?: MaterialTheme.colorScheme.primary,
-                        onClick = { onResultClick(result) }
-                    )
-                }
-                is PermissionRequestResult -> {
-                    PermissionRequestItem(
-                        result = result,
-                        accentColor = activeProviderConfig?.color ?: MaterialTheme.colorScheme.primary,
-                        onClick = { onResultClick(result) }
-                    )
-                }
-                is YouTubeSearchResult -> {
-                    YouTubeSearchResultItem(
-                        result = result,
-                        accentColor = activeProviderConfig?.color ?: MaterialTheme.colorScheme.primary,
-                        onClick = { onResultClick(result) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * WebSearchResultItem - Displays a web search result.
- */
-@Composable
-private fun WebSearchResultItem(
-    result: WebSearchResult,
-    accentColor: Color,
-    onClick: () -> Unit
-) {
-    ListItem(
-        headlineContent = { Text(text = result.title) },
-        supportingContent = {
-            Text(
-                text = result.engine,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        leadingContent = {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-                tint = accentColor
-            )
-        },
-        modifier = Modifier.clickable { onClick() }
-    )
-}
-
-/**
- * YouTubeSearchResultItem - Displays a YouTube search result.
- */
-@Composable
-private fun YouTubeSearchResultItem(
-    result: YouTubeSearchResult,
-    accentColor: Color,
-    onClick: () -> Unit
-) {
-    ListItem(
-        headlineContent = { Text(text = result.title) },
-        supportingContent = {
-            Text(
-                text = "YouTube",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        leadingContent = {
-            Icon(
-                imageVector = Icons.Default.PlayArrow,
-                contentDescription = null,
-                tint = accentColor
-            )
-        },
-        modifier = Modifier.clickable { onClick() }
-    )
-}
-
-/**
- * ContactSearchResultItem - Displays a contact search result.
- */
-@Composable
-private fun ContactSearchResultItem(
-    result: ContactSearchResult,
-    accentColor: Color,
-    onClick: () -> Unit
-) {
-    ListItem(
-        headlineContent = { Text(text = result.contact.displayName) },
-        supportingContent = {
-            val primaryPhone = result.contact.phoneNumbers.firstOrNull()
-            if (primaryPhone != null) {
-                Text(
-                    text = primaryPhone,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        leadingContent = {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = null,
-                tint = accentColor
-            )
-        },
-        trailingContent = {
-            if (result.contact.phoneNumbers.isNotEmpty()) {
-                Icon(
-                    imageVector = Icons.Default.Call,
-                    contentDescription = "Call contact",
-                    tint = accentColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        },
-        modifier = Modifier.clickable { onClick() }
-    )
-}
-
-/**
- * PermissionRequestItem - Displays a button to request permission.
- */
-@Composable
-private fun PermissionRequestItem(
-    result: PermissionRequestResult,
-    accentColor: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(32.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = result.message,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = onClick,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = accentColor
-                )
-            ) {
-                Text(result.buttonText)
-            }
-        }
-    }
-}
-
-/**
- * EmptyState - Displayed when no results match the search.
- */
-@Composable
-private fun EmptyState(
-    searchQuery: String,
-    activeProvider: SearchProviderConfig?,
-    prefixHint: String
-) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp)
-        ) {
-            val icon = activeProvider?.icon ?: Icons.Default.Search
-            val tint = activeProvider?.color ?: MaterialTheme.colorScheme.onSurfaceVariant
-
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = tint.copy(alpha = 0.5f)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val message = when {
-                searchQuery.isBlank() -> "No recent apps\nType to search"
-                activeProvider != null -> "No ${activeProvider.name.lowercase()} results found"
-                else -> "No apps found"
-            }
-
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center
-            )
-
-            if (searchQuery.isBlank()) {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = prefixHint,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center
-                )
-            }
         }
     }
 }
