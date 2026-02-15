@@ -1,7 +1,5 @@
 # Architecture Overview
 
-This document describes the architecture of Milki Launcher, designed with SOLID principles and a pluggable, extensible structure.
-
 ## Table of Contents
 
 1. [Architecture Layers](#architecture-layers)
@@ -18,25 +16,25 @@ The app follows Clean Architecture principles with three main layers:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        PRESENTATION LAYER                            │
-│                                                                      │
-│  ┌──────────────────┐  ┌───────────────────┐  ┌─────────────────┐  │
-│  │   SearchViewModel │  │   LauncherScreen   │  │ AppSearchDialog │  │
-│  │   (State + Events)│  │   (Compose UI)     │  │ (Compose UI)    │  │
-│  └──────────────────┘  └───────────────────┘  └─────────────────┘  │
+│                       PRESENTATION LAYER                            │
+│                                                                     │
+│  ┌──────────────────┐   ┌───────────────────┐  ┌─────────────────┐  │
+│  │  SearchViewModel │   │   LauncherScreen  │  │ AppSearchDialog │  │
+│  │  (State + Events)│   │   (Compose UI)    │  │ (Compose UI)    │  │
+│  └──────────────────┘   └───────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               │ observes state, emits events
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         DOMAIN LAYER                                 │
-│                                                                      │
-│  ┌──────────────────┐  ┌───────────────────┐  ┌─────────────────┐  │
-│  │  SearchProvider   │  │   Use Cases        │  │    Models       │  │
-│  │    (interface)    │  │  - FilterApps      │  │ - SearchResult  │  │
-│  │                   │  │  - QueryParser     │  │ - AppInfo       │  │
-│  └──────────────────┘  └───────────────────┘  │ - Contact       │  │
-│                                                └─────────────────┘  │
+│                         DOMAIN LAYER                                │
+│                                                                     │
+│  ┌──────────────────┐  ┌───────────────────┐    ┌─────────────────┐ │
+│  │  SearchProvider  │  │   Use Cases       │    │    Models       │ │
+│  │    (interface)   │  │  - FilterApps     │    │ - SearchResult  │ │
+│  │                  │  │  - QueryParser    │    │ - AppInfo       │ │
+│  └──────────────────┘  └───────────────────┘    │ - Contact       │ │
+│                                                 └─────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
                               │
                               │ implements interfaces
@@ -58,11 +56,11 @@ The app follows Clean Architecture principles with three main layers:
 
 ### Layer Responsibilities
 
-| Layer | Responsibility | Example Files |
-|-------|---------------|---------------|
-| Presentation | UI rendering, user input handling | `SearchViewModel.kt`, `LauncherScreen.kt` |
-| Domain | Business logic, interfaces, models | `SearchProvider.kt`, `FilterAppsUseCase.kt` |
-| Data | Data access, external systems | `WebSearchProvider.kt`, `ContactsRepositoryImpl.kt` |
+| Layer        | Responsibility                     | Example Files                                       |
+| ------------ | ---------------------------------- | --------------------------------------------------- |
+| Presentation | UI rendering, user input handling  | `SearchViewModel.kt`, `LauncherScreen.kt`           |
+| Domain       | Business logic, interfaces, models | `SearchProvider.kt`, `FilterAppsUseCase.kt`         |
+| Data         | Data access, external systems      | `WebSearchProvider.kt`, `ContactsRepositoryImpl.kt` |
 
 ---
 
@@ -180,6 +178,7 @@ class ContactsRepositoryImpl(context: Context) : ContactsRepository {
 ### 4. Sealed Classes for State and Events
 
 **State (UiState):** Represents the current UI state
+
 ```kotlin
 data class SearchUiState(
     val query: String = "",
@@ -190,6 +189,7 @@ data class SearchUiState(
 ```
 
 **Events (Actions):** One-time events
+
 ```kotlin
 sealed class SearchAction {
     data class LaunchApp(val appInfo: AppInfo) : SearchAction()
@@ -205,6 +205,7 @@ sealed class SearchAction {
 ### Adding a New Search Provider
 
 1. **Create the SearchResult type** (if needed):
+
    ```kotlin
    // domain/model/SearchResult.kt
    data class RedditSearchResult(
@@ -217,22 +218,25 @@ sealed class SearchAction {
    ```
 
 2. **Create the provider implementation**:
+
    ```kotlin
    // data/search/RedditSearchProvider.kt
    class RedditSearchProvider : SearchProvider { ... }
    ```
 
 3. **Register in AppContainer**:
+
    ```kotlin
    // di/AppContainer.kt
    private val redditSearchProvider: RedditSearchProvider by lazy { ... }
    ```
 
 4. **Handle the action in MainActivity**:
+
    ```kotlin
    // presentation/search/SearchAction.kt
    data class OpenRedditSearch(val subreddit: String, val query: String) : SearchAction()
-   
+
    // MainActivity.kt
    is SearchAction.OpenRedditSearch -> { /* open Reddit */ }
    ```
@@ -246,6 +250,7 @@ sealed class SearchAction {
 ### Adding a New UI State Property
 
 1. **Add to SearchUiState**:
+
    ```kotlin
    data class SearchUiState(
        // ... existing properties
@@ -254,6 +259,7 @@ sealed class SearchAction {
    ```
 
 2. **Update in ViewModel**:
+
    ```kotlin
    fun toggleNewFeature() {
        updateState { copy(isNewFeature = !isNewFeature) }
@@ -331,23 +337,28 @@ app/src/main/java/com/milki/launcher/
 ## SOLID Principles Applied
 
 ### S - Single Responsibility
+
 - `SearchViewModel`: Only manages search state
 - `FilterAppsUseCase`: Only filters apps
 - `WebSearchProvider`: Only provides web search results
 
 ### O - Open/Closed
+
 - Add new providers by implementing `SearchProvider` interface
 - No need to modify existing code
 
 ### L - Liskov Substitution
+
 - Any `SearchProvider` implementation can be used interchangeably
 - All repositories implement their interfaces correctly
 
 ### I - Interface Segregation
+
 - `SearchProvider` interface is minimal (config + search)
 - `ContactsRepository` has only contacts-specific methods
 
 ### D - Dependency Inversion
+
 - ViewModel depends on `SearchProviderRegistry` (interface), not concrete providers
 - Use cases depend on repository interfaces, not implementations
 
@@ -367,7 +378,7 @@ fun `filterApps returns exact matches first`() {
         installedApps = testApps,
         recentApps = emptyList()
     )
-    
+
     assertEquals("Calculator", result.first().name)
 }
 
@@ -379,9 +390,9 @@ fun `onQueryChange updates state`() = runTest {
         providerRegistry = mockRegistry,
         filterAppsUseCase = FilterAppsUseCase()
     )
-    
+
     viewModel.onQueryChange("test")
-    
+
     assertEquals("test", viewModel.uiState.value.query)
 }
 ```

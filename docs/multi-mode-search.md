@@ -15,12 +15,12 @@ The launcher supports multi-mode search using single-character prefixes. This al
 
 ### Prefix Shortcuts
 
-| Prefix | Mode | Example | What Happens |
-|--------|------|---------|--------------|
-| *(none)* | **Apps** | `calculator` | Searches installed apps |
-| `s ` | **Web Search** | `s weather today` | Opens browser with search results |
-| `c ` | **Contacts** | `c mom` | Searches device contacts (requires permission) |
-| `y ` | **YouTube** | `y lofi music` | Opens YouTube with search query |
+| Prefix   | Mode           | Example           | What Happens                                   |
+| -------- | -------------- | ----------------- | ---------------------------------------------- |
+| _(none)_ | **Apps**       | `calculator`      | Searches installed apps                        |
+| `s `     | **Web Search** | `s weather today` | Opens browser with search results              |
+| `c `     | **Contacts**   | `c mom`           | Searches device contacts (requires permission) |
+| `y `     | **YouTube**    | `y lofi music`    | Opens YouTube with search query                |
 
 **Important:** The space after the prefix is required! `s` searches apps, `s ` activates web search.
 
@@ -29,11 +29,12 @@ The launcher supports multi-mode search using single-character prefixes. This al
 When you type a prefix followed by a space, the search dialog shows visual feedback:
 
 - **Blue bar + icon**: Web Search mode active
-- **Green bar + icon**: Contacts mode active  
+- **Green bar + icon**: Contacts mode active
 - **Red bar + icon**: YouTube mode active
 - **No bar** (default): App search mode
 
 The placeholder text also changes:
+
 - "Search apps..." (default)
 - "Search the web..." (s prefix)
 - "Search contacts..." (c prefix)
@@ -69,106 +70,12 @@ The contacts search feature requires the `READ_CONTACTS` permission. Here's how 
 ### Contact Actions
 
 When you tap a contact in the search results:
+
 - **Primary action**: Initiates a phone call using `ACTION_DIAL`
 - The system dialer opens with the phone number pre-filled
 - User can then confirm and place the call
 
 **Note**: Using `ACTION_DIAL` instead of `ACTION_CALL` to avoid needing the `CALL_PHONE` permission. This gives users control over whether to place the call.
-
-### Example Flow
-
-```
-User types: c
-Result: Searches apps for "c" (no space = app search)
-
-User types: c 
-Result: Contacts mode activated, shows permission request if needed
-
-User types: c john
-Result (with permission): Shows matching contacts named "john"
-
-User taps contact "John Doe"
-Result: System dialer opens with John's phone number
-```
-
-## Examples
-
-### Search Examples
-
-```
-Input: calculator
-Mode: App Search
-Result: Opens Calculator app (if installed)
-
-Input: s weather in new york
-Mode: Web Search
-Result: Opens browser with Google/DuckDuckGo search
-
-Input: c mom
-Mode: Contacts Search
-Result: 
-  - No permission: Shows "Grant Permission" button
-  - With permission: Shows contacts matching "mom"
-
-Input: y programming tutorials
-Mode: YouTube Search
-Result: Opens YouTube app with search results
-```
-
-### Visual Examples
-
-**App Search (default):**
-```
-┌─────────────────────────────┐
-│ Search apps...              │
-│ ─────────────────────────── │
-│ Calculator                  │
-│ Calendar                    │
-│ Camera                      │
-└─────────────────────────────┘
-```
-
-**Web Search (s ):**
-```
-┌─────────────────────────────┐
-│ s |                         │
-│ 🔍 Search the web...        │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ ← Blue bar
-│ Web Search: Search the web  │
-├─────────────────────────────┤
-│ Search "cats" on Google     │
-│ Search "cats" on DuckDuckGo │
-└─────────────────────────────┘
-```
-
-**Contacts Search - Permission Request (c ):**
-```
-┌─────────────────────────────┐
-│ c |                         │
-│ 👤 Search contacts...       │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ ← Green bar
-│ Contacts: Search your contacts
-├─────────────────────────────┤
-│ ⚠️                           │
-│ Contacts permission required │
-│ to search contacts           │
-│    [Grant Permission]       │
-└─────────────────────────────┘
-```
-
-**Contacts Search - With Results (c john):**
-```
-┌─────────────────────────────┐
-│ c john                      │
-│ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ ← Green bar
-├─────────────────────────────┤
-│ 👤 John Doe         📞      │
-│   +1 555-1234               │
-│                             │
-│ 👤 Johnny Smith     📞      │
-│   +1 555-5678               │
-└─────────────────────────────┘
-```
 
 ## Architecture
 
@@ -196,6 +103,7 @@ MainActivity
 Located in: `domain/model/SearchProvider.kt`
 
 Defines a searchable category with:
+
 - **prefix**: Single character trigger (e.g., "s")
 - **name**: Display name (e.g., "Web Search")
 - **description**: Short description shown in UI
@@ -204,6 +112,7 @@ Defines a searchable category with:
 - **search**: Lambda that performs the search
 
 The contacts provider accepts additional parameters:
+
 - `hasPermission`: Whether READ_CONTACTS is granted
 - `onRequestPermission`: Callback to request permission
 - `searchContacts`: Function to search contacts
@@ -223,6 +132,7 @@ Sealed class with four implementations:
 Located in: `domain/model/Contact.kt`
 
 Represents a device contact with:
+
 - **id**: Contact ID from Android Contacts Provider
 - **displayName**: Contact's display name
 - **phoneNumbers**: List of phone numbers
@@ -235,6 +145,7 @@ Represents a device contact with:
 Located in: `data/repository/ContactsRepository.kt`
 
 Handles all contacts database interactions:
+
 - `hasContactsPermission()`: Check if permission is granted
 - `searchContacts(query)`: Search contacts by name/phone
 - `getPhoneNumbers(contactId)`: Get phone numbers for a contact
@@ -340,11 +251,7 @@ private fun performWikipediaSearch(query: String) {
    - App filtering logic runs
    - App results displayed
 
-For contacts specifically:
-5. Contacts provider checks `hasContactsPermission`
-6. If not granted → returns `PermissionRequestResult`
-7. If granted → queries `ContactsRepository`
-8. Returns `ContactSearchResult` for each match
+For contacts specifically: 5. Contacts provider checks `hasContactsPermission` 6. If not granted → returns `PermissionRequestResult` 7. If granted → queries `ContactsRepository` 8. Returns `ContactSearchResult` for each match
 
 ### Keyboard Actions
 
@@ -376,6 +283,7 @@ The multi-mode search feature requires these permissions:
 ## Future Enhancements
 
 Potential improvements:
+
 1. **Configuration UI**: Allow users to add/remove providers via settings
 2. **More providers**: Maps, Spotify, Reddit, etc.
 3. **Contact actions**: Edit, delete, message contacts

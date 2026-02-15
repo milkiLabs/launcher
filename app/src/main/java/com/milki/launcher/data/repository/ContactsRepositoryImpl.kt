@@ -2,13 +2,7 @@
  * ContactsRepositoryImpl.kt - Implementation of ContactsRepository
  *
  * This file contains the actual implementation that queries Android's
- * Contacts Provider using ContentResolver. It was moved from the old
- * ContactsRepository.kt file to separate interface from implementation.
- *
- * ARCHITECTURE NOTE:
- * The domain layer defines the ContactsRepository interface.
- * This data layer implements it with Android-specific code.
- * This follows the Dependency Inversion Principle.
+ * Contacts Provider using ContentResolver. 
  */
 
 package com.milki.launcher.data.repository

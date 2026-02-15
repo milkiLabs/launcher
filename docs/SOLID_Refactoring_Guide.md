@@ -1,12 +1,8 @@
 # Refactoring MainActivity to Follow SOLID Principles
 
-## Current Architecture Problems
-
-The current `MainActivity.kt` (524 lines) violates several SOLID principles:
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              PRESENTATION LAYER                              │
+│                             PRESENTATION LAYER                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
 │  │  MainActivity.kt                                                       │ │
