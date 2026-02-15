@@ -3,6 +3,8 @@
 - hold actions.
 - grid
 
+- prefixes should be localized based on current keyboard language. if english:s,y,c. arabic,ب,ي,ت
+
 - include fuzzy finding to filtering
   - Instead of: whatsapp Allow: wa or wsp. should you use a library for this
 - Home screen gesturse:
