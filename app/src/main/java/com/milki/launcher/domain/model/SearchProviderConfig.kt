@@ -4,23 +4,18 @@
  * This file defines the CONFIGURATION for search providers. The actual search
  * implementation is handled by SearchProvider implementations in the data layer.
  *
- * WHY SEPARATE CONFIG FROM IMPLEMENTATION?
- * - Single Responsibility: Config only holds display properties
- * - Open/Closed Principle: Add new providers without modifying existing code
- * - Dependency Inversion: Domain defines the interface, data layer implements
- *
  * ARCHITECTURE OVERVIEW:
  * ┌─────────────────────────────────────────────────────────────┐
- * │                    DOMAIN LAYER                              │
+ * │                    DOMAIN LAYER                             │
  * │  SearchProviderConfig (data class) - just display config    │
- * │  SearchProvider (interface) - defines search contract        │
+ * │  SearchProvider (interface) - defines search contract       │
  * └─────────────────────────────────────────────────────────────┘
  *                              │
  *                              ▼
  * ┌─────────────────────────────────────────────────────────────┐
- * │                     DATA LAYER                               │
+ * │                     DATA LAYER                              │
  * │  WebSearchProvider, ContactsSearchProvider, etc.            │
- * │  (implement SearchProvider interface)                        │
+ * │  (implement SearchProvider interface)                       │
  * └─────────────────────────────────────────────────────────────┘
  */
 

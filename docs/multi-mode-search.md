@@ -4,6 +4,67 @@
 
 The launcher supports multi-mode search using single-character prefixes. This allows you to search not just installed apps, but also the web, contacts, and YouTube directly from the search dialog.
 
+## App Results Grid Layout
+
+### Visual Design
+
+When searching for apps (no prefix), results are displayed in a compact **2×4 grid** layout:
+
+```
+┌────────────────────────────────────────────────────────┐
+│  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐               │
+│  │ 📱  │  │ 💬  │  │ 📷  │  │ 🎵  │               │
+│  │Phone │  │Msg   │  │Camera│  │Music │               │
+│  └──────┘  └──────┘  └──────┘  └──────┘               │
+│  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐               │
+│  │ 🌐  │  │ 📧  │  │ 📅  │  │ ⚙️  │               │
+│  │Browser│ │Email │  │Cal   │  │Settings│              │
+│  └──────┘  └──────┘  └──────┘  └──────┘               │
+└────────────────────────────────────────────────────────┘
+```
+
+### Grid Configuration
+
+| Property | Value | Reason |
+|----------|-------|--------|
+| Columns | 4 | Fits most phone screens comfortably |
+| Rows | 2 | Shows 8 apps without scrolling |
+| Total Items | 8 | Maximum results returned by ViewModel |
+
+### Why a Grid?
+
+1. **More apps visible**: 8 apps vs 4-5 in a traditional list
+2. **Faster scanning**: Grid patterns are easier for eyes to scan
+3. **Space efficient**: Uses less vertical space
+4. **Touch-friendly**: Large tap targets for each app
+
+### When Grid vs List
+
+The UI automatically chooses the best layout:
+
+| Scenario | Layout | Reason |
+|----------|--------|--------|
+| All app results | Grid | Compact, efficient for apps |
+| Mixed results (apps + web + contacts) | List | Different result types need more space |
+| Provider search (web, YouTube, contacts) | List | Results have additional info (URLs, phone numbers) |
+
+### Performance Optimizations
+
+The grid layout is optimized for performance:
+
+1. **Limited results**: ViewModel limits app results to 8 (reduces processing)
+2. **LazyVerticalGrid**: Only composes visible items (though all 8 are visible)
+3. **Stable keys**: Uses package name as key for efficient recomposition
+4. **Async icons**: Coil loads icons asynchronously with caching
+
+### Recent Apps
+
+When you open the search dialog without typing:
+
+- Shows your 8 most recently used apps
+- Helps you quickly access apps you use frequently
+- No typing required for common apps
+
 ## How to Use
 
 ### Basic Usage
@@ -297,7 +358,11 @@ Potential improvements:
 - `domain/model/SearchProvider.kt` - Search provider definitions
 - `domain/model/Contact.kt` - Contact data model
 - `data/repository/ContactsRepository.kt` - Contacts database access
-- `ui/components/AppSearchDialog.kt` - Main search dialog UI
+- `ui/components/AppSearchDialog.kt` - Main search dialog UI (grid/list switching logic)
+- `ui/components/AppGridItem.kt` - Compact grid item for apps
+- `ui/components/AppListItem.kt` - Traditional list item for apps
+- `presentation/search/SearchViewModel.kt` - Search logic with 8-result limit
+- `presentation/search/SearchUiState.kt` - UI state model
 - `ui/screens/LauncherScreen.kt` - Screen integration
 - `MainActivity.kt` - Permission handling and callbacks
 - `docs/multi-mode-search.md` - This documentation

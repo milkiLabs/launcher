@@ -1,15 +1,7 @@
 /**
  * SearchResult.kt - Pure data models for search results
  *
- * This file defines the search result types as pure data classes without
- * any UI callbacks. This follows the Single Responsibility Principle -
- * these models only hold data, they don't define behavior.
- *
- * WHY NO onClick CALLBACKS?
- * - Domain models should be pure data (no behavior)
- * - Makes testing easier (no need to mock callbacks)
- * - Allows different UI implementations to handle clicks differently
- * - Follows separation of concerns: data vs presentation
+ * This file defines the search result types
  *
  * HOW CLICKS ARE HANDLED:
  * The UI layer (SearchViewModel) emits SearchAction sealed class events
@@ -24,11 +16,6 @@ package com.milki.launcher.domain.model
  * Each result type contains all the data needed to display it,
  * but NO callbacks. Click handling is done via the SearchAction
  * sealed class in the presentation layer.
- *
- * This design allows:
- * - Easy testing of search logic
- * - Different UI implementations (Compose, View, etc.)
- * - Serialization for caching or analytics
  */
 sealed class SearchResult {
     /**

@@ -5,6 +5,8 @@
 
 - prefixes should be localized based on current keyboard language. if english:s,y,c. arabic,ب,ي,ت
 
+- in contact search by number should remove spaces so instead of +20 155 667=>+20155667
+
 - include fuzzy finding to filtering
   - Instead of: whatsapp Allow: wa or wsp. should you use a library for this
 - Home screen gesturse:
@@ -26,6 +28,7 @@
 ## Features:
 
 - You can search by app name(youtube) or package name(com.google.\*) to show all google packages for example
+- you can search contact by prefix {c} by name, number, email
 
 ---
 

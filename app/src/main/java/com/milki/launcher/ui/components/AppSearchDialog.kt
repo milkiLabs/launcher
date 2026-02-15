@@ -26,6 +26,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -219,10 +222,136 @@ private fun SearchTextFieldWithIndicator(
 }
 
 /**
- * SearchResultsList - Displays search results in a scrollable list.
+ * SearchResultsList - Displays search results in either a grid or list layout.
+ *
+ * LAYOUT DECISION:
+ * - If ALL results are AppSearchResult → Show 2x4 grid (8 apps max)
+ * - If MIXED result types → Show traditional vertical list
+ *
+ * This design choice prioritizes:
+ * - Grid for quick app access (most common use case)
+ * - List for mixed results (web search, contacts, etc.)
+ *
+ * PERFORMANCE:
+ * - Grid uses LazyVerticalGrid with fixed 4 columns
+ * - Both use stable keys for efficient recomposition
+ * - Only the first 8 app results are shown in grid
  */
 @Composable
 private fun SearchResultsList(
+    results: List<SearchResult>,
+    activeProviderConfig: SearchProviderConfig?,
+    onResultClick: (SearchResult) -> Unit
+) {
+    /**
+     * Check if all results are app results.
+     * If true, we can display them in a compact grid layout.
+     * If false (mixed types), we use the traditional list layout.
+     */
+    val allAppResults = results.all { it is AppSearchResult }
+
+    if (allAppResults && results.isNotEmpty()) {
+        /**
+         * GRID LAYOUT for app-only results.
+         *
+         * This is the primary use case: user searches for apps
+         * or views recent apps. The grid shows 8 apps in a
+         * compact 2-row × 4-column layout.
+         *
+         * Benefits:
+         * - More apps visible at once
+         * - Faster visual scanning (grid pattern is easier to scan)
+         * - Takes up less vertical space
+         */
+        AppResultsGrid(
+            appResults = results.filterIsInstance<AppSearchResult>(),
+            onResultClick = onResultClick
+        )
+    } else {
+        /**
+         * LIST LAYOUT for mixed result types.
+         *
+         * Used when results include web search, contacts, YouTube, etc.
+         * These result types have more information and need more
+         * horizontal space, so a list is more appropriate.
+         */
+        MixedResultsList(
+            results = results,
+            activeProviderConfig = activeProviderConfig,
+            onResultClick = onResultClick
+        )
+    }
+}
+
+/**
+ * AppResultsGrid - Displays app results in a 2×4 grid layout.
+ *
+ * GRID CONFIGURATION:
+ * - 4 columns (fixed width, evenly distributed)
+ * - 2 rows (implicit, based on number of items)
+ * - Maximum 8 items (limited by ViewModel)
+ *
+ * The grid is non-scrollable because:
+ * - We only show 8 items max
+ * - This keeps the UI simple and predictable
+ * - Users can refine their search if they need different apps
+ *
+ * @param appResults List of app search results to display
+ * @param onResultClick Callback when an app is clicked
+ */
+@Composable
+private fun AppResultsGrid(
+    appResults: List<AppSearchResult>,
+    onResultClick: (SearchResult) -> Unit
+) {
+    /**
+     * LazyVerticalGrid arranges items in a grid pattern.
+     * Unlike a regular Row/Column arrangement, LazyVerticalGrid:
+     * - Handles items lazily (only composes visible items)
+     * - Provides consistent spacing
+     * - Is more performant for larger datasets
+     *
+     * Even though we only have 8 items, LazyVerticalGrid
+     * provides a clean API for grid layouts.
+     */
+    LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        /**
+         * items() creates a grid item for each result.
+         * key = { it.appInfo.packageName } ensures stable identity
+         * across recompositions, which improves performance.
+         */
+        items(
+            items = appResults,
+            key = { it.appInfo.packageName }
+        ) { result ->
+            AppGridItem(
+                appInfo = result.appInfo,
+                onClick = { onResultClick(result) }
+            )
+        }
+    }
+}
+
+/**
+ * MixedResultsList - Displays mixed result types in a scrollable list.
+ *
+ * This is the fallback layout when results contain non-app types.
+ * Uses the traditional vertical list with larger items that can
+ * display additional information (like contact phone numbers).
+ *
+ * @param results List of search results (can be any type)
+ * @param activeProviderConfig Current search provider configuration
+ * @param onResultClick Callback when a result is clicked
+ */
+@Composable
+private fun MixedResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
     onResultClick: (SearchResult) -> Unit

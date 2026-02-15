@@ -10,12 +10,6 @@
  * - The data layer provides implementations
  * - New providers can be added without modifying existing code
  *
- * SOLID PRINCIPLES APPLIED:
- * - Single Responsibility: Each provider handles one search type
- * - Open/Closed: Add new providers by implementing this interface
- * - Liskov Substitution: Any provider can be used interchangeably
- * - Interface Segregation: Small, focused interface
- * - Dependency Inversion: Domain depends on abstractions, not concretions
  *
  * HOW TO ADD A NEW SEARCH PROVIDER:
  * 1. Create a class implementing SearchProvider
@@ -58,11 +52,6 @@ import com.milki.launcher.domain.model.SearchResult
  * Providers are responsible for:
  * 1. Defining their prefix and display configuration
  * 2. Executing searches and returning results
- *
- * Providers are NOT responsible for:
- * - UI rendering (handled by composables)
- * - Click handling (handled by ViewModel)
- * - State management (handled by ViewModel)
  */
 interface SearchProvider {
     /**

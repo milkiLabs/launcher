@@ -125,9 +125,16 @@ class SearchViewModel(
 
     /**
      * Show the search dialog.
+     * Also triggers an initial search to show recent apps.
      */
     fun showSearch() {
         updateState { copy(isSearchVisible = true) }
+        /**
+         * Trigger an empty search to show recent apps.
+         * Without this, the results list would be empty until
+         * the user types something.
+         */
+        performSearch("")
     }
 
     /**
@@ -232,54 +239,79 @@ class SearchViewModel(
     // SEARCH LOGIC
     // ========================================================================
 
-    /**
-     * Perform a search based on the current query.
-     *
-     * Flow:
-     * 1. Parse query to detect provider prefix
-     * 2. If provider prefix found, use that provider
-     * 3. If no prefix, filter apps
-     *
-     * @param query The search query
-     */
-    private fun performSearch(query: String) {
-        val parsed = parseSearchQuery(query, providerRegistry)
+/**
+ * Perform a search based on the current query.
+ *
+ * Flow:
+ * 1. Parse query to detect provider prefix
+ * 2. If provider prefix found, use that provider
+ * 3. If no prefix, filter apps (limited to 8 results for grid display)
+ *
+ * PERFORMANCE NOTE:
+ * App results are limited to 8 because:
+ * - The grid layout shows 2 rows × 4 columns = 8 items
+ * - Limiting results improves performance (less data to process)
+ * - Users can refine their search if the desired app isn't shown
+ *
+ * @param query The search query
+ */
+private fun performSearch(query: String) {
+    val parsed = parseSearchQuery(query, providerRegistry)
 
-        updateState {
-            copy(activeProviderConfig = parsed.config)
-        }
+    updateState {
+        copy(activeProviderConfig = parsed.config)
+    }
 
-        viewModelScope.launch {
-            if (parsed.provider != null) {
-                // Provider search
-                updateState { copy(isLoading = true) }
+    viewModelScope.launch {
+        if (parsed.provider != null) {
+            // Provider search
+            updateState { copy(isLoading = true) }
 
-                try {
-                    val results = parsed.provider.search(parsed.query)
-                    updateState {
-                        copy(results = results, isLoading = false)
-                    }
-                } catch (e: Exception) {
-                    // Handle error (could emit error action)
-                    updateState { copy(isLoading = false, results = emptyList()) }
+            try {
+                val results = parsed.provider.search(parsed.query)
+                updateState {
+                    copy(results = results, isLoading = false)
                 }
-            } else {
-                // App search
-                val state = _uiState.value
-                val filteredApps = filterAppsUseCase(
-                    query = parsed.query,
-                    installedApps = state.installedApps,
-                    recentApps = state.recentApps
-                )
-
-                val results = filteredApps.map { app ->
-                    AppSearchResult(appInfo = app)
-                }
-
-                updateState { copy(results = results) }
+            } catch (e: Exception) {
+                // Handle error (could emit error action)
+                updateState { copy(isLoading = false, results = emptyList()) }
             }
+        } else {
+            // App search - filter and limit to 8 results for grid display
+            val state = _uiState.value
+            val filteredApps = filterAppsUseCase(
+                query = parsed.query,
+                installedApps = state.installedApps,
+                recentApps = state.recentApps
+            )
+
+            /**
+             * LIMIT TO 8 RESULTS:
+             *
+             * The grid layout (2 rows × 4 columns) displays exactly 8 apps.
+             * We limit the results here rather than in the UI because:
+             *
+             * 1. PERFORMANCE: Processing fewer items is faster
+             * 2. MEMORY: Smaller list uses less memory
+             * 3. UX: Users see the most relevant 8 results
+             *
+             * For recent apps (empty query): The repository already limits
+             * recent apps, but we enforce the limit here as a safety measure.
+             *
+             * For search results: We take the top 8 by priority (exact matches
+             * first, then starts-with, then contains - this ordering is done
+             * by FilterAppsUseCase).
+             */
+            val limitedApps = filteredApps.take(8)
+
+            val results = limitedApps.map { app ->
+                AppSearchResult(appInfo = app)
+            }
+
+            updateState { copy(results = results) }
         }
     }
+}
 
     // ========================================================================
     // HELPER FUNCTIONS

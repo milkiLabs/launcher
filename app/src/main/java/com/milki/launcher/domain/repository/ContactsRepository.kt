@@ -2,13 +2,6 @@
  * ContactsRepository.kt - Domain interface for contacts data access
  *
  * This interface defines the contract for accessing contacts data.
- * It follows the Dependency Inversion Principle - the domain layer
- * defines what it needs, and the data layer provides implementations.
- *
- * WHY AN INTERFACE?
- * - Allows different implementations (real, mock for testing, etc.)
- * - Decouples domain from Android-specific APIs
- * - Makes unit testing possible without Android framework
  *
  * The implementation is in data/repository/ContactsRepositoryImpl.kt
  */
