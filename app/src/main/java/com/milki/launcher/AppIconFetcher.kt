@@ -24,30 +24,6 @@ import coil.request.Options
 // FETCHER: AppIconFetcher
 // ============================================================================
 /**
- * Wrapper class to identify app icon requests.
- * 
- * This data class wraps a package name and serves as a type-safe identifier
- * for app icon loading requests. By using a custom type instead of a plain
- * String, we ensure:
- * 
- * 1. Type Safety: Only AppIconRequest objects are handled by our Fetcher
- * 2. Clear Intent: It's obvious this represents an app icon request
- * 3. Extensibility: We could add more fields later (icon size, density, etc.)
- * 
- * Example usage in Compose:
- * Image(
- *     painter = rememberAsyncImagePainter(AppIconRequest("com.google.android.youtube")),
- *     contentDescription = null
- * )
- * 
- * @property packageName The Android package name (e.g., "com.google.android.youtube")
- */
-data class AppIconRequest(val packageName: String)
-
-// ============================================================================
-// FETCHER: AppIconFetcher
-// ============================================================================
-/**
  * Custom Coil Fetcher that loads app icons from package names.
  * 
  * A Fetcher is a Coil component that knows how to load a specific type of data.

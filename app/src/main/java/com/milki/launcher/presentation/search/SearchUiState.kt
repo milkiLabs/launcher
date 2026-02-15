@@ -1,0 +1,130 @@
+/**
+ * SearchUiState.kt - UI state for the search screen
+ *
+ * This file defines the complete UI state for the search feature.
+ * Using a data class for state ensures:
+ * - Immutable state (no accidental mutations)
+ * - Easy testing (compare state snapshots)
+ * - Clear documentation of what the UI needs
+ *
+ * STATE VS EVENT:
+ * - State: Current values that the UI displays (query, results, etc.)
+ * - Events: One-time occurrences that trigger actions (SearchAction)
+ *
+ * The UI observes State, and emits Actions in response to user input.
+ */
+
+package com.milki.launcher.presentation.search
+
+import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.SearchProviderConfig
+import com.milki.launcher.domain.model.SearchResult
+
+/**
+ * Complete UI state for the search screen.
+ *
+ * This is a single source of truth for everything the search UI needs to render.
+ * All fields are immutable - state changes create new instances.
+ *
+ * @property query The current search query text
+ * @property isSearchVisible Whether the search dialog is visible
+ * @property results Current search results to display
+ * @property activeProviderConfig Configuration of the active provider (null for app search)
+ * @property isLoading Whether a search is in progress
+ * @property recentApps Recent apps to show when query is empty
+ * @property installedApps All installed apps for filtering
+ * @property hasContactsPermission Whether contacts permission is granted
+ */
+data class SearchUiState(
+    val query: String = "",
+    val isSearchVisible: Boolean = false,
+    val results: List<SearchResult> = emptyList(),
+    val activeProviderConfig: SearchProviderConfig? = null,
+    val isLoading: Boolean = false,
+    val recentApps: List<AppInfo> = emptyList(),
+    val installedApps: List<AppInfo> = emptyList(),
+    val hasContactsPermission: Boolean = false
+) {
+    /**
+     * Whether results are available to display.
+     */
+    val hasResults: Boolean
+        get() = results.isNotEmpty()
+
+    /**
+     * Whether the query is empty.
+     */
+    val isQueryEmpty: Boolean
+        get() = query.isBlank()
+
+    /**
+     * The actual search query (without provider prefix).
+     * For UI display purposes.
+     */
+    val displayQuery: String
+        get() = if (activeProviderConfig != null) {
+            query.removePrefix("${activeProviderConfig.prefix} ")
+        } else {
+            query
+        }
+
+    /**
+     * Placeholder text for the search field.
+     * Changes based on active provider.
+     */
+    val placeholderText: String
+        get() = when (activeProviderConfig?.prefix) {
+            "s" -> "Search the web..."
+            "c" -> "Search contacts..."
+            "y" -> "Search YouTube..."
+            else -> "Search apps..."
+        }
+
+    /**
+     * Whether the contacts permission prompt should be shown.
+     */
+    val showPermissionPrompt: Boolean
+        get() = activeProviderConfig?.prefix == "c" && !hasContactsPermission
+
+    /**
+     * Hint text for available prefixes.
+     */
+    val prefixHint: String
+        get() = "Prefix shortcuts:\ns - Web search\nc - Contacts\ny - YouTube"
+}
+
+/**
+ * Builder for creating SearchUiState instances.
+ *
+ * Provides a fluent API for building state with partial updates.
+ */
+class SearchUiStateBuilder {
+    private var query: String = ""
+    private var isSearchVisible: Boolean = false
+    private var results: List<SearchResult> = emptyList()
+    private var activeProviderConfig: SearchProviderConfig? = null
+    private var isLoading: Boolean = false
+    private var recentApps: List<AppInfo> = emptyList()
+    private var installedApps: List<AppInfo> = emptyList()
+    private var hasContactsPermission: Boolean = false
+
+    fun query(query: String) = apply { this.query = query }
+    fun isSearchVisible(visible: Boolean) = apply { this.isSearchVisible = visible }
+    fun results(results: List<SearchResult>) = apply { this.results = results }
+    fun activeProviderConfig(config: SearchProviderConfig?) = apply { this.activeProviderConfig = config }
+    fun isLoading(loading: Boolean) = apply { this.isLoading = loading }
+    fun recentApps(apps: List<AppInfo>) = apply { this.recentApps = apps }
+    fun installedApps(apps: List<AppInfo>) = apply { this.installedApps = apps }
+    fun hasContactsPermission(hasPermission: Boolean) = apply { this.hasContactsPermission = hasPermission }
+
+    fun build() = SearchUiState(
+        query = query,
+        isSearchVisible = isSearchVisible,
+        results = results,
+        activeProviderConfig = activeProviderConfig,
+        isLoading = isLoading,
+        recentApps = recentApps,
+        installedApps = installedApps,
+        hasContactsPermission = hasContactsPermission
+    )
+}

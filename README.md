@@ -1,5 +1,8 @@
 ## Features to add
 
+- hold actions.
+- grid
+
 - include fuzzy finding to filtering
   - Instead of: whatsapp Allow: wa or wsp. should you use a library for this
 - Home screen gesturse:
