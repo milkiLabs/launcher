@@ -4,17 +4,6 @@
  * This file contains the business logic for filtering installed apps
  * based on a search query. It implements the Strategy Pattern for
  * different match types (exact, starts with, contains).
- *
- * WHY A USE CASE?
- * - Single Responsibility: Only handles app filtering logic
- * - Testable: Pure function with no dependencies
- * - Reusable: Can be used from different ViewModels or use cases
- *
- * MATCHING ALGORITHM:
- * Apps are matched against both name and package name, then sorted by priority:
- * 1. Exact matches (highest priority)
- * 2. Starts-with matches (medium priority)
- * 3. Contains matches (lowest priority)
  */
 
 package com.milki.launcher.domain.search
@@ -24,8 +13,7 @@ import com.milki.launcher.domain.model.AppInfo
 /**
  * Use case for filtering and prioritizing app search results.
  *
- * This is a pure function use case - it has no side effects and
- * always returns the same output for the same input.
+ * This is a pure function use case - it has no side effects
  */
 class FilterAppsUseCase {
 

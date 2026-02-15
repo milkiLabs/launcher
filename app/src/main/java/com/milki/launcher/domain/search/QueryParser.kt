@@ -2,8 +2,7 @@
  * QueryParser.kt - Parses search queries to detect provider prefixes
  *
  * This file contains pure functions for parsing search queries.
- * It separates the parsing logic from the search execution,
- * following the Single Responsibility Principle.
+ * It separates the parsing logic from the search execution.
  *
  * HOW PREFIX DETECTION WORKS:
  * - A prefix only activates when followed by a space: "s cats" → web search for "cats"

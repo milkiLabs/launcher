@@ -7,10 +7,6 @@
  * 2. Finding providers by prefix
  * 3. Providing the list of all providers for UI display
  *
- * WHY A REGISTRY?
- * - Single Responsibility: One place to manage all providers
- * - Open/Closed: Add new providers by registering them, not modifying code
- * - Easy testing: Can create registries with different provider sets
  *
  * HOW TO ADD A NEW PROVIDER:
  * 1. Create a class implementing SearchProvider interface
