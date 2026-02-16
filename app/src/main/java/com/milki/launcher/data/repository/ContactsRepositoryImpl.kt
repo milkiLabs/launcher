@@ -52,7 +52,7 @@ class ContactsRepositoryImpl(
     }
 
     /**
-     * Searches contacts by query string using a single JOIN query.
+     * Searches contacts by query string using a single JOIN query with priority-based sorting.
      *
      * PERFORMANCE OPTIMIZATION:
      * This implementation uses a single query to the ContactsContract.Data table
@@ -72,18 +72,28 @@ class ContactsRepositoryImpl(
      * - Results grouped by contact ID in Kotlin code
      * - Total: 1 query regardless of contact count
      *
+     * PRIORITY-BASED MATCHING (like app search):
+     * Results are sorted by match quality:
+     * 1. Exact matches - display name equals query exactly
+     * 2. Starts-with matches - display name starts with query
+     * 3. Contains matches - display name contains query anywhere
+     *
+     * This provides a better user experience where more relevant results appear first.
+     *
      * HOW IT WORKS:
      * 1. Query the Data table with a selection that includes:
      *    - Phone mimetype (for phone numbers)
      *    - Email mimetype (for email addresses)
      *    - StructuredName mimetype (to get contacts without phones/emails)
-     * 2. Filter by display name matching the search query
-     * 3. LIMIT results to 50 for performance
+     * 2. Filter by display name matching the search query (LIKE %query%)
+     * 3. LIMIT results to 150 (higher than final 50 to allow for sorting)
      * 4. Group the cursor rows by contact ID
      * 5. Build Contact objects with accumulated phones/emails
+     * 6. Sort by match priority (exact → starts-with → contains)
+     * 7. Return top 50 sorted results
      *
      * @param query The search query string
-     * @return List of matching contacts (max 50)
+     * @return List of matching contacts (max 50), sorted by match priority
      * @throws SecurityException if permission is not granted
      */
     override suspend fun searchContacts(query: String): List<Contact> {
@@ -99,7 +109,8 @@ class ContactsRepositoryImpl(
 
         // Prepare the search query for SQL LIKE clause
         // lowercase() for case-insensitive matching
-        val queryLower = query.lowercase()
+        // trim() to remove leading/trailing whitespace
+        val queryLower = query.trim().lowercase()
 
         // Map to accumulate contact data as we iterate the cursor
         // Key = contact ID, Value = mutable contact builder
@@ -133,11 +144,12 @@ class ContactsRepositoryImpl(
         //
         // The SORT ORDER sorts by display name, then by mimetype to group
         // data types together for each contact.
-        // LIMIT 50 prevents too many results which could slow down the UI.
+        // LIMIT 150 (more than final 50) to allow for priority sorting
+        // We'll sort and then take top 50
         val sortOrder = """
             ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC,
             ${ContactsContract.Data.MIMETYPE} ASC
-            LIMIT 50
+            LIMIT 150
         """.trimIndent()
 
         // Execute the query using ContentResolver
@@ -216,9 +228,58 @@ class ContactsRepositoryImpl(
             }
         }
 
-        // Convert the map values to a list of Contact objects
-        // The map values are ContactBuilders, we call build() to get Contact
-        return contactsMap.values.map { it.build() }
+        // BUILD AND SORT RESULTS:
+        // Convert builders to Contact objects and sort by match priority
+        val unsortedContacts = contactsMap.values.map { it.build() }
+
+        // Sort by match priority (exact → starts-with → contains)
+        // Then take top 50 results
+        return unsortedContacts
+            .sortedBy { contact ->
+                // Lower ordinal = higher priority (appears first)
+                getMatchType(contact.displayName, queryLower).ordinal
+            }
+            .take(50)
+    }
+
+    /**
+     * Determines the match type for a contact's display name against the query.
+     *
+     * PRIORITY ORDER (same as app search):
+     * 1. EXACT - Display name equals query exactly (highest priority)
+     * 2. STARTS_WITH - Display name starts with query
+     * 3. CONTAINS - Display name contains query anywhere (lowest priority)
+     *
+     * @param displayName The contact's display name to check
+     * @param queryLower The lowercased search query
+     * @return The match type enum value
+     */
+    private fun getMatchType(displayName: String, queryLower: String): MatchType {
+        val nameLower = displayName.lowercase()
+
+        return when {
+            // Exact match: name equals query exactly
+            nameLower == queryLower -> MatchType.EXACT
+
+            // Starts with: name starts with query
+            nameLower.startsWith(queryLower) -> MatchType.STARTS_WITH
+
+            // Contains: name contains query anywhere (we know this is true
+            // because the SQL LIKE clause already filtered for this)
+            else -> MatchType.CONTAINS
+        }
+    }
+
+    /**
+     * Match type enum for prioritizing contact search results.
+     *
+     * The ordinal (order) is used for sorting - lower ordinal = higher priority.
+     * This matches the priority system used in FilterAppsUseCase for consistency.
+     */
+    private enum class MatchType {
+        EXACT,       // Display name equals query exactly (highest priority)
+        STARTS_WITH, // Display name starts with query
+        CONTAINS     // Display name contains query anywhere (lowest priority)
     }
 
     /**

@@ -7,15 +7,6 @@
  * - "c ": Search contacts (requires permission)
  * - "y ": YouTube search
  *
- * ARCHITECTURE:
- * This component is a "dumb" UI component - it only displays what it's given.
- * - State comes from SearchViewModel via SearchUiState
- * - User interactions emit callbacks that the ViewModel handles
- * - No business logic in this file
- *
- * This follows the Unidirectional Data Flow (UDF) pattern:
- * State flows down, Events flow up.
- *
  * RELATED FILES:
  * - SearchResultsList.kt: Contains the list/grid containers for results
  * - SearchResultItems.kt: Contains individual result item composables
