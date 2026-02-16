@@ -312,7 +312,6 @@ class SearchViewModel(
 ### Key Simplifications
 
 1. **Remove**:
-   - `SearchUiStateBuilder`
    - `FilterAppsUseCase` (use extension function)
    - `SearchProviderRegistry` (use list directly)
    - `SearchProviderConfig` (inline properties)

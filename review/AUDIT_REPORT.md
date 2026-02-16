@@ -16,32 +16,6 @@ The Milki Launcher codebase demonstrates solid Clean Architecture foundations wi
 
 ## 🔴 CRITICAL - Remove Dead Code
 
-### 1. SearchUiStateBuilder (presentation/search/SearchUiState.kt:96-131)
-
-**Issue**: Completely unused builder class
-
-```kotlin
-// UNUSED - Remove entirely
-class SearchUiStateBuilder {
-    private var query: String = ""
-    // ... 30+ lines of builder methods ...
-    fun build() = SearchUiState(...)
-}
-```
-
-**Why Remove**: 
-- Never instantiated anywhere in the codebase
-- Data class `copy()` provides same functionality
-- Creates confusion for beginners
-
-**Replacement**:
-```kotlin
-// Use existing data class copy function:
-val newState = currentState.copy(query = "new query")
-```
-
----
-
 ## 🟡 HIGH - Simplify Over-Engineering
 
 ### 4. Chunked Parallelism in AppRepositoryImpl
@@ -435,10 +409,9 @@ fontFamily = FontFamily.Default
 ## 🎯 Implementation Priority
 
 ### Phase 1: Quick Wins (Immediate)
-1. Delete `SearchUiStateBuilder`
-2. Remove accessor methods from `AppContainer`
-3. Simplify `AppRepositoryImpl.getInstalledApps()`
-4. Consolidate `QueryParser` functions
+1. Remove accessor methods from `AppContainer`
+2. Simplify `AppRepositoryImpl.getInstalledApps()`
+3. Consolidate `QueryParser` functions
 
 ### Phase 2: Architecture (Next Sprint)
 1. Create `DetectUrlUseCase`

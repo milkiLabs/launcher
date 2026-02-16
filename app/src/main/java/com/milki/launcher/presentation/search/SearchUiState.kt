@@ -96,41 +96,4 @@ data class SearchUiState(
         get() = "Prefix shortcuts:\ns - Web search\nc - Contacts\nf - Files\ny - YouTube"
 }
 
-/**
- * Builder for creating SearchUiState instances.
- *
- * Provides a fluent API for building state with partial updates.
- */
-class SearchUiStateBuilder {
-    private var query: String = ""
-    private var isSearchVisible: Boolean = false
-    private var results: List<SearchResult> = emptyList()
-    private var activeProviderConfig: SearchProviderConfig? = null
-    private var isLoading: Boolean = false
-    private var recentApps: List<AppInfo> = emptyList()
-    private var installedApps: List<AppInfo> = emptyList()
-    private var hasContactsPermission: Boolean = false
-    private var hasFilesPermission: Boolean = false
 
-    fun query(query: String) = apply { this.query = query }
-    fun isSearchVisible(visible: Boolean) = apply { this.isSearchVisible = visible }
-    fun results(results: List<SearchResult>) = apply { this.results = results }
-    fun activeProviderConfig(config: SearchProviderConfig?) = apply { this.activeProviderConfig = config }
-    fun isLoading(loading: Boolean) = apply { this.isLoading = loading }
-    fun recentApps(apps: List<AppInfo>) = apply { this.recentApps = apps }
-    fun installedApps(apps: List<AppInfo>) = apply { this.installedApps = apps }
-    fun hasContactsPermission(hasPermission: Boolean) = apply { this.hasContactsPermission = hasPermission }
-    fun hasFilesPermission(hasPermission: Boolean) = apply { this.hasFilesPermission = hasPermission }
-
-    fun build() = SearchUiState(
-        query = query,
-        isSearchVisible = isSearchVisible,
-        results = results,
-        activeProviderConfig = activeProviderConfig,
-        isLoading = isLoading,
-        recentApps = recentApps,
-        installedApps = installedApps,
-        hasContactsPermission = hasContactsPermission,
-        hasFilesPermission = hasFilesPermission
-    )
-}

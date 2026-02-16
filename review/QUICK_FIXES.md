@@ -6,19 +6,7 @@ This document contains bite-sized improvements that can be implemented quickly f
 
 ## 🚀 5-Minute Fixes
 
-### 1. Remove SearchUiStateBuilder
-
-**File**: `SearchUiState.kt`
-
-**Action**: Delete lines 96-131 (the entire builder class)
-
-**Verification**: Search project for "SearchUiStateBuilder" - should find 0 usages
-
-**Impact**: -36 lines
-
----
-
-### 2. Fix Magic Numbers in SearchViewModel
+### 1. Fix Magic Numbers in SearchViewModel
 
 **File**: `SearchViewModel.kt`
 
@@ -379,7 +367,6 @@ fun handleResultClick(result: SearchResult) {
 
 | Fix | Time | Lines Removed | Impact |
 |-----|------|---------------|--------|
-| Remove SearchUiStateBuilder | 5 min | 36 | Maintainability |
 | Remove AppContainer accessors | 5 min | 13 | Simplicity |
 | Simplify AppRepository | 15 min | 82 | Performance + Simplicity |
 | Consolidate QueryParser | 15 min | 115 | Maintainability |
