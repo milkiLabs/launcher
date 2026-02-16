@@ -46,6 +46,7 @@ import com.milki.launcher.presentation.search.shouldCloseSearch
 import com.milki.launcher.ui.screens.LauncherScreen
 import com.milki.launcher.ui.theme.LauncherTheme
 import com.milki.launcher.util.MimeTypeUtil
+import com.milki.launcher.util.PermissionUtil
 import kotlinx.coroutines.launch
 
 /**
@@ -341,17 +342,7 @@ class MainActivity : ComponentActivity() {
      * - Android 10 and below: Requires READ_EXTERNAL_STORAGE runtime permission
      */
     private fun updateFilesPermissionState() {
-        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11+: Check for MANAGE_EXTERNAL_STORAGE
-            // This is a special permission granted via Settings
-            Environment.isExternalStorageManager()
-        } else {
-            // Android 10 and below: Check for READ_EXTERNAL_STORAGE
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-        }
+        val hasPermission = PermissionUtil.hasFilesPermission(this)
 
         searchViewModel.updateFilesPermission(hasPermission)
     }

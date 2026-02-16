@@ -20,7 +20,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
-import androidx.core.content.ContextCompat
+import com.milki.launcher.util.PermissionUtil
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.repository.FilesRepository
 import kotlinx.coroutines.Dispatchers
@@ -60,17 +60,7 @@ class FilesRepositoryImpl(
          *   - To see ALL files, need MANAGE_EXTERNAL_STORAGE (special permission)
          *   - Without MANAGE_EXTERNAL_STORAGE, MediaStore.Files returns limited results
          */
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11+: Check for MANAGE_EXTERNAL_STORAGE
-            // This is a special permission that must be granted via Settings
-            Environment.isExternalStorageManager()
-        } else {
-            // Android 10 and below: Check for READ_EXTERNAL_STORAGE
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-        }
+        return PermissionUtil.hasFilesPermission(context)
     }
 
     override suspend fun searchFiles(query: String): List<FileDocument> {
