@@ -221,11 +221,19 @@ class FilterAppsUseCase {
 }
 
 // QueryParser.kt
-object QueryParser {
-    fun parse(query: String): ParsedQuery {
-        // Detects prefixes like "s ", "c ", "y "
-        // Returns provider type and actual query
-    }
+// Two entry points: one accepts List<SearchProvider>, the other accepts SearchProviderRegistry
+// The registry version delegates to the list version for a single implementation
+
+fun parseSearchQuery(input: String, providers: List<SearchProvider>): ParsedQuery {
+    // Main implementation with all parsing logic
+    // Detects prefixes like "s ", "c ", "y " (must be followed by space)
+    // Returns provider type and actual query
+}
+
+fun parseSearchQuery(input: String, registry: SearchProviderRegistry): ParsedQuery {
+    // Convenience overload that delegates to the main implementation
+    // Extracts providers from registry and calls the list version above
+    return parseSearchQuery(input, registry.getAllProviders())
 }
 ```
 
@@ -412,7 +420,7 @@ AppSearchDialog.onQueryChange
     ↓
 SearchViewModel.onQueryChange("cal")
     ↓
-QueryParser.parse("cal") → No prefix, app search
+parseSearchQuery("cal", registry) → No prefix, app search
     ↓
 FilterAppsUseCase(query, allApps, recentApps)
     ↓
@@ -430,7 +438,7 @@ User types "s weather"
     ↓
 SearchViewModel.onQueryChange("s weather")
     ↓
-QueryParser.parse("s weather") → Web provider, query "weather"
+parseSearchQuery("s weather", registry) → Web provider, query "weather"
     ↓
 SearchProviderRegistry.findProvider("s")
     ↓
