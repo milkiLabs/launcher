@@ -1,96 +1,34 @@
+/**
+ * SearchProviderUtils.kt - Shared utilities for search providers
+ *
+ * ARCHITECTURAL NOTE:
+ * This file previously contained functions to create fake "hint" and "empty"
+ * results with id=-1. This was an anti-pattern that mixed display logic with
+ * search logic.
+ *
+ * REFACTORING COMPLETED:
+ * - Removed fake hint/empty result creation
+ * - Search providers now return empty lists for empty states
+ * - UI layer properly handles empty states using EmptyState composable
+ * - This keeps concerns properly separated
+ *
+ * FUTURE USE:
+ * This file can be used for shared search utilities that are truly
+ * about search logic, not display logic. For example:
+ * - Query normalization functions
+ * - Common search scoring algorithms
+ * - Search result ranking utilities
+ */
+
 package com.milki.launcher.data.search
 
-import android.net.Uri
-import com.milki.launcher.domain.model.Contact
-import com.milki.launcher.domain.model.ContactSearchResult
-import com.milki.launcher.domain.model.FileDocument
-import com.milki.launcher.domain.model.FileDocumentSearchResult
-import com.milki.launcher.domain.model.SearchResult
-
 /**
- * Shared utility for generating common search result types.
+ * Shared utility object for search provider helper functions.
  *
- * Handles creation of "Hint" and "Empty" state results for local search providers
- * like Contacts and Files. These results use a consistent ID (-1) and structure.
+ * Currently empty after refactoring to remove fake hint/empty results.
+ * Can be extended with actual search logic utilities in the future.
  */
 object SearchProviderUtils {
-    private const val DUMMY_ID = -1L
-    
-    /**
-     * Creates a "Hint" result for Contacts search.
-     * Shown when the user has typed the prefix "c" but no query yet.
-     */
-    fun createContactHint(): List<SearchResult> {
-        return listOf(
-            ContactSearchResult(
-                contact = Contact(
-                    id = DUMMY_ID,
-                    displayName = "Type to search contacts",
-                    phoneNumbers = emptyList(),
-                    emails = emptyList(),
-                    photoUri = null,
-                    lookupKey = "hint"
-                )
-            )
-        )
-    }
-
-    /**
-     * Creates an "Empty" result for Contacts search.
-     * Shown when the search yielded no results.
-     */
-    fun createContactEmpty(query: String): List<SearchResult> {
-        return listOf(
-            ContactSearchResult(
-                contact = Contact(
-                    id = DUMMY_ID,
-                    displayName = "No contacts found for \"$query\"",
-                    phoneNumbers = emptyList(),
-                    emails = emptyList(),
-                    photoUri = null,
-                    lookupKey = "empty"
-                )
-            )
-        )
-    }
-
-    /**
-     * Creates a "Hint" result for Files search.
-     * Shown when the user has typed the prefix "f" but no query yet.
-     */
-    fun createFileHint(): List<SearchResult> {
-        return listOf(
-            FileDocumentSearchResult(
-                file = FileDocument(
-                    id = DUMMY_ID,
-                    name = "Type to search all files",
-                    mimeType = "text/plain",
-                    size = 0,
-                    dateModified = System.currentTimeMillis(),
-                    uri = Uri.EMPTY,
-                    folderPath = ""
-                )
-            )
-        )
-    }
-
-    /**
-     * Creates an "Empty" result for Files search.
-     * Shown when the search yielded no results.
-     */
-    fun createFileEmpty(query: String): List<SearchResult> {
-        return listOf(
-            FileDocumentSearchResult(
-                file = FileDocument(
-                    id = DUMMY_ID,
-                    name = "No files found for \"$query\"",
-                    mimeType = "text/plain",
-                    size = 0,
-                    dateModified = System.currentTimeMillis(),
-                    uri = Uri.EMPTY,
-                    folderPath = ""
-                )
-            )
-        )
-    }
+    // This object is currently empty but kept for future search utilities
+    // that are truly about search logic, not display logic
 }

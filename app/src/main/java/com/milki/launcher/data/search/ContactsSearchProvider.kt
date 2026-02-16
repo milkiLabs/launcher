@@ -53,11 +53,16 @@ class ContactsSearchProvider(
      * Flow:
      * 1. Check if contacts permission is granted
      * 2. If not granted, return PermissionRequestResult
-     * 3. If granted and query is blank, return empty
+     * 3. If granted and query is blank, return empty list (UI handles empty state)
      * 4. If granted and query exists, search contacts
      *
+     * ARCHITECTURAL NOTE:
+     * This provider no longer creates fake "hint" or "empty" results.
+     * Empty states are now properly handled in the UI layer where they belong.
+     * This keeps search logic separate from display logic.
+     *
      * @param query The search query (without the "c " prefix)
-     * @return List of ContactSearchResult or PermissionRequestResult
+     * @return List of ContactSearchResult or PermissionRequestResult, or empty list
      */
     override suspend fun search(query: String): List<SearchResult> {
         // Check permission first
@@ -75,21 +80,15 @@ class ContactsSearchProvider(
 
         // Permission granted - perform actual search
         if (query.isBlank()) {
-            // Show hint for contacts mode (no query yet)
-            return SearchProviderUtils.createContactHint()
+            // Return empty list - UI will show appropriate empty state
+            return emptyList()
         }
 
-        // Search contacts
+        // Search contacts and map to results
+        // If no contacts found, returns empty list (UI handles empty state)
         val contacts = contactsRepository.searchContacts(query)
-
-        return if (contacts.isEmpty()) {
-            // No contacts found
-            SearchProviderUtils.createContactEmpty(query)
-        } else {
-            // Return found contacts
-            contacts.map { contact ->
-                ContactSearchResult(contact = contact)
-            }
+        return contacts.map { contact ->
+            ContactSearchResult(contact = contact)
         }
     }
 }

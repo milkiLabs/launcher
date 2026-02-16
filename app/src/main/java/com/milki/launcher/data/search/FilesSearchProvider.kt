@@ -45,6 +45,23 @@ class FilesSearchProvider(
         icon = Icons.Default.InsertDriveFile
     )
 
+    /**
+     * Search files or return permission request.
+     *
+     * Flow:
+     * 1. Check if storage permission is granted
+     * 2. If not granted, return PermissionRequestResult
+     * 3. If granted and query is blank, return empty list (UI handles empty state)
+     * 4. If granted and query exists, search files
+     *
+     * ARCHITECTURAL NOTE:
+     * This provider no longer creates fake "hint" or "empty" results.
+     * Empty states are now properly handled in the UI layer where they belong.
+     * This keeps search logic separate from display logic.
+     *
+     * @param query The search query (without the "f " prefix)
+     * @return List of FileDocumentSearchResult or PermissionRequestResult, or empty list
+     */
     override suspend fun search(query: String): List<SearchResult> {
         if (!filesRepository.hasFilesPermission()) {
             /**
@@ -74,18 +91,17 @@ class FilesSearchProvider(
             )
         }
 
+        // Permission granted - perform actual search
         if (query.isBlank()) {
-            return SearchProviderUtils.createFileHint()
+            // Return empty list - UI will show appropriate empty state
+            return emptyList()
         }
 
+        // Search files and map to results
+        // If no files found, returns empty list (UI handles empty state)
         val files = filesRepository.searchFiles(query)
-
-        return if (files.isEmpty()) {
-            SearchProviderUtils.createFileEmpty(query)
-        } else {
-            files.map { file ->
-                FileDocumentSearchResult(file = file)
-            }
+        return files.map { file ->
+            FileDocumentSearchResult(file = file)
         }
     }
 }

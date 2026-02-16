@@ -388,12 +388,6 @@ fun FileDocumentSearchResultItem(
     val file = result.file
 
     /**
-     * Check if this is a placeholder/hint result (id == -1).
-     * These are shown when there's no query yet or no results found.
-     */
-    val isHint = file.id == -1L
-
-    /**
      * Determine the appropriate icon based on file type.
      * This helps users quickly identify what kind of document it is.
      * 
@@ -410,7 +404,6 @@ fun FileDocumentSearchResultItem(
      * like Arabic and Hebrew, ensuring proper visual direction.
      */
     val fileIcon = when {
-        isHint -> Icons.Default.Search
         file.isPdf() -> Icons.Outlined.PictureAsPdf
         file.isWordDocument() -> Icons.AutoMirrored.Outlined.Article
         file.isExcelSpreadsheet() -> Icons.Outlined.TableChart
@@ -422,24 +415,21 @@ fun FileDocumentSearchResultItem(
 
     /**
      * Build the supporting text with file details.
-     * - For hints: No supporting text (null)
-     * - For real files: Show folder path and size
+     * Shows folder path and size.
      * 
      * Format: "folder/path • 1.2 MB"
      */
-    val supportingText = if (!isHint) {
-        buildString {
-            // Show folder path if available
-            if (file.folderPath.isNotEmpty()) {
-                append(file.folderPath)
-            }
-            // Show file size
-            if (file.size > 0) {
-                if (isNotEmpty()) append(" • ")
-                append(file.formattedSize())
-            }
-        }.takeIf { it.isNotEmpty() }
-    } else null
+    val supportingText = buildString {
+        // Show folder path if available
+        if (file.folderPath.isNotEmpty()) {
+            append(file.folderPath)
+        }
+        // Show file size
+        if (file.size > 0) {
+            if (isNotEmpty()) append(" • ")
+            append(file.formattedSize())
+        }
+    }.takeIf { it.isNotEmpty() }
 
     /**
      * Use the SearchResultListItem wrapper with file specific values.
