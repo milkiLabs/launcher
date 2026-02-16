@@ -45,6 +45,7 @@ import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.presentation.search.shouldCloseSearch
 import com.milki.launcher.ui.screens.LauncherScreen
 import com.milki.launcher.ui.theme.LauncherTheme
+import com.milki.launcher.util.MimeTypeUtil
 import kotlinx.coroutines.launch
 
 /**
@@ -254,26 +255,13 @@ class MainActivity : ComponentActivity() {
     private fun handleOpenFile(action: SearchAction.OpenFile) {
         val file = action.file
         
-        // Use the file's MIME type, or fall back to */* (any type)
+        // Use the file's MIME type, or guess from extension
         val mimeType = if (file.mimeType.isNotBlank()) {
             file.mimeType
         } else {
-            // Try to guess MIME type from extension
+            // Guess MIME type from file extension using utility
             val extension = file.name.substringAfterLast('.', "").lowercase()
-            when (extension) {
-                "pdf" -> "application/pdf"
-                "epub" -> "application/epub+zip"
-                "doc" -> "application/msword"
-                "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                "xls" -> "application/vnd.ms-excel"
-                "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                "ppt" -> "application/vnd.ms-powerpoint"
-                "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                "txt", "md", "json", "xml" -> "text/plain"
-                "zip" -> "application/zip"
-                "apk" -> "application/vnd.android.package-archive"
-                else -> "*/*"
-            }
+            MimeTypeUtil.getMimeTypeFromExtension(extension)
         }
         
         val intent = Intent(Intent.ACTION_VIEW).apply {

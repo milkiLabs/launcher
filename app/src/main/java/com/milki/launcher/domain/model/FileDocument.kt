@@ -10,6 +10,7 @@
 package com.milki.launcher.domain.model
 
 import android.net.Uri
+import com.milki.launcher.util.MimeTypeUtil
 
 /**
  * Represents a single document/file from the device storage.
@@ -130,53 +131,40 @@ fun FileDocument.extension(): String {
 
 /**
  * Extension function to check if this file is a PDF.
- * Useful for displaying PDF-specific icons or actions.
+ * Uses MimeTypeUtil for consistent type checking.
  */
-fun FileDocument.isPdf(): Boolean = mimeType == "application/pdf" || extension() == "pdf"
+fun FileDocument.isPdf(): Boolean = MimeTypeUtil.isPdf(mimeType, name)
 
 /**
  * Extension function to check if this file is an EPUB ebook.
- * Useful for displaying ebook-specific icons or actions.
+ * Uses MimeTypeUtil for consistent type checking.
  */
-fun FileDocument.isEpub(): Boolean = mimeType == "application/epub+zip" || extension() == "epub"
+fun FileDocument.isEpub(): Boolean = MimeTypeUtil.isEpub(mimeType, name)
 
 /**
  * Extension function to check if this file is a Word document.
  * Covers both .doc and .docx formats.
+ * Uses MimeTypeUtil for consistent type checking.
  */
-fun FileDocument.isWordDocument(): Boolean {
-    return mimeType in listOf(
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ) || extension() in listOf("doc", "docx")
-}
+fun FileDocument.isWordDocument(): Boolean = MimeTypeUtil.isWordDocument(mimeType, name)
 
 /**
  * Extension function to check if this file is an Excel spreadsheet.
  * Covers both .xls and .xlsx formats.
+ * Uses MimeTypeUtil for consistent type checking.
  */
-fun FileDocument.isExcelSpreadsheet(): Boolean {
-    return mimeType in listOf(
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    ) || extension() in listOf("xls", "xlsx")
-}
+fun FileDocument.isExcelSpreadsheet(): Boolean = MimeTypeUtil.isExcelSpreadsheet(mimeType, name)
 
 /**
  * Extension function to check if this file is a PowerPoint presentation.
  * Covers both .ppt and .pptx formats.
+ * Uses MimeTypeUtil for consistent type checking.
  */
-fun FileDocument.isPowerPoint(): Boolean {
-    return mimeType in listOf(
-        "application/vnd.ms-powerpoint",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    ) || extension() in listOf("ppt", "pptx")
-}
+fun FileDocument.isPowerPoint(): Boolean = MimeTypeUtil.isPowerPoint(mimeType, name)
 
 /**
  * Extension function to check if this file is a text file.
  * Includes plain text, RTF, and other text-based formats.
+ * Uses MimeTypeUtil for consistent type checking.
  */
-fun FileDocument.isTextFile(): Boolean {
-    return mimeType.startsWith("text/") || extension() in listOf("txt", "rtf", "md", "json", "xml")
-}
+fun FileDocument.isTextFile(): Boolean = MimeTypeUtil.isTextFile(mimeType, name)

@@ -8,12 +8,6 @@ This document summarizes all findings from the deep codebase audit across archit
 
 ## 🎯 Critical Issues (Fix Immediately)
 
-### 1. Remove Dead Code
-
-- [ ] **Public accessors** (AppContainer.kt:178-190) - 13 lines
-
-**Impact**: Remove 13 lines of confusion. Zero functionality loss.
-
 ### 2. Add Search Cancellation
 
 - [ ] **SearchViewModel.kt:267-280**
@@ -33,14 +27,6 @@ This document summarizes all findings from the deep codebase audit across archit
 - [ ] Use simple map instead
 
 **Impact**: 82 lines removed, simpler code, likely faster
-
-### 5. Consolidate QueryParser
-
-- [ ] **QueryParser.kt:49-156**
-- [ ] Merge duplicate functions
-- [ ] Single implementation with two entry points
-
-**Impact**: 115 lines removed (73% reduction)
 
 ### 6. Add Search Debouncing
 
