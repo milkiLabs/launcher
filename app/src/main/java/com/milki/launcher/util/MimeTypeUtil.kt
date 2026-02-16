@@ -108,8 +108,9 @@ object MimeTypeUtil {
     /**
      * Wildcard MIME type for unknown files.
      * Used when we can't determine the file type.
+     * Value is star + slash + star (written as concatenation to avoid comment issues).
      */
-    const val MIME_UNKNOWN = "*/*"
+    const val MIME_UNKNOWN = "*" + "/" + "*"
 
     // ========================================================================
     // EXTENSION TO MIME TYPE MAPPINGS
@@ -162,10 +163,10 @@ object MimeTypeUtil {
      *
      * This function looks up the extension in the mapping and returns
      * the corresponding MIME type. If the extension is not recognized,
-     * it returns the wildcard type "*/*".
+     * it returns the wildcard type (star slash star).
      *
      * @param extension The file extension without the dot (e.g., "pdf", "docx")
-     * @return The MIME type string, or "*/*" if unknown
+     * @return The MIME type string, or wildcard type if unknown
      *
      * Example:
      * ```kotlin
@@ -173,7 +174,7 @@ object MimeTypeUtil {
      * // mimeType = "application/pdf"
      *
      * val unknown = MimeTypeUtil.getMimeTypeFromExtension("xyz")
-     * // unknown = "*/*"
+     * // unknown = wildcard type
      * ```
      */
     fun getMimeTypeFromExtension(extension: String): String {
@@ -261,7 +262,7 @@ object MimeTypeUtil {
      *
      * Includes plain text files and common text-based formats
      * like markdown, JSON, and XML.
-     * Checks both the MIME type (any text/* type) and the file extension.
+     * Checks both the MIME type (any text type) and the file extension.
      *
      * @param mimeType The file's MIME type (may be blank)
      * @param fileName The file name with extension
