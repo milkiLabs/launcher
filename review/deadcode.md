@@ -72,63 +72,18 @@ private val appRepository: AppRepository = AppRepositoryImpl(application)
 
 ---
 
-## 4. COMMENTED-OUT CODE
-
-### 4.1 Theme.kt - Example Code Comments
-
-**Lines 237-247:** Extensive commented examples showing how to use the theme
-These could be moved to documentation rather than inline comments.
-
-### 4.2 Type.kt - Commented Typography Styles
-
-**Lines 101-120:** Block of commented-out alternative typography styles
-
----
-
 ## 5. RECOMMENDATIONS SUMMARY
 
 ### High Priority
 
-1. **Consolidate MIME type handling** - Create a single source of truth for file type mappings
 2. **Remove or replace example tests** - They're just noise in the codebase
-3. **Merge duplicate QueryParser functions** - Simplify to one implementation
 
 ### Medium Priority
 
 4. **Simplify AppRepositoryImpl** - Remove unnecessary chunked loading
-5. **Reduce documentation bloat** - Move educational comments to docs/ folder
-6. **Consolidate permission checking** - Single utility for version-aware checks
 
 ### Low Priority
 
 7. **Simplify SearchProviderRegistry** - Consider direct list usage
 8. **Review lazy delegates** - Many could be direct instantiation
 9. **Remove unused extension functions** - If truly not used
-
----
-
-## File Locations Summary
-
-| Issue Type               | File Path                                      | Line Numbers         |
-| ------------------------ | ---------------------------------------------- | -------------------- |
-| Unused import            | Theme.kt                                       | 24                   |
-| ~~Duplicate MIME types~~ | ~~MainActivity.kt, FileDocument.kt~~           | ~~264-275, 147-182~~ |
-| Duplicate parsing        | QueryParser.kt                                 | 49-156               |
-| Over-documentation       | Color.kt, Type.kt, AppIconFetcher.kt           | Entire files         |
-| Over-engineered loading  | AppRepositoryImpl.kt                           | 59-127               |
-| Unnecessary lazy         | AppContainer.kt                                | 85-171               |
-| Unused test files        | ExampleUnitTest.kt, ExampleInstrumentedTest.kt | 1-24                 |
-| TODO marker              | AppRepository.kt                               | 32-33                |
-
-**Note:** Strikethrough items have been fixed.
-
----
-
-## Estimated Impact
-
-**Lines that can be removed/simplified:**
-
-- Dead code: ~100 lines
-- Duplicate code consolidation: ~80 lines
-- Documentation bloat reduction: ~400 lines
-- **Total potential reduction: ~580 lines**
