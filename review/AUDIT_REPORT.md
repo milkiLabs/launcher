@@ -42,20 +42,6 @@ val newState = currentState.copy(query = "new query")
 
 ---
 
-### 2. Public Accessor Methods (di/AppContainer.kt:178-190)
-
-**Issue**: Redundant accessor methods
-
-```kotlin
-// UNUSED - Remove these
-fun provideContactsRepository(): ContactsRepository = contactsRepository
-fun provideAppRepository(): AppRepository = appRepository
-```
-
-**Why Remove**: MainActivity uses `searchViewModelFactory` directly. These expose internals unnecessarily.
-
----
-
 ## 🟡 HIGH - Simplify Over-Engineering
 
 ### 4. Chunked Parallelism in AppRepositoryImpl

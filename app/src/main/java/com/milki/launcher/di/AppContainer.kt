@@ -194,25 +194,4 @@ class AppContainer(private val application: Application) {
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
-
-    // ========================================================================
-    // PUBLIC ACCESSORS
-    // ========================================================================
-
-    /**
-     * Provide the contacts repository for permission checking.
-     * Used by Activity to check permission status.
-     */
-    fun provideContactsRepository(): ContactsRepository = contactsRepository
-
-    /**
-     * Provide the files repository for permission checking.
-     * Used by Activity to check permission status.
-     */
-    fun provideFilesRepository(): FilesRepository = filesRepository
-
-    /**
-     * Provide the app repository for saving recent apps.
-     */
-    fun provideAppRepository(): AppRepository = appRepository
 }

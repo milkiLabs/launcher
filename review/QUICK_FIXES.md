@@ -41,24 +41,6 @@ val limitedApps = filteredApps.take(MAX_APP_RESULTS)
 
 ---
 
-### 4. Remove Accessor Methods from AppContainer
-
-**File**: `AppContainer.kt`
-
-**Action**: Delete lines 178-190
-
-```kotlin
-// DELETE THESE:
-fun provideContactsRepository(): ContactsRepository = contactsRepository
-fun provideAppRepository(): AppRepository = appRepository
-```
-
-**Verification**: Search for "provideContactsRepository" or "provideAppRepository" in MainActivity
-
-**Impact**: -13 lines
-
----
-
 ### 5. Add Content Descriptions
 
 **Files**: `SearchResultItems.kt`, `AppGridItem.kt`
