@@ -26,64 +26,9 @@ After analyzing all 35 Kotlin files in the Milki Launcher codebase, I found seve
 - **Lines 45-48:** `matchesQuery()` extension function
 - The filtering logic is duplicated in `FilterAppsUseCase.kt` instead of using this extension
 
-### 2.3 Permission Checking Code (MEDIUM PRIORITY)
-
-Permission checks for files are duplicated across:
-
-**File 1:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/data/repository/FilesRepositoryImpl.kt` (lines 51-74)
-**File 2:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/MainActivity.kt` (lines 355-369)
-
-Both check `Build.VERSION.SDK_INT >= Build.VERSION_CODES.R` and `Environment.isExternalStorageManager()` vs `ContextCompat.checkSelfPermission()`.
-
-### 2.4 Search Provider Hint/Empty State Pattern (LOW PRIORITY)
-
-**Files:**
-
-- `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/data/search/ContactsSearchProvider.kt` (lines 78-90, 96-115)
-- `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/data/search/FilesSearchProvider.kt` (lines 77-91, 95-113)
-
-Both providers follow the exact same pattern for creating "hint" and "empty" results with id=-1. This could be extracted to a shared utility.
-
-### 2.5 Similar Intent Creation Code
-
-**File:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/MainActivity.kt`
-
-- **Lines 179-184:** `handleOpenWebSearch()`
-- **Lines 190-195:** `handleOpenUrl()`
-
-Both create nearly identical browser intents. Could be refactored to share common intent-building logic.
-
-### 2.6 Duplicate Icon Loading Pattern
-
-**Files:**
-
-- `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/ui/components/AppGridItem.kt` (lines 124-126)
-- `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/ui/components/AppListItem.kt` (lines 66-68)
-
-Both use identical `rememberAsyncImagePainter(model = AppIconRequest(appInfo.packageName))` code.
-
 ---
 
 ## 3. OVER-ENGINEERING
-
-### 3.1 Excessive Documentation (Documentation Bloat)
-
-Many files have documentation that far exceeds the complexity of the code:
-
-**Example 1:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/ui/theme/Color.kt`
-
-- 127 lines for 6 color constants
-- Lines 110-126 explain hex color format (basic Android knowledge)
-
-**Example 2:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/ui/theme/Type.kt`
-
-- 135 lines for a simple Typography configuration
-- Comments explaining what `sp` means (basic Compose knowledge)
-
-**Example 3:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/AppIconFetcher.kt`
-
-- 145 lines for a simple Coil Fetcher
-- Extensive comments explaining basic Kotlin concepts like `suspend` and `Factory` pattern
 
 ### 3.2 Over-Engineered App Loading in AppRepositoryImpl
 
@@ -94,10 +39,6 @@ The code uses a custom `limitedDispatcher` with `chunked(8)` and `async/awaitAll
 - Android's `PackageManager` already caches app info
 - Modern devices can handle 150+ simple object creations without batching
 - The chunking adds code complexity for minimal performance gain
-
-### 3.3 QueryParser Double Implementation
-
-As noted in duplicate code section, having two nearly identical parsing functions adds unnecessary complexity.
 
 ### 3.4 Extensive Sealed Class Hierarchy for Search Results
 

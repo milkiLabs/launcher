@@ -177,20 +177,64 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Open a web search in the browser.
+     * 
+     * This delegates to openUrlInBrowser() to avoid code duplication.
+     * Both web searches and direct URLs use the same intent mechanism.
      */
     private fun handleOpenWebSearch(action: SearchAction.OpenWebSearch) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(action.url))
-        if (intent.resolveActivity(packageManager) != null) {
-            startActivity(intent)
-        }
+        openUrlInBrowser(action.url)
     }
 
     /**
      * Open a URL directly in the browser.
+     * 
      * Called when the user types a valid URL and taps the URL result.
+     * This delegates to openUrlInBrowser() to avoid code duplication.
      */
     private fun handleOpenUrl(action: SearchAction.OpenUrl) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(action.url))
+        openUrlInBrowser(action.url)
+    }
+
+    /**
+     * Opens a URL in the default browser.
+     * 
+     * This is a shared helper method used by both handleOpenWebSearch()
+     * and handleOpenUrl() to avoid code duplication. Both actions need
+     * to open URLs in the browser using the same intent mechanism.
+     * 
+     * HOW IT WORKS:
+     * 1. Creates an ACTION_VIEW intent with the URL
+     * 2. Checks if any app can handle the intent (resolveActivity)
+     * 3. Starts the activity if an app is available
+     * 
+     * INTENT DETAILS:
+     * - ACTION_VIEW: Standard action for viewing content
+     * - Uri.parse(url): Converts the URL string to a Uri object
+     * - resolveActivity(): Checks if any app can handle this intent
+     *   (prevents crashes if no browser is installed)
+     * 
+     * @param url The URL to open (can be a web search URL or direct URL)
+     * 
+     * Example URLs:
+     * - Web search: "https://www.google.com/search?q=android"
+     * - Direct URL: "https://www.example.com"
+     */
+    private fun openUrlInBrowser(url: String) {
+        /**
+         * Create an intent to view the URL.
+         * 
+         * ACTION_VIEW tells Android to open the URL in an appropriate app.
+         * For http/https URLs, this will typically open the default browser.
+         */
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        
+        /**
+         * Check if any app can handle this intent.
+         * 
+         * resolveActivity() returns null if no app can handle the intent.
+         * This prevents crashes if the user has no browser installed
+         * (rare but possible on custom ROMs or enterprise devices).
+         */
         if (intent.resolveActivity(packageManager) != null) {
             startActivity(intent)
         }

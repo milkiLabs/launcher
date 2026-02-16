@@ -4,7 +4,6 @@
 
 package com.milki.launcher.ui.components
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -15,8 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import com.milki.launcher.domain.model.AppIconRequest
 import com.milki.launcher.domain.model.AppInfo
 
 /**
@@ -52,32 +49,22 @@ fun AppListItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             /**
-             * Load the app icon using Coil with our custom AppIconFetcher.
+             * Display the app icon using our reusable AppIcon component.
              * 
-             * rememberAsyncImagePainter creates a painter that:
-             * 1. Loads the image asynchronously (doesn't block UI)
-             * 2. Caches the loaded image for performance
-             * 3. Shows a placeholder while loading
-             * 4. Handles errors gracefully
+             * AppIcon handles all the complexity of:
+             * - Creating the AppIconRequest model
+             * - Setting up the async image painter with Coil
+             * - Loading the icon from PackageManager via AppIconFetcher
+             * - Caching for performance
              * 
-             * We pass AppIconRequest which contains the package name.
-             * Our custom AppIconFetcher knows how to load icons from PackageManager.
+             * This avoids code duplication with AppGridItem and ensures
+             * consistent icon loading behavior across the app.
+             * 
+             * We just need to provide the package name and size (40.dp for list items).
              */
-            val painter = rememberAsyncImagePainter(
-                model = AppIconRequest(appInfo.packageName)
-            )
-            
-            /**
-             * Image displays the loaded icon.
-             * 
-             * contentDescription is null because the app name is displayed
-             * as text right next to it. Screen readers will read the name,
-             * so adding a description for the icon would be redundant.
-             */
-            Image(
-                painter = painter,
-                contentDescription = null,
-                modifier = Modifier.size(40.dp)
+            AppIcon(
+                packageName = appInfo.packageName,
+                size = 40.dp
             )
             
             Spacer(modifier = Modifier.width(12.dp))
