@@ -316,7 +316,6 @@ class SearchViewModel(
    - `FilterAppsUseCase` (use extension function)
    - `SearchProviderRegistry` (use list directly)
    - `SearchProviderConfig` (inline properties)
-   - `MatchType` enum
    - Duplicate QueryParser functions
 
 2. **Merge**:

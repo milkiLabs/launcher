@@ -60,7 +60,7 @@ This directory contains comprehensive audit reports and recommendations for the 
 ## Priority Matrix
 
 ### 🔴 Critical (Fix This Week)
-1. Remove dead code (SearchUiStateBuilder, filterWithThreshold)
+1. Remove dead code (SearchUiStateBuilder)
 2. Fix N+1 queries in ContactsRepository
 3. Add search cancellation
 4. Simplify AppRepository

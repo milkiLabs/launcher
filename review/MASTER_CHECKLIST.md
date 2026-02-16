@@ -10,11 +10,9 @@ This document summarizes all findings from the deep codebase audit across archit
 
 ### 1. Remove Dead Code
 - [ ] **SearchUiStateBuilder** (SearchUiState.kt:96-131) - 36 lines
-- [ ] **filterWithThreshold()** (FilterAppsUseCase.kt:86-112) - 53 lines  
-- [ ] **MatchType enum** (FilterAppsUseCase.kt:133-137) - 5 lines
 - [ ] **Public accessors** (AppContainer.kt:178-190) - 13 lines
 
-**Impact**: Remove 107 lines of confusion. Zero functionality loss.
+**Impact**: Remove 49 lines of confusion. Zero functionality loss.
 
 ### 2. Fix N+1 Query Problem
 - [ ] **ContactsRepositoryImpl.kt:65-121**
@@ -204,8 +202,6 @@ This document summarizes all findings from the deep codebase audit across archit
 
 ### Week 1: Quick Wins
 - [ ] Delete SearchUiStateBuilder
-- [ ] Delete filterWithThreshold()
-- [ ] Delete MatchType enum
 - [ ] Remove AppContainer accessors
 - [ ] Simplify AppRepository
 - [ ] Consolidate QueryParser

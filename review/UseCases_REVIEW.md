@@ -6,34 +6,9 @@
 
 ---
 
-## 1. FilterAppsUseCase.kt Issues
+## 1. FilterAppsUseCase.kt
 
-### CRITICAL: Unused Method and Enum
-
-**Lines 74-137**: `filterWithThreshold()` and `MatchType` enum never called
-
-```kotlin
-// UNUSED - Remove entirely
-fun filterWithThreshold(
-    query: String,
-    installedApps: List<AppInfo>,
-    recentApps: List<AppInfo>,
-    minMatchType: MatchType = MatchType.CONTAINS
-): List<AppInfo> { ... }
-
-// UNUSED - Remove
-enum class MatchType {
-    EXACT,
-    STARTS_WITH,
-    CONTAINS
-}
-```
-
-**Evidence**: Search entire codebase for "filterWithThreshold" - 0 usages.
-
----
-
-### Simplified Version
+### Current Implementation
 
 ```kotlin
 package com.milki.launcher.domain.search
@@ -69,7 +44,7 @@ class FilterAppsUseCase {
 }
 ```
 
-**Lines reduced**: 139 → 34 lines (105 lines removed, 75% reduction)
+**Lines reduced**: 139 → 69 lines (70 lines removed, 50% reduction)
 
 ---
 
@@ -274,8 +249,6 @@ class QueryParserTest {
 
 ## Action Items
 
-- [ ] Remove `filterWithThreshold()` method
-- [ ] Remove `MatchType` enum
 - [ ] Consolidate two `parseSearchQuery()` functions
 - [ ] Update any imports if necessary
 - [ ] Add unit tests for both classes

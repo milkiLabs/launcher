@@ -18,21 +18,7 @@ This document contains bite-sized improvements that can be implemented quickly f
 
 ---
 
-### 2. Remove filterWithThreshold
-
-**File**: `FilterAppsUseCase.kt`
-
-**Action**: 
-1. Delete lines 74-112 (filterWithThreshold method)
-2. Delete lines 133-137 (MatchType enum)
-
-**Verification**: Search for "filterWithThreshold" - should find 0 usages
-
-**Impact**: -58 lines
-
----
-
-### 3. Fix Magic Numbers in SearchViewModel
+### 2. Fix Magic Numbers in SearchViewModel
 
 **File**: `SearchViewModel.kt`
 
@@ -412,7 +398,6 @@ fun handleResultClick(result: SearchResult) {
 | Fix | Time | Lines Removed | Impact |
 |-----|------|---------------|--------|
 | Remove SearchUiStateBuilder | 5 min | 36 | Maintainability |
-| Remove filterWithThreshold | 5 min | 58 | Maintainability |
 | Remove AppContainer accessors | 5 min | 13 | Simplicity |
 | Simplify AppRepository | 15 min | 82 | Performance + Simplicity |
 | Consolidate QueryParser | 15 min | 115 | Maintainability |

@@ -42,28 +42,7 @@ val newState = currentState.copy(query = "new query")
 
 ---
 
-### 2. filterWithThreshold() (domain/search/FilterAppsUseCase.kt:86-112)
-
-**Issue**: Unused method with supporting enum
-
-```kotlin
-// UNUSED - Remove this entire method
-fun filterWithThreshold(
-    query: String,
-    installedApps: List<AppInfo>,
-    recentApps: List<AppInfo>,
-    minMatchType: MatchType = MatchType.CONTAINS
-): List<AppInfo> { ... }
-
-// Also remove this enum:
-enum class MatchType { EXACT, STARTS_WITH, CONTAINS }
-```
-
-**Why Remove**: Never called anywhere. If needed later, can be added back.
-
----
-
-### 3. Public Accessor Methods (di/AppContainer.kt:178-190)
+### 2. Public Accessor Methods (di/AppContainer.kt:178-190)
 
 **Issue**: Redundant accessor methods
 
@@ -459,7 +438,7 @@ fontFamily = FontFamily.Default
 | File | Current Lines | After Cleanup | Reduction |
 |------|--------------|---------------|-----------|
 | SearchUiState.kt | 131 | ~70 | -61 |
-| FilterAppsUseCase.kt | 139 | ~72 | -67 |
+| FilterAppsUseCase.kt | 72 | ~34 | -38 |
 | QueryParser.kt | 157 | ~60 | -97 |
 | AppRepositoryImpl.kt | 212 | ~160 | -52 |
 | AppContainer.kt | 192 | ~165 | -27 |
@@ -471,10 +450,9 @@ fontFamily = FontFamily.Default
 
 ### Phase 1: Quick Wins (Immediate)
 1. Delete `SearchUiStateBuilder`
-2. Delete `filterWithThreshold()`
-3. Remove accessor methods from `AppContainer`
-4. Simplify `AppRepositoryImpl.getInstalledApps()`
-5. Consolidate `QueryParser` functions
+2. Remove accessor methods from `AppContainer`
+3. Simplify `AppRepositoryImpl.getInstalledApps()`
+4. Consolidate `QueryParser` functions
 
 ### Phase 2: Architecture (Next Sprint)
 1. Create `DetectUrlUseCase`
