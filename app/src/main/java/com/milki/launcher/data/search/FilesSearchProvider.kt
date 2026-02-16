@@ -75,37 +75,13 @@ class FilesSearchProvider(
         }
 
         if (query.isBlank()) {
-            return listOf(
-                FileDocumentSearchResult(
-                    file = FileDocument(
-                        id = -1,
-                        name = "Type to search all files",
-                        mimeType = "text/plain",
-                        size = 0,
-                        dateModified = System.currentTimeMillis(),
-                        uri = android.net.Uri.EMPTY,
-                        folderPath = ""
-                    )
-                )
-            )
+            return SearchProviderUtils.createFileHint()
         }
 
         val files = filesRepository.searchFiles(query)
 
         return if (files.isEmpty()) {
-            listOf(
-                FileDocumentSearchResult(
-                    file = FileDocument(
-                        id = -1,
-                        name = "No files found for \"$query\"",
-                        mimeType = "text/plain",
-                        size = 0,
-                        dateModified = System.currentTimeMillis(),
-                        uri = android.net.Uri.EMPTY,
-                        folderPath = ""
-                    )
-                )
-            )
+            SearchProviderUtils.createFileEmpty(query)
         } else {
             files.map { file ->
                 FileDocumentSearchResult(file = file)

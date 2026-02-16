@@ -26,39 +26,6 @@ After analyzing all 35 Kotlin files in the Milki Launcher codebase, I found seve
 - **Lines 45-48:** `matchesQuery()` extension function
 - The filtering logic is duplicated in `FilterAppsUseCase.kt` instead of using this extension
 
-### 1.4 TODO Comment Indicating Unused/Questionable Code
-
-**File:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/domain/repository/AppRepository.kt`
-
-- **Line 32-33:** `TODO: is this actually needed?` - Questioning if `getRecentApps(): Flow<List<AppInfo>>` needs to return a Flow
-
----
-
-## 2. DUPLICATE CODE
-
-### 2.1 MIME Type Definitions (FIXED ✓)
-
-**Status:** Resolved - Created `MimeTypeUtil.kt` to centralize all MIME type operations.
-
-**Changes Made:**
-- Created `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/util/MimeTypeUtil.kt` with:
-  - All MIME type constants (e.g., `MIME_PDF`, `MIME_WORD_DOC`, etc.)
-  - Extension-to-MIME type mapping
-  - Helper functions: `getMimeTypeFromExtension()`, `isPdf()`, `isEpub()`, `isWordDocument()`, `isExcelSpreadsheet()`, `isPowerPoint()`, `isTextFile()`
-- Updated `MainActivity.kt:263-276` to use `MimeTypeUtil.getMimeTypeFromExtension()`
-- Updated `FileDocument.kt:135-182` to delegate to `MimeTypeUtil` functions
-
-**Impact:** Eliminated ~35 lines of duplicate code across 2 files. All MIME type logic now in one place.
-
-### 2.2 Query Parsing Logic (MEDIUM PRIORITY)
-
-**File:** `/media/Maind/zahrawi/productivity/launcher/app/src/main/java/com/milki/launcher/domain/search/QueryParser.kt`
-
-- **Lines 49-100:** `parseSearchQuery(input, registry)`
-- **Lines 112-156:** `parseSearchQuery(input, providers)`
-
-These two functions are nearly identical - one takes a `SearchProviderRegistry`, the other takes a `List<SearchProvider>`. The registry version could simply delegate to the list version by calling `registry.getAllProviders()`.
-
 ### 2.3 Permission Checking Code (MEDIUM PRIORITY)
 
 Permission checks for files are duplicated across:
@@ -201,16 +168,16 @@ These could be moved to documentation rather than inline comments.
 
 ## File Locations Summary
 
-| Issue Type              | File Path                                      | Line Numbers       |
-| ----------------------- | ---------------------------------------------- | ------------------ |
-| Unused import           | Theme.kt                                       | 24                 |
-| ~~Duplicate MIME types~~| ~~MainActivity.kt, FileDocument.kt~~           | ~~264-275, 147-182~~ |
-| Duplicate parsing       | QueryParser.kt                                 | 49-156             |
-| Over-documentation      | Color.kt, Type.kt, AppIconFetcher.kt           | Entire files       |
-| Over-engineered loading | AppRepositoryImpl.kt                           | 59-127             |
-| Unnecessary lazy        | AppContainer.kt                                | 85-171             |
-| Unused test files       | ExampleUnitTest.kt, ExampleInstrumentedTest.kt | 1-24               |
-| TODO marker             | AppRepository.kt                               | 32-33              |
+| Issue Type               | File Path                                      | Line Numbers         |
+| ------------------------ | ---------------------------------------------- | -------------------- |
+| Unused import            | Theme.kt                                       | 24                   |
+| ~~Duplicate MIME types~~ | ~~MainActivity.kt, FileDocument.kt~~           | ~~264-275, 147-182~~ |
+| Duplicate parsing        | QueryParser.kt                                 | 49-156               |
+| Over-documentation       | Color.kt, Type.kt, AppIconFetcher.kt           | Entire files         |
+| Over-engineered loading  | AppRepositoryImpl.kt                           | 59-127               |
+| Unnecessary lazy         | AppContainer.kt                                | 85-171               |
+| Unused test files        | ExampleUnitTest.kt, ExampleInstrumentedTest.kt | 1-24                 |
+| TODO marker              | AppRepository.kt                               | 32-33                |
 
 **Note:** Strikethrough items have been fixed.
 

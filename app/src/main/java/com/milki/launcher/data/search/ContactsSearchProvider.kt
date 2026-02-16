@@ -76,18 +76,7 @@ class ContactsSearchProvider(
         // Permission granted - perform actual search
         if (query.isBlank()) {
             // Show hint for contacts mode (no query yet)
-            return listOf(
-                ContactSearchResult(
-                    contact = Contact(
-                        id = -1,
-                        displayName = "Type to search contacts",
-                        phoneNumbers = emptyList(),
-                        emails = emptyList(),
-                        photoUri = null,
-                        lookupKey = "hint"
-                    )
-                )
-            )
+            return SearchProviderUtils.createContactHint()
         }
 
         // Search contacts
@@ -95,18 +84,7 @@ class ContactsSearchProvider(
 
         return if (contacts.isEmpty()) {
             // No contacts found
-            listOf(
-                ContactSearchResult(
-                    contact = Contact(
-                        id = -1,
-                        displayName = "No contacts found for \"$query\"",
-                        phoneNumbers = emptyList(),
-                        emails = emptyList(),
-                        photoUri = null,
-                        lookupKey = "empty"
-                    )
-                )
-            )
+            SearchProviderUtils.createContactEmpty(query)
         } else {
             // Return found contacts
             contacts.map { contact ->
