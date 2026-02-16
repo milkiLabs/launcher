@@ -11,7 +11,6 @@ import android.Manifest
 import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.provider.ContactsContract
 import androidx.core.content.ContextCompat
 import com.milki.launcher.domain.model.Contact
@@ -53,158 +52,243 @@ class ContactsRepositoryImpl(
     }
 
     /**
-     * Searches contacts by query string.
+     * Searches contacts by query string using a single JOIN query.
      *
-     * Searches in contact display names.
-     * Returns contacts where the name contains the query.
+     * PERFORMANCE OPTIMIZATION:
+     * This implementation uses a single query to the ContactsContract.Data table
+     * instead of making separate queries for each contact's phone numbers and emails.
+     *
+     * The Data table contains all contact data (phones, emails, names) in one place,
+     * allowing us to fetch everything in one database round-trip.
+     *
+     * BEFORE (N+1 problem):
+     * - 1 query to find matching contacts
+     * - N queries for phone numbers (one per contact)
+     * - N queries for emails (one per contact)
+     * - Total: 2N+1 queries for N contacts
+     *
+     * AFTER (single query):
+     * - 1 query to Data table with JOIN-like selection
+     * - Results grouped by contact ID in Kotlin code
+     * - Total: 1 query regardless of contact count
+     *
+     * HOW IT WORKS:
+     * 1. Query the Data table with a selection that includes:
+     *    - Phone mimetype (for phone numbers)
+     *    - Email mimetype (for email addresses)
+     *    - StructuredName mimetype (to get contacts without phones/emails)
+     * 2. Filter by display name matching the search query
+     * 3. LIMIT results to 50 for performance
+     * 4. Group the cursor rows by contact ID
+     * 5. Build Contact objects with accumulated phones/emails
      *
      * @param query The search query string
-     * @return List of matching contacts
+     * @return List of matching contacts (max 50)
      * @throws SecurityException if permission is not granted
      */
     override suspend fun searchContacts(query: String): List<Contact> {
+        // Permission check - must have READ_CONTACTS to proceed
         if (!hasContactsPermission()) {
             throw SecurityException("READ_CONTACTS permission not granted")
         }
 
+        // Empty query returns empty list - no point searching nothing
         if (query.isBlank()) {
             return emptyList()
         }
 
-        val contacts = mutableListOf<Contact>()
+        // Prepare the search query for SQL LIKE clause
+        // lowercase() for case-insensitive matching
         val queryLower = query.lowercase()
 
-        val selection = "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} LIKE ?"
-        val selectionArgs = arrayOf("%$queryLower%")
+        // Map to accumulate contact data as we iterate the cursor
+        // Key = contact ID, Value = mutable contact builder
+        val contactsMap = mutableMapOf<Long, ContactBuilder>()
 
+        // SELECTION CLAUSE:
+        // We want rows where:
+        // 1. DISPLAY_NAME matches the search query (LIKE operator)
+        // 2. MIMETYPE is one of Phone, Email, or StructuredName
+        //
+        // StructuredName is included to capture contacts that have no
+        // phone numbers or emails - we still want them in results!
+        val selection = """
+            ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} LIKE ? 
+            AND ${ContactsContract.Data.MIMETYPE} IN (?, ?, ?)
+        """.trimIndent()
+
+        // SELECTION ARGS:
+        // Arg 1: The search pattern with wildcards for LIKE
+        // Arg 2-4: The mimetypes we want to include
+        val selectionArgs = arrayOf(
+            "%$queryLower%",
+            ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE,
+            ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE,
+            ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE
+        )
+
+        // QUERY THE DATA TABLE:
+        // ContactsContract.Data.CONTENT_URI is a special URI that joins
+        // multiple tables (contacts, data, mimetypes) into one view.
+        //
+        // The SORT ORDER sorts by display name, then by mimetype to group
+        // data types together for each contact.
+        // LIMIT 50 prevents too many results which could slow down the UI.
+        val sortOrder = """
+            ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC,
+            ${ContactsContract.Data.MIMETYPE} ASC
+            LIMIT 50
+        """.trimIndent()
+
+        // Execute the query using ContentResolver
+        // The 'use' block automatically closes the cursor when done
         contentResolver.query(
-            ContactsContract.Contacts.CONTENT_URI,
-            CONTACT_PROJECTION,
+            ContactsContract.Data.CONTENT_URI,
+            DATA_PROJECTION,
             selection,
             selectionArgs,
-            "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC"
+            sortOrder
         )?.use { cursor ->
-            val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
-            val nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY)
+
+            // Get column indices once before the loop for efficiency
+            // getColumnIndex() is relatively expensive, so we cache the indices
+            val contactIdIndex = cursor.getColumnIndex(ContactsContract.Data.CONTACT_ID)
+            val lookupKeyIndex = cursor.getColumnIndex(ContactsContract.Data.LOOKUP_KEY)
+            val displayNameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY)
             val photoUriIndex = cursor.getColumnIndex(ContactsContract.Contacts.PHOTO_URI)
-            val lookupKeyIndex = cursor.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY)
-            val hasPhoneNumberIndex = cursor.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER)
+            val mimetypeIndex = cursor.getColumnIndex(ContactsContract.Data.MIMETYPE)
+            val phoneNumberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+            val emailAddressIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS)
 
+            // Iterate through all rows in the cursor
+            // Each row represents one piece of data (one phone OR one email OR name)
             while (cursor.moveToNext()) {
-                val contactId = cursor.getLong(idIndex)
-                val displayName = cursor.getString(nameIndex) ?: continue
-                val photoUri = cursor.getString(photoUriIndex)
-                val lookupKey = cursor.getString(lookupKeyIndex) ?: continue
-                val hasPhoneNumber = cursor.getInt(hasPhoneNumberIndex) > 0
 
-                val phoneNumbers = if (hasPhoneNumber) {
-                    getPhoneNumbers(contactId)
-                } else {
-                    emptyList()
-                }
+                // Extract contact ID - this is our grouping key
+                val contactId = cursor.getLong(contactIdIndex)
 
-                val emails = getEmails(contactId)
-
-                contacts.add(
-                    Contact(
+                // Get or create a ContactBuilder for this contact ID
+                // getOrPut returns existing builder or creates new one
+                val builder = contactsMap.getOrPut(contactId) {
+                    // Create new builder with basic contact info
+                    // This runs only once per unique contact
+                    ContactBuilder(
                         id = contactId,
-                        displayName = displayName,
-                        phoneNumbers = phoneNumbers,
-                        emails = emails,
-                        photoUri = photoUri,
-                        lookupKey = lookupKey
+                        displayName = cursor.getString(displayNameIndex) ?: continue,
+                        photoUri = cursor.getString(photoUriIndex),
+                        lookupKey = cursor.getString(lookupKeyIndex) ?: continue
                     )
-                )
-            }
-        }
+                }
 
-        return contacts
-    }
+                // Determine what type of data this row contains
+                // and add it to the appropriate list in the builder
+                val mimetype = cursor.getString(mimetypeIndex)
 
-    /**
-     * Gets all phone numbers for a specific contact.
-     *
-     * @param contactId The contact ID to get phone numbers for
-     * @return List of phone numbers
-     */
-    private fun getPhoneNumbers(contactId: Long): List<String> {
-        val phoneNumbers = mutableListOf<String>()
+                when (mimetype) {
+                    // This row contains a phone number
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE -> {
+                        cursor.getString(phoneNumberIndex)?.let { phone ->
+                            // Use distinct to avoid duplicate phone numbers
+                            // (some contacts have the same number in multiple places)
+                            if (phone !in builder.phoneNumbers) {
+                                builder.phoneNumbers.add(phone)
+                            }
+                        }
+                    }
 
-        contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            PHONE_PROJECTION,
-            "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?",
-            arrayOf(contactId.toString()),
-            null
-        )?.use { cursor ->
-            val numberIndex = cursor.getColumnIndex(
-                ContactsContract.CommonDataKinds.Phone.NUMBER
-            )
+                    // This row contains an email address
+                    ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE -> {
+                        cursor.getString(emailAddressIndex)?.let { email ->
+                            // Use distinct to avoid duplicate emails
+                            if (email !in builder.emails) {
+                                builder.emails.add(email)
+                            }
+                        }
+                    }
 
-            while (cursor.moveToNext()) {
-                cursor.getString(numberIndex)?.let { number ->
-                    phoneNumbers.add(number)
+                    // StructuredName rows don't add phone/email data
+                    // They were included in the query just to capture contacts
+                    // that have no phone or email (so they still appear in results)
+                    ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE -> {
+                        // Nothing to add - contact already created in getOrPut
+                    }
                 }
             }
         }
 
-        return phoneNumbers
+        // Convert the map values to a list of Contact objects
+        // The map values are ContactBuilders, we call build() to get Contact
+        return contactsMap.values.map { it.build() }
     }
 
     /**
-     * Gets all email addresses for a specific contact.
+     * Helper class to build Contact objects incrementally.
      *
-     * @param contactId The contact ID to get emails for
-     * @return List of email addresses
+     * WHY WE NEED THIS:
+     * The Data table returns multiple rows per contact (one per phone/email).
+     * We need to accumulate data across rows before creating the final Contact.
+     *
+     * This mutable builder allows us to:
+     * 1. Create the builder when we first see a contact ID
+     * 2. Add phone numbers and emails as we encounter them
+     * 3. Build the immutable Contact at the end
      */
-    private fun getEmails(contactId: Long): List<String> {
-        val emails = mutableListOf<String>()
+    private data class ContactBuilder(
+        val id: Long,
+        val displayName: String,
+        val photoUri: String?,
+        val lookupKey: String
+    ) {
+        // Mutable lists to accumulate phone numbers and emails
+        // We'll add to these as we iterate through the cursor
+        val phoneNumbers: MutableList<String> = mutableListOf()
+        val emails: MutableList<String> = mutableListOf()
 
-        contentResolver.query(
-            ContactsContract.CommonDataKinds.Email.CONTENT_URI,
-            EMAIL_PROJECTION,
-            "${ContactsContract.CommonDataKinds.Email.CONTACT_ID} = ?",
-            arrayOf(contactId.toString()),
-            null
-        )?.use { cursor ->
-            val emailIndex = cursor.getColumnIndex(
-                ContactsContract.CommonDataKinds.Email.ADDRESS
-            )
-
-            while (cursor.moveToNext()) {
-                cursor.getString(emailIndex)?.let { email ->
-                    emails.add(email)
-                }
-            }
-        }
-
-        return emails
+        /**
+         * Build the final immutable Contact object.
+         * Called once per contact after all data has been accumulated.
+         */
+        fun build(): Contact = Contact(
+            id = id,
+            displayName = displayName,
+            phoneNumbers = phoneNumbers.toList(), // Convert to immutable list
+            emails = emails.toList(),
+            photoUri = photoUri,
+            lookupKey = lookupKey
+        )
     }
 
     companion object {
         /**
-         * Projection for main contacts query.
-         * Only request columns we actually need for efficiency.
+         * Projection for the single-query approach using the Data table.
+         *
+         * PERFORMANCE NOTE:
+         * This projection fetches all needed columns in ONE query instead of
+         * multiple queries. The Data table joins contacts, data, and mimetypes
+         * automatically, so we can get contact info + phones + emails together.
+         *
+         * COLUMNS EXPLAINED:
+         * - CONTACT_ID: Unique identifier for the contact (used for grouping)
+         * - LOOKUP_KEY: Stable identifier that survives syncs (used for contact URI)
+         * - DISPLAY_NAME_PRIMARY: The contact's display name (what we show in UI)
+         * - PHOTO_URI: Content URI for the contact's photo (null if no photo)
+         * - MIMETYPE: Type of data in this row (Phone, Email, or StructuredName)
+         * - Phone.NUMBER: Phone number (only populated for Phone mimetype rows)
+         * - Email.ADDRESS: Email address (only populated for Email mimetype rows)
+         *
+         * WHY MIMETYPE IS NEEDED:
+         * The Data table has different columns for different data types.
+         * A row with MIMETYPE=Phone has data in Phone.NUMBER column.
+         * A row with MIMETYPE=Email has data in Email.ADDRESS column.
+         * We use MIMETYPE to determine which column to read.
          */
-        private val CONTACT_PROJECTION = arrayOf(
-            ContactsContract.Contacts._ID,
+        private val DATA_PROJECTION = arrayOf(
+            ContactsContract.Data.CONTACT_ID,
+            ContactsContract.Data.LOOKUP_KEY,
             ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
             ContactsContract.Contacts.PHOTO_URI,
-            ContactsContract.Contacts.LOOKUP_KEY,
-            ContactsContract.Contacts.HAS_PHONE_NUMBER
-        )
-
-        /**
-         * Projection for phone numbers query.
-         */
-        private val PHONE_PROJECTION = arrayOf(
-            ContactsContract.CommonDataKinds.Phone.NUMBER
-        )
-
-        /**
-         * Projection for email query.
-         */
-        private val EMAIL_PROJECTION = arrayOf(
+            ContactsContract.Data.MIMETYPE,
+            ContactsContract.CommonDataKinds.Phone.NUMBER,
             ContactsContract.CommonDataKinds.Email.ADDRESS
         )
     }
