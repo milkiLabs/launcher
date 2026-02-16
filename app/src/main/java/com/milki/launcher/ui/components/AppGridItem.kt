@@ -39,6 +39,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.ui.theme.CornerRadius
+import com.milki.launcher.ui.theme.IconSize
+import com.milki.launcher.ui.theme.Spacing
 
 /**
  * AppGridItem displays a single app in a compact grid format.
@@ -79,7 +82,7 @@ fun AppGridItem(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         color = Color.Transparent,
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(CornerRadius.medium)
     ) {
         /**
          * Column arranges icon above text.
@@ -88,7 +91,7 @@ fun AppGridItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 8.dp),
+                .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -105,7 +108,7 @@ fun AppGridItem(
              */
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(IconSize.appGrid)
                     .clip(CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -123,7 +126,7 @@ fun AppGridItem(
                  */
                 AppIcon(
                     packageName = appInfo.packageName,
-                    size = 56.dp
+                    size = IconSize.appGrid
                 )
             }
 
@@ -144,7 +147,7 @@ fun AppGridItem(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
+                    .padding(top = Spacing.smallMedium)
             )
         }
     }

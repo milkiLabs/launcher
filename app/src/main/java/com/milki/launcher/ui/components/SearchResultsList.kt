@@ -36,6 +36,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
+import com.milki.launcher.ui.theme.Spacing
 
 /**
  * SearchResultsList - Displays search results in either a grid or list layout.
@@ -129,9 +130,9 @@ private fun AppResultsGrid(
         columns = GridCells.Fixed(4),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = Spacing.smallMedium),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
+        verticalArrangement = Arrangement.spacedBy(Spacing.small)
     ) {
         /**
          * items() creates a grid item for each result.

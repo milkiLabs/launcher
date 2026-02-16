@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.ui.theme.IconSize
+import com.milki.launcher.ui.theme.Spacing
 
 /**
  * AppListItem displays a single row in the app list.
@@ -45,7 +47,7 @@ fun AppListItem(
     ) {
         // Layout: [Icon] [12dp spacer] [App Name]
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = Spacing.mediumLarge, vertical = Spacing.medium),
             verticalAlignment = Alignment.CenterVertically
         ) {
             /**
@@ -64,10 +66,10 @@ fun AppListItem(
              */
             AppIcon(
                 packageName = appInfo.packageName,
-                size = 40.dp
+                size = IconSize.appList
             )
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(Spacing.medium))
             
              // the app's display name.
             Text(

@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.milki.launcher.domain.model.AppIconRequest
+import com.milki.launcher.ui.theme.IconSize
 
 /**
  * AppIcon displays an app's icon loaded from its package name.
@@ -84,7 +85,7 @@ import com.milki.launcher.domain.model.AppIconRequest
 fun AppIcon(
     packageName: String,
     modifier: Modifier = Modifier,
-    size: Dp = 40.dp
+    size: Dp = IconSize.appList
 ) {
     /**
      * Create the async image painter.

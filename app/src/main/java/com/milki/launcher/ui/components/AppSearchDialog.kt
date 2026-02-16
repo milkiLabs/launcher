@@ -39,6 +39,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.presentation.search.SearchUiState
+import com.milki.launcher.ui.theme.CornerRadius
+import com.milki.launcher.ui.theme.IconSize
+import com.milki.launcher.ui.theme.Spacing
 import kotlinx.coroutines.delay
 
 /**
@@ -117,9 +120,9 @@ fun AppSearchDialog(
                 .imePadding()
                 .navigationBarsPadding()
                 .statusBarsPadding(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(CornerRadius.large),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
+            tonalElevation = Spacing.smallMedium
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 /**
@@ -235,8 +238,8 @@ private fun SearchTextFieldWithIndicator(
             onValueChange = onSearchQueryChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 16.dp)
+                .padding(horizontal = Spacing.mediumLarge)
+                .padding(top = Spacing.mediumLarge)
                 .focusRequester(focusRequester),
             placeholder = { Text(placeholderText) },
             singleLine = true,
@@ -285,10 +288,10 @@ private fun SearchTextFieldWithIndicator(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 4.dp)
-                .height(if (activeProviderConfig != null) 4.dp else 2.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .padding(horizontal = Spacing.mediumLarge)
+                .padding(top = Spacing.small)
+                .height(if (activeProviderConfig != null) Spacing.small else Spacing.extraSmall)
+                .clip(RoundedCornerShape(CornerRadius.extraSmall))
                 .background(indicatorColor)
         )
 
@@ -302,17 +305,17 @@ private fun SearchTextFieldWithIndicator(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 8.dp, bottom = 8.dp),
+                    .padding(horizontal = Spacing.mediumLarge)
+                    .padding(top = Spacing.smallMedium, bottom = Spacing.smallMedium),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = activeProviderConfig.icon,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(IconSize.extraSmall),
                     tint = activeProviderConfig.color
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(Spacing.smallMedium))
                 Text(
                     text = "${activeProviderConfig.name}: ${activeProviderConfig.description}",
                     style = MaterialTheme.typography.bodySmall,
@@ -324,7 +327,7 @@ private fun SearchTextFieldWithIndicator(
              * When no special mode is active, add spacing to maintain
              * consistent layout height between mode switches.
              */
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.smallMedium))
         }
     }
 }

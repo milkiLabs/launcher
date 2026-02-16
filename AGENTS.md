@@ -3,3 +3,7 @@
 - don't document existing code unless you changed implementation or changes it's behavior etc.
 - update relevant docs/
 - don't add @preview composables
+- **UI & Design System**:
+    - NEVER use hardcoded `.dp` values for padding, margins, sizes, or corner radii.
+    - ALWAYS use the centralized constants in `com.milki.launcher.ui.theme.Spacing.kt`.
+    - If a specific `dp` value is needed that isn't in the system, consider if it should be added to `Spacing.kt` first.

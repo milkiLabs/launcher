@@ -51,6 +51,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
+import com.milki.launcher.ui.theme.IconSize
+import com.milki.launcher.ui.theme.Spacing
 
 /**
  * WebSearchResultItem - Displays a web search result.
@@ -242,7 +244,7 @@ fun ContactSearchResultItem(
                     imageVector = Icons.Default.Call,
                     contentDescription = "Call contact",
                     tint = iconColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(IconSize.small)
                 )
             }
         } else null,
@@ -288,7 +290,7 @@ fun PermissionRequestItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.smallMedium),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -300,7 +302,7 @@ fun PermissionRequestItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.mediumLarge),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             /**
@@ -311,10 +313,10 @@ fun PermissionRequestItem(
                 imageVector = Icons.Default.Warning,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(IconSize.large)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(Spacing.smallMedium))
 
             /**
              * The message explains what permission is needed and why.
@@ -328,7 +330,7 @@ fun PermissionRequestItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(Spacing.medium))
 
             /**
              * The button uses the accent color to match the active
@@ -485,7 +487,7 @@ fun EmptyState(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp)
+            modifier = Modifier.padding(Spacing.extraLarge)
         ) {
             /**
              * Use the active provider's icon if available,
@@ -502,11 +504,11 @@ fun EmptyState(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(IconSize.appLarge),
                 tint = tint.copy(alpha = 0.5f)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(Spacing.mediumLarge))
 
             /**
              * Choose the appropriate message based on the current state:
@@ -533,7 +535,7 @@ fun EmptyState(
              * (web search, contacts, YouTube, etc.).
              */
             if (searchQuery.isBlank()) {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(Spacing.large))
                 Text(
                     text = prefixHint,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
