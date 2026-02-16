@@ -34,6 +34,7 @@ import com.milki.launcher.domain.model.SearchResult
  * @property recentApps Recent apps to show when query is empty
  * @property installedApps All installed apps for filtering
  * @property hasContactsPermission Whether contacts permission is granted
+ * @property hasFilesPermission Whether files/storage permission is granted
  */
 data class SearchUiState(
     val query: String = "",
@@ -43,7 +44,8 @@ data class SearchUiState(
     val isLoading: Boolean = false,
     val recentApps: List<AppInfo> = emptyList(),
     val installedApps: List<AppInfo> = emptyList(),
-    val hasContactsPermission: Boolean = false
+    val hasContactsPermission: Boolean = false,
+    val hasFilesPermission: Boolean = false
 ) {
     /**
      * Whether results are available to display.
@@ -77,6 +79,7 @@ data class SearchUiState(
             "s" -> "Search the web..."
             "c" -> "Search contacts..."
             "y" -> "Search YouTube..."
+            "f" -> "Search files..."
             else -> "Search apps..."
         }
 
@@ -90,7 +93,7 @@ data class SearchUiState(
      * Hint text for available prefixes.
      */
     val prefixHint: String
-        get() = "Prefix shortcuts:\ns - Web search\nc - Contacts\ny - YouTube"
+        get() = "Prefix shortcuts:\ns - Web search\nc - Contacts\nf - Files\ny - YouTube"
 }
 
 /**
@@ -107,6 +110,7 @@ class SearchUiStateBuilder {
     private var recentApps: List<AppInfo> = emptyList()
     private var installedApps: List<AppInfo> = emptyList()
     private var hasContactsPermission: Boolean = false
+    private var hasFilesPermission: Boolean = false
 
     fun query(query: String) = apply { this.query = query }
     fun isSearchVisible(visible: Boolean) = apply { this.isSearchVisible = visible }
@@ -116,6 +120,7 @@ class SearchUiStateBuilder {
     fun recentApps(apps: List<AppInfo>) = apply { this.recentApps = apps }
     fun installedApps(apps: List<AppInfo>) = apply { this.installedApps = apps }
     fun hasContactsPermission(hasPermission: Boolean) = apply { this.hasContactsPermission = hasPermission }
+    fun hasFilesPermission(hasPermission: Boolean) = apply { this.hasFilesPermission = hasPermission }
 
     fun build() = SearchUiState(
         query = query,
@@ -125,6 +130,7 @@ class SearchUiStateBuilder {
         isLoading = isLoading,
         recentApps = recentApps,
         installedApps = installedApps,
-        hasContactsPermission = hasContactsPermission
+        hasContactsPermission = hasContactsPermission,
+        hasFilesPermission = hasFilesPermission
     )
 }

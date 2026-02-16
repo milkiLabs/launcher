@@ -9,6 +9,23 @@
     -->
     <!-- Permission to read contacts for contacts search feature -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    
+    <!--
+      Storage permissions for file search feature:
+      - READ_EXTERNAL_STORAGE: For Android 10 (API 29) and below
+      - READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_AUDIO: For Android 13+ (API 33+)
+        These replace READ_EXTERNAL_STORAGE on newer Android versions
+      - MANAGE_EXTERNAL_STORAGE: For Android 11+ (API 30+) to access ALL files
+        This is a special permission that requires user approval in Settings
+        Without this, MediaStore.Files can only see files the app created
+    -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <queries>
         <!-- 

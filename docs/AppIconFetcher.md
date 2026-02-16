@@ -741,3 +741,131 @@ if (drawable is AnimatedImageDrawable) {
 7. **Register Factory in ImageLoader configuration**
 
 The AppIconFetcher is a small but critical component that bridges Coil's generic image loading with Android's app icon system. It demonstrates how to extend third-party libraries to work with your specific use case.
+
+---
+
+## Architecture Integration
+
+### Layer Placement
+
+The AppIconFetcher sits in the **Data Layer** (infrastructure) while `AppIconRequest` resides in the **Domain Layer**:
+
+```
+UI Layer (AppGridItem.kt)
+    ↓ imports (correct direction!)
+Domain Layer (AppIconRequest.kt)
+    ↑ used by (dependency points inward)
+Data Layer (AppIconFetcher.kt)
+```
+
+**Why this matters**: The UI depends on the domain model (`AppIconRequest`), not on data layer implementation details. This follows Clean Architecture's Dependency Rule: dependencies point inward.
+
+### SOLID Compliance
+
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| **SRP** | ✅ | Only handles app icon fetching |
+| **OCP** | ✅ | Can be extended without modification |
+| **LSP** | ✅ | Implements Fetcher interface correctly |
+| **ISP** | ✅ | Only implements necessary methods |
+| **DIP** | ✅ | Depends on abstractions (Fetcher interface) |
+
+### Registration Flow
+
+```
+App starts
+    ↓
+LauncherApplication.onCreate()
+    ↓
+ImageLoader.Builder()
+    ↓
+.components { add(AppIconFetcher.Factory()) }
+    ↓
+Factory registered with Coil
+    ↓
+ImageLoader built and cached
+```
+
+### Usage Flow
+
+```
+Compose calls Image() with AppIconRequest
+    ↓
+Coil receives request
+    ↓
+Coil asks registered Factories: "Can you handle this?"
+    ↓
+AppIconFetcher.Factory says: "Yes! It's AppIconRequest"
+    ↓
+Factory.create() returns AppIconFetcher instance
+    ↓
+Coil calls fetch() on background thread
+    ↓
+PackageManager.getApplicationIcon() loads icon
+    ↓
+Icon returned in DrawableResult
+    ↓
+Coil caches and displays the icon
+```
+
+### Configuration in LauncherApplication
+
+```kotlin
+override fun newImageLoader(): ImageLoader {
+    return ImageLoader.Builder(this)
+        .components {
+            add(AppIconFetcher.Factory())  // Register our fetcher
+        }
+        .memoryCache {
+            MemoryCache.Builder(this)
+                .maxSizePercent(0.15)      // 15% of memory for cache
+                .build()
+        }
+        .diskCache(null)                   // No disk cache (icons in PackageManager)
+        .allowHardware(false)              // Safer compatibility mode
+        .respectCacheHeaders(false)        // Not loading from network
+        .build()
+}
+```
+
+### Why No Disk Cache?
+
+For a launcher app:
+
+1. **Icons Are Already Cached**: Android's PackageManager caches app icons
+2. **Icons Don't Change Often**: Only change when app updates
+3. **Save Storage Space**: 200 apps × 100KB = 20MB saved
+4. **Simpler Architecture**: One less thing to manage
+
+### File Location Strategy
+
+**Current**: Root package for simplicity
+```
+com/milki/launcher/
+├── AppIconFetcher.kt          # Infrastructure
+└── domain/model/
+    └── AppIconRequest.kt      # Domain model
+```
+
+**Alternative for larger apps**: 
+```
+data/
+  fetcher/
+    AppIconFetcher.kt
+```
+
+The current approach keeps it simple for educational purposes.
+
+---
+
+## Key Takeaways
+
+1. **Fetchers teach Coil how to load custom data types** - We extend Coil to understand app icons
+2. **AppIconRequest is type-safe** - Clear intent vs ambiguous strings
+3. **Factory pattern creates instances on demand** - Coil calls create() when needed
+4. **suspend enables async loading** - Non-blocking image loading
+5. **PackageManager provides fast access** - Icons loaded from system cache
+6. **Always handle exceptions gracefully** - NameNotFoundException returns default icon
+7. **Register in Application class** - Must declare in ImageLoader configuration
+
+The AppIconFetcher demonstrates how to integrate third-party libraries with Android-specific functionality while maintaining clean architecture principles.

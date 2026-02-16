@@ -1,63 +1,75 @@
-## Features to add
+# Milki Launcher
 
-- hold actions.
-- grid
+A custom Android Launcher app built with modern Android development practices. Features a searchable app drawer with multi-mode search capabilities.
 
-- prefixes should be localized based on current keyboard language. if english:s,y,c. arabic,ب,ي,ت
+## Features
 
-- in contact search by number should remove spaces so instead of +20 155 667=>+20155667
+- **Multi-Mode Search**: Search apps, contacts, web, and YouTube
+  - No prefix: Search installed apps
+  - `s `: Web search
+  - `c `: Contacts search
+  - `y `: YouTube search
 
-- include fuzzy finding to filtering
-  - Instead of: whatsapp Allow: wa or wsp. should you use a library for this
-- Home screen gesturse:
-  - Swipe up → open search
-  - Double tap → lock screen
-  - Swipe down → notifications
-  - Long press background → settings
-- actions when long pressing an app item from the list:
-  - App info
-  - Uninstall
-  - Open in split screen
-- add prefix support: f {file}=> search files, c {contact}=> search contacts. yt {query}=> search youtube
-- make user create custom macros and automation. cm => call mom,
-- when dialog is open, when clicking back button it closes the keyboard the user has to press back again to close dialog. back button should close dialog in one tap.
-- make a prompt to let user set up default launcher.
-- contact query should trim white spaces.
-- ***
+- **Smart Layout**: Grid for apps, list for provider results
+- **Recent Apps**: Saves 5 most recently used apps
+- **Material Design 3**: Modern UI with dynamic colors support
+- **Performance Optimized**: O(n) search, controlled parallelism, memory caching
 
-## Features:
+## Tech Stack
 
-- You can search by app name(youtube) or package name(com.google.\*) to show all google packages for example
-- you can search contact by prefix {c} by name, number, email
+- **Language**: Kotlin
+- **UI**: Jetpack Compose + Material Design 3
+- **Architecture**: MVVM + Clean Architecture
+- **Image Loading**: Coil
+- **Data**: DataStore Preferences
+- **Async**: Kotlin Coroutines + Flow
+
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) folder:
+
+- **[Architecture Guide](docs/Architecture.md)** - Complete architecture documentation
+- **[Multi-Mode Search](docs/multi-mode-search.md)** - Search feature details
+- **[AppIconFetcher](docs/AppIconFetcher.md)** - Custom icon loading
+- **[Build Configuration](docs/BuildConfiguration.md)** - Gradle setup
+- **[AndroidManifest](docs/AndroidManifest.md)** - App configuration
+- **[Theme](docs/Theme.md)** - Material 3 theming
+- **[LauncherApplication](docs/LauncherApplication.md)** - App initialization
+
+## Quick Start
+
+1. Open in Android Studio
+2. Sync Gradle files
+3. Run on device/emulator (API 24+)
+4. Set as default launcher when prompted
+
+## Requirements
+
+- Minimum SDK: API 24 (Android 7.0)
+- Target/Compile SDK: API 36 (Android 16)
+- JDK: 11 or higher
+
+## License
+
+Educational project - feel free to learn from and modify!
 
 ---
 
-## Performance Improvements
+## Feature Roadmap
 
-Search algorithm is O(n)
+### Planned Features
+- [ ] Long-press actions on apps (info, uninstall, split screen)
+- [ ] Home screen gestures (swipe up for search, double-tap to lock)
+- [ ] File search with `f ` prefix
+- [ ] Custom user macros/automation
+- [ ] Fuzzy matching for app names
+- [ ] Prefix localization (Arabic: س, ي, ت)
 
-Totally fine for 200 apps.
+### Performance Notes
+- Current search is O(n) - suitable for ~200 apps
+- Future additions (contacts, shortcuts, settings) may require indexing
+- Need to implement lifecycle handling for app install/uninstall/update
 
-But if you add:
+---
 
-contacts
-
-shortcuts
-
-settings
-
-commands
-
-You will need indexing or fuzzy search.
-
-Missing lifecycle handling for app changes
-
-Launcher must react to:
-
-install
-
-uninstall
-
-update
-
-You currently don’t listen to package broadcasts.
+See the [`docs/`](docs/) folder for detailed documentation on architecture, components, and features.

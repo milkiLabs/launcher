@@ -27,7 +27,10 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -75,6 +78,19 @@ class MainActivity : ComponentActivity() {
      */
     private lateinit var contactsPermissionLauncher: ActivityResultLauncher<String>
 
+    /**
+     * Activity result launcher for requesting files/storage permission.
+     * Used on Android 10 and below for READ_EXTERNAL_STORAGE.
+     */
+    private lateinit var filesPermissionLauncher: ActivityResultLauncher<String>
+    
+    /**
+     * Activity result launcher for requesting MANAGE_EXTERNAL_STORAGE permission.
+     * Used on Android 11+ to open Settings for "All files access" permission.
+     * This is a special permission that cannot be granted via normal runtime permissions.
+     */
+    private lateinit var manageStorageLauncher: ActivityResultLauncher<Intent>
+
     // ========================================================================
     // ACTIVITY LIFECYCLE
     // ========================================================================
@@ -82,9 +98,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setupPermissionLauncher()
+        setupPermissionLaunchers()
         observeActions()
         updateContactsPermissionState()
+        updateFilesPermissionState()
 
         setContent {
             val uiState by searchViewModel.uiState.collectAsState()
@@ -104,6 +121,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         updateContactsPermissionState()
+        updateFilesPermissionState()
     }
 
     // ========================================================================
@@ -133,8 +151,11 @@ class MainActivity : ComponentActivity() {
             is SearchAction.LaunchApp -> handleLaunchApp(action)
             is SearchAction.OpenWebSearch -> handleOpenWebSearch(action)
             is SearchAction.OpenYouTubeSearch -> handleOpenYouTubeSearch(action)
+            is SearchAction.OpenUrl -> handleOpenUrl(action)
             is SearchAction.CallContact -> handleCallContact(action)
+            is SearchAction.OpenFile -> handleOpenFile(action)
             is SearchAction.RequestContactsPermission -> requestContactsPermission()
+            is SearchAction.RequestFilesPermission -> requestFilesPermission()
             is SearchAction.CloseSearch -> searchViewModel.hideSearch()
             is SearchAction.ClearQuery -> searchViewModel.clearQuery()
         }
@@ -156,6 +177,17 @@ class MainActivity : ComponentActivity() {
      * Open a web search in the browser.
      */
     private fun handleOpenWebSearch(action: SearchAction.OpenWebSearch) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(action.url))
+        if (intent.resolveActivity(packageManager) != null) {
+            startActivity(intent)
+        }
+    }
+
+    /**
+     * Open a URL directly in the browser.
+     * Called when the user types a valid URL and taps the URL result.
+     */
+    private fun handleOpenUrl(action: SearchAction.OpenUrl) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(action.url))
         if (intent.resolveActivity(packageManager) != null) {
             startActivity(intent)
@@ -207,18 +239,97 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Open a file/document with an appropriate app.
+     * 
+     * This method creates an Intent to open the file using the system's
+     * file association mechanism. The file will open in the default app
+     * for its MIME type (e.g., PDF viewer for PDFs, word processor for docs).
+     * 
+     * INTENT FLAGS:
+     * - FLAG_GRANT_READ_URI_PERMISSION: Grants the receiving app temporary
+     *   read access to the file via its content URI
+     * - FLAG_ACTIVITY_NEW_TASK: Starts the activity in a new task (standard for launcher)
+     */
+    private fun handleOpenFile(action: SearchAction.OpenFile) {
+        val file = action.file
+        
+        // Use the file's MIME type, or fall back to */* (any type)
+        val mimeType = if (file.mimeType.isNotBlank()) {
+            file.mimeType
+        } else {
+            // Try to guess MIME type from extension
+            val extension = file.name.substringAfterLast('.', "").lowercase()
+            when (extension) {
+                "pdf" -> "application/pdf"
+                "epub" -> "application/epub+zip"
+                "doc" -> "application/msword"
+                "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                "xls" -> "application/vnd.ms-excel"
+                "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                "ppt" -> "application/vnd.ms-powerpoint"
+                "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                "txt", "md", "json", "xml" -> "text/plain"
+                "zip" -> "application/zip"
+                "apk" -> "application/vnd.android.package-archive"
+                else -> "*/*"
+            }
+        }
+        
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(file.uri, mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        // Try to start the activity
+        // Use createChooser to let user pick an app if there are multiple options
+        val chooserIntent = Intent.createChooser(intent, "Open ${file.name}").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            startActivity(chooserIntent)
+        } catch (e: Exception) {
+            // If no app can handle the file, show a toast or error message
+            android.widget.Toast.makeText(
+                this,
+                "No app found to open ${file.name}",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     // ========================================================================
     // PERMISSION HANDLING
     // ========================================================================
 
     /**
-     * Sets up the permission launcher using the Activity Result API.
+     * Sets up the permission launchers using the Activity Result API.
+     * Each permission has its own launcher for clean separation of concerns.
      */
-    private fun setupPermissionLauncher() {
+    private fun setupPermissionLaunchers() {
+        // Launcher for contacts permission
         contactsPermissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             searchViewModel.updateContactsPermission(isGranted)
+        }
+
+        // Launcher for files/storage permission (Android 10 and below)
+        filesPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            searchViewModel.updateFilesPermission(isGranted)
+        }
+        
+        // Launcher for MANAGE_EXTERNAL_STORAGE permission (Android 11+)
+        // This opens Settings and the result is checked in onResume
+        manageStorageLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) {
+            // The result is handled in onResume where we check the actual permission state
+            updateFilesPermissionState()
         }
     }
 
@@ -235,10 +346,66 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
+     * Updates the files permission state.
+     * 
+     * Permission requirements differ by Android version:
+     * - Android 11+ (API 30+): Requires MANAGE_EXTERNAL_STORAGE (checked via Environment.isExternalStorageManager())
+     * - Android 10 and below: Requires READ_EXTERNAL_STORAGE runtime permission
+     */
+    private fun updateFilesPermissionState() {
+        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+: Check for MANAGE_EXTERNAL_STORAGE
+            // This is a special permission granted via Settings
+            Environment.isExternalStorageManager()
+        } else {
+            // Android 10 and below: Check for READ_EXTERNAL_STORAGE
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+
+        searchViewModel.updateFilesPermission(hasPermission)
+    }
+
+    /**
      * Requests the READ_CONTACTS permission from the user.
      */
     private fun requestContactsPermission() {
         contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+    }
+
+    /**
+     * Requests the appropriate storage permission based on Android version.
+     * 
+     * On Android 11+ (API 30+):
+     *   Opens Settings for MANAGE_EXTERNAL_STORAGE permission ("All files access").
+     *   This is a special permission that requires user action in Settings.
+     * 
+     * On Android 10 and below:
+     *   Requests READ_EXTERNAL_STORAGE runtime permission via dialog.
+     */
+    private fun requestFilesPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Android 11+: Open Settings for MANAGE_EXTERNAL_STORAGE
+            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            
+            // Try the specific intent first, fall back to general manage files intent
+            if (intent.resolveActivity(packageManager) != null) {
+                manageStorageLauncher.launch(intent)
+            } else {
+                // Fallback to general "All files access" settings
+                val fallbackIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                if (fallbackIntent.resolveActivity(packageManager) != null) {
+                    manageStorageLauncher.launch(fallbackIntent)
+                }
+            }
+        } else {
+            // Android 10 and below: Request READ_EXTERNAL_STORAGE via dialog
+            filesPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
     }
 
     // ========================================================================

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The launcher supports multi-mode search using single-character prefixes. This allows you to search not just installed apps, but also the web, contacts, and YouTube directly from the search dialog.
+The launcher supports multi-mode search using single-character prefixes. This allows you to search not just installed apps, but also the web, contacts, files, and YouTube directly from the search dialog.
 
 ## App Results Grid Layout
 
@@ -71,8 +71,26 @@ When you open the search dialog without typing:
 
 1. **Tap anywhere on the home screen** to open the search dialog
 2. **Type your search** with or without a prefix:
-   - Without prefix: Searches installed apps
-   - With prefix: Activates special search mode
+    - Without prefix: Searches installed apps
+    - With prefix: Activates special search mode
+    - Type a URL: Opens directly in browser
+
+### Direct URL Opening
+
+When you type a URL-like query, the launcher automatically detects it and offers to open it directly in your browser:
+
+| What you type      | What happens                                    |
+| ------------------ | ----------------------------------------------- |
+| `github.com`       | Shows "Open github.com" result → opens in browser |
+| `https://google.com` | Opens google.com directly                     |
+| `reddit.com/r/android` | Opens the Reddit subreddit                   |
+
+**URL patterns recognized:**
+- Full URLs with scheme: `https://example.com`, `http://example.com/path`
+- Domain-only: `example.com`, `sub.domain.org`, `github.com/user/repo`
+- Common TLDs: `.com`, `.org`, `.net`, `.io`, `.co`, `.edu`, `.gov`, `.dev`, `.app`, etc.
+
+**Note:** If no scheme is provided, `https://` is automatically added.
 
 ### Prefix Shortcuts
 
@@ -81,6 +99,7 @@ When you open the search dialog without typing:
 | _(none)_ | **Apps**       | `calculator`      | Searches installed apps                        |
 | `s `     | **Web Search** | `s weather today` | Opens browser with search results              |
 | `c `     | **Contacts**   | `c mom`           | Searches device contacts (requires permission) |
+| `f `     | **Files**      | `f report`        | Searches documents, PDFs, ebooks               |
 | `y `     | **YouTube**    | `y lofi music`    | Opens YouTube with search query                |
 
 **Important:** The space after the prefix is required! `s` searches apps, `s ` activates web search.
@@ -91,6 +110,7 @@ When you type a prefix followed by a space, the search dialog shows visual feedb
 
 - **Blue bar + icon**: Web Search mode active
 - **Green bar + icon**: Contacts mode active
+- **Orange bar + icon**: Files mode active
 - **Red bar + icon**: YouTube mode active
 - **No bar** (default): App search mode
 
@@ -99,6 +119,7 @@ The placeholder text also changes:
 - "Search apps..." (default)
 - "Search the web..." (s prefix)
 - "Search contacts..." (c prefix)
+- "Search documents..." (f prefix)
 - "Search YouTube..." (y prefix)
 
 ## YouTube Search Details
@@ -138,6 +159,93 @@ When you tap a contact in the search results:
 
 **Note**: Using `ACTION_DIAL` instead of `ACTION_CALL` to avoid needing the `CALL_PHONE` permission. This gives users control over whether to place the call.
 
+## Files Search with Permission Handling
+
+The files search feature (`f ` prefix) allows you to search for **all files** on your device, excluding images and videos. This includes:
+- Documents (PDF, Word, Excel, PowerPoint)
+- Ebooks (EPUB, MOBI)
+- Archives (ZIP, RAR, 7z)
+- APK files
+- Code files (Kotlin, Java, Python, etc.)
+- Configuration files
+- Any other file type
+
+### What's Excluded
+
+Images and videos are excluded from search results because they're better accessed through gallery apps.
+
+### Supported File Types
+
+| Category | Extensions |
+|----------|-------------|
+| Documents | `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.odt`, `.ods`, `.odp` |
+| Ebooks | `.epub`, `.mobi`, `.azw` |
+| Archives | `.zip`, `.rar`, `.7z`, `.tar`, `.gz` |
+| Code | `.kt`, `.java`, `.py`, `.js`, `.json`, `.xml`, `.html`, `.css` |
+| Text | `.txt`, `.md`, `.rtf`, `.csv` |
+| Other | `.apk`, `.exe`, `.iso`, and any other files |
+
+### Partial Matching
+
+The search uses partial matching, so:
+- Searching `kot` will match `kotlin_book.pdf`, `kotlintutorial.docx`, etc.
+- Searching `repo` will match `report.pdf`, `repository.zip`, etc.
+
+### Permission Flow
+
+The files search feature requires storage permissions to access files on the device. The permission needed depends on your Android version:
+
+**Android 10 (API 29) and below:**
+- Requires `READ_EXTERNAL_STORAGE` runtime permission
+- User sees a permission dialog when tapping "Grant Permission"
+
+**Android 11+ (API 30+):**
+- Requires `MANAGE_EXTERNAL_STORAGE` ("All files access" permission)
+- This is a **special permission** that must be granted in Settings
+- When tapping "Grant Permission", the app opens Settings to the "All files access" page
+- User must toggle the permission ON for the app
+- After returning to the app, files become searchable
+
+1. **User types `f `** → Files mode activates (orange bar appears)
+2. **If permission NOT granted**:
+   - Shows a card with warning icon
+   - Displays message: "Storage permission required to search files" (Android 10-)
+   - Or: "Allow file access in Settings to search all files" (Android 11+)
+   - Shows "Grant Permission" button
+   - User taps button → Permission dialog (Android 10-) or Settings (Android 11+)
+3. **If permission granted**:
+   - Files are searched from device storage
+   - Matching files appear in the list
+   - Each file shows name, folder, and size
+
+### File Actions
+
+When you tap a file in the search results:
+
+- **Primary action**: Opens the file with an appropriate app
+- Uses `ACTION_VIEW` with the file's MIME type
+- Shows a chooser dialog if multiple apps can open the file
+
+### Android 11+ and MANAGE_EXTERNAL_STORAGE
+
+On Android 11 (API 30) and above:
+
+**Scoped Storage Limitations:**
+- Android's scoped storage restricts which files apps can access
+- `MediaStore.Files` can only see files the app created itself
+- To search ALL files on the device, the app needs `MANAGE_EXTERNAL_STORAGE` permission
+
+**MANAGE_EXTERNAL_STORAGE Permission:**
+- This is a special "All files access" permission
+- Cannot be granted via normal runtime permission dialogs
+- Must be enabled by the user in Settings → Apps → [App Name] → Permissions
+- Or via Settings → Apps → Special app access → All files access
+
+**Why This Permission is Needed:**
+- Without it, the app can only see files in its own app-specific directories
+- With it, the app can search all documents, downloads, and other files on the device
+- This is essential for a launcher app that searches for PDFs, documents, etc.
+
 ## Architecture
 
 ### Components
@@ -154,6 +262,7 @@ MainActivity
                             +-- AppSearchResult
                             +-- WebSearchResult
                             +-- ContactSearchResult
+                            +-- FileDocumentSearchResult
                             +-- PermissionRequestResult
 ```
 
@@ -181,11 +290,12 @@ The contacts provider accepts additional parameters:
 
 #### SearchResult
 
-Sealed class with four implementations:
+Sealed class with five implementations:
 
 - **AppSearchResult**: Wraps AppInfo for app results
 - **WebSearchResult**: Web search results with URL and engine
 - **ContactSearchResult**: Contact search results with Contact object
+- **FileDocumentSearchResult**: File search results with FileDocument object
 - **PermissionRequestResult**: Shows permission request button
 
 #### Contact
@@ -212,9 +322,39 @@ Handles all contacts database interactions:
 - `getPhoneNumbers(contactId)`: Get phone numbers for a contact
 - `getEmails(contactId)`: Get emails for a contact
 
+#### FileDocument
+
+Located in: `domain/model/FileDocument.kt`
+
+Represents a document file on the device:
+
+- **id**: File ID from MediaStore
+- **name**: File name with extension
+- **mimeType**: MIME type (e.g., "application/pdf")
+- **size**: File size in bytes
+- **dateModified**: Last modified timestamp
+- **uri**: Content URI for opening the file
+- **folderPath**: Folder location for display
+
+Helper extension functions:
+- `formattedSize()`: Returns human-readable size (KB, MB, GB)
+- `isPdf()`, `isEpub()`, `isWordDocument()`, etc.: Check file type
+
+#### FilesRepository
+
+Located in: `data/repository/FilesRepository.kt`
+
+Handles all file storage interactions:
+
+- `hasFilesPermission()`: Check if permission is granted (MANAGE_EXTERNAL_STORAGE on Android 11+, READ_EXTERNAL_STORAGE on older versions)
+- `searchFiles(query)`: Search documents by file name
+- `getRecentFiles(limit)`: Get recently modified documents
+
 ### Permission Handling
 
 The permission system uses the modern Activity Result API:
+
+#### Contacts Permission
 
 1. **MainActivity** registers a permission launcher in `onCreate()`
 2. **Contacts mode activation** checks `hasContactsPermission` state
@@ -223,6 +363,22 @@ The permission system uses the modern Activity Result API:
 5. **MainActivity** launches permission request dialog
 6. **On result**: Updates `hasContactsPermission` state
 7. **UI automatically updates** due to state change
+
+#### Files Permission
+
+1. **MainActivity** checks `hasFilesPermission` using appropriate method:
+   - Android 11+: `Environment.isExternalStorageManager()`
+   - Android 10 and below: `ContextCompat.checkSelfPermission()`
+2. **Files mode activation** checks permission state
+3. **If not granted**: Shows `PermissionRequestResult` with button
+4. **Button click**: Calls `onRequestFilesPermission()`
+5. **MainActivity** handles permission request:
+   - Android 11+: Opens Settings for "All files access"
+   - Android 10 and below: Launches runtime permission dialog
+6. **On result**: Updates `hasFilesPermission` state
+7. **On Android 11+**: Permission state is rechecked in `onResume()` when returning from Settings
+
+**Note**: On Android 11+ (API 30+), `MANAGE_EXTERNAL_STORAGE` permission is required because scoped storage restricts `MediaStore.Files` to only app-created files.
 
 ### Parsing Logic
 
@@ -314,6 +470,14 @@ private fun performWikipediaSearch(query: String) {
 
 For contacts specifically: 5. Contacts provider checks `hasContactsPermission` 6. If not granted → returns `PermissionRequestResult` 7. If granted → queries `ContactsRepository` 8. Returns `ContactSearchResult` for each match
 
+For files specifically:
+1. Files provider checks `hasFilesPermission`:
+   - Android 11+: Checks `Environment.isExternalStorageManager()`
+   - Android 10 and below: Checks `READ_EXTERNAL_STORAGE` permission
+2. If not granted → returns `PermissionRequestResult`
+3. If granted → queries `FilesRepository` via MediaStore
+4. Returns `FileDocumentSearchResult` for each match
+
 ### Keyboard Actions
 
 - **Done button**: Launches first result (app or provider result)
@@ -337,7 +501,26 @@ The multi-mode search feature requires these permissions:
 ```xml
 <!-- Required for contacts search -->
 <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+<!-- Required for files search on Android 10 and below -->
+<uses-permission 
+    android:name="android.permission.READ_EXTERNAL_STORAGE"
+    android:maxSdkVersion="32" />
+
+<!-- Required for files search on Android 13+ (granular media permissions) -->
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+<!-- Required for files search on Android 11+ (all files access) -->
+<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 ```
+
+**Permission Usage Notes:**
+- `READ_CONTACTS`: Runtime permission requested via dialog
+- `READ_EXTERNAL_STORAGE`: Runtime permission for Android 10 and below
+- `MANAGE_EXTERNAL_STORAGE`: Special permission granted via Settings (Android 11+)
+- `READ_MEDIA_*`: Granular permissions for Android 13+ (part of media access)
 
 **Note**: `CALL_PHONE` permission is NOT needed because we use `ACTION_DIAL` which opens the dialer without directly placing the call.
 

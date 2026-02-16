@@ -23,6 +23,7 @@
 
 package com.milki.launcher.presentation.search
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.*
@@ -178,21 +179,35 @@ class SearchViewModel(
                 engine = result.engine
             )
             is YouTubeSearchResult -> SearchAction.OpenYouTubeSearch(result.query)
+            is UrlSearchResult -> SearchAction.OpenUrl(result.url)
             is ContactSearchResult -> {
                 val phone = result.contact.phoneNumbers.firstOrNull()
                 if (phone != null) {
                     SearchAction.CallContact(result.contact, phone)
                 } else {
-                    // No phone number - just close search
                     SearchAction.CloseSearch
                 }
             }
-            is PermissionRequestResult -> SearchAction.RequestContactsPermission
+            is FileDocumentSearchResult -> {
+                // Check if this is a placeholder/hint result (id == -1)
+                if (result.file.id == -1L) {
+                    SearchAction.CloseSearch
+                } else {
+                    SearchAction.OpenFile(result.file)
+                }
+            }
+            is PermissionRequestResult -> {
+                // Determine which permission is being requested based on the prefix
+                when (result.providerPrefix) {
+                    "c" -> SearchAction.RequestContactsPermission
+                    "f" -> SearchAction.RequestFilesPermission
+                    else -> SearchAction.CloseSearch
+                }
+            }
         }
 
         emitAction(action)
 
-        // Close search after action (except permission request)
         if (action.shouldCloseSearch()) {
             hideSearch()
         }
@@ -210,6 +225,22 @@ class SearchViewModel(
         // Re-run search if we're in contacts mode
         val currentState = _uiState.value
         if (currentState.activeProviderConfig?.prefix == "c") {
+            performSearch(currentState.query)
+        }
+    }
+
+    /**
+     * Update files permission status.
+     * Called from Activity when permission state changes.
+     *
+     * @param hasPermission Whether permission is granted
+     */
+    fun updateFilesPermission(hasPermission: Boolean) {
+        updateState { copy(hasFilesPermission = hasPermission) }
+
+        // Re-run search if we're in files mode
+        val currentState = _uiState.value
+        if (currentState.activeProviderConfig?.prefix == "f") {
             performSearch(currentState.query)
         }
     }
@@ -245,7 +276,9 @@ class SearchViewModel(
  * Flow:
  * 1. Parse query to detect provider prefix
  * 2. If provider prefix found, use that provider
- * 3. If no prefix, filter apps (limited to 8 results for grid display)
+ * 3. If no prefix, check if query is a valid URL
+ * 4. If URL detected, show URL result along with matching apps
+ * 5. Otherwise, filter apps (limited to 8 results for grid display)
  *
  * PERFORMANCE NOTE:
  * App results are limited to 8 because:
@@ -277,40 +310,105 @@ private fun performSearch(query: String) {
                 updateState { copy(isLoading = false, results = emptyList()) }
             }
         } else {
-            // App search - filter and limit to 8 results for grid display
+            // No provider prefix detected
             val state = _uiState.value
+            
+            // Check if the query looks like a URL
+            val urlResult = detectUrl(parsed.query)
+            
+            // Filter apps (limited to 8 results for grid display)
             val filteredApps = filterAppsUseCase(
                 query = parsed.query,
                 installedApps = state.installedApps,
                 recentApps = state.recentApps
             )
 
-            /**
-             * LIMIT TO 8 RESULTS:
-             *
-             * The grid layout (2 rows × 4 columns) displays exactly 8 apps.
-             * We limit the results here rather than in the UI because:
-             *
-             * 1. PERFORMANCE: Processing fewer items is faster
-             * 2. MEMORY: Smaller list uses less memory
-             * 3. UX: Users see the most relevant 8 results
-             *
-             * For recent apps (empty query): The repository already limits
-             * recent apps, but we enforce the limit here as a safety measure.
-             *
-             * For search results: We take the top 8 by priority (exact matches
-             * first, then starts-with, then contains - this ordering is done
-             * by FilterAppsUseCase).
-             */
             val limitedApps = filteredApps.take(8)
 
-            val results = limitedApps.map { app ->
+            val appResults = limitedApps.map { app ->
                 AppSearchResult(appInfo = app)
+            }
+
+            // Combine URL result with app results
+            // URL result comes first for easy access
+            val results = if (urlResult != null) {
+                listOf(urlResult) + appResults
+            } else {
+                appResults
             }
 
             updateState { copy(results = results) }
         }
     }
+}
+
+// ========================================================================
+// URL DETECTION
+// ========================================================================
+
+/**
+ * Detect if the query looks like a URL and create a UrlSearchResult.
+ *
+ * URL PATTERNS RECOGNIZED:
+ * 1. Full URLs: "https://example.com", "http://example.com/path"
+ * 2. Domain-only: "example.com", "sub.domain.org", "github.com/user/repo"
+ * 3. Common TLDs: .com, .org, .net, .io, .co, .edu, .gov, .dev, .app
+ *
+ * NORMALIZATION:
+ * - If no scheme is provided, "https://" is prepended
+ * - The display URL shows the original input for clarity
+ *
+ * @param query The search query to check
+ * @return UrlSearchResult if query looks like a URL, null otherwise
+ */
+private fun detectUrl(query: String): UrlSearchResult? {
+    val trimmed = query.trim()
+    
+    // Empty query is not a URL
+    if (trimmed.isEmpty()) return null
+    
+    // Check for full URL with scheme (http:// or https://)
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        // Use Android's built-in URL pattern matcher
+        if (Patterns.WEB_URL.matcher(trimmed).matches()) {
+            return UrlSearchResult(
+                url = trimmed,
+                displayUrl = trimmed
+            )
+        }
+    }
+    
+    // Check for domain-like patterns without scheme
+    // Common TLDs that users might type
+    val commonTlds = listOf(
+        ".com", ".org", ".net", ".io", ".co", ".edu", ".gov", 
+        ".dev", ".app", ".me", ".tech", ".xyz", ".info", ".biz",
+        ".online", ".site", ".store", ".blog"
+    )
+    
+    // Check if query contains a common TLD
+    val hasTld = commonTlds.any { tld -> 
+        trimmed.contains(tld, ignoreCase = true) 
+    }
+    
+    if (hasTld) {
+        // Validate with Android's URL pattern
+        // Prepend https:// for validation
+        val urlWithScheme = if (!trimmed.startsWith("http")) {
+            "https://$trimmed"
+        } else {
+            trimmed
+        }
+        
+        if (Patterns.WEB_URL.matcher(urlWithScheme).matches()) {
+            return UrlSearchResult(
+                url = urlWithScheme,
+                displayUrl = trimmed
+            )
+        }
+    }
+    
+    return null
 }
 
     // ========================================================================

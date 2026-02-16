@@ -264,6 +264,10 @@ dependencies {
     // Modern UI components following Material Design 3 guidelines
     implementation(libs.androidx.compose.material3)
     
+    // Material Icons Extended - Additional Material Design icons
+    // Includes icons not in the core set (PictureAsPdf, Article, etc.)
+    implementation(libs.androidx.compose.material.icons.extended)
+    
     // ========================================================================
     // DATA PERSISTENCE
     // ========================================================================

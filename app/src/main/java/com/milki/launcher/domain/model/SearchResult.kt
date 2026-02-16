@@ -116,3 +116,52 @@ data class YouTubeSearchResult(
     override val title: String = "Search \"$query\" on YouTube"
     override val id: String = "youtube_${query.hashCode()}"
 }
+
+/**
+ * Represents a direct URL result.
+ *
+ * When the user types a valid URL (e.g., "github.com" or "https://example.com"),
+ * this result appears to let them open it directly in the browser.
+ * This provides a shortcut for quickly navigating to websites without
+ * needing to use the "s " prefix for web search.
+ *
+ * URL VALIDATION:
+ * The system detects URLs that:
+ * - Start with http:// or https://
+ * - Are domain-like patterns (e.g., "example.com", "sub.domain.org")
+ * - Have common TLDs (.com, .org, .net, .io, etc.)
+ *
+ * @property url The complete URL to open (normalized with https:// if needed)
+ * @property displayUrl The URL as shown to the user (may be truncated for display)
+ */
+data class UrlSearchResult(
+    val url: String,
+    val displayUrl: String
+) : SearchResult() {
+    override val title: String = "Open $displayUrl"
+    override val id: String = "url_${url.hashCode()}"
+}
+
+/**
+ * Represents a file/document search result.
+ *
+ * This result type is used for searching documents on the device.
+ * It supports various document formats including PDF, EPUB, Word,
+ * Excel, PowerPoint, and text files.
+ *
+ * When clicked, the file will be opened with an appropriate app
+ * (e.g., PDF viewer, word processor, ebook reader).
+ *
+ * EXCLUDED FILE TYPES:
+ * Images and videos are NOT included in this search to keep
+ * the focus on productivity documents. Gallery apps are better
+ * suited for media file browsing.
+ *
+ * @property file The complete file information including name, type, size, and URI
+ */
+data class FileDocumentSearchResult(
+    val file: FileDocument
+) : SearchResult() {
+    override val title: String = file.name
+    override val id: String = "file_${file.id}_${file.name.hashCode()}"
+}

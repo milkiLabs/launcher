@@ -25,6 +25,7 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
+import com.milki.launcher.domain.model.FileDocument
 
 /**
  * Sealed class representing all possible search-related actions.
@@ -74,6 +75,17 @@ sealed class SearchAction {
     data class OpenYouTubeSearch(val query: String) : SearchAction()
 
     /**
+     * Open a URL directly in the browser.
+     *
+     * Emitted when the user types a valid URL and taps the URL result.
+     * This provides a shortcut for navigating to websites without
+     * needing to use the "s " prefix for web search.
+     *
+     * @property url The complete URL to open (normalized with https:// if needed)
+     */
+    data class OpenUrl(val url: String) : SearchAction()
+
+    /**
      * Make a phone call to a contact.
      *
      * Emitted when user taps a contact result.
@@ -94,6 +106,25 @@ sealed class SearchAction {
      * or taps the permission request result.
      */
     data object RequestContactsPermission : SearchAction()
+
+    /**
+     * Request files/storage permission.
+     *
+     * Emitted when user tries to search files without permission
+     * (only needed on Android 10 and below), or taps the permission
+     * request result.
+     */
+    data object RequestFilesPermission : SearchAction()
+
+    /**
+     * Open a file/document with an appropriate app.
+     *
+     * Emitted when user taps a file search result.
+     * Opens the file with the best available app (PDF viewer, word processor, etc.).
+     *
+     * @property file The file to open
+     */
+    data class OpenFile(val file: FileDocument) : SearchAction()
 
     /**
      * Close the search dialog.
@@ -121,8 +152,11 @@ fun SearchAction.shouldCloseSearch(): Boolean {
         is SearchAction.LaunchApp -> true
         is SearchAction.OpenWebSearch -> true
         is SearchAction.OpenYouTubeSearch -> true
+        is SearchAction.OpenUrl -> true
         is SearchAction.CallContact -> true
+        is SearchAction.OpenFile -> true
         is SearchAction.RequestContactsPermission -> false
+        is SearchAction.RequestFilesPermission -> false
         is SearchAction.CloseSearch -> true
         is SearchAction.ClearQuery -> false
     }

@@ -43,11 +43,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.milki.launcher.data.repository.AppRepositoryImpl
 import com.milki.launcher.data.repository.ContactsRepositoryImpl
+import com.milki.launcher.data.repository.FilesRepositoryImpl
 import com.milki.launcher.data.search.ContactsSearchProvider
+import com.milki.launcher.data.search.FilesSearchProvider
 import com.milki.launcher.data.search.WebSearchProvider
 import com.milki.launcher.data.search.YouTubeSearchProvider
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.presentation.search.SearchViewModel
@@ -91,6 +94,14 @@ class AppContainer(private val application: Application) {
         ContactsRepositoryImpl(application)
     }
 
+    /**
+     * Repository for files/documents data.
+     * Singleton - created lazily on first access.
+     */
+    private val filesRepository: FilesRepository by lazy {
+        FilesRepositoryImpl(application)
+    }
+
     // ========================================================================
     // SEARCH PROVIDERS
     // ========================================================================
@@ -120,6 +131,15 @@ class AppContainer(private val application: Application) {
         ContactsSearchProvider(contactsRepository)
     }
 
+    /**
+     * Files search provider (prefix "f").
+     * Depends on filesRepository.
+     * Singleton - created lazily on first access.
+     */
+    private val filesSearchProvider: FilesSearchProvider by lazy {
+        FilesSearchProvider(filesRepository)
+    }
+
     // ========================================================================
     // REGISTRY
     // ========================================================================
@@ -133,6 +153,7 @@ class AppContainer(private val application: Application) {
             initialProviders = listOf(
                 webSearchProvider,
                 contactsSearchProvider,
+                filesSearchProvider,
                 youTubeSearchProvider
             )
         )
@@ -183,6 +204,12 @@ class AppContainer(private val application: Application) {
      * Used by Activity to check permission status.
      */
     fun provideContactsRepository(): ContactsRepository = contactsRepository
+
+    /**
+     * Provide the files repository for permission checking.
+     * Used by Activity to check permission status.
+     */
+    fun provideFilesRepository(): FilesRepository = filesRepository
 
     /**
      * Provide the app repository for saving recent apps.

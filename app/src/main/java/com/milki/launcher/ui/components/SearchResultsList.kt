@@ -31,6 +31,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
@@ -59,7 +61,10 @@ fun SearchResultsList(
     /**
      * Check if all results are app results.
      * If true, we can display them in a compact grid layout.
-     * If false (mixed types), we use the traditional list layout.
+     * If false (mixed types including URL results), we use the traditional list layout.
+     * 
+     * URL results are displayed in list format because they have additional
+     * information (the full URL) that benefits from the wider list item layout.
      */
     val allAppResults = results.all { it is AppSearchResult }
 
@@ -157,11 +162,19 @@ private fun AppResultsGrid(
  * Uses the traditional vertical list with larger items that can
  * display additional information (like contact phone numbers).
  *
+ * SCROLL BEHAVIOR:
+ * The list automatically scrolls to the top whenever the results change.
+ * This ensures that when the user modifies their search query, they see
+ * the most relevant results at the top of the list, not stuck at a
+ * previous scroll position from an older query.
+ *
  * ITEM TYPES SUPPORTED:
  * - AppSearchResult → AppListItem (defined in AppListItem.kt)
  * - WebSearchResult → WebSearchResultItem
  * - YouTubeSearchResult → YouTubeSearchResultItem
+ * - UrlSearchResult → UrlSearchResultItem
  * - ContactSearchResult → ContactSearchResultItem
+ * - FileDocumentSearchResult → FileDocumentSearchResultItem
  * - PermissionRequestResult → PermissionRequestItem
  *
  * @param results List of search results (can be any type)
@@ -174,8 +187,30 @@ private fun MixedResultsList(
     activeProviderConfig: SearchProviderConfig?,
     onResultClick: (SearchResult) -> Unit
 ) {
+    /**
+     * LazyListState allows us to control and observe the scroll position
+     * of the LazyColumn. We use this to programmatically scroll to the
+     * top when new results arrive.
+     */
+    val listState = rememberLazyListState()
+    
+    /**
+     * LaunchedEffect with results as the key ensures this effect runs
+     * whenever the results list changes. We use this to scroll to the
+     * top of the list so the user sees the most relevant new results.
+     *
+     * This is important for the user experience because:
+     * - When the user types more characters, results get filtered
+     * - Without this, the scroll position stays at a random offset
+     * - The user might miss the best matches that are now at the top
+     */
+    LaunchedEffect(results) {
+        listState.animateScrollToItem(0)
+    }
+    
     LazyColumn(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        state = listState
     ) {
         /**
          * Each result type gets its own dedicated composable.
@@ -203,8 +238,21 @@ private fun MixedResultsList(
                         onClick = { onResultClick(result) }
                     )
                 }
+                is UrlSearchResult -> {
+                    UrlSearchResultItem(
+                        result = result,
+                        onClick = { onResultClick(result) }
+                    )
+                }
                 is ContactSearchResult -> {
                     ContactSearchResultItem(
+                        result = result,
+                        accentColor = activeProviderConfig?.color,
+                        onClick = { onResultClick(result) }
+                    )
+                }
+                is FileDocumentSearchResult -> {
+                    FileDocumentSearchResultItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
                         onClick = { onResultClick(result) }

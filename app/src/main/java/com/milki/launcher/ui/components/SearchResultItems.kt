@@ -29,6 +29,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material.icons.outlined.Slideshow
+import androidx.compose.material.icons.outlined.TableChart
+import androidx.compose.material.icons.outlined.TextSnippet
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -141,6 +147,60 @@ fun YouTubeSearchResultItem(
                 imageVector = Icons.Default.PlayArrow,
                 contentDescription = null,
                 tint = iconColor
+            )
+        },
+        modifier = Modifier.clickable { onClick() }
+    )
+}
+
+/**
+ * UrlSearchResultItem - Displays a direct URL result.
+ *
+ * This item appears when the user types a valid URL (e.g., "github.com").
+ * It provides a quick way to open the URL in the browser without needing
+ * to use the "s " prefix for web search.
+ *
+ * VISUAL ELEMENTS:
+ * - A language/world icon (indicates web/URL)
+ * - "Open [url]" as the headline
+ * - The full URL as supporting text
+ *
+ * USAGE:
+ * Displayed when the user types a URL-like query without a provider prefix.
+ * The URL is normalized with https:// if no scheme was provided.
+ *
+ * @param result The URL search result to display
+ * @param onClick Callback when the item is clicked
+ */
+@Composable
+fun UrlSearchResultItem(
+    result: UrlSearchResult,
+    onClick: () -> Unit
+) {
+    ListItem(
+        headlineContent = { 
+            /**
+             * The headline uses the display URL (original input) for clarity.
+             * This shows the user exactly what they typed.
+             */
+            Text(text = result.title) 
+        },
+        supportingContent = {
+            /**
+             * Show the full URL with scheme as supporting text.
+             * This confirms to the user what will be opened.
+             */
+            Text(
+                text = result.url,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
             )
         },
         modifier = Modifier.clickable { onClick() }
@@ -322,6 +382,109 @@ fun PermissionRequestItem(
             }
         }
     }
+}
+
+/**
+ * FileDocumentSearchResultItem - Displays a file/document search result.
+ *
+ * This item represents a document file from the device storage. It shows:
+ * - A document icon (tinted with accent color)
+ * - The file name as the headline
+ * - File details as supporting text (folder, size, extension)
+ * - An appropriate icon based on file type (PDF, Word, etc.)
+ *
+ * FILE TYPE INDICATORS:
+ * - PDF files show a distinctive PDF icon
+ * - Word documents show a document icon
+ * - Other files show a generic file icon
+ *
+ * USAGE:
+ * Displayed when the user uses the "f " prefix to search files.
+ * Requires storage permission on Android 10 and below.
+ *
+ * @param result The file search result to display
+ * @param accentColor Color for icons (defaults to primary if null)
+ * @param onClick Callback when the item is clicked
+ */
+@Composable
+fun FileDocumentSearchResultItem(
+    result: FileDocumentSearchResult,
+    accentColor: Color?,
+    onClick: () -> Unit
+) {
+    val iconColor = accentColor ?: MaterialTheme.colorScheme.primary
+    val file = result.file
+
+    /**
+     * Check if this is a placeholder/hint result (id == -1).
+     * These are shown when there's no query yet or no results found.
+     */
+    val isHint = file.id == -1L
+
+    /**
+     * Determine the appropriate icon based on file type.
+     * This helps users quickly identify what kind of document it is.
+     */
+    val fileIcon = when {
+        isHint -> Icons.Default.Search
+        file.isPdf() -> Icons.Outlined.PictureAsPdf
+        file.isWordDocument() -> Icons.Outlined.Article
+        file.isExcelSpreadsheet() -> Icons.Outlined.TableChart
+        file.isPowerPoint() -> Icons.Outlined.Slideshow
+        file.isEpub() -> Icons.Outlined.MenuBook
+        file.isTextFile() -> Icons.Outlined.TextSnippet
+        else -> Icons.Default.InsertDriveFile
+    }
+
+    ListItem(
+        headlineContent = { 
+            /**
+             * The headline shows the file name.
+             * For hint results, this is a helpful message.
+             */
+            Text(text = file.name) 
+        },
+        supportingContent = {
+            /**
+             * Show file details as supporting text.
+             * - For hints: Just show the message
+             * - For real files: Show folder path and size
+             */
+            if (!isHint) {
+                val details = buildString {
+                    // Show folder path if available
+                    if (file.folderPath.isNotEmpty()) {
+                        append(file.folderPath)
+                    }
+                    // Show file size
+                    if (file.size > 0) {
+                        if (isNotEmpty()) append(" • ")
+                        append(file.formattedSize())
+                    }
+                }
+                if (details.isNotEmpty()) {
+                    Text(
+                        text = details,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        leadingContent = {
+            /**
+             * The icon indicates the file type.
+             * Different icons for different document types help
+             * users quickly identify what they're looking for.
+             */
+            Icon(
+                imageVector = fileIcon,
+                contentDescription = null,
+                tint = iconColor
+            )
+        },
+        modifier = Modifier.clickable { onClick() }
+    )
 }
 
 /**
