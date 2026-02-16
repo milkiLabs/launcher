@@ -7,3 +7,5 @@
     - NEVER use hardcoded `.dp` values for padding, margins, sizes, or corner radii.
     - ALWAYS use the centralized constants in `com.milki.launcher.ui.theme.Spacing.kt`.
     - If a specific `dp` value is needed that isn't in the system, consider if it should be added to `Spacing.kt` first.
+- **Material Icons**:
+    - ALWAYS use AutoMirrored versions of icons when available (e.g., `Icons.AutoMirrored.Filled.InsertDriveFile` instead of `Icons.Default.InsertDriveFile`).

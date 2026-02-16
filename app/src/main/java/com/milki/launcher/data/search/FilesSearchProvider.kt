@@ -23,7 +23,7 @@ package com.milki.launcher.data.search
 import android.Manifest
 import android.os.Build
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.repository.SearchProvider
@@ -42,7 +42,7 @@ class FilesSearchProvider(
         name = "Files",
         description = "Search all files on device",
         color = androidx.compose.ui.graphics.Color(0xFFFF9800),
-        icon = Icons.Default.InsertDriveFile
+        icon = Icons.AutoMirrored.Filled.InsertDriveFile
     )
 
     /**

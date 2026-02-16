@@ -58,14 +58,16 @@ Educational project - feel free to learn from and modify!
 ## Feature Roadmap
 
 ### Planned Features
+
 - [ ] Long-press actions on apps (info, uninstall, split screen)
 - [ ] Home screen gestures (swipe up for search, double-tap to lock)
-- [ ] File search with `f ` prefix
 - [ ] Custom user macros/automation
 - [ ] Fuzzy matching for app names
 - [ ] Prefix localization (Arabic: س, ي, ت)
+- change empty state for search,youtube
 
 ### Performance Notes
+
 - Current search is O(n) - suitable for ~200 apps
 - Future additions (contacts, shortcuts, settings) may require indexing
 - Need to implement lifecycle handling for app install/uninstall/update
