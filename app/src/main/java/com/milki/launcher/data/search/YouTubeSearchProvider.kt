@@ -6,7 +6,7 @@
  * RESPONSIBILITIES:
  * - Define the "y" prefix configuration
  * - Generate YouTube search results for queries
- * - NOT responsible for actually opening YouTube (that's SearchAction)
+ * - NOT responsible for actually opening YouTube (that's SearchResultAction)
  *
  * EXAMPLE:
  * User types: "y lofi music"

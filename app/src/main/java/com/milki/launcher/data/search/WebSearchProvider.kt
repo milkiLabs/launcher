@@ -7,7 +7,7 @@
  * RESPONSIBILITIES:
  * - Define the "s" prefix configuration
  * - Generate web search results for queries
- * - NOT responsible for actually opening the browser (that's SearchAction)
+ * - NOT responsible for actually opening the browser (that's SearchResultAction)
  *
  * EXAMPLE:
  * User types: "s cats"

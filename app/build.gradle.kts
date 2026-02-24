@@ -289,6 +289,26 @@ dependencies {
     implementation(libs.coil.compose)
     
     // ========================================================================
+    // DEPENDENCY INJECTION - KOIN
+    // ========================================================================
+    
+    // Koin BOM (Bill of Materials) - Manages all Koin library versions
+    // Ensures all Koin libraries use compatible versions
+    implementation(platform(libs.koin.bom))
+    
+    // Koin Core - Core dependency injection functionality
+    // Provides: module { }, single { }, factory { }, get() DSL
+    implementation(libs.koin.core)
+    
+    // Koin Android - Android-specific extensions
+    // Provides: androidContext(), androidLogger(), ViewModel integration
+    implementation(libs.koin.android)
+    
+    // Koin Compose - Jetpack Compose integration
+    // Provides: koinViewModel(), getViewModel() in composables
+    implementation(libs.koin.androidx.compose)
+    
+    // ========================================================================
     // TESTING - UNIT TESTS
     // ========================================================================
     

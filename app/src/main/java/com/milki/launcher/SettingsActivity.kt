@@ -12,17 +12,29 @@ import androidx.compose.runtime.getValue
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.SettingsScreen
 import com.milki.launcher.ui.theme.LauncherTheme
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class SettingsActivity : ComponentActivity() {
 
     /**
-     * SettingsViewModel instance obtained from the AppContainer.
-     * Created lazily to ensure AppContainer is initialized first.
+     * SettingsViewModel instance provided by Koin.
+     *
+     * Koin's viewModel() delegate handles:
+     * - Creating the ViewModel with all its dependencies (SettingsRepository)
+     * - Scoping the ViewModel to this Activity's lifecycle
+     * - Surviving configuration changes (screen rotation)
+     * - Clearing when the Activity is destroyed
+     *
+     * BEFORE (manual DI):
+     * private val settingsViewModel: SettingsViewModel by lazy {
+     *     (application as LauncherApplication).container.settingsViewModelFactory
+     *         .create(SettingsViewModel::class.java)
+     * }
+     *
+     * AFTER (Koin):
+     * private val settingsViewModel: SettingsViewModel by viewModel()
      */
-    private val settingsViewModel: SettingsViewModel by lazy {
-        (application as LauncherApplication).container.settingsViewModelFactory
-            .create(SettingsViewModel::class.java)
-    }
+    private val settingsViewModel: SettingsViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

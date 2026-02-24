@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
@@ -19,6 +20,8 @@ import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.ui.screens.LauncherScreen
 import com.milki.launcher.ui.theme.LauncherTheme
+import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 /**
  * MainActivity - The launcher's home screen Activity.
@@ -30,19 +33,37 @@ import com.milki.launcher.ui.theme.LauncherTheme
 class MainActivity : ComponentActivity() {
 
     // ========================================================================
-    // DEPENDENCIES
+    // DEPENDENCIES - INJECTED BY KOIN
     // ========================================================================
 
     /**
-     * SearchViewModel instance obtained from the AppContainer.
+     * SearchViewModel instance provided by Koin.
      *
-     * Created lazily to ensure AppContainer is initialized first.
-     * This ViewModel manages all search state (query, results, visibility)
-     * and emits actions for the Activity to execute.
+     * Koin's viewModel() delegate handles:
+     * - Creating the ViewModel with all its dependencies
+     * - Scoping the ViewModel to this Activity's lifecycle
+     * - Surviving configuration changes (screen rotation)
+     * - Clearing when the Activity is destroyed
+     *
+     * BEFORE (manual DI):
+     * private val searchViewModel: SearchViewModel by viewModels {
+     *     (application as LauncherApplication).container.searchViewModelFactory
+     * }
+     *
+     * AFTER (Koin):
+     * private val searchViewModel: SearchViewModel by viewModel()
      */
-    private val searchViewModel: SearchViewModel by viewModels {
-        (application as LauncherApplication).container.searchViewModelFactory
-    }
+    private val searchViewModel: SearchViewModel by viewModel()
+
+    /**
+     * ContactsRepository injected by Koin.
+     *
+     * This is needed by ActionExecutor for saving recent contacts.
+     * Koin provides the singleton instance that was defined in AppModule.
+     *
+     * The inject() delegate provides singletons, while viewModel() provides ViewModels.
+     */
+    private val contactsRepository: ContactsRepository by inject()
 
     /**
      * PermissionHandler - Manages all permission requests.
@@ -91,10 +112,10 @@ class MainActivity : ComponentActivity() {
      * - Action: Just ensure search is hidden (user wants to go home)
      *
      * LIFECYCLE FLOW:
-     * 1. User opens app from homescreen → onStop() sets flag to false
-     * 2. User presses home → onNewIntent() fires (flag is false)
+     * 1. User opens app from homescreen -> onStop() sets flag to false
+     * 2. User presses home -> onNewIntent() fires (flag is false)
      * 3. onResume() sets flag to true
-     * 4. User presses home again → onNewIntent() fires (flag is true)
+     * 4. User presses home again -> onNewIntent() fires (flag is true)
      *
      * The key insight is that onNewIntent() fires BEFORE onResume(),
      * so we can check the flag to know the prior state.
@@ -150,11 +171,8 @@ class MainActivity : ComponentActivity() {
         permissionHandler = PermissionHandler(this, searchViewModel)
         permissionHandler.setup()
         
-        // Get contacts repository from the container
-        val container = (application as LauncherApplication).container
-        val contactsRepository = container.contactsRepository
-        
-        // Initialize action executor
+        // Initialize action executor with ContactsRepository from Koin
+        // ContactsRepository is injected at the top of the class using by inject()
         actionExecutor = ActionExecutor(this, contactsRepository)
         
         // Set up executor callbacks
@@ -193,7 +211,7 @@ class MainActivity : ComponentActivity() {
      *
      * We also set the homescreen flag AFTER onNewIntent would have fired.
      * Android calls lifecycle methods in this order:
-     * onNewIntent → onStart → onResume
+     * onNewIntent -> onStart -> onResume
      *
      * So when onNewIntent checks the flag, it sees the OLD state (correct).
      * Then onResume sets it to true for the NEXT home press.

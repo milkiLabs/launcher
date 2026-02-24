@@ -3,13 +3,13 @@
  * 
  * This class extends Application and provides:
  * 1. Coil ImageLoader configuration for loading app icons
- * 2. Dependency injection container for the entire app
+ * 2. Koin dependency injection initialization
  * 
  * Key responsibilities:
- * 1. Configure Coil ImageLoader with custom settings
- * 2. Register custom AppIconFetcher for loading app icons
- * 3. Set up memory caching for optimal performance
- * 4. Initialize the AppContainer for dependency injection
+ * 1. Initialize Koin DI container with all app modules
+ * 2. Configure Coil ImageLoader with custom settings
+ * 3. Register custom AppIconFetcher for loading app icons
+ * 4. Set up memory caching for optimal performance
  * 
  * The Application class is the first component created when the app starts
  * (before any Activity). It's the perfect place for initialization that
@@ -33,9 +33,13 @@ import coil.ImageLoaderFactory
 import coil.memory.MemoryCache
 
 // ============================================================================
-// IMPORTS - Dependency Injection
+// IMPORTS - Koin (Dependency Injection)
 // ============================================================================
-import com.milki.launcher.di.AppContainer
+import com.milki.launcher.di.appModule
+import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
+import org.koin.core.context.startKoin
+import org.koin.core.logger.Level
 
 // ============================================================================
 // APPLICATION CLASS
@@ -45,15 +49,15 @@ import com.milki.launcher.di.AppContainer
  * 
  * Why do we need a custom Application class?
  * 
- * 1. Coil Configuration: We need to register our custom AppIconFetcher
+ * 1. Koin Initialization: We need to start Koin before any Activity is created.
+ *    Koin provides all dependencies (repositories, view models, etc.)
+ * 
+ * 2. Coil Configuration: We need to register our custom AppIconFetcher
  *    and configure caching settings. This must happen before any images
  *    are loaded.
  * 
- * 2. App-Wide Initialization: The Application is created before any
+ * 3. App-Wide Initialization: The Application is created before any
  *    Activity, so it's the perfect place for one-time setup.
- * 
- * 3. Dependency Injection: The AppContainer is created here and lives
- *    for the entire app session, providing all dependencies.
  * 
  * 4. Singleton Pattern: The Application instance is a singleton that
  *    lives for the entire app session.
@@ -68,21 +72,55 @@ import com.milki.launcher.di.AppContainer
 class LauncherApplication : Application(), ImageLoaderFactory {
 
     /**
-     * Dependency injection container for the entire app.
-     * Created once and accessed from Activities and ViewModels.
-     */
-    lateinit var container: AppContainer
-        private set
-    
-    /**
      * Called when the application is starting.
-     * Initialize the DI container here before any Activity is created.
+     * 
+     * INITIALIZATION ORDER:
+     * 1. super.onCreate() - Always call first
+     * 2. initializeKoin() - Start Koin DI before any dependencies are needed
+     * 3. Coil is configured lazily when newImageLoader() is called
      */
     override fun onCreate() {
         super.onCreate()
-        // Initialize the dependency container
+        
+        // Initialize Koin dependency injection
         // This must happen before any Activity is created
-        container = AppContainer(this)
+        initializeKoin()
+    }
+
+    /**
+     * Initialize Koin dependency injection.
+     * 
+     * KOIN SETUP:
+     * 1. androidContext() - Provides Android Context to Koin
+     *    This allows dependencies to request Context via get()
+     * 
+     * 2. androidLogger() - Enables Koin's Android logger
+     *    Shows dependency resolution in Logcat for debugging
+     *    Level.ERROR only shows errors (use Level.DEBUG for more detail)
+     * 
+     * 3. modules() - Register Koin modules
+     *    Each module defines a set of dependencies
+     *    We have one appModule that contains all our dependencies
+     * 
+     * WHY STARTKOIN IN APPLICATION?
+     * - Application is created before any Activity
+     * - Koin needs to be ready when Activities request ViewModels
+     * - The Application context lives for the entire app session
+     */
+    private fun initializeKoin() {
+        startKoin {
+            // Provide the Application context to Koin
+            // This is used by dependencies that need Context (repositories, etc.)
+            androidContext(this@LauncherApplication)
+            
+            // Enable Koin's Android logger for debugging
+            // Use Level.ERROR for production, Level.DEBUG for development
+            androidLogger(Level.ERROR)
+            
+            // Load our dependency modules
+            // appModule contains all repositories, providers, use cases, and ViewModels
+            modules(appModule)
+        }
     }
     
     /**

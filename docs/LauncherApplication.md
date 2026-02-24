@@ -2,7 +2,10 @@
 
 ## Overview
 
-`LauncherApplication.kt` is the custom Application class for the Milki Launcher. While it might be the smallest file in the project, it plays a crucial role in configuring application-wide settings, specifically for image loading with Coil.
+`LauncherApplication.kt` is the custom Application class for the Milki Launcher. While it might be one of the smaller files in the project, it plays crucial roles in:
+
+1. **Koin Dependency Injection Initialization** - Starting Koin before any Activity is created
+2. **Coil Image Loading Configuration** - Custom settings for loading app icons
 
 In Android, the `Application` class is the first component to be created when your app starts and the last to be destroyed when it closes. It's the perfect place for app-wide initialization.
 
@@ -13,13 +16,14 @@ In Android, the `Application` class is the first component to be created when yo
 1. [What is an Application Class?](#what-is-an-application-class)
 2. [Why Do We Need a Custom Application?](#why-do-we-need-a-custom-application)
 3. [Class Declaration](#class-declaration)
-4. [ImageLoaderFactory Interface](#imageloaderfactory-interface)
-5. [newImageLoader() Method](#newimageloader-method)
-6. [Coil Configuration Explained](#coil-configuration-explained)
-7. [Memory Cache Configuration](#memory-cache-configuration)
-8. [Why No Disk Cache?](#why-no-disk-cache)
-9. [Hardware Bitmaps](#hardware-bitmaps)
-10. [How It All Fits Together](#how-it-all-fits-together)
+4. [Koin Dependency Injection Initialization](#koin-dependency-injection-initialization)
+5. [ImageLoaderFactory Interface](#imageloaderfactory-interface)
+6. [newImageLoader() Method](#newimageloader-method)
+7. [Coil Configuration Explained](#coil-configuration-explained)
+8. [Memory Cache Configuration](#memory-cache-configuration)
+9. [Why No Disk Cache?](#why-no-disk-cache)
+10. [Hardware Bitmaps](#hardware-bitmaps)
+11. [How It All Fits Together](#how-it-all-fits-together)
 
 ---
 
@@ -131,6 +135,80 @@ class MyClass : Application(), Interface1, Interface2
 // Invalid - can't extend multiple classes
 class MyClass : Application(), AnotherClass()
 ```
+
+---
+
+## Koin Dependency Injection Initialization
+
+### What is Koin?
+
+Koin is a lightweight dependency injection framework for Kotlin. It uses a DSL to define dependencies without annotation processing.
+
+### Why Initialize Koin in Application?
+
+1. **Application is created first** - Before any Activity, ensuring Koin is ready when dependencies are needed
+2. **Context availability** - Application context is needed by many dependencies (repositories, etc.)
+3. **Single initialization** - Koin is set up once and available everywhere
+
+### The initializeKoin() Method
+
+```kotlin
+private fun initializeKoin() {
+    startKoin {
+        // Provide the Application context to Koin
+        androidContext(this@LauncherApplication)
+        
+        // Enable Koin's Android logger for debugging
+        androidLogger(Level.ERROR)
+        
+        // Load our dependency modules
+        modules(appModule)
+    }
+}
+```
+
+### What Each Call Does
+
+**`startKoin { }`**:
+- Creates Koin's internal container
+- Must be called only once (in Application)
+
+**`androidContext(this@LauncherApplication)`**:
+- Registers the Application context
+- Dependencies can request Context via `get()`
+- Example: `single { AppRepositoryImpl(get()) }` - the `get()` returns the Context
+
+**`androidLogger(Level.ERROR)`**:
+- Enables Koin logging to Logcat
+- `Level.ERROR` only shows errors (use `Level.DEBUG` for development)
+- Helps debug dependency resolution issues
+
+**`modules(appModule)`**:
+- Loads the dependency module(s)
+- `appModule` defines all repositories, providers, use cases, and ViewModels
+- Dependencies become available immediately after this call
+
+### When Dependencies Are Created
+
+Koin uses lazy initialization by default:
+
+```
+startKoin called
+    ↓
+Module definitions loaded (not instantiated yet)
+    ↓
+Activity requests ViewModel via by viewModel()
+    ↓
+Koin resolves dependencies (get() calls)
+    ↓
+Dependencies created on-demand
+    ↓
+Singletons cached for future requests
+```
+
+### For More Information
+
+See `docs/KoinDependencyInjection.md` for detailed Koin documentation.
 
 ---
 

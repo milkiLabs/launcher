@@ -351,39 +351,64 @@ class YouTubeSearchProvider(private val context: Context) : SearchProvider {
 
 ## Dependency Injection
 
-**Location**: `di/AppContainer.kt`
+**Location**: `di/AppModule.kt`
 
-The app uses a simple **Service Locator** pattern for dependency injection (manual DI without Hilt/Koin for educational clarity):
+The app uses **Koin** for dependency injection - a lightweight DI framework that uses a DSL for defining dependencies without annotation processing.
 
 ```kotlin
-class AppContainer(private val context: Context) {
-    // Repositories
-    val appRepository: AppRepository by lazy { AppRepositoryImpl(context) }
-    val contactsRepository: ContactsRepository by lazy { ContactsRepositoryImpl(context) }
+// Koin module definition
+val appModule = module {
+    // Repositories - singletons
+    single<AppRepository> { AppRepositoryImpl(get()) }
+    single<ContactsRepository> { ContactsRepositoryImpl(get()) }
+    single<FilesRepository> { FilesRepositoryImpl(get()) }
+    single<SettingsRepository> { SettingsRepositoryImpl(get()) }
     
-    // Search Providers
-    private val webSearchProvider = WebSearchProvider()
-    private val contactsSearchProvider = ContactsSearchProvider(contactsRepository)
-    private val youTubeSearchProvider = YouTubeSearchProvider(context)
+    // Search Providers - singletons
+    single { WebSearchProvider() }
+    single { ContactsSearchProvider(get()) }
+    single { FilesSearchProvider(get()) }
+    single { YouTubeSearchProvider() }
     
-    // Registry
-    val searchProviderRegistry: SearchProviderRegistry by lazy {
+    // Registry - singleton
+    single {
         SearchProviderRegistry(
-            listOf(webSearchProvider, contactsSearchProvider, youTubeSearchProvider)
+            listOf(
+                get<WebSearchProvider>(),
+                get<ContactsSearchProvider>(),
+                get<FilesSearchProvider>(),
+                get<YouTubeSearchProvider>()
+            )
         )
     }
     
-    // Use Cases
-    val filterAppsUseCase = FilterAppsUseCase()
+    // Use Cases - singletons
+    single { FilterAppsUseCase() }
+    single { UrlHandlerResolver(get()) }
+    
+    // ViewModels - scoped to lifecycle
+    viewModel {
+        SearchViewModel(
+            appRepository = get(),
+            contactsRepository = get(),
+            providerRegistry = get(),
+            filterAppsUseCase = get(),
+            urlHandlerResolver = get()
+        )
+    }
+    
+    viewModel { SettingsViewModel(get()) }
 }
 ```
 
-**Why Manual DI?**
-- Educational clarity for beginners
-- No external dependencies
-- Easy to understand the flow
+**Why Koin?**
+- Declarative dependency definitions
+- Automatic dependency resolution with `get()`
+- Easy testing with module overrides
+- No annotation processing (faster builds)
+- Clean, readable code
 
-**Production Alternative**: Use Hilt or Koin for automatic DI
+**Detailed documentation**: See `docs/KoinDependencyInjection.md`
 
 ---
 
@@ -662,7 +687,7 @@ app/src/main/java/com/milki/launcher/
 ├── AppIconFetcher.kt                  # Coil icon loader
 │
 ├── di/
-│   └── AppContainer.kt                # Manual DI container
+│   └── AppModule.kt                 # Koin DI module definition
 │
 ├── domain/                            # Business logic
 │   ├── model/
