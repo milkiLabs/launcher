@@ -266,27 +266,6 @@ class PermissionHandler(
         callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
     }
 
-    /**
-     * Checks if call permission is currently granted.
-     *
-     * @return True if CALL_PHONE permission is granted
-     */
-    fun hasCallPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            activity,
-            Manifest.permission.CALL_PHONE
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    /**
-     * Checks if a specific permission is currently granted.
-     *
-     * This is a generic method that can check any Android permission.
-     * Used by ActionExecutor to check if actions requiring permissions can proceed.
-     *
-     * @param permission The Android permission string (e.g., Manifest.permission.CALL_PHONE)
-     * @return True if the permission is granted
-     */
     fun hasPermission(permission: String): Boolean {
         return ContextCompat.checkSelfPermission(
             activity,

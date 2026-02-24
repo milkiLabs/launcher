@@ -9,7 +9,7 @@
  * - Define the "c" prefix configuration
  * - Check contacts permission status
  * - Return contact results or permission request placeholder
- * - NOT responsible for actually making calls (that's SearchAction)
+ * - NOT responsible for actually making calls (that's SearchResultAction)
  *
  * PERMISSION HANDLING:
  * If permission is not granted, returns a PermissionRequestResult

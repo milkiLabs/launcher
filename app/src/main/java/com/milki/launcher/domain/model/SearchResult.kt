@@ -4,8 +4,8 @@
  * This file defines the search result types
  *
  * HOW CLICKS ARE HANDLED:
- * The UI layer (SearchViewModel) emits SearchAction sealed class events
- * when results are clicked. The Activity observes these and performs actions.
+ * The UI layer emits SearchResultAction sealed class events via LocalSearchActionHandler
+ * when results are clicked. ActionExecutor handles these actions.
  */
 
 package com.milki.launcher.domain.model
@@ -14,8 +14,8 @@ package com.milki.launcher.domain.model
  * Sealed class representing different types of search results.
  *
  * Each result type contains all the data needed to display it,
- * but NO callbacks. Click handling is done via the SearchAction
- * sealed class in the presentation layer.
+ * but NO callbacks. Click handling is done via the SearchResultAction
+ * sealed class and ActionExecutor.
  */
 sealed class SearchResult {
     /**
