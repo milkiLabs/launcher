@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -109,9 +110,16 @@ class AppRepositoryImpl(
      * Implementation details:
      * 1. Create an Intent that matches MAIN/LAUNCHER activities
      * 2. Query PackageManager for all matching activities
-     * 3. Process apps in chunks of 8 for memory efficiency
+     * 3. Launch parallel coroutines (limited by dispatcher to 8 concurrent)
      * 4. Convert each to AppInfo domain model
      * 5. Sort alphabetically by name
+     * 
+     * Why NOT chunked()?
+     * We use limitedParallelism(8) which naturally limits concurrent coroutines to 8.
+     * If we also used chunked(8) with awaitAll(), we'd force sequential batches:
+     * - If 1 app takes 500ms and 7 others take 10ms, all 7 threads sit idle
+     * - Without chunking, as soon as any coroutine finishes, a new one starts
+     * - This maximizes throughput while still limiting memory/pressure to 8 concurrent
      * 
      * @return Sorted list of AppInfo objects
      */
@@ -130,43 +138,40 @@ class AppRepositoryImpl(
             // This returns a list of ResolveInfo objects representing matching activities
             val resolveInfos = pm.queryIntentActivities(mainIntent, 0)
             
-            // Step 3 & 4: Process in chunks with controlled parallelism
-            // chunked(8) splits the list into groups of 8
-            // For each chunk, we create 8 async tasks that run in parallel
-            // awaitAll waits for all 8 to complete before moving to next chunk
-            resolveInfos.chunked(8).flatMap { chunk ->
-                chunk.map { resolveInfo ->
-                    async {
-                        // Build an explicit launch intent for this specific activity.
-                        // We use the full component name (package + activity class)
-                        // instead of getLaunchIntentForPackage() because multiple
-                        // activities in the same package can have MAIN+LAUNCHER
-                        // (e.g., our launcher's MainActivity and SettingsActivity).
-                        val launchIntent = Intent(Intent.ACTION_MAIN).apply {
-                            addCategory(Intent.CATEGORY_LAUNCHER)
-                            component = android.content.ComponentName(
-                                resolveInfo.activityInfo.packageName,
-                                resolveInfo.activityInfo.name
-                            )
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-                        }
-
-                        // Convert ResolveInfo to our domain model AppInfo
-                        AppInfo(
-                            // loadLabel gets the localized display name
-                            name = resolveInfo.loadLabel(pm).toString(),
-                            // activityInfo.packageName is the package identifier
-                            packageName = resolveInfo.activityInfo.packageName,
-                            // activityInfo.name is the fully qualified activity class
-                            // This distinguishes multiple activities in the same package
-                            activityName = resolveInfo.activityInfo.name,
-                            // Explicit intent targeting this specific activity
-                            launchIntent = launchIntent
+            // Step 3 & 4: Launch all coroutines, limitedParallelism handles concurrency
+            // We create one async per app, but only 8 run at a time
+            // As each finishes, the next one starts immediately (no batch waiting)
+            resolveInfos.map { resolveInfo ->
+                async {
+                    // Build an explicit launch intent for this specific activity.
+                    // We use the full component name (package + activity class)
+                    // instead of getLaunchIntentForPackage() because multiple
+                    // activities in the same package can have MAIN+LAUNCHER
+                    // (e.g., our launcher's MainActivity and SettingsActivity).
+                    val launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                        addCategory(Intent.CATEGORY_LAUNCHER)
+                        component = android.content.ComponentName(
+                            resolveInfo.activityInfo.packageName,
+                            resolveInfo.activityInfo.name
                         )
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
                     }
-                }.awaitAll() // Wait for all 8 in this chunk
-            }.sortedBy { it.nameLower } // Sort alphabetically
+
+                    // Convert ResolveInfo to our domain model AppInfo
+                    AppInfo(
+                        // loadLabel gets the localized display name
+                        name = resolveInfo.loadLabel(pm).toString(),
+                        // activityInfo.packageName is the package identifier
+                        packageName = resolveInfo.activityInfo.packageName,
+                        // activityInfo.name is the fully qualified activity class
+                        // This distinguishes multiple activities in the same package
+                        activityName = resolveInfo.activityInfo.name,
+                        // Explicit intent targeting this specific activity
+                        launchIntent = launchIntent
+                    )
+                }
+            }.awaitAll().sortedBy { it.nameLower } // Sort alphabetically
         }
     }
     
@@ -179,6 +184,11 @@ class AppRepositoryImpl(
      * 3. Look up each package in PackageManager
      * 4. Convert to AppInfo objects (filtering out uninstalled apps)
      * 5. Return as Flow that emits updates when data changes
+     * 
+     * IMPORTANT: flowOn(Dispatchers.IO)
+     * Flow operators run on the collector's context by default.
+     * If collected on Main (e.g., from UI), PackageManager queries would block the UI.
+     * flowOn shifts upstream operations to the specified dispatcher.
      * 
      * @return Flow emitting list of recent AppInfo objects
      */
@@ -212,7 +222,7 @@ class AppRepositoryImpl(
                     null
                 }
             }
-        }
+        }.flowOn(Dispatchers.IO) // Run PackageManager queries on IO thread, not Main
     }
     
     /**
