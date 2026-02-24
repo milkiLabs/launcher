@@ -49,6 +49,7 @@ package com.milki.launcher.di
 import com.milki.launcher.data.repository.AppRepositoryImpl
 import com.milki.launcher.data.repository.ContactsRepositoryImpl
 import com.milki.launcher.data.repository.FilesRepositoryImpl
+import com.milki.launcher.data.repository.HomeRepositoryImpl
 import com.milki.launcher.data.repository.SettingsRepositoryImpl
 import com.milki.launcher.data.search.ContactsSearchProvider
 import com.milki.launcher.data.search.FilesSearchProvider
@@ -57,10 +58,12 @@ import com.milki.launcher.data.search.YouTubeSearchProvider
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.FilesRepository
+import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
+import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import org.koin.core.module.dsl.viewModel
@@ -141,6 +144,17 @@ val appModule = module {
      */
     single<SettingsRepository> {
         SettingsRepositoryImpl(get())
+    }
+
+    /**
+     * HomeRepository - Provides access to pinned home screen items.
+     *
+     * SINGLETON: Yes - we want one source of truth for pinned items.
+     *
+     * DEPENDENCY: Android Context (for DataStore)
+     */
+    single<HomeRepository> {
+        HomeRepositoryImpl(get())
     }
 
     // ========================================================================
@@ -291,6 +305,20 @@ val appModule = module {
     viewModel {
         SettingsViewModel(
             settingsRepository = get()
+        )
+    }
+
+    /**
+     * HomeViewModel - Manages home screen pinned items.
+     *
+     * LIFECYCLE: Scoped to the Activity/Composable that requests it.
+     *
+     * DEPENDENCIES:
+     * - HomeRepository (for reading/writing pinned items)
+     */
+    viewModel {
+        HomeViewModel(
+            homeRepository = get()
         )
     }
 }

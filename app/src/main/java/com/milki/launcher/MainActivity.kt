@@ -11,14 +11,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.handlers.PermissionHandler
+import com.milki.launcher.presentation.home.HomeViewModel
+import com.milki.launcher.presentation.home.LocalPinAction
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.ui.screens.LauncherScreen
+import com.milki.launcher.ui.screens.openPinnedItem
 import com.milki.launcher.ui.theme.LauncherTheme
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -54,6 +58,13 @@ class MainActivity : ComponentActivity() {
      * private val searchViewModel: SearchViewModel by viewModel()
      */
     private val searchViewModel: SearchViewModel by viewModel()
+
+    /**
+     * HomeViewModel instance provided by Koin.
+     *
+     * Manages the pinned items on the home screen.
+     */
+    private val homeViewModel: HomeViewModel by viewModel()
 
     /**
      * ContactsRepository injected by Koin.
@@ -137,7 +148,9 @@ class MainActivity : ComponentActivity() {
         initializeHandlers()
 
         setContent {
-            val uiState by searchViewModel.uiState.collectAsStateWithLifecycle()
+            val searchUiState by searchViewModel.uiState.collectAsStateWithLifecycle()
+            val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+            val context = LocalContext.current
 
             /**
              * Provide the action handler via CompositionLocal.
@@ -146,14 +159,30 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalSearchActionHandler provides { action: SearchResultAction ->
                     actionExecutor.execute(action, permissionHandler::hasPermission)
+                },
+                LocalPinAction provides { item ->
+                    homeViewModel.pinItem(item)
                 }
             ) {
                 LauncherTheme {
                     LauncherScreen(
-                        uiState = uiState,
+                        searchUiState = searchUiState,
+                        homeUiState = homeUiState,
                         onShowSearch = { searchViewModel.showSearch() },
                         onQueryChange = { searchViewModel.onQueryChange(it) },
-                        onDismissSearch = { searchViewModel.hideSearch() }
+                        onDismissSearch = { searchViewModel.hideSearch() },
+                        onPinnedItemClick = { item ->
+                            openPinnedItem(item, context)
+                        },
+                        onPinnedItemLongClick = { item ->
+                            homeViewModel.showRemoveDialog(item)
+                        },
+                        onConfirmRemoveItem = {
+                            homeViewModel.confirmRemove()
+                        },
+                        onDismissRemoveDialog = {
+                            homeViewModel.dismissRemoveDialog()
+                        }
                     )
                 }
             }

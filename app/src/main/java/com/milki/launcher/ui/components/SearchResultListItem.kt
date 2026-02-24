@@ -38,12 +38,14 @@
  * 1. Takes common parameters (texts, icon, colors)
  * 2. Handles accent color fallback to theme primary
  * 3. Wraps Material3 ListItem with consistent styling
- * 4. Applies clickable modifier
+ * 4. Applies clickable modifier (or combinedClickable if onLongClick provided)
  */
 
 package com.milki.launcher.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -60,28 +62,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * appearance for all search result types. It handles:
  * - Icon tinting with accent colors
  * - Text styling (headline and supporting)
- * - Click handling
+ * - Click handling (single tap and optional long-press)
  * - Optional trailing content
  *
  * PARAMETERS:
  * @param headlineText The main text to display (e.g., "Search Google", "John Doe")
- * @param supportingText Optional secondary text (e.g., "Google", "555-1234")
  * @param leadingIcon The icon to show on the left (e.g., Search, Person, YouTube)
- * @param accentColor Optional color for the icon (falls back to theme primary)
- * @param trailingContent Optional composable for the right side (e.g., call button)
  * @param onClick Called when the user taps this item
  * @param modifier Optional modifier for external customization
- *
- * DESIGN DECISIONS:
- * - Leading icon is always tinted with accent color for visual consistency
- * - Supporting text uses onSurfaceVariant color (Material Design standard for secondary text)
- * - The entire item is clickable (not just parts of it)
- * - Trailing content is optional (not all results need it)
- *
- * ACCESSIBILITY:
- * - The entire item is a single clickable target (easier to tap)
- * - Icon contentDescription is null because the text provides context
- * - Screen readers will read the headline and supporting text
+ * @param supportingText Optional secondary text (e.g., "Google", "555-1234")
+ * @param accentColor Optional color for the icon (falls back to theme primary)
+ * @param trailingContent Optional composable for the right side (e.g., call button)
+ * @param onLongClick Optional callback for long-press (e.g., to pin item)
  *
  * Example usage:
  * ```kotlin
@@ -94,23 +86,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
  *     onClick = { openWebSearch() }
  * )
  *
- * // Contact result with trailing icon
+ * // File result with long-press to pin
  * SearchResultListItem(
- *     headlineText = contact.name,
- *     supportingText = contact.phoneNumber,
- *     leadingIcon = Icons.Default.Person,
- *     accentColor = Color.Green,
- *     trailingContent = {
- *         Icon(
- *             imageVector = Icons.Default.Call,
- *             contentDescription = "Call",
- *             tint = Color.Green.copy(alpha = 0.7f)
- *         )
- *     },
- *     onClick = { callContact() }
+ *     headlineText = "document.pdf",
+ *     supportingText = "Downloads • 1.2 MB",
+ *     leadingIcon = Icons.Outlined.PictureAsPdf,
+ *     onClick = { openFile() },
+ *     onLongClick = { pinFile() }
  * )
  * ```
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchResultListItem(
     headlineText: String,
@@ -119,58 +105,25 @@ fun SearchResultListItem(
     modifier: Modifier = Modifier,
     supportingText: String? = null,
     accentColor: Color? = null,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null
 ) {
-    /**
-     * Determine the icon color.
-     *
-     * If an accent color is provided (e.g., from the active search provider),
-     * use it. Otherwise, fall back to the theme's primary color.
-     *
-     * This pattern appears 4+ times in the original code and is now
-     * centralized here.
-     *
-     * WHY THIS MATTERS:
-     * - Different search providers have different brand colors
-     * - YouTube results should have red icons
-     * - Web search results should have blue icons
-     * - Contact results should have green icons
-     * - But if no color is specified, we need a sensible default
-     */
     val iconColor = accentColor ?: MaterialTheme.colorScheme.primary
 
-    /**
-     * Material3 ListItem provides the standard list item layout.
-     *
-     * It handles:
-     * - Proper spacing between leading, content, and trailing
-     * - Correct text alignment
-     * - Touch ripple effects
-     * - Accessibility
-     *
-     * We configure it with our standardized styling.
-     */
+    val clickModifier = if (onLongClick != null) {
+        modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        )
+    } else {
+        modifier.clickable { onClick() }
+    }
+
     ListItem(
-        /**
-         * Headline content is the main text.
-         * We wrap it in a Text composable with default styling.
-         */
         headlineContent = {
             Text(text = headlineText)
         },
 
-        /**
-         * Supporting content is optional secondary text.
-         * Only shown if supportingText is provided.
-         *
-         * We use:
-         * - bodySmall typography (smaller than headline)
-         * - onSurfaceVariant color (Material Design standard for secondary text)
-         *
-         * This creates a clear visual hierarchy:
-         * - Headline is prominent
-         * - Supporting text is subtle
-         */
         supportingContent = supportingText?.let {
             {
                 Text(
@@ -181,19 +134,6 @@ fun SearchResultListItem(
             }
         },
 
-        /**
-         * Leading content is the icon on the left.
-         *
-         * The icon is tinted with the accent color to:
-         * - Match the search provider's brand
-         * - Create visual consistency
-         * - Provide a color-coded system (blue = web, red = YouTube, etc.)
-         *
-         * contentDescription is null because:
-         * - The headline text provides context
-         * - Screen readers will read the text
-         * - Adding a description would be redundant
-         */
         leadingContent = {
             Icon(
                 imageVector = leadingIcon,
@@ -202,28 +142,8 @@ fun SearchResultListItem(
             )
         },
 
-        /**
-         * Trailing content is optional.
-         * Used for things like:
-         * - Call button on contact results
-         * - File type indicator on file results
-         * - Any other right-side content
-         *
-         * The caller is responsible for styling this content.
-         */
         trailingContent = trailingContent,
 
-        /**
-         * Apply the clickable modifier to make the entire item tappable.
-         *
-         * This is better than making individual parts clickable because:
-         * - Larger touch target (easier to tap)
-         * - Consistent behavior (whole item responds)
-         * - Better accessibility (single focusable element)
-         *
-         * We apply the caller's modifier first, then clickable.
-         * This allows the caller to add padding, background, etc.
-         */
-        modifier = modifier.clickable { onClick() }
+        modifier = clickModifier
     )
 }

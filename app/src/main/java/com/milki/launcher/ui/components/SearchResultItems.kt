@@ -33,7 +33,9 @@
 
 package com.milki.launcher.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -47,13 +49,17 @@ import androidx.compose.material.icons.outlined.Slideshow
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
+import com.milki.launcher.presentation.home.LocalPinAction
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -491,10 +497,9 @@ fun PermissionRequestItem(
  * - Text files show a text snippet icon
  * - Other files show a generic file icon
  *
- * REFACTORING NOTE:
- * This component now uses SearchResultListItem wrapper, reducing code
- * from ~70 lines to ~50 lines while maintaining identical functionality.
- * The icon selection logic is still custom since it's unique to files.
+ * ACTIONS:
+ * - Tap: Open the file
+ * - Long-press: Show action menu (Pin to home)
  *
  * USAGE:
  * Displayed when the user uses the "f " prefix to search files.
@@ -511,23 +516,9 @@ fun FileDocumentSearchResultItem(
     onClick: () -> Unit
 ) {
     val file = result.file
+    val pinAction = LocalPinAction.current
+    var showMenu by remember { mutableStateOf(false) }
 
-    /**
-     * Determine the appropriate icon based on file type.
-     * This helps users quickly identify what kind of document it is.
-     * 
-     * Different file types get different icons:
-     * - PDF: Distinctive PDF icon (most recognizable)
-     * - Word: Document icon (AutoMirrored for RTL support)
-     * - Excel: Table/spreadsheet icon
-     * - PowerPoint: Slideshow icon
-     * - EPUB: Book icon (AutoMirrored for RTL support)
-     * - Text: Text snippet icon (AutoMirrored for RTL support)
-     * - Other: Generic file icon (AutoMirrored for RTL support)
-     * 
-     * NOTE: AutoMirrored icons automatically flip for right-to-left languages
-     * like Arabic and Hebrew, ensuring proper visual direction.
-     */
     val fileIcon = when {
         file.isPdf() -> Icons.Outlined.PictureAsPdf
         file.isWordDocument() -> Icons.AutoMirrored.Outlined.Article
@@ -538,37 +529,38 @@ fun FileDocumentSearchResultItem(
         else -> Icons.AutoMirrored.Filled.InsertDriveFile
     }
 
-    /**
-     * Build the supporting text with file details.
-     * Shows folder path and size.
-     * 
-     * Format: "folder/path • 1.2 MB"
-     */
     val supportingText = buildString {
-        // Show folder path if available
         if (file.folderPath.isNotEmpty()) {
             append(file.folderPath)
         }
-        // Show file size
         if (file.size > 0) {
             if (isNotEmpty()) append(" • ")
             append(file.formattedSize())
         }
     }.takeIf { it.isNotEmpty() }
 
-    /**
-     * Use the SearchResultListItem wrapper with file specific values.
-     * 
-     * The icon changes based on file type, helping users quickly
-     * identify what they're looking for.
-     */
-    SearchResultListItem(
-        headlineText = file.name,
-        supportingText = supportingText,
-        leadingIcon = fileIcon,
-        accentColor = accentColor,
-        onClick = onClick
-    )
+    Box {
+        SearchResultListItem(
+            headlineText = file.name,
+            supportingText = supportingText,
+            leadingIcon = fileIcon,
+            accentColor = accentColor,
+            onClick = onClick,
+            onLongClick = { showMenu = true }
+        )
+
+        ItemActionMenu(
+            expanded = showMenu,
+            onDismiss = { showMenu = false },
+            actions = createFileActions(
+                isPinned = false,
+                onPin = {
+                    pinAction(HomeItem.PinnedFile.fromFileDocument(file))
+                },
+                onUnpin = {}
+            )
+        )
+    }
 }
 
 /**
