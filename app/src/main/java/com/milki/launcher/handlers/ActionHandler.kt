@@ -20,6 +20,7 @@
 
 package com.milki.launcher.handlers
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -86,16 +87,6 @@ class ActionHandler(
     /**
      * Launches an app and saves it to recent apps.
      *
-     * This is the most common action - user taps an app from search results.
-     * We do two things:
-     * 1. Start the app using its launch intent
-     * 2. Save the package name to recent apps for future searches
-     *
-     * WHY SAVE RECENT APPS?
-     * - Users often launch the same apps repeatedly
-     * - Recent apps can be sorted to the top of search results
-     * - Improves user experience by reducing typing
-     *
      * @param action Contains the AppInfo with the launch intent
      */
     private fun handleLaunchApp(action: SearchAction.LaunchApp) {
@@ -112,8 +103,7 @@ class ActionHandler(
     /**
      * Opens a web search URL in the default browser.
      *
-     * This is called when the user taps a web search result. The URL is
-     * already constructed by the ViewModel with the proper search engine
+     *  The URL is already constructed by the ViewModel with the proper search engine
      * and query encoding.
      *
      * @param action Contains the URL to open
@@ -138,28 +128,24 @@ class ActionHandler(
     /**
      * Opens a URL in the default browser.
      *
-     * This is a shared helper method used by both handleOpenWebSearch()
-     * and handleOpenUrl(). Both actions need to open URLs in the browser
-     * using the same intent mechanism.
-     *
-     * HOW IT WORKS:
-     * 1. Creates an ACTION_VIEW intent with the URL
-     * 2. Checks if any app can handle the intent (resolveActivity)
-     * 3. Starts the activity if an app is available
-     *
-     * INTENT DETAILS:
-     * - ACTION_VIEW: Standard action for viewing content
-     * - Uri.parse(url): Converts the URL string to a Uri object
-     * - resolveActivity(): Checks if any app can handle this intent
-     *   (prevents crashes if no browser is installed)
+     * Modern approach: We call startActivity() directly and catch
+     * ActivityNotFoundException if no browser is installed. This is
+     * preferred over resolveActivity() because:
+     * - Avoids race conditions (app could uninstall between check and launch)
+     * - Reduces PackageManager queries (no double lookup)
+     * - Official Android recommendation
      *
      * @param url The URL to open (can be a web search URL or direct URL)
      */
     private fun openUrlInBrowser(url: String) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        if (intent.resolveActivity(context.packageManager) != null) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        try {
             context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // No browser installed - show a toast to let the user know
+            Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -203,12 +189,15 @@ class ActionHandler(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
-            if (intent.resolveActivity(context.packageManager) != null) {
+            try {
                 context.startActivity(intent)
                 return
+            } catch (e: ActivityNotFoundException) {
+                // This package isn't installed, try the next one
             }
         }
 
+        // Fallback to browser if no YouTube app is installed
         openUrlInBrowser(youtubeUrl)
     }
 
@@ -236,8 +225,11 @@ class ActionHandler(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        if (intent.resolveActivity(context.packageManager) != null) {
+        try {
             context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // No dialer app installed (very rare on Android)
+            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
     }
 
