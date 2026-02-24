@@ -238,6 +238,10 @@ dependencies {
     // Provides: viewModel() function in composables
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     
+    // Lifecycle Runtime Compose - Lifecycle-aware state collection
+    // Provides: collectAsStateWithLifecycle() for lifecycle-aware Flow collection
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    
     // Activity Compose - Integration between Activities and Compose
     // Provides: setContent { }, ComponentActivity support
     implementation(libs.androidx.activity.compose)
