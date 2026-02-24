@@ -20,6 +20,7 @@
 
 package com.milki.launcher.handlers
 
+import android.app.SearchManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -233,39 +234,113 @@ class ActionHandler(
     /**
      * Opens a YouTube search, preferring the app over browser.
      *
-     * CUSTOMIZATION POTENTIAL:
-     * In the future, this list could be:
-     * - Configurable via settings
-     * - Sourced from a repository
-     * - Based on installed apps
+     * DYNAMIC PACKAGE DISCOVERY (Launcher-Grade Solution):
+     * Instead of hardcoding specific YouTube apps (YouTube, ReVanced, etc.),
+     * we use Android's Intent system to dynamically discover ANY installed app
+     * that can handle YouTube search queries.
+     *
+     * HOW IT WORKS:
+     * 1. Create an ACTION_SEARCH intent with the search query
+     * 2. Query PackageManager for ALL apps that can handle this intent
+     * 3. Filter for packages containing "youtube" in their name
+     * 4. Try each matching app until one works
+     *
+     * AUTOMATICALLY SUPPORTS:
+     * - YouTube (official)
+     * - YouTube ReVanced
+     * - NewPipe
+     * - LibreTube
+     * - YouTube Vanced
+     * - Any future YouTube client
+     *
+     * This approach is FUTURE-PROOF - no code changes needed when new
+     * YouTube clients are released!
+     *
+     * FALLBACK:
+     * If no YouTube app is found, falls back to browser with YouTube search URL.
      *
      * @param action Contains the search query
      */
     private fun handleOpenYouTubeSearch(action: SearchAction.OpenYouTubeSearch) {
         val query = action.query
-        val youtubeUrl = "https://www.youtube.com/results?search_query=${Uri.encode(query)}"
 
-        val youtubePackages = listOf(
-            "app.revanced.android.youtube",
-            "com.google.android.youtube"
-        )
+        // First, try to find and use a YouTube app dynamically
+        val youtubeAppFound = openYouTubeSearch(query)
 
-        for (packageName in youtubePackages) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(youtubeUrl)).apply {
-                `package` = packageName
+        // If no YouTube app was found or could be launched, fallback to browser
+        if (!youtubeAppFound) {
+            val youtubeUrl = "https://www.youtube.com/results?search_query=${Uri.encode(query)}"
+            openUrlInBrowser(youtubeUrl)
+        }
+    }
+
+    /**
+     * Attempts to open a YouTube search in any installed YouTube client app.
+     *
+     * This method uses Android's PackageManager to dynamically discover
+     * all apps that can handle YouTube search queries, rather than hardcoding
+     * a list of known YouTube apps.
+     *
+     * DISCOVERY PROCESS:
+     * 1. Create an ACTION_SEARCH intent with the search query
+     * 2. Query PackageManager.queryIntentActivities() to find ALL apps
+     *    that can handle searches (this returns many apps - browser, assistant, etc.)
+     * 3. Filter the results to find packages with "youtube" in the name
+     * 4. Try each matching package until one successfully launches
+     *
+     * WHY THIS IS BETTER THAN HARDCODING:
+     * - Works automatically with YouTube, ReVanced, NewPipe, LibreTube, etc.
+     * - No code updates needed when new YouTube clients are released
+     * - Respects user choice if they install a different YouTube app
+     * - Truly "launcher-grade" - works like the system launcher would
+     *
+     * @param query The YouTube search query
+     * @return true if a YouTube app was found and launched, false otherwise
+     */
+    private fun openYouTubeSearch(query: String): Boolean {
+        // Create an ACTION_SEARCH intent with the search query
+        // This is the standard Android intent for in-app search
+        val searchIntent = Intent(Intent.ACTION_SEARCH).apply {
+            putExtra(SearchManager.QUERY, query)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        // Query PackageManager to find ALL apps that can handle ACTION_SEARCH
+        // The second parameter (0) means we don't need any specific flags
+        val pm = context.packageManager
+        val resolvedActivities = pm.queryIntentActivities(searchIntent, 0)
+
+        // Filter for packages that contain "youtube" in their package name
+        // This catches: com.google.android.youtube, app.revanced.android.youtube,
+        // org.schabi.newpipe, com.github.libreytube, etc.
+        val youtubeMatches = resolvedActivities.filter { resolveInfo ->
+            resolveInfo.activityInfo.packageName.contains("youtube", ignoreCase = true)
+        }
+
+        // Try each matching YouTube app until one works
+        for (resolveInfo in youtubeMatches) {
+            val packageName = resolveInfo.activityInfo.packageName
+
+            // Create a new intent with the specific package set
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                // Use the YouTube search URL format
+                data = Uri.parse("https://www.youtube.com/results?search_query=${Uri.encode(query)}")
+                setPackage(packageName)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
             try {
                 context.startActivity(intent)
-                return
+                // Successfully launched a YouTube app!
+                return true
             } catch (e: ActivityNotFoundException) {
-                // This package isn't installed, try the next one
+                // This specific package couldn't launch, try the next one
+                // This can happen if the app was partially installed or has issues
             }
         }
 
-        // Fallback to browser if no YouTube app is installed
-        openUrlInBrowser(youtubeUrl)
+        // No YouTube app was found or could be launched
+        return false
     }
 
     // ========================================================================

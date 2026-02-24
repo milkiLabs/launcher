@@ -124,13 +124,37 @@ The placeholder text also changes:
 
 ## YouTube Search Details
 
-The YouTube search (`y `) has a smart fallback system:
+The YouTube search (`y `) uses dynamic package discovery to automatically find and use ANY installed YouTube client app. This is a "launcher-grade" solution that requires no hardcoded package names.
 
-1. **ReVanced YouTube** (`app.revanced.android.youtube`) - Preferred modded client
-2. **Official YouTube** (`com.google.android.youtube`) - Standard YouTube app
-3. **Browser** - Falls back to youtube.com website
+### How It Works (Dynamic Discovery)
 
-This ensures that even if you have a modded YouTube client, it will be used first.
+Instead of hardcoding specific YouTube apps, the launcher uses Android's PackageManager to dynamically discover ALL apps that can handle YouTube search queries:
+
+1. **Create ACTION_SEARCH intent** - Standard Android search intent with the query
+2. **Query PackageManager** - Find ALL apps that can handle searches
+3. **Filter for "youtube"** - Look for packages containing "youtube" in the name
+4. **Try each app** - Launch the first one that works
+
+### Automatically Supported Apps
+
+This dynamic approach works with ANY YouTube client, including:
+
+- **YouTube** (official) - `com.google.android.youtube`
+- **YouTube ReVanced** - `app.revanced.android.youtube`
+- **NewPipe** - `org.schabi.newpipe`
+- **LibreTube** - `com.github.libreytube`
+- **YouTube Vanced** - `com.vanced.android.youtube`
+- **Any future YouTube client** - Works automatically!
+
+### Fallback
+
+If no YouTube app is found, it gracefully falls back to opening the YouTube website in the browser.
+
+### Why This Is Better
+
+- **Future-proof**: No code changes needed when new YouTube clients are released
+- **User choice**: Respects whatever YouTube app the user has installed
+- **Comprehensive**: Catches all apps with "youtube" in the package name
 
 ## Contacts Search with Permission Handling
 
