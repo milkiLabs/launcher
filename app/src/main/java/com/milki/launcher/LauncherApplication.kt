@@ -108,7 +108,7 @@ class LauncherApplication : Application(), ImageLoaderFactory {
                     .build()
             }
             .diskCache(null)
-            .allowHardware(false)
+            .allowHardware(true)
             .respectCacheHeaders(false)
             .build()
     }
