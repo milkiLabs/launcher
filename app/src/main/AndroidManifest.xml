@@ -11,6 +11,20 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     
     <!--
+      Permission to make phone calls directly from the launcher.
+      This is used when the user taps the dial icon on a contact result.
+      Without this permission, tapping the dial icon would only open the dialer
+      (ACTION_DIAL) instead of making the call directly (ACTION_CALL).
+      
+      WHY WE NEED THIS:
+      - ACTION_DIAL: Opens the dialer with number pre-filled (no permission needed)
+      - ACTION_CALL: Makes the call directly (requires CALL_PHONE permission)
+      
+      The user is asked for this permission only when they first tap the dial icon.
+    -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    
+    <!--
       Storage permissions for file search feature:
       - READ_EXTERNAL_STORAGE: For Android 10 (API 29) and below
       - READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_AUDIO: For Android 13+ (API 33+)

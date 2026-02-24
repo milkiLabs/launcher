@@ -13,8 +13,32 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import androidx.core.content.ContextCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.repository.ContactsRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+
+/**
+ * Top-level DataStore delegate for storing recent contacts.
+ *
+ * WHY SEPARATE DATASTORE:
+ * We use a separate DataStore file for contacts preferences to keep
+ * them isolated from app preferences. This makes the data easier to
+ * manage and debug.
+ *
+ * File location: /data/data/<package>/files/datastore/recent_contacts.preferences_pb
+ */
+private val Context.recentContactsDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "recent_contacts"
+)
 
 /**
  * Implementation of ContactsRepository using Android ContentResolver.
@@ -36,6 +60,23 @@ class ContactsRepositoryImpl(
      * ContentResolver is the Android API for accessing content providers.
      */
     private val contentResolver: ContentResolver = context.contentResolver
+
+    /**
+     * DataStore key for storing recent contacts.
+     *
+     * Format: "phone1,phone2,phone3"
+     * Most recent phone is first in the list.
+     *
+     * WHY STORE PHONE NUMBERS:
+     * We store just the phone number, not the contact name or ID.
+     * This keeps the storage minimal. When displaying recent contacts,
+     * we look up the contact info using getContactByPhoneNumber().
+     *
+     * This approach has trade-offs:
+     * - Pro: Minimal storage, simple implementation
+     * - Con: Contact name lookup required each time (but contacts rarely change)
+     */
+    private val recentContactsKey = stringPreferencesKey("recent_contacts")
 
     /**
      * Checks if the app has permission to read contacts.
@@ -317,6 +358,167 @@ class ContactsRepositoryImpl(
             photoUri = photoUri,
             lookupKey = lookupKey
         )
+    }
+
+    // ========================================================================
+    // RECENT CONTACTS STORAGE
+    // ========================================================================
+
+    /**
+     * Save a phone number to recent contacts.
+     *
+     * IMPLEMENTATION DETAILS:
+     * 1. Read current list from DataStore
+     * 2. Remove the phone number if it already exists (to move to front)
+     * 3. Add to front of list
+     * 4. Limit to 8 phone numbers maximum
+     * 5. Save comma-separated string back to DataStore
+     *
+     * The edit block is transactional - either all changes apply or none.
+     *
+     * @param phoneNumber The phone number to save
+     */
+    override suspend fun saveRecentContact(phoneNumber: String) {
+        context.recentContactsDataStore.edit { preferences ->
+            // Get current value or empty string
+            val current = preferences[recentContactsKey] ?: ""
+
+            // Parse into mutable list
+            val recentPhones = current.split(",")
+                .filter { it.isNotEmpty() }
+                .toMutableList()
+
+            // Remove if exists (we'll add to front)
+            recentPhones.remove(phoneNumber)
+
+            // Add to front (most recent)
+            recentPhones.add(0, phoneNumber)
+
+            // Save back: take first 8, join with commas
+            preferences[recentContactsKey] = recentPhones.take(8).joinToString(",")
+        }
+    }
+
+    /**
+     * Get recent contacts as a Flow.
+     *
+     * Returns a Flow that emits the list of recent phone numbers
+     * whenever the underlying DataStore changes.
+     *
+     * @return Flow emitting list of recent phone numbers (max 8)
+     */
+    override fun getRecentContacts(): Flow<List<String>> {
+        return context.recentContactsDataStore.data.map { preferences ->
+            // Get saved phone numbers, default to empty string
+            preferences[recentContactsKey]
+                ?.split(",")
+                ?.filter { it.isNotEmpty() }
+                ?: emptyList()
+        }.flowOn(Dispatchers.IO)
+    }
+
+    /**
+     * Get a contact by phone number.
+     *
+     * This method queries the contacts database to find a contact
+     * that has the given phone number. It's used to display contact
+     * names for recent contacts.
+     *
+     * IMPLEMENTATION DETAILS:
+     * 1. Query the Phone table (CommonDataKinds.Phone)
+     * 2. Filter by the phone number
+     * 3. If found, get the contact ID and fetch full contact info
+     * 4. Return the Contact or null if not found
+     *
+     * PHONE NUMBER MATCHING:
+     * Android's Phone lookup uses a "callable" match which handles
+     * different phone number formats (with/without country code, etc.)
+     *
+     * @param phoneNumber The phone number to look up
+     * @return Contact if found, null otherwise
+     */
+    override suspend fun getContactByPhoneNumber(phoneNumber: String): Contact? {
+        // Permission check
+        if (!hasContactsPermission()) {
+            return null
+        }
+
+        // Use withContext to run on IO thread
+        return withContext(Dispatchers.IO) {
+            // Query the Phone table to find a contact with this number
+            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+            val selection = "${ContactsContract.CommonDataKinds.Phone.NUMBER} = ?"
+            val selectionArgs = arrayOf(phoneNumber)
+
+            contentResolver.query(
+                uri,
+                arrayOf(
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.PHOTO_URI,
+                    ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY
+                ),
+                selection,
+                selectionArgs,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val contactId = cursor.getLong(0)
+                    val displayName = cursor.getString(1) ?: return@withContext null
+                    val photoUri = cursor.getString(2)
+                    val lookupKey = cursor.getString(3) ?: return@withContext null
+
+                    // Now get all phone numbers for this contact
+                    val phoneNumbers = getPhoneNumbersForContact(contactId)
+
+                    Contact(
+                        id = contactId,
+                        displayName = displayName,
+                        phoneNumbers = phoneNumbers,
+                        emails = emptyList(), // Not needed for recent contacts
+                        photoUri = photoUri,
+                        lookupKey = lookupKey
+                    )
+                } else {
+                    null
+                }
+            }
+        }
+    }
+
+    /**
+     * Get all phone numbers for a contact.
+     *
+     * This is a helper method used by getContactByPhoneNumber()
+     * to fetch all phone numbers associated with a contact ID.
+     *
+     * @param contactId The contact ID to look up
+     * @return List of phone numbers for this contact
+     */
+    private fun getPhoneNumbersForContact(contactId: Long): List<String> {
+        val phoneNumbers = mutableListOf<String>()
+
+        val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        val selection = "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?"
+        val selectionArgs = arrayOf(contactId.toString())
+
+        contentResolver.query(
+            uri,
+            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+            selection,
+            selectionArgs,
+            null
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                cursor.getString(0)?.let { phone ->
+                    if (phone !in phoneNumbers) {
+                        phoneNumbers.add(phone)
+                    }
+                }
+            }
+        }
+
+        return phoneNumbers
     }
 
     companion object {

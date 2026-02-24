@@ -55,6 +55,7 @@ import kotlinx.coroutines.delay
  * - onQueryChange: Emits when user types in search field
  * - onDismiss: Emits when dialog should close
  * - onResultClick: Emits when user clicks a search result
+ * - onDialClick: Emits when user clicks the dial icon on a contact result
  *
  * UNIDIRECTIONAL DATA FLOW:
  * ┌─────────────┐     State      ┌──────────────────┐
@@ -67,13 +68,15 @@ import kotlinx.coroutines.delay
  * @param onQueryChange Called when user types in search field
  * @param onDismiss Called when dialog should close
  * @param onResultClick Called when user clicks a search result
+ * @param onDialClick Called when user clicks the dial icon on a contact (for direct calling)
  */
 @Composable
 fun AppSearchDialog(
     uiState: SearchUiState,
     onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
-    onResultClick: (SearchResult) -> Unit
+    onResultClick: (SearchResult) -> Unit,
+    onDialClick: ((Contact, String) -> Unit)? = null
 ) {
     /**
      * FocusRequester allows us to programmatically request focus
@@ -159,7 +162,8 @@ fun AppSearchDialog(
                     SearchResultsList(
                         results = uiState.results,
                         activeProviderConfig = uiState.activeProviderConfig,
-                        onResultClick = onResultClick
+                        onResultClick = onResultClick,
+                        onDialClick = onDialClick
                     )
                 }
             }

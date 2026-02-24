@@ -33,6 +33,8 @@
 
 package com.milki.launcher.ui.components
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -45,6 +47,7 @@ import androidx.compose.material.icons.outlined.Slideshow
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -264,10 +267,13 @@ fun UrlSearchResultItem(
  * - The primary phone number as supporting text (if available)
  * - A phone icon as trailing content (if phone numbers exist)
  *
- * REFACTORING NOTE:
- * This component now uses SearchResultListItem wrapper, reducing code
- * from ~60 lines to ~30 lines while maintaining identical functionality.
- * The trailing content (call icon) is still custom since it's unique to contacts.
+ * TWO CLICK ACTIONS:
+ * - onClick: Called when the user taps the contact item itself (opens dialer)
+ * - onDialClick: Called when the user taps the dial icon (makes direct call)
+ *
+ * This separation allows different behaviors:
+ * - Tapping the item opens the dialer (no special permission needed)
+ * - Tapping the dial icon makes a direct call (requires CALL_PHONE permission)
  *
  * USAGE:
  * Displayed when the user uses the "c " prefix to search contacts.
@@ -275,13 +281,15 @@ fun UrlSearchResultItem(
  *
  * @param result The contact search result to display
  * @param accentColor Color for icons (defaults to primary if null)
- * @param onClick Callback when the item is clicked
+ * @param onClick Callback when the item is clicked (opens dialer)
+ * @param onDialClick Callback when the dial icon is clicked (makes direct call)
  */
 @Composable
 fun ContactSearchResultItem(
     result: ContactSearchResult,
     accentColor: Color?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDialClick: (() -> Unit)? = null
 ) {
     /**
      * Get the first phone number to display as supporting text.
@@ -299,27 +307,72 @@ fun ContactSearchResultItem(
     val iconColor = accentColor ?: MaterialTheme.colorScheme.primary
 
     /**
+     * Build the trailing content with a clickable dial icon.
+     *
+     * The dial icon is a separate clickable area from the main item.
+     * This allows:
+     * - Tapping the item → opens dialer (ACTION_DIAL)
+     * - Tapping the dial icon → makes direct call (ACTION_CALL)
+     *
+     * The icon uses a larger touch target (IconSize.standard = 24dp)
+     * for better accessibility and easier tapping.
+     */
+    val trailingContent: (@Composable () -> Unit)? = if (result.contact.phoneNumbers.isNotEmpty() && onDialClick != null) {
+        {
+            /**
+             * Make the dial icon clickable with a larger touch target.
+             *
+             * We use a Box with clickable modifier and size larger than the icon
+             * to provide a 48dp minimum touch target (Material Design guideline).
+             * The icon is centered within this larger touch area.
+             *
+             * IMPORTANT: We use local onClick variable to capture the callback
+             * in this composable's scope. This ensures the click is handled
+             * correctly when the user taps the dial icon.
+             */
+            Box(
+                modifier = Modifier
+                    .size(Spacing.extraLarge)
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) {
+                        onDialClick()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Call,
+                    contentDescription = "Call directly",
+                    tint = iconColor.copy(alpha = 0.8f),
+                    modifier = Modifier.size(IconSize.standard)
+                )
+            }
+        }
+    } else if (result.contact.phoneNumbers.isNotEmpty()) {
+        /**
+         * Fallback: Show non-clickable dial icon when onDialClick is null.
+         * This maintains visual consistency even if dial functionality is disabled.
+         */
+        {
+            Icon(
+                imageVector = Icons.Default.Call,
+                contentDescription = "Call contact",
+                tint = iconColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(IconSize.small)
+            )
+        }
+    } else null
+
+    /**
      * Use the SearchResultListItem wrapper with contact specific values.
-     * 
-     * The trailing content is custom for contacts - it shows a call icon
-     * if the contact has phone numbers. This is a visual hint that tapping
-     * will initiate a call action.
      */
     SearchResultListItem(
         headlineText = result.contact.displayName,
         supportingText = primaryPhone,
         leadingIcon = Icons.Default.Person,
         accentColor = accentColor,
-        trailingContent = if (result.contact.phoneNumbers.isNotEmpty()) {
-            {
-                Icon(
-                    imageVector = Icons.Default.Call,
-                    contentDescription = "Call contact",
-                    tint = iconColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(IconSize.small)
-                )
-            }
-        } else null,
+        trailingContent = trailingContent,
         onClick = onClick
     )
 }

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Person
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SearchProvider
+import kotlinx.coroutines.flow.first
 
 /**
  * Search provider for device contacts.
@@ -30,7 +31,8 @@ import com.milki.launcher.domain.repository.SearchProvider
  * This provider has special behavior:
  * - Checks permission status before searching
  * - Returns permission request placeholder if permission not granted
- * - Searches contacts by name when permission is granted
+ * - When query is blank, shows recent contacts (like recent apps on empty search)
+ * - Searches contacts by name when query exists
  *
  * @property contactsRepository Repository for accessing contacts data
  * @property config Display configuration for this provider
@@ -53,13 +55,16 @@ class ContactsSearchProvider(
      * Flow:
      * 1. Check if contacts permission is granted
      * 2. If not granted, return PermissionRequestResult
-     * 3. If granted and query is blank, return empty list (UI handles empty state)
-     * 4. If granted and query exists, search contacts
+     * 3. If granted and query is blank, return recent contacts
+     * 4. If granted and query exists, search contacts by name
      *
-     * ARCHITECTURAL NOTE:
-     * This provider no longer creates fake "hint" or "empty" results.
-     * Empty states are now properly handled in the UI layer where they belong.
-     * This keeps search logic separate from display logic.
+     * RECENT CONTACTS BEHAVIOR:
+     * When query is blank (user types "c " without a search term),
+     * we show the 8 most recently called contacts. This is similar to
+     * how recent apps are shown when the search query is empty.
+     *
+     * This provides quick access to frequently called contacts without
+     * having to search for them.
      *
      * @param query The search query (without the "c " prefix)
      * @return List of ContactSearchResult or PermissionRequestResult, or empty list
@@ -78,10 +83,10 @@ class ContactsSearchProvider(
             )
         }
 
-        // Permission granted - perform actual search
+        // Permission granted - check for empty query
         if (query.isBlank()) {
-            // Return empty list - UI will show appropriate empty state
-            return emptyList()
+            // Empty query - show recent contacts
+            return getRecentContactsResults()
         }
 
         // Search contacts and map to results
@@ -89,6 +94,52 @@ class ContactsSearchProvider(
         val contacts = contactsRepository.searchContacts(query)
         return contacts.map { contact ->
             ContactSearchResult(contact = contact)
+        }
+    }
+
+    /**
+     * Get recent contacts as search results.
+     *
+     * This method fetches the list of recently called phone numbers
+     * and looks up each one to get the contact information.
+     *
+     * FALLBACK BEHAVIOR:
+     * If a phone number is in recent contacts but no longer matches
+     * a contact in the device's contacts database (e.g., contact was deleted),
+     * we create a minimal Contact with just the phone number.
+     *
+     * @return List of ContactSearchResult for recent contacts (max 8)
+     */
+    private suspend fun getRecentContactsResults(): List<SearchResult> {
+        // Get recent phone numbers from DataStore
+        val recentPhones = contactsRepository.getRecentContacts().first()
+
+        if (recentPhones.isEmpty()) {
+            return emptyList()
+        }
+
+        // Map each phone number to a contact
+        return recentPhones.mapNotNull { phoneNumber ->
+            // Try to find the contact for this phone number
+            val contact = contactsRepository.getContactByPhoneNumber(phoneNumber)
+
+            if (contact != null) {
+                // Found a matching contact
+                ContactSearchResult(contact = contact)
+            } else {
+                // No matching contact - create a minimal contact with just the phone number
+                // This handles the case where a contact was deleted after being added to recent
+                ContactSearchResult(
+                    contact = Contact(
+                        id = -1, // Invalid ID to indicate this is not a real contact
+                        displayName = phoneNumber,
+                        phoneNumbers = listOf(phoneNumber),
+                        emails = emptyList(),
+                        photoUri = null,
+                        lookupKey = ""
+                    )
+                )
+            }
         }
     }
 }

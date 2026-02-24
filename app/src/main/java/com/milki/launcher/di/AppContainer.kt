@@ -208,6 +208,7 @@ class AppContainer(private val application: Application) {
             if (modelClass.isAssignableFrom(SearchViewModel::class.java)) {
                 return SearchViewModel(
                     appRepository = appRepository,
+                    contactsRepository = contactsRepository,
                     providerRegistry = searchProviderRegistry,
                     filterAppsUseCase = filterAppsUseCase,
                     urlHandlerResolver = urlHandlerResolver

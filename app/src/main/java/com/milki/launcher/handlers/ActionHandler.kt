@@ -74,9 +74,11 @@ class ActionHandler(
             is SearchAction.OpenUrlWithApp -> handleOpenUrlWithApp(action)
             is SearchAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
             is SearchAction.CallContact -> handleCallContact(action)
+            is SearchAction.CallContactDirect -> handleCallContactDirect(action)
             is SearchAction.OpenFile -> handleOpenFile(action)
             is SearchAction.RequestContactsPermission,
             is SearchAction.RequestFilesPermission,
+            is SearchAction.RequestCallPermission,
             is SearchAction.CloseSearch,
             is SearchAction.ClearQuery -> {
             }
@@ -278,21 +280,7 @@ class ActionHandler(
      * Attempts to open a YouTube search in any installed YouTube client app.
      *
      * This method uses Android's PackageManager to dynamically discover
-     * all apps that can handle YouTube search queries, rather than hardcoding
-     * a list of known YouTube apps.
-     *
-     * DISCOVERY PROCESS:
-     * 1. Create an ACTION_SEARCH intent with the search query
-     * 2. Query PackageManager.queryIntentActivities() to find ALL apps
-     *    that can handle searches (this returns many apps - browser, assistant, etc.)
-     * 3. Filter the results to find packages with "youtube" in the name
-     * 4. Try each matching package until one successfully launches
-     *
-     * WHY THIS IS BETTER THAN HARDCODING:
-     * - Works automatically with YouTube, ReVanced, NewPipe, LibreTube, etc.
-     * - No code updates needed when new YouTube clients are released
-     * - Respects user choice if they install a different YouTube app
-     * - Truly "launcher-grade" - works like the system launcher would
+     * all apps that can handle YouTube search queries
      *
      * @param query The YouTube search query
      * @return true if a YouTube app was found and launched, false otherwise
@@ -350,6 +338,10 @@ class ActionHandler(
     /**
      * Opens the phone dialer with a phone number pre-filled.
      *
+     * This is called when the user taps the contact item (not the dial icon).
+     * It opens the dialer with the number pre-filled, but doesn't make the call.
+     * The user must press the call button in the dialer to actually call.
+     *
      * WHY ACTION_DIAL INSTEAD OF ACTION_CALL?
      * - ACTION_CALL would dial immediately (requires CALL_PHONE permission)
      * - ACTION_DIAL is safer and doesn't require special permission
@@ -368,6 +360,46 @@ class ActionHandler(
             // No dialer app installed (very rare on Android)
             Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
+
+        // Save to recent contacts
+        searchViewModel.saveRecentContact(action.phoneNumber)
+    }
+
+    /**
+     * Makes a direct phone call to a contact.
+     *
+     * This is called when the user taps the dial icon on a contact result.
+     * It makes the call DIRECTLY without opening the dialer first.
+     *
+     * PERMISSION REQUIREMENT:
+     * This action requires CALL_PHONE permission. The ViewModel ensures
+     * permission is granted before emitting this action.
+     *
+     * HOW IT DIFFERS FROM handleCallContact:
+     * - handleCallContact: Opens dialer (ACTION_DIAL), no permission needed
+     * - handleCallContactDirect: Makes call directly (ACTION_CALL), requires CALL_PHONE
+     *
+     * @param action Contains the phone number to call
+     */
+    private fun handleCallContactDirect(action: SearchAction.CallContactDirect) {
+        val intent = Intent(Intent.ACTION_CALL).apply {
+            data = Uri.parse("tel:${action.phoneNumber}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // No phone app installed (very rare on Android)
+            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            // This shouldn't happen since we check permission before calling
+            // But we handle it just in case
+            Toast.makeText(context, "Call permission not granted", Toast.LENGTH_SHORT).show()
+        }
+
+        // Save to recent contacts
+        searchViewModel.saveRecentContact(action.phoneNumber)
     }
 
     // ========================================================================

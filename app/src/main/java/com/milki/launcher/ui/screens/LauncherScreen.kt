@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.AppSearchDialog
@@ -43,6 +44,7 @@ import com.milki.launcher.ui.components.AppSearchDialog
  * @param onQueryChange Called when user types in search field
  * @param onDismissSearch Called when search dialog should close
  * @param onResultClick Called when user clicks a search result
+ * @param onDialClick Called when user clicks the dial icon on a contact (for direct calling)
  */
 @Composable
 fun LauncherScreen(
@@ -50,7 +52,8 @@ fun LauncherScreen(
     onShowSearch: () -> Unit,
     onQueryChange: (String) -> Unit,
     onDismissSearch: () -> Unit,
-    onResultClick: (SearchResult) -> Unit
+    onResultClick: (SearchResult) -> Unit,
+    onDialClick: ((Contact, String) -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
@@ -71,7 +74,8 @@ fun LauncherScreen(
             uiState = uiState,
             onQueryChange = onQueryChange,
             onDismiss = onDismissSearch,
-            onResultClick = onResultClick
+            onResultClick = onResultClick,
+            onDialClick = onDialClick
         )
     }
 }

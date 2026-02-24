@@ -3,7 +3,8 @@
  *
  * This class encapsulates ALL permission-related logic 
  * It handles:
- * - Contacts permission
+ * - Contacts permission (READ_CONTACTS)
+ * - Call permission (CALL_PHONE) - for direct dialing
  * - Files/Storage permission
  *
  * USAGE:
@@ -55,6 +56,18 @@ class PermissionHandler(
     private lateinit var contactsPermissionLauncher: ActivityResultLauncher<String>
 
     /**
+     * Launcher for requesting call permission (CALL_PHONE).
+     *
+     * This permission is needed to make phone calls directly (ACTION_CALL)
+     * instead of just opening the dialer (ACTION_DIAL).
+     *
+     * WHEN THIS IS USED:
+     * When the user taps the dial icon on a contact result, we request this
+     * permission if not already granted. Once granted, the call is made directly.
+     */
+    private lateinit var callPermissionLauncher: ActivityResultLauncher<String>
+
+    /**
      * Launcher for requesting files/storage permission on Android 10 and below.
      *
      * On older Android versions, READ_EXTERNAL_STORAGE is a standard runtime
@@ -97,6 +110,7 @@ class PermissionHandler(
      */
     fun setup() {
         registerContactsLauncher()
+        registerCallLauncher()
         registerFilesLauncher()
         registerManageStorageLauncher()
     }
@@ -112,6 +126,29 @@ class PermissionHandler(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             searchViewModel.updateContactsPermission(isGranted)
+        }
+    }
+
+    /**
+     * Registers the call permission launcher.
+     *
+     * This is used when the user taps the dial icon on a contact result.
+     * If permission is granted, the ViewModel will execute the pending call.
+     * If denied, the pending call is cancelled.
+     *
+     * PENDING CALL FLOW:
+     * 1. User taps dial icon on contact
+     * 2. ViewModel checks CALL_PHONE permission
+     * 3. If not granted, stores pending call and requests permission
+     * 4. This callback receives the result
+     * 5. If granted, ViewModel executes the stored pending call
+     * 6. If denied, ViewModel clears the pending call
+     */
+    private fun registerCallLauncher() {
+        callPermissionLauncher = activity.registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            searchViewModel.onCallPermissionResult(isGranted)
         }
     }
 
@@ -162,6 +199,7 @@ class PermissionHandler(
      */
     fun updateStates() {
         updateContactsPermissionState()
+        updateCallPermissionState()
         updateFilesPermissionState()
     }
 
@@ -177,6 +215,21 @@ class PermissionHandler(
         ) == PackageManager.PERMISSION_GRANTED
 
         searchViewModel.updateContactsPermission(hasPermission)
+    }
+
+    /**
+     * Checks and updates the call permission state.
+     *
+     * This is used to determine if we can make direct calls (ACTION_CALL)
+     * or if we need to request permission first.
+     */
+    private fun updateCallPermissionState() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            activity,
+            Manifest.permission.CALL_PHONE
+        ) == PackageManager.PERMISSION_GRANTED
+
+        searchViewModel.updateCallPermission(hasPermission)
     }
 
     /**
@@ -208,6 +261,31 @@ class PermissionHandler(
      */
     fun requestContactsPermission() {
         contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+    }
+
+    /**
+     * Requests call permission from the user.
+     *
+     * This is called when the user taps the dial icon on a contact result
+     * but doesn't have CALL_PHONE permission yet.
+     *
+     * The result will be handled by our callback registered in registerCallLauncher(),
+     * which will execute the pending call if granted.
+     */
+    fun requestCallPermission() {
+        callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
+    }
+
+    /**
+     * Checks if call permission is currently granted.
+     *
+     * @return True if CALL_PHONE permission is granted
+     */
+    fun hasCallPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            activity,
+            Manifest.permission.CALL_PHONE
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     /**

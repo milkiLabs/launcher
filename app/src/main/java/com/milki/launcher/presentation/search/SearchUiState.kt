@@ -17,8 +17,23 @@
 package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
+
+/**
+ * Data class to hold pending call information.
+ *
+ * When the user taps the dial icon but doesn't have CALL_PHONE permission,
+ * we store this pending call to execute once permission is granted.
+ *
+ * @property contact The contact to call
+ * @property phoneNumber The phone number to call
+ */
+data class PendingDirectCall(
+    val contact: Contact,
+    val phoneNumber: String
+)
 
 /**
  * Complete UI state for the search screen.
@@ -34,7 +49,9 @@ import com.milki.launcher.domain.model.SearchResult
  * @property recentApps Recent apps to show when query is empty
  * @property installedApps All installed apps for filtering
  * @property hasContactsPermission Whether contacts permission is granted
+ * @property hasCallPermission Whether call permission (CALL_PHONE) is granted for direct dialing
  * @property hasFilesPermission Whether files/storage permission is granted
+ * @property pendingDirectCall Pending call to execute once call permission is granted
  */
 data class SearchUiState(
     val query: String = "",
@@ -45,7 +62,9 @@ data class SearchUiState(
     val recentApps: List<AppInfo> = emptyList(),
     val installedApps: List<AppInfo> = emptyList(),
     val hasContactsPermission: Boolean = false,
-    val hasFilesPermission: Boolean = false
+    val hasCallPermission: Boolean = false,
+    val hasFilesPermission: Boolean = false,
+    val pendingDirectCall: PendingDirectCall? = null
 ) {
     /**
      * Whether results are available to display.

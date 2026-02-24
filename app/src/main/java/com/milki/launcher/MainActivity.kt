@@ -1,32 +1,10 @@
 /**
  * MainActivity.kt - The main entry point of the Milki Launcher
- *
- * This is the launcher's primary Activity. As a launcher app, it has special
- * characteristics defined in AndroidManifest.xml:
- * - launchMode="singleTask" (only one instance exists)
- * - Intent filters for HOME and DEFAULT categories
- * - Appears as a home screen option in Android settings
- *
- * RESPONSIBILITIES (kept minimal):
- * 1. UI composition - Setting up the Compose content
- * 2. Lifecycle management - Handling onResume/onStop for home button detection
- * 3. Home button handling - Detecting home presses and toggling search
- * 4. Delegating to handlers - PermissionHandler and ActionHandler do the real work
- *
- * ARCHITECTURE:
- * MainActivity is intentionally lean. It delegates to:
- * - PermissionHandler: All permission requests and state
- * - ActionHandler: All search action execution (launch app, open URL, etc.)
- * - SearchViewModel: State management and business logic
- *
- * This separation makes the code easier to:
- * - Understand (each class has one job)
- * - Test (handlers can be unit tested independently)
- * - Extend (add settings without touching MainActivity)
  */
 
 package com.milki.launcher
 
+import android.content.Intent
 import androidx.activity.viewModels
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -46,10 +24,6 @@ import kotlinx.coroutines.launch
 
 /**
  * MainActivity - The launcher's home screen Activity.
- *
- * This Activity is launched when:
- * - User presses the home button (if our app is set as default launcher)
- * - User taps our app icon from the app drawer
  *
  * As a launcher, this Activity stays alive in the background when the user
  * opens other apps. When the user presses home again, onNewIntent() is called
@@ -131,8 +105,6 @@ class MainActivity : ComponentActivity() {
     // ========================================================================
 
     /**
-     * Called when the Activity is first created.
-     *
      * Setup order matters:
      * 1. Initialize handlers (they need to register launchers before use)
      * 2. Observe actions (so we can respond to ViewModel events)
@@ -153,7 +125,10 @@ class MainActivity : ComponentActivity() {
                     onShowSearch = { searchViewModel.showSearch() },
                     onQueryChange = { searchViewModel.onQueryChange(it) },
                     onDismissSearch = { searchViewModel.hideSearch() },
-                    onResultClick = { result -> searchViewModel.onResultClick(result) }
+                    onResultClick = { result -> searchViewModel.onResultClick(result) },
+                    onDialClick = { contact, phoneNumber -> 
+                        searchViewModel.onDialClick(contact, phoneNumber) 
+                    }
                 )
             }
         }
@@ -173,8 +148,6 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Called when the Activity becomes visible and interactive.
-     *
      * We update permission states here because:
      * - User might have changed permissions in Settings
      * - Permission state can change while app is in background
@@ -193,13 +166,6 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Called when the Activity is no longer visible.
-     *
-     * This happens when:
-     * - User opens another app
-     * - User opens Settings
-     * - User opens the recent apps list
-     *
      * We clear the homescreen flag so that when the user presses home
      * and onNewIntent fires, we know they were in another app.
      */
@@ -252,6 +218,9 @@ class MainActivity : ComponentActivity() {
             is SearchAction.RequestFilesPermission -> {
                 permissionHandler.requestFilesPermission()
             }
+            is SearchAction.RequestCallPermission -> {
+                permissionHandler.requestCallPermission()
+            }
             is SearchAction.CloseSearch -> {
                 searchViewModel.hideSearch()
             }
@@ -273,40 +242,16 @@ class MainActivity : ComponentActivity() {
     /**
      * Called when the Activity receives a new Intent while already running.
      *
-     * This happens when the user presses the home button while our launcher
-     * is set as the default. Because we use singleTask launch mode, Android
-     * doesn't create a new Activity - it sends a new Intent to the existing one.
+     * BEHAVIOR ON HOME BUTTON PRESS:
+     * 1. Returning from another app (!wasAlreadyOnHomescreen) -> Hide search, show homescreen.
+     * 2. Already on homescreen (wasAlreadyOnHomescreen) -> Toggle search or clear query.
      *
-     * BEHAVIOR:
-     * 1. User returning from another app (wasAlreadyOnHomescreen == false):
-     *    → Close search dialog. User just wants to go "home".
+     * Intent checks (ACTION_MAIN + CATEGORY_HOME):
+     * Strictly filters for actual Home button presses, ignoring other system 
+     * events or shortcuts that might broadcast ACTION_MAIN alone.
      *
-     * 2. User already on homescreen (wasAlreadyOnHomescreen == true):
-     *    → Toggle search dialog:
-     *      - If search is hidden → Show it
-     *      - If search has text → Clear the text
-     *      - If search is empty → Hide it
-     *
-     * INTENT.ACTION_MAIN + CATEGORY_HOME check:
-      * We check for ACTION_MAIN (the standard launch intent) AND CATEGORY_HOME
-      * to ensure this is specifically a home button press. While ACTION_MAIN
-      * is commonly used for the home button, other system events can also
-      * trigger ACTION_MAIN intents. Adding the CATEGORY_HOME check provides
-      * an extra layer of safety to ensure we only respond to actual home
-      * button presses and not other system events that might accidentally
-      * send ACTION_MAIN.
-      *
-      * Examples of events that might send ACTION_MAIN but NOT CATEGORY_HOME:
-      * - App shortcuts created by other apps
-      * - Certain system broadcasts
-      * - Intent filters from other apps that match the action
-      *
-      * By requiring both ACTION_MAIN and CATEGORY_HOME, we ensure our
-      * launcher behavior is only triggered when the user intentionally
-      * presses the home button.
-      *
-      * IMPORTANT: onNewIntent fires BEFORE onResume!
-      * That's why our wasAlreadyOnHomescreen flag works correctly.
+     * Note: onNewIntent fires BEFORE onResume, allowing the `wasAlreadyOnHomescreen` 
+     * flag to accurately reflect the prior state.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

@@ -131,7 +131,7 @@ sealed class SearchAction {
     /**
      * Make a phone call to a contact.
      *
-     * Emitted when user taps a contact result.
+     * Emitted when user taps a contact result (the item itself, not the dial icon).
      * Opens the dialer with the contact's number pre-filled.
      *
      * @property contact The contact to call
@@ -141,6 +141,39 @@ sealed class SearchAction {
         val contact: Contact,
         val phoneNumber: String
     ) : SearchAction()
+
+    /**
+     * Make a direct phone call to a contact.
+     *
+     * Emitted when user taps the dial icon on a contact result.
+     * This makes the call DIRECTLY (ACTION_CALL) instead of just opening the dialer.
+     *
+     * PERMISSION REQUIREMENT:
+     * This action requires CALL_PHONE permission. If not granted,
+     * the ViewModel will request permission before executing the call.
+     *
+     * FLOW:
+     * 1. User taps dial icon on contact
+     * 2. ViewModel checks CALL_PHONE permission
+     * 3. If granted, emits CallContactDirect
+     * 4. If not granted, requests permission and stores pending call
+     * 5. Once permission granted, emits CallContactDirect
+     *
+     * @property contact The contact to call
+     * @property phoneNumber The phone number to call
+     */
+    data class CallContactDirect(
+        val contact: Contact,
+        val phoneNumber: String
+    ) : SearchAction()
+
+    /**
+     * Request call permission.
+     *
+     * Emitted when user taps the dial icon on a contact result
+     * but doesn't have CALL_PHONE permission yet.
+     */
+    data object RequestCallPermission : SearchAction()
 
     /**
      * Request contacts permission.
@@ -199,9 +232,11 @@ fun SearchAction.shouldCloseSearch(): Boolean {
         is SearchAction.OpenUrlWithApp -> true
         is SearchAction.OpenUrlInBrowser -> true
         is SearchAction.CallContact -> true
+        is SearchAction.CallContactDirect -> true
         is SearchAction.OpenFile -> true
         is SearchAction.RequestContactsPermission -> false
         is SearchAction.RequestFilesPermission -> false
+        is SearchAction.RequestCallPermission -> false
         is SearchAction.CloseSearch -> true
         is SearchAction.ClearQuery -> false
     }

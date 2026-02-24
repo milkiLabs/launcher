@@ -28,6 +28,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.AppRepository
+import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
@@ -48,12 +49,14 @@ import kotlinx.coroutines.withContext
  * - Data sources (installed apps, recent apps, contacts)
  *
  * @property appRepository Repository for app data
+ * @property contactsRepository Repository for contacts data (for recent contacts)
  * @property providerRegistry Registry of search providers
  * @property filterAppsUseCase Use case for filtering apps
  * @property urlHandlerResolver Resolver for URL handler apps
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
+    private val contactsRepository: ContactsRepository,
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
     private val urlHandlerResolver: UrlHandlerResolver
@@ -290,6 +293,85 @@ class SearchViewModel(
         val currentState = _uiState.value
         if (currentState.activeProviderConfig?.prefix == "f") {
             performSearch(currentState.query)
+        }
+    }
+
+    /**
+     * Update call permission status.
+     * Called from Activity when permission state changes.
+     *
+     * @param hasPermission Whether CALL_PHONE permission is granted
+     */
+    fun updateCallPermission(hasPermission: Boolean) {
+        updateState { copy(hasCallPermission = hasPermission) }
+    }
+
+    /**
+     * Handle dial icon click on a contact result.
+     *
+     * FLOW:
+     * 1. Check if CALL_PHONE permission is granted
+     * 2. If granted, emit CallContactDirect action immediately
+     * 3. If not granted, store pending call and emit RequestCallPermission action
+     *
+     * The pending call will be executed in onCallPermissionResult() when
+     * permission is granted.
+     *
+     * @param contact The contact to call
+     * @param phoneNumber The phone number to call
+     */
+    fun onDialClick(contact: Contact, phoneNumber: String) {
+        val currentState = _uiState.value
+
+        if (currentState.hasCallPermission) {
+            // Permission already granted - make direct call
+            emitAction(SearchAction.CallContactDirect(contact, phoneNumber))
+            hideSearch()
+        } else {
+            // Permission not granted - store pending call and request permission
+            updateState {
+                copy(pendingDirectCall = PendingDirectCall(contact, phoneNumber))
+            }
+            emitAction(SearchAction.RequestCallPermission)
+        }
+    }
+
+    /**
+     * Handle call permission result.
+     * Called from PermissionHandler when the user responds to the permission request.
+     *
+     * FLOW:
+     * 1. Update the permission state
+     * 2. If granted and there's a pending call, execute it
+     * 3. Clear the pending call regardless of result
+     *
+     * @param isGranted Whether CALL_PHONE permission was granted
+     */
+    fun onCallPermissionResult(isGranted: Boolean) {
+        updateState { copy(hasCallPermission = isGranted) }
+
+        val pendingCall = _uiState.value.pendingDirectCall
+        if (isGranted && pendingCall != null) {
+            // Permission granted and there's a pending call - execute it
+            emitAction(SearchAction.CallContactDirect(pendingCall.contact, pendingCall.phoneNumber))
+            // Clear pending call and close search
+            updateState { copy(pendingDirectCall = null) }
+            hideSearch()
+        } else {
+            // Permission denied or no pending call - just clear pending call
+            updateState { copy(pendingDirectCall = null) }
+        }
+    }
+
+    /**
+     * Save a phone number to recent contacts.
+     * Called after making a call (either direct or via dialer).
+     *
+     * @param phoneNumber The phone number to save
+     */
+    fun saveRecentContact(phoneNumber: String) {
+        viewModelScope.launch {
+            contactsRepository.saveRecentContact(phoneNumber)
         }
     }
 

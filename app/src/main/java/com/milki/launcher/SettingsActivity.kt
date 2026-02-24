@@ -1,20 +1,5 @@
 /**
  * SettingsActivity.kt - Settings entry point for the Milki Launcher
- *
- * This Activity hosts the Settings screen. It's registered separately in the
- * AndroidManifest with its own intent filter so it can be:
- * 1. Launched from the app drawer as "Launcher Settings"
- * 2. Launched from the launcher itself via a settings action
- *
- * ARCHITECTURE:
- * Like MainActivity, this follows the "dumb View" pattern:
- * - State flows from SettingsViewModel via LauncherSettings
- * - User actions are dispatched to SettingsViewModel methods
- * - Activity just renders the Compose UI
- *
- * LIFECYCLE:
- * - Standard Activity lifecycle (not singleTask like MainActivity)
- * - finish() is called when user navigates back
  */
 
 package com.milki.launcher
@@ -28,14 +13,6 @@ import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.SettingsScreen
 import com.milki.launcher.ui.theme.LauncherTheme
 
-/**
- * SettingsActivity - Hosts the launcher settings screen.
- *
- * This is a separate Activity (not part of MainActivity) because:
- * 1. It needs its own launcher entry point in the app drawer
- * 2. It shouldn't interfere with the home screen behavior
- * 3. It can be navigated to independently from any context
- */
 class SettingsActivity : ComponentActivity() {
 
     /**

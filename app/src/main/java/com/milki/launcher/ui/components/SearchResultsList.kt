@@ -52,12 +52,14 @@ import com.milki.launcher.ui.theme.Spacing
  * @param results List of search results to display
  * @param activeProviderConfig Current search provider (for theming)
  * @param onResultClick Callback when user clicks a result
+ * @param onDialClick Callback when user clicks the dial icon on a contact (for direct calling)
  */
 @Composable
 fun SearchResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
-    onResultClick: (SearchResult) -> Unit
+    onResultClick: (SearchResult) -> Unit,
+    onDialClick: ((Contact, String) -> Unit)? = null
 ) {
     /**
      * Check if all results are app results.
@@ -97,7 +99,8 @@ fun SearchResultsList(
         MixedResultsList(
             results = results,
             activeProviderConfig = activeProviderConfig,
-            onResultClick = onResultClick
+            onResultClick = onResultClick,
+            onDialClick = onDialClick
         )
     }
 }
@@ -183,12 +186,14 @@ private fun AppResultsGrid(
  * @param results List of search results (can be any type)
  * @param activeProviderConfig Current search provider configuration (for theming)
  * @param onResultClick Callback when a result is clicked
+ * @param onDialClick Callback when the dial icon is clicked on a contact (for direct calling)
  */
 @Composable
 private fun MixedResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
-    onResultClick: (SearchResult) -> Unit
+    onResultClick: (SearchResult) -> Unit,
+    onDialClick: ((Contact, String) -> Unit)? = null
 ) {
     /**
      * LazyListState allows us to control and observe the scroll position
@@ -252,7 +257,15 @@ private fun MixedResultsList(
                     ContactSearchResultItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
-                        onClick = { onResultClick(result) }
+                        onClick = { onResultClick(result) },
+                        onDialClick = onDialClick?.let { callback ->
+                            {
+                                val phone = result.contact.phoneNumbers.firstOrNull()
+                                if (phone != null) {
+                                    callback(result.contact, phone)
+                                }
+                            }
+                        }
                     )
                 }
                 is FileDocumentSearchResult -> {
