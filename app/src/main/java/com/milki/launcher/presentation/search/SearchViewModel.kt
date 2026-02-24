@@ -31,8 +31,11 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.parseSearchQuery
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for the search feature.
@@ -79,6 +82,30 @@ class SearchViewModel(
      * Use collect() to receive actions.
      */
     val action: SharedFlow<SearchAction> = _action.asSharedFlow()
+
+    /**
+     * Tracks the current search coroutine job.
+     * 
+     * RACE CONDITION FIX:
+     * When the user types quickly (e.g., "a" then "ab"), multiple search
+     * coroutines could be running simultaneously. If the search for "a"
+     * takes longer than "ab", the "a" results would overwrite "ab" results.
+     * 
+     * By storing the job and cancelling it before starting a new search,
+     * we ensure only the most recent query's results are displayed.
+     * 
+     * Example timeline without this fix:
+     * - User types "a" -> searchJob1 starts
+     * - User types "ab" -> searchJob2 starts
+     * - searchJob1 completes -> shows results for "a" (WRONG!)
+     * - searchJob2 completes -> shows results for "ab" (too late, user confused)
+     * 
+     * With this fix:
+     * - User types "a" -> searchJob1 starts
+     * - User types "ab" -> searchJob1.cancel(), searchJob2 starts
+     * - searchJob2 completes -> shows results for "ab" (CORRECT!)
+     */
+    private var searchJob: Job? = null
 
     // ========================================================================
     // INITIALIZATION
@@ -140,15 +167,20 @@ class SearchViewModel(
 
     /**
      * Hide the search dialog.
-     * Also clears the query.
+     * Also clears the query and cancels any ongoing search.
      */
     fun hideSearch() {
+        // Cancel any ongoing search to prevent stale results
+        searchJob?.cancel()
+        searchJob = null
+        
         updateState {
             copy(
                 isSearchVisible = false,
                 query = "",
                 results = emptyList(),
-                activeProviderConfig = null
+                activeProviderConfig = null,
+                isLoading = false
             )
         }
     }
@@ -289,37 +321,78 @@ class SearchViewModel(
  * - Limiting results improves performance (less data to process)
  * - Users can refine their search if the desired app isn't shown
  *
+ * THREADING NOTE:
+ * This function runs heavy operations (Regex matching, app filtering)
+ * on Dispatchers.Default to prevent UI thread blocking.
+ * 
+ * - Dispatchers.Main: UI updates only
+ * - Dispatchers.Default: CPU-intensive work (pattern matching, filtering)
+ *
+ * RACE CONDITION HANDLING:
+ * Each call cancels the previous searchJob before starting a new one.
+ * This ensures that only the results for the most recent query are shown.
+ *
  * @param query The search query
  */
 private fun performSearch(query: String) {
-    val parsed = parseSearchQuery(query, providerRegistry)
+    /**
+     * RACE CONDITION FIX:
+     * Cancel any previous search before starting a new one.
+     * This prevents outdated results from overwriting newer ones.
+     */
+    searchJob?.cancel()
 
-    updateState {
-        copy(activeProviderConfig = parsed.config)
-    }
+    /**
+     * Store the new job so we can cancel it if the user types again.
+     * Using Dispatchers.Default for CPU-intensive work:
+     * - Regex pattern matching (Patterns.WEB_URL.matcher)
+     * - App filtering (filterAppsUseCase)
+     * - List operations and iterations
+     * 
+     * This keeps the Main thread free for smooth UI rendering at 60/120fps.
+     */
+    searchJob = viewModelScope.launch(Dispatchers.Default) {
+        val parsed = parseSearchQuery(query, providerRegistry)
 
-    viewModelScope.launch {
+        /**
+         * Switch to Main thread for UI state updates.
+         * StateFlow updates must happen on the Main thread.
+         */
+        withContext(Dispatchers.Main) {
+            updateState {
+                copy(activeProviderConfig = parsed.config)
+            }
+        }
+
         if (parsed.provider != null) {
             // Provider search
-            updateState { copy(isLoading = true) }
+            withContext(Dispatchers.Main) {
+                updateState { copy(isLoading = true) }
+            }
 
             try {
+                // Provider search runs on Default dispatcher (already here)
                 val results = parsed.provider.search(parsed.query)
-                updateState {
-                    copy(results = results, isLoading = false)
+                
+                withContext(Dispatchers.Main) {
+                    updateState {
+                        copy(results = results, isLoading = false)
+                    }
                 }
             } catch (e: Exception) {
                 // Handle error (could emit error action)
-                updateState { copy(isLoading = false, results = emptyList()) }
+                withContext(Dispatchers.Main) {
+                    updateState { copy(isLoading = false, results = emptyList()) }
+                }
             }
         } else {
             // No provider prefix detected
             val state = _uiState.value
             
-            // Check if the query looks like a URL
+            // Check if the query looks like a URL (CPU-intensive regex work)
             val urlResult = detectUrl(parsed.query)
             
-            // Filter apps (limited to 8 results for grid display)
+            // Filter apps (CPU-intensive work)
             val filteredApps = filterAppsUseCase(
                 query = parsed.query,
                 installedApps = state.installedApps,
@@ -340,7 +413,10 @@ private fun performSearch(query: String) {
                 appResults
             }
 
-            updateState { copy(results = results) }
+            // Update UI on Main thread
+            withContext(Dispatchers.Main) {
+                updateState { copy(results = results) }
+            }
         }
     }
 }
