@@ -25,6 +25,36 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
+// ============================================================================
+// TOP-LEVEL DATASTORE DELEGATE
+// ============================================================================
+
+/**
+ * Top-level DataStore delegate for storing launcher preferences.
+ * 
+ * IMPORTANT: This delegate MUST be at the top level of the file, NOT inside a class.
+ * 
+ * Why?
+ * The 'by preferencesDataStore' delegate creates a single DataStore instance per file.
+ * If placed inside a class and that class is instantiated multiple times,
+ * each instance would try to create a new DataStore for the same file.
+ * This throws IllegalStateException and crashes the app.
+ * 
+ * Google's official documentation explicitly warns:
+ * "The datastore instance must be created at the top level of your Kotlin file,
+ * outside of any class, to ensure it's a true singleton."
+ * 
+ * How it works:
+ * - The delegate lazily creates the DataStore on first access
+ * - It caches the instance for all subsequent accesses
+ * - Being top-level ensures there's only ONE instance across the entire app
+ * 
+ * The 'name' parameter specifies the preferences file name:
+ * - Stored at: /data/data/<package>/files/datastore/launcher_prefs.preferences_pb
+ * - Contains: user preferences that survive app restarts
+ */
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "launcher_prefs")
+
 /**
  * Implementation of AppRepository that uses Android's PackageManager and DataStore.
 
@@ -35,20 +65,18 @@ class AppRepositoryImpl(
 ) : AppRepository {
     
     // ============================================================================
-    // DATASTORE SETUP
+    // DATASTORE KEY
     // ============================================================================
     
     /**
-     * Extension property to create/access DataStore.
-     * 
-     * The 'by preferencesDataStore' delegate creates the DataStore lazily
-     * and caches it for future use.
-     */
-    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "launcher_prefs")
-    
-    /**
      * Key used to store recent apps as a comma-separated string.
+     * 
      * Format: "com.whatsapp,com.youtube,com.gmail"
+     * 
+     * Why stringPreferencesKey?
+     * DataStore requires typed keys. stringPreferencesKey creates a key
+     * that can only store/retrieve String values, providing type safety.
+     * The string "recent_apps" is the actual key name stored in the file.
      */
     private val recentAppsKey = stringPreferencesKey("recent_apps")
     
