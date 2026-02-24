@@ -1,129 +1,148 @@
 /**
  * MainActivity.kt - The main entry point of the Milki Launcher
  *
- * This Activity serves as the primary launcher home screen. It:
- * 1. Hosts the Compose UI (LauncherScreen)
- * 2. Observes SearchViewModel state
- * 3. Handles SearchAction events (navigation, calls, etc.)
- * 4. Manages permissions
+ * This is the launcher's primary Activity. As a launcher app, it has special
+ * characteristics defined in AndroidManifest.xml:
+ * - launchMode="singleTask" (only one instance exists)
+ * - Intent filters for HOME and DEFAULT categories
+ * - Appears as a home screen option in Android settings
+ *
+ * RESPONSIBILITIES (kept minimal):
+ * 1. UI composition - Setting up the Compose content
+ * 2. Lifecycle management - Handling onResume/onStop for home button detection
+ * 3. Home button handling - Detecting home presses and toggling search
+ * 4. Delegating to handlers - PermissionHandler and ActionHandler do the real work
  *
  * ARCHITECTURE:
- * This Activity follows the "dumb View" pattern:
- * - State comes from SearchViewModel
- * - Actions are emitted by SearchViewModel
- * - Activity just renders UI and executes actions
+ * MainActivity is intentionally lean. It delegates to:
+ * - PermissionHandler: All permission requests and state
+ * - ActionHandler: All search action execution (launch app, open URL, etc.)
+ * - SearchViewModel: State management and business logic
  *
- * This keeps the Activity thin and the logic testable in the ViewModel.
- *
- * LIFECYCLE:
- * 1. onCreate: Setup ViewModel, observe state, observe actions
- * 2. onResume: Check permission status
- * 3. onNewIntent: Handle home button press (toggle search)
+ * This separation makes the code easier to:
+ * - Understand (each class has one job)
+ * - Test (handlers can be unit tested independently)
+ * - Extend (add settings without touching MainActivity)
  */
 
 package com.milki.launcher
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.*
-import androidx.core.content.ContextCompat
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.milki.launcher.handlers.ActionHandler
+import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.search.SearchAction
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.presentation.search.shouldCloseSearch
 import com.milki.launcher.ui.screens.LauncherScreen
 import com.milki.launcher.ui.theme.LauncherTheme
-import com.milki.launcher.util.MimeTypeUtil
-import com.milki.launcher.util.PermissionUtil
 import kotlinx.coroutines.launch
 
 /**
- * MainActivity
+ * MainActivity - The launcher's home screen Activity.
  *
- * As a launcher app, this Activity has special characteristics:
- * 1. It uses launchMode="singleTask" in AndroidManifest.xml
- * 2. It has intent filters for MAIN, HOME, DEFAULT, and LAUNCHER categories
- * 3. It appears as a home screen option in Android settings
+ * This Activity is launched when:
+ * - User presses the home button (if our app is set as default launcher)
+ * - User taps our app icon from the app drawer
+ *
+ * As a launcher, this Activity stays alive in the background when the user
+ * opens other apps. When the user presses home again, onNewIntent() is called
+ * instead of onCreate() (because we use singleTask launch mode).
  */
 class MainActivity : ComponentActivity() {
 
     // ========================================================================
-    // VIEWMODEL
+    // DEPENDENCIES
     // ========================================================================
 
     /**
      * SearchViewModel instance obtained from the AppContainer.
+     *
      * Created lazily to ensure AppContainer is initialized first.
+     * This ViewModel manages all search state (query, results, visibility)
+     * and emits actions for the Activity to execute.
      */
     private val searchViewModel: SearchViewModel by lazy {
         (application as LauncherApplication).container.searchViewModelFactory.create(SearchViewModel::class.java)
     }
+
+    /**
+     * PermissionHandler - Manages all permission requests.
+     *
+     * This handler is responsible for:
+     * - Registering permission launchers
+     * - Checking and updating permission states
+     * - Requesting permissions from the user
+     *
+     * Initialized in onCreate() after the Activity is ready.
+     */
+    private lateinit var permissionHandler: PermissionHandler
+
+    /**
+     * ActionHandler - Executes search actions.
+     *
+     * This handler is responsible for:
+     * - Launching apps
+     * - Opening URLs and web searches
+     * - Opening YouTube searches
+     * - Making phone calls
+     * - Opening files
+     *
+     * Initialized in onCreate() after the Activity is ready.
+     */
+    private lateinit var actionHandler: ActionHandler
 
     // ========================================================================
     // HOME BUTTON STATE TRACKING
     // ========================================================================
 
     /**
-     * Tracks whether the user is currently on the homescreen (activity is
-     * in the foreground and not returning from another app).
+     * Tracks whether the user is currently on the homescreen.
      *
-     * This flag is the key to correctly handling the home button:
-     * - Set to FALSE in onStop() (user left the homescreen)
-     * - Set to TRUE in onResume() (user is now on the homescreen)
-     * - Checked in onNewIntent() to decide behavior
+     * This flag is crucial for distinguishing between two scenarios:
      *
-     * When onNewIntent fires:
-     * - If wasAlreadyOnHomescreen == true → user was on homescreen, toggle dialog
-     * - If wasAlreadyOnHomescreen == false → user is returning from an app,
-     *   ensure dialog is closed
+     * SCENARIO 1: User is on homescreen, presses home button
+     * - wasAlreadyOnHomescreen == true
+     * - Action: Toggle search (show/hide/clear)
+     *
+     * SCENARIO 2: User is in another app, presses home button
+     * - wasAlreadyOnHomescreen == false
+     * - Action: Just ensure search is hidden (user wants to go home)
+     *
+     * LIFECYCLE FLOW:
+     * 1. User opens app from homescreen → onStop() sets flag to false
+     * 2. User presses home → onNewIntent() fires (flag is false)
+     * 3. onResume() sets flag to true
+     * 4. User presses home again → onNewIntent() fires (flag is true)
+     *
+     * The key insight is that onNewIntent() fires BEFORE onResume(),
+     * so we can check the flag to know the prior state.
      */
     private var wasAlreadyOnHomescreen = false
-
-    // ========================================================================
-    // PERMISSION LAUNCHER
-    // ========================================================================
-
-    /**
-     * Activity result launcher for requesting contacts permission.
-     */
-    private lateinit var contactsPermissionLauncher: ActivityResultLauncher<String>
-
-    /**
-     * Activity result launcher for requesting files/storage permission.
-     * Used on Android 10 and below for READ_EXTERNAL_STORAGE.
-     */
-    private lateinit var filesPermissionLauncher: ActivityResultLauncher<String>
-    
-    /**
-     * Activity result launcher for requesting MANAGE_EXTERNAL_STORAGE permission.
-     * Used on Android 11+ to open Settings for "All files access" permission.
-     * This is a special permission that cannot be granted via normal runtime permissions.
-     */
-    private lateinit var manageStorageLauncher: ActivityResultLauncher<Intent>
 
     // ========================================================================
     // ACTIVITY LIFECYCLE
     // ========================================================================
 
+    /**
+     * Called when the Activity is first created.
+     *
+     * Setup order matters:
+     * 1. Initialize handlers (they need to register launchers before use)
+     * 2. Observe actions (so we can respond to ViewModel events)
+     * 3. Set content (Compose UI)
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        setupPermissionLaunchers()
+        initializeHandlers()
         observeActions()
-        updateContactsPermissionState()
-        updateFilesPermissionState()
 
         setContent {
             val uiState by searchViewModel.uiState.collectAsState()
@@ -140,22 +159,52 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Initializes the permission and action handlers.
+     *
+     * This is separated from onCreate() for clarity and potential future
+     * customization (e.g., passing settings repository to ActionHandler).
+     */
+    private fun initializeHandlers() {
+        permissionHandler = PermissionHandler(this, searchViewModel)
+        permissionHandler.setup()
+
+        actionHandler = ActionHandler(this, searchViewModel)
+    }
+
+    /**
+     * Called when the Activity becomes visible and interactive.
+     *
+     * We update permission states here because:
+     * - User might have changed permissions in Settings
+     * - Permission state can change while app is in background
+     *
+     * We also set the homescreen flag AFTER onNewIntent would have fired.
+     * Android calls lifecycle methods in this order:
+     * onNewIntent → onStart → onResume
+     *
+     * So when onNewIntent checks the flag, it sees the OLD state (correct).
+     * Then onResume sets it to true for the NEXT home press.
+     */
     override fun onResume() {
         super.onResume()
-        updateContactsPermissionState()
-        updateFilesPermissionState()
-        // Mark that the user is now on the homescreen.
-        // This is set AFTER onNewIntent would have already fired
-        // (Android calls onNewIntent before onResume), so the flag
-        // is only true when the user is already sitting on the homescreen.
+        permissionHandler.updateStates()
         wasAlreadyOnHomescreen = true
     }
 
+    /**
+     * Called when the Activity is no longer visible.
+     *
+     * This happens when:
+     * - User opens another app
+     * - User opens Settings
+     * - User opens the recent apps list
+     *
+     * We clear the homescreen flag so that when the user presses home
+     * and onNewIntent fires, we know they were in another app.
+     */
     override fun onStop() {
         super.onStop()
-        // User has left the homescreen (another app is in the foreground).
-        // Clear the flag so that the next onNewIntent knows the user
-        // is returning from an app, not already on the homescreen.
         wasAlreadyOnHomescreen = false
     }
 
@@ -164,8 +213,16 @@ class MainActivity : ComponentActivity() {
     // ========================================================================
 
     /**
-     * Observe SearchAction events from the ViewModel.
-     * Actions are one-time events (navigation, calls, etc.)
+     * Observes SearchAction events from the ViewModel.
+     *
+     * Actions are one-time events (navigation, calls, etc.) that the
+     * ViewModel emits when the user interacts with search results.
+     *
+     * WHY USE REPEATONLIFECYLE WITH STARTED?
+     * - STARTED ensures we only collect when the Activity is visible
+     * - Automatically cancels collection when Activity stops
+     * - Restarts collection if Activity is resumed
+     * - Prevents memory leaks and race conditions
      */
     private fun observeActions() {
         lifecycleScope.launch {
@@ -178,323 +235,77 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Handle a SearchAction event.
-     * Dispatches to the appropriate handler method.
+     * Handles a SearchAction event.
+     *
+     * Actions are split into two categories:
+     * 1. System actions - Delegated to ActionHandler (launch app, open URL, etc.)
+     * 2. Permission actions - Delegated to PermissionHandler
+     * 3. Local actions - Handled directly by ViewModel (close search, clear query)
+     *
+     * @param action The action to execute
      */
     private fun handleAction(action: SearchAction) {
         when (action) {
-            is SearchAction.LaunchApp -> handleLaunchApp(action)
-            is SearchAction.OpenWebSearch -> handleOpenWebSearch(action)
-            is SearchAction.OpenYouTubeSearch -> handleOpenYouTubeSearch(action)
-            is SearchAction.OpenUrl -> handleOpenUrl(action)
-            is SearchAction.CallContact -> handleCallContact(action)
-            is SearchAction.OpenFile -> handleOpenFile(action)
-            is SearchAction.RequestContactsPermission -> requestContactsPermission()
-            is SearchAction.RequestFilesPermission -> requestFilesPermission()
-            is SearchAction.CloseSearch -> searchViewModel.hideSearch()
-            is SearchAction.ClearQuery -> searchViewModel.clearQuery()
-        }
-    }
-
-    // ========================================================================
-    // ACTION HANDLERS
-    // ========================================================================
-
-    /**
-     * Launch an app and save it to recent apps.
-     */
-    private fun handleLaunchApp(action: SearchAction.LaunchApp) {
-        action.appInfo.launchIntent?.let { startActivity(it) }
-        searchViewModel.saveRecentApp(action.appInfo.packageName)
-    }
-
-    /**
-     * Open a web search in the browser.
-     * 
-     * This delegates to openUrlInBrowser() to avoid code duplication.
-     * Both web searches and direct URLs use the same intent mechanism.
-     */
-    private fun handleOpenWebSearch(action: SearchAction.OpenWebSearch) {
-        openUrlInBrowser(action.url)
-    }
-
-    /**
-     * Open a URL directly in the browser.
-     * 
-     * Called when the user types a valid URL and taps the URL result.
-     * This delegates to openUrlInBrowser() to avoid code duplication.
-     */
-    private fun handleOpenUrl(action: SearchAction.OpenUrl) {
-        openUrlInBrowser(action.url)
-    }
-
-    /**
-     * Opens a URL in the default browser.
-     * 
-     * This is a shared helper method used by both handleOpenWebSearch()
-     * and handleOpenUrl() to avoid code duplication. Both actions need
-     * to open URLs in the browser using the same intent mechanism.
-     * 
-     * HOW IT WORKS:
-     * 1. Creates an ACTION_VIEW intent with the URL
-     * 2. Checks if any app can handle the intent (resolveActivity)
-     * 3. Starts the activity if an app is available
-     * 
-     * INTENT DETAILS:
-     * - ACTION_VIEW: Standard action for viewing content
-     * - Uri.parse(url): Converts the URL string to a Uri object
-     * - resolveActivity(): Checks if any app can handle this intent
-     *   (prevents crashes if no browser is installed)
-     * 
-     * @param url The URL to open (can be a web search URL or direct URL)
-     * 
-     * Example URLs:
-     * - Web search: "https://www.google.com/search?q=android"
-     * - Direct URL: "https://www.example.com"
-     */
-    private fun openUrlInBrowser(url: String) {
-        /**
-         * Create an intent to view the URL.
-         * 
-         * ACTION_VIEW tells Android to open the URL in an appropriate app.
-         * For http/https URLs, this will typically open the default browser.
-         */
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        
-        /**
-         * Check if any app can handle this intent.
-         * 
-         * resolveActivity() returns null if no app can handle the intent.
-         * This prevents crashes if the user has no browser installed
-         * (rare but possible on custom ROMs or enterprise devices).
-         */
-        if (intent.resolveActivity(packageManager) != null) {
-            startActivity(intent)
-        }
-    }
-
-    /**
-     * Open a YouTube search.
-     * Tries YouTube app first, then browser fallback.
-     */
-    private fun handleOpenYouTubeSearch(action: SearchAction.OpenYouTubeSearch) {
-        val query = action.query
-        val youtubeUrl = "https://www.youtube.com/results?search_query=${Uri.encode(query)}"
-
-        val youtubePackages = listOf(
-            "app.revanced.android.youtube",
-            "com.google.android.youtube"
-        )
-
-        for (packageName in youtubePackages) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(youtubeUrl)).apply {
-                `package` = packageName
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            is SearchAction.RequestContactsPermission -> {
+                permissionHandler.requestContactsPermission()
             }
-
-            if (intent.resolveActivity(packageManager) != null) {
-                startActivity(intent)
-                return
+            is SearchAction.RequestFilesPermission -> {
+                permissionHandler.requestFilesPermission()
+            }
+            is SearchAction.CloseSearch -> {
+                searchViewModel.hideSearch()
+            }
+            is SearchAction.ClearQuery -> {
+                searchViewModel.clearQuery()
+            }
+            else -> {
+                // All other actions (launch app, open URL, call, file, etc.)
+                // are handled by ActionHandler
+                actionHandler.handle(action)
             }
         }
-
-        val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(youtubeUrl))
-        if (webIntent.resolveActivity(packageManager) != null) {
-            startActivity(webIntent)
-        }
-    }
-
-    /**
-     * Make a phone call to a contact.
-     * Opens the dialer with the number pre-filled.
-     */
-    private fun handleCallContact(action: SearchAction.CallContact) {
-        val intent = Intent(Intent.ACTION_DIAL).apply {
-            data = Uri.parse("tel:${action.phoneNumber}")
-        }
-
-        if (intent.resolveActivity(packageManager) != null) {
-            startActivity(intent)
-        }
-    }
-
-    /**
-     * Open a file/document with an appropriate app.
-     * 
-     * This method creates an Intent to open the file using the system's
-     * file association mechanism. The file will open in the default app
-     * for its MIME type (e.g., PDF viewer for PDFs, word processor for docs).
-     * 
-     * INTENT FLAGS:
-     * - FLAG_GRANT_READ_URI_PERMISSION: Grants the receiving app temporary
-     *   read access to the file via its content URI
-     * - FLAG_ACTIVITY_NEW_TASK: Starts the activity in a new task (standard for launcher)
-     */
-    private fun handleOpenFile(action: SearchAction.OpenFile) {
-        val file = action.file
-        
-        // Use the file's MIME type, or guess from extension
-        val mimeType = if (file.mimeType.isNotBlank()) {
-            file.mimeType
-        } else {
-            // Guess MIME type from file extension using utility
-            val extension = file.name.substringAfterLast('.', "").lowercase()
-            MimeTypeUtil.getMimeTypeFromExtension(extension)
-        }
-        
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(file.uri, mimeType)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        // Try to start the activity
-        // Use createChooser to let user pick an app if there are multiple options
-        val chooserIntent = Intent.createChooser(intent, "Open ${file.name}").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        try {
-            startActivity(chooserIntent)
-        } catch (e: Exception) {
-            // If no app can handle the file, show a toast or error message
-            android.widget.Toast.makeText(
-                this,
-                "No app found to open ${file.name}",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-        }
     }
 
     // ========================================================================
-    // PERMISSION HANDLING
+    // HOME BUTTON HANDLING
     // ========================================================================
 
     /**
-     * Sets up the permission launchers using the Activity Result API.
-     * Each permission has its own launcher for clean separation of concerns.
-     */
-    private fun setupPermissionLaunchers() {
-        // Launcher for contacts permission
-        contactsPermissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            searchViewModel.updateContactsPermission(isGranted)
-        }
-
-        // Launcher for files/storage permission (Android 10 and below)
-        filesPermissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            searchViewModel.updateFilesPermission(isGranted)
-        }
-        
-        // Launcher for MANAGE_EXTERNAL_STORAGE permission (Android 11+)
-        // This opens Settings and the result is checked in onResume
-        manageStorageLauncher = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) {
-            // The result is handled in onResume where we check the actual permission state
-            updateFilesPermissionState()
-        }
-    }
-
-    /**
-     * Updates the contacts permission state by checking with PackageManager.
-     */
-    private fun updateContactsPermissionState() {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.READ_CONTACTS
-        ) == PackageManager.PERMISSION_GRANTED
-
-        searchViewModel.updateContactsPermission(hasPermission)
-    }
-
-    /**
-     * Updates the files permission state.
-     * 
-     * Permission requirements differ by Android version:
-     * - Android 11+ (API 30+): Requires MANAGE_EXTERNAL_STORAGE (checked via Environment.isExternalStorageManager())
-     * - Android 10 and below: Requires READ_EXTERNAL_STORAGE runtime permission
-     */
-    private fun updateFilesPermissionState() {
-        val hasPermission = PermissionUtil.hasFilesPermission(this)
-
-        searchViewModel.updateFilesPermission(hasPermission)
-    }
-
-    /**
-     * Requests the READ_CONTACTS permission from the user.
-     */
-    private fun requestContactsPermission() {
-        contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
-    }
-
-    /**
-     * Requests the appropriate storage permission based on Android version.
-     * 
-     * On Android 11+ (API 30+):
-     *   Opens Settings for MANAGE_EXTERNAL_STORAGE permission ("All files access").
-     *   This is a special permission that requires user action in Settings.
-     * 
-     * On Android 10 and below:
-     *   Requests READ_EXTERNAL_STORAGE runtime permission via dialog.
-     */
-    private fun requestFilesPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11+: Open Settings for MANAGE_EXTERNAL_STORAGE
-            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                data = Uri.parse("package:$packageName")
-            }
-            
-            // Try the specific intent first, fall back to general manage files intent
-            if (intent.resolveActivity(packageManager) != null) {
-                manageStorageLauncher.launch(intent)
-            } else {
-                // Fallback to general "All files access" settings
-                val fallbackIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                if (fallbackIntent.resolveActivity(packageManager) != null) {
-                    manageStorageLauncher.launch(fallbackIntent)
-                }
-            }
-        } else {
-            // Android 10 and below: Request READ_EXTERNAL_STORAGE via dialog
-            filesPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-    }
-
-    // ========================================================================
-    // INTENT HANDLING
-    // ========================================================================
-
-    /**
-     * onNewIntent is called when the Activity receives a new Intent
-     * while already running (not being created fresh).
+     * Called when the Activity receives a new Intent while already running.
      *
-     * This happens when: User presses home button (sends MAIN action)
+     * This happens when the user presses the home button while our launcher
+     * is set as the default. Because we use singleTask launch mode, Android
+     * doesn't create a new Activity - it sends a new Intent to the existing one.
      *
      * BEHAVIOR:
-     * 1. If user is RETURNING from another app (wasAlreadyOnHomescreen == false):
-     *    → Always close the dialog. The user just wants to go home.
-     * 2. If user is ALREADY on the homescreen (wasAlreadyOnHomescreen == true):
-     *    → Toggle the search dialog (open if closed, clear query or close if open).
+     * 1. User returning from another app (wasAlreadyOnHomescreen == false):
+     *    → Close search dialog. User just wants to go "home".
      *
-     * NOTE: Android calls onNewIntent BEFORE onResume. So when returning from
-     * an app, the lifecycle is: onNewIntent → onResume. The flag is still false
-     * during onNewIntent, which is exactly what we want.
+     * 2. User already on homescreen (wasAlreadyOnHomescreen == true):
+     *    → Toggle search dialog:
+     *      - If search is hidden → Show it
+     *      - If search has text → Clear the text
+     *      - If search is empty → Hide it
+     *
+     * INTENT.ACTION_MAIN check:
+     * We only respond to ACTION_MAIN intents, which is what the system
+     * sends when the home button is pressed. This prevents us from
+     * accidentally responding to other intent types.
+     *
+     * IMPORTANT: onNewIntent fires BEFORE onResume!
+     * That's why our wasAlreadyOnHomescreen flag works correctly.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
 
         if (intent.action == Intent.ACTION_MAIN) {
             if (!wasAlreadyOnHomescreen) {
-                // User is returning from another app.
-                // Ensure the search dialog is closed.
+                // User is returning from another app
+                // Ensure clean state - just show the homescreen
                 searchViewModel.hideSearch()
             } else {
-                // User is already on the homescreen.
-                // Toggle the search dialog.
+                // User is already on the homescreen
+                // Toggle search visibility
                 val uiState = searchViewModel.uiState.value
                 when {
                     !uiState.isSearchVisible -> searchViewModel.showSearch()
