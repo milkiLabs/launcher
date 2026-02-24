@@ -70,6 +70,8 @@ class ActionHandler(
             is SearchAction.OpenWebSearch -> handleOpenWebSearch(action)
             is SearchAction.OpenYouTubeSearch -> handleOpenYouTubeSearch(action)
             is SearchAction.OpenUrl -> handleOpenUrl(action)
+            is SearchAction.OpenUrlWithApp -> handleOpenUrlWithApp(action)
+            is SearchAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
             is SearchAction.CallContact -> handleCallContact(action)
             is SearchAction.OpenFile -> handleOpenFile(action)
             is SearchAction.RequestContactsPermission,
@@ -87,13 +89,22 @@ class ActionHandler(
     /**
      * Launches an app and saves it to recent apps.
      *
+     * IMPORTANT: We save the full ComponentName (package + activity), not just packageName.
+     * This ensures that if an app has multiple launcher activities (e.g., our launcher's
+     * MainActivity vs SettingsActivity), the correct one is restored in recent apps.
+     *
      * @param action Contains the AppInfo with the launch intent
      */
     private fun handleLaunchApp(action: SearchAction.LaunchApp) {
         action.appInfo.launchIntent?.let { intent ->
             context.startActivity(intent)
         }
-        searchViewModel.saveRecentApp(action.appInfo.packageName)
+        // Flatten ComponentName to string for storage: "com.package/.ActivityClass"
+        val componentName = android.content.ComponentName(
+            action.appInfo.packageName,
+            action.appInfo.activityName
+        ).flattenToString()
+        searchViewModel.saveRecentApp(componentName)
     }
 
     // ========================================================================
@@ -126,14 +137,80 @@ class ActionHandler(
     }
 
     /**
+     * Opens a URL with a specific app (deep link handling).
+     *
+     * This is called when a URL should be opened in a specific app
+     * rather than the browser. For example:
+     * - youtube.com URLs → YouTube app
+     * - twitter.com URLs → Twitter/X app
+     * - maps.google.com URLs → Google Maps
+     *
+     * HOW IT WORKS:
+     * 1. Create an ACTION_VIEW intent for the URL
+     * 2. Set the specific package to force that app to handle it
+     * 3. Launch the intent
+     *
+     * FALLBACK:
+     * If the specific app can't handle the URL (uninstalled, etc.),
+     * we fall back to the browser.
+     *
+     * @param action Contains the URL and the handler app information
+     */
+    private fun handleOpenUrlWithApp(action: SearchAction.OpenUrlWithApp) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(action.url)).apply {
+            /**
+             * Set the package to force this specific app to handle the URL.
+             * This bypasses the system's default app chooser and goes
+             * directly to the specified app.
+             *
+             * For example, if handlerApp.packageName is "com.google.android.youtube",
+             * the YouTube app will open the URL.
+             */
+            `package` = action.handlerApp.packageName
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            /**
+             * The specified app couldn't handle the URL.
+             * This could happen if:
+             * - The app was uninstalled after we detected it
+             * - The app's deep link handling changed
+             * - The specific activity is not available
+             *
+             * Fall back to browser in this case.
+             */
+            openUrlInBrowser(action.url)
+        }
+    }
+
+    /**
+     * Opens a URL explicitly in the browser.
+     *
+     * This is called when the user specifically chooses to open a URL
+     * in the browser, bypassing any app-specific handling.
+     *
+     * EXAMPLE:
+     * User types "youtube.com/watch?v=xyz" and sees:
+     * - "Open in YouTube" (handleOpenUrlWithApp)
+     * - "Open in Browser" (this handler)
+     *
+     * @param action Contains the URL to open
+     */
+    private fun handleOpenUrlInBrowser(action: SearchAction.OpenUrlInBrowser) {
+        openUrlInBrowser(action.url)
+    }
+
+    /**
      * Opens a URL in the default browser.
      *
-     * Modern approach: We call startActivity() directly and catch
+     * We call startActivity() directly and catch
      * ActivityNotFoundException if no browser is installed. This is
      * preferred over resolveActivity() because:
      * - Avoids race conditions (app could uninstall between check and launch)
      * - Reduces PackageManager queries (no double lookup)
-     * - Official Android recommendation
      *
      * @param url The URL to open (can be a web search URL or direct URL)
      */
@@ -155,16 +232,6 @@ class ActionHandler(
 
     /**
      * Opens a YouTube search, preferring the app over browser.
-     *
-     * This method tries multiple YouTube packages in order:
-     * 1. ReVanced (popular modded YouTube client)
-     * 2. Official YouTube app
-     * 3. Browser fallback
-     *
-     * WHY THIS ORDER?
-     * - ReVanced users typically prefer it over official YouTube
-     * - Official YouTube is the standard fallback
-     * - Browser is the universal fallback that always works
      *
      * CUSTOMIZATION POTENTIAL:
      * In the future, this list could be:
@@ -208,14 +275,9 @@ class ActionHandler(
     /**
      * Opens the phone dialer with a phone number pre-filled.
      *
-     * This does NOT make the call directly - it opens the dialer app
-     * with the number filled in. The user still needs to press the
-     * call button. This is the standard Android behavior for security.
-     *
      * WHY ACTION_DIAL INSTEAD OF ACTION_CALL?
      * - ACTION_CALL would dial immediately (requires CALL_PHONE permission)
      * - ACTION_DIAL is safer and doesn't require special permission
-     * - Users expect to see the number before calling
      *
      * @param action Contains the phone number to dial
      */

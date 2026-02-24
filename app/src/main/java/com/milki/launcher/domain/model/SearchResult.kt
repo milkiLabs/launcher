@@ -118,12 +118,66 @@ data class YouTubeSearchResult(
 }
 
 /**
- * Represents a direct URL result.
+ * UrlHandlerApp - Represents an app that can handle a URL.
+ *
+ * When the user types a URL, Android can tell us which installed apps
+ * are capable of opening that URL. This data class stores information
+ * about each such app.
+ *
+ * HOW IT WORKS:
+ * 1. User types "youtube.com/watch?v=xyz"
+ * 2. We ask Android: "Which apps can open this URL?"
+ * 3. Android returns: YouTube, Chrome, Firefox, etc.
+ * 4. We show the user which app will handle the URL
+ *
+ * DETERMINING THE DEFAULT HANDLER:
+ * Android resolves the "default" app based on:
+ * - User's previously set default (if any)
+ * - App capabilities (e.g., YouTube can handle youtube.com URLs)
+ * - System preferences
+ *
+ * @property packageName The app's unique package identifier (e.g., "com.google.android.youtube")
+ * @property activityName The specific activity that will handle the URL
+ * @property label The human-readable app name (e.g., "YouTube")
+ * @property isDefault Whether this app is the system's default handler for the URL
+ */
+data class UrlHandlerApp(
+    val packageName: String,
+    val activityName: String,
+    val label: String,
+    val isDefault: Boolean = false
+) {
+    /**
+     * Unique identifier combining package and activity name.
+     * Used for deduplication and comparison.
+     */
+    val id: String = "${packageName}/${activityName}"
+}
+
+/**
+ * Represents a direct URL result with app handling information.
  *
  * When the user types a valid URL (e.g., "github.com" or "https://example.com"),
- * this result appears to let them open it directly in the browser.
- * This provides a shortcut for quickly navigating to websites without
- * needing to use the "s " prefix for web search.
+ * this result appears to let them open it directly. The key enhancement is that
+ * we now detect which installed apps can handle the URL and show this information
+ * to the user.
+ *
+ * HOW URL HANDLING WORKS:
+ * 1. User types a URL-like query (e.g., "youtube.com/watch?v=xyz")
+ * 2. We normalize it (add https:// if needed)
+ * 3. We ask Android's PackageManager which apps can handle this URL
+ * 4. We determine the default handler (or fall back to browser)
+ * 5. We show the user: "Open in [App Name]" with the app's icon
+ *
+ * EXAMPLE SCENARIOS:
+ * - "youtube.com/watch?v=xyz" → Shows "Open in YouTube" (if installed)
+ * - "twitter.com/user" → Shows "Open in Twitter/X" (if installed)
+ * - "github.com/user/repo" → Shows "Open in Browser" (no specific app)
+ * - "maps.google.com" → Shows "Open in Google Maps" (if installed)
+ *
+ * BROWSER FALLBACK:
+ * If no specific app can handle the URL, we always have the browser as a fallback.
+ * The browser option is always available as a secondary choice.
  *
  * URL VALIDATION:
  * The system detects URLs that:
@@ -133,13 +187,21 @@ data class YouTubeSearchResult(
  *
  * @property url The complete URL to open (normalized with https:// if needed)
  * @property displayUrl The URL as shown to the user (may be truncated for display)
+ * @property handlerApp The app that will open the URL (null = browser fallback)
+ * @property browserFallback Always true - browser is always an option
  */
 data class UrlSearchResult(
     val url: String,
-    val displayUrl: String
+    val displayUrl: String,
+    val handlerApp: UrlHandlerApp? = null,
+    val browserFallback: Boolean = true
 ) : SearchResult() {
-    override val title: String = "Open $displayUrl"
-    override val id: String = "url_${url.hashCode()}"
+    override val title: String = if (handlerApp != null) {
+        "Open in ${handlerApp.label}"
+    } else {
+        "Open $displayUrl"
+    }
+    override val id: String = "url_${url.hashCode()}_${handlerApp?.id ?: "browser"}"
 }
 
 /**

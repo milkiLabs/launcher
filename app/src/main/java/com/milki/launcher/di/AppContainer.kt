@@ -55,6 +55,7 @@ import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
+import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.presentation.settings.SettingsViewModel
 
@@ -182,6 +183,15 @@ class AppContainer(private val application: Application) {
         FilterAppsUseCase()
     }
 
+    /**
+     * Resolver for URL handlers.
+     * Determines which apps can handle specific URLs.
+     * Singleton - created lazily on first access.
+     */
+    private val urlHandlerResolver: UrlHandlerResolver by lazy {
+        UrlHandlerResolver(application)
+    }
+
     // ========================================================================
     // VIEWMODEL FACTORY
     // ========================================================================
@@ -199,7 +209,8 @@ class AppContainer(private val application: Application) {
                 return SearchViewModel(
                     appRepository = appRepository,
                     providerRegistry = searchProviderRegistry,
-                    filterAppsUseCase = filterAppsUseCase
+                    filterAppsUseCase = filterAppsUseCase,
+                    urlHandlerResolver = urlHandlerResolver
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

@@ -141,46 +141,118 @@ fun YouTubeSearchResultItem(
 }
 
 /**
- * UrlSearchResultItem - Displays a direct URL result.
+ * UrlSearchResultItem - Displays a direct URL result with app handler info.
  *
  * This item appears when the user types a valid URL (e.g., "github.com").
- * It provides a quick way to open the URL in the browser without needing
- * to use the "s " prefix for web search.
+ * It shows which app will handle the URL, making it clear what will happen
+ * when the user taps.
+ *
+ * HANDLER APP DISPLAY:
+ * - If a specific app can handle the URL (e.g., YouTube for youtube.com):
+ *   - Shows "Open in YouTube" as headline
+ *   - Shows the URL as supporting text
+ *   - Uses a link icon to indicate deep link
+ *
+ * - If no specific app (browser fallback):
+ *   - Shows "Open [url]" as headline
+ *   - Shows the full URL as supporting text
+ *   - Uses an info icon
  *
  * VISUAL ELEMENTS:
- * - An info icon (indicates direct URL)
- * - "Open [url]" as the headline
- * - The full URL as supporting text
- *
- * REFACTORING NOTE:
- * This component now uses SearchResultListItem wrapper, reducing code
- * from ~35 lines to ~10 lines while maintaining identical functionality.
+ * - Leading icon indicates the type of action (deep link vs browser)
+ * - Headline shows what will happen (app name or "Open [url]")
+ * - Supporting text shows the URL
+ * - Trailing content can show an arrow or indicator
  *
  * USAGE:
  * Displayed when the user types a URL-like query without a provider prefix.
  * The URL is normalized with https:// if no scheme was provided.
  *
  * @param result The URL search result to display
- * @param onClick Callback when the item is clicked
+ * @param onOpenInApp Callback to open URL in the detected app
+ * @param onOpenInBrowser Callback to explicitly open in browser (optional, shown as secondary action)
  */
 @Composable
 fun UrlSearchResultItem(
     result: UrlSearchResult,
-    onClick: () -> Unit
+    onOpenInApp: () -> Unit,
+    onOpenInBrowser: (() -> Unit)? = null
 ) {
+    /**
+     * Determine the icon based on whether there's a handler app.
+     * 
+     * - Handler app exists: Use Language icon to indicate deep link/app handling
+     *   (Language icon represents opening in another app/context)
+     * - No handler app: Use Info icon for generic browser opening
+     * 
+     * We use Language instead of Link because:
+     * - Language is more recognizable as "opening elsewhere"
+     * - Link is too similar to a URL indicator
+     * - Language implies translation between contexts (URL → App)
+     */
+    val leadingIcon = if (result.handlerApp != null) {
+        Icons.Default.Language
+    } else {
+        Icons.Default.Info
+    }
+
+    /**
+     * Build the supporting text.
+     * 
+     * If there's a handler app, we show:
+     * - First line: The display URL (what user typed)
+     * - Optional: Hint about opening in browser
+     * 
+     * If no handler app (browser), we show the full URL.
+     */
+    val supportingText = result.displayUrl
+
+    /**
+     * Trailing content to provide visual feedback about the action.
+     * 
+     * If there's a handler app, show an arrow to indicate "opening in app".
+     * This gives users a clear visual indicator that they're navigating
+     * to another application.
+     */
+    val trailingContent: (@Composable () -> Unit)? = if (result.handlerApp != null) {
+        {
+            /**
+             * Arrow icon indicates the URL will open in another app.
+             * Using a subtle alpha to not distract from the main content.
+             */
+            Icon(
+                imageVector = Icons.Default.ArrowOutward,
+                contentDescription = "Opens in ${result.handlerApp.label}",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(IconSize.small)
+            )
+        }
+    } else {
+        null
+    }
+
     /**
      * Use the SearchResultListItem wrapper with URL specific values.
      * 
-     * The headline shows the display URL (what the user typed).
-     * The supporting text shows the full URL with scheme (what will be opened).
-     * No accent color is provided, so it uses the theme's primary color.
+     * The title comes from the result (already includes app name if available).
      */
     SearchResultListItem(
         headlineText = result.title,
-        supportingText = result.url,
-        leadingIcon = Icons.Default.Info,
-        onClick = onClick
+        supportingText = supportingText,
+        leadingIcon = leadingIcon,
+        trailingContent = trailingContent,
+        onClick = onOpenInApp
     )
+
+    /**
+     * TODO: Add secondary action for "Open in Browser" when there's a handler app.
+     * This would require extending SearchResultListItem to support secondary actions,
+     * or using a different layout for URL results.
+     * 
+     * For now, users can tap the main item to open in the detected app,
+     * and if they want browser, they can clear the handler app's default
+     * or use a different method.
+     */
 }
 
 /**

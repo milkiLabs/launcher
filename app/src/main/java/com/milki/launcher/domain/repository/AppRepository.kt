@@ -41,13 +41,18 @@ interface AppRepository {
      * This operation:
      * 1. Adds the app to the front of the list
      * 2. Removes duplicates (if app was already recent)
-     * 3. Limits the list to 5 apps maximum
+     * 3. Limits the list to 8 apps maximum
      * 4. Persists the list to storage
      * 
      * After this completes, getRecentApps() will emit a new list
      * with the updated order.
      * 
-     * @param packageName The package name of the launched app
+     * IMPORTANT: We save the flattened ComponentName (package/activity), not just packageName.
+     * This ensures that if an app has multiple launcher activities (e.g., MainActivity and
+     * SettingsActivity), we preserve which specific one was launched.
+     * 
+     * @param componentName The flattened ComponentName string from ComponentName.flattenToString()
+     *                      Format: "com.package/.ActivityClass" or "com.package/com.package.ActivityClass"
      */
-    suspend fun saveRecentApp(packageName: String)
+    suspend fun saveRecentApp(componentName: String)
 }

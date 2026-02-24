@@ -244,7 +244,8 @@ private fun MixedResultsList(
                 is UrlSearchResult -> {
                     UrlSearchResultItem(
                         result = result,
-                        onClick = { onResultClick(result) }
+                        onOpenInApp = { onResultClick(result) },
+                        onOpenInBrowser = null
                     )
                 }
                 is ContactSearchResult -> {

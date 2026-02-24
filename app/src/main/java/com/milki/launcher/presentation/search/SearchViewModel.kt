@@ -30,6 +30,7 @@ import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
+import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.domain.search.parseSearchQuery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,11 +50,13 @@ import kotlinx.coroutines.withContext
  * @property appRepository Repository for app data
  * @property providerRegistry Registry of search providers
  * @property filterAppsUseCase Use case for filtering apps
+ * @property urlHandlerResolver Resolver for URL handler apps
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
     private val providerRegistry: SearchProviderRegistry,
-    private val filterAppsUseCase: FilterAppsUseCase
+    private val filterAppsUseCase: FilterAppsUseCase,
+    private val urlHandlerResolver: UrlHandlerResolver
 ) : ViewModel() {
 
     // ========================================================================
@@ -211,7 +214,20 @@ class SearchViewModel(
                 engine = result.engine
             )
             is YouTubeSearchResult -> SearchAction.OpenYouTubeSearch(result.query)
-            is UrlSearchResult -> SearchAction.OpenUrl(result.url)
+            is UrlSearchResult -> {
+                /**
+                 * Handle URL result click based on whether there's a handler app.
+                 *
+                 * If a handler app exists (like YouTube for youtube.com URLs):
+                 * - Use OpenUrlWithApp to open in that specific app
+                 *
+                 * If no handler app exists (browser fallback):
+                 * - Use OpenUrl to open in the default browser
+                 */
+                result.handlerApp?.let { handler ->
+                    SearchAction.OpenUrlWithApp(result.url, handler)
+                } ?: SearchAction.OpenUrl(result.url)
+            }
             is ContactSearchResult -> {
                 val phone = result.contact.phoneNumbers.firstOrNull()
                 if (phone != null) {
@@ -280,12 +296,15 @@ class SearchViewModel(
     /**
      * Save an app to recent apps.
      * Called after launching an app.
-     *
-     * @param packageName The package name of the launched app
+     * 
+     * IMPORTANT: We save the full ComponentName (package + activity), not just packageName.
+     * This preserves which specific launcher activity was used when an app has multiple.
+     * 
+     * @param componentName The flattened ComponentName from ComponentName.flattenToString()
      */
-    fun saveRecentApp(packageName: String) {
+    fun saveRecentApp(componentName: String) {
         viewModelScope.launch {
-            appRepository.saveRecentApp(packageName)
+            appRepository.saveRecentApp(componentName)
         }
     }
 
@@ -437,6 +456,14 @@ private fun performSearch(query: String) {
  * - If no scheme is provided, "https://" is prepended
  * - The display URL shows the original input for clarity
  *
+ * URL HANDLER RESOLUTION:
+ * After detecting a URL, we use UrlHandlerResolver to determine which
+ * installed app can handle it. For example:
+ * - youtube.com URLs → YouTube app (if installed)
+ * - twitter.com URLs → Twitter/X app (if installed)
+ * - maps.google.com → Google Maps (if installed)
+ * - generic URLs → Browser (always available)
+ *
  * @param query The search query to check
  * @return UrlSearchResult if query looks like a URL, null otherwise
  */
@@ -446,48 +473,67 @@ private fun detectUrl(query: String): UrlSearchResult? {
     // Empty query is not a URL
     if (trimmed.isEmpty()) return null
     
+    // Variable to hold the final URL
+    var finalUrl: String? = null
+    var displayUrl = trimmed
+    
     // Check for full URL with scheme (http:// or https://)
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
         // Use Android's built-in URL pattern matcher
         if (Patterns.WEB_URL.matcher(trimmed).matches()) {
-            return UrlSearchResult(
-                url = trimmed,
-                displayUrl = trimmed
-            )
+            finalUrl = trimmed
         }
     }
     
     // Check for domain-like patterns without scheme
-    // Common TLDs that users might type
-    val commonTlds = listOf(
-        ".com", ".org", ".net", ".io", ".co", ".edu", ".gov", 
-        ".dev", ".app", ".me", ".tech", ".xyz", ".info", ".biz",
-        ".online", ".site", ".store", ".blog"
-    )
-    
-    // Check if query contains a common TLD
-    val hasTld = commonTlds.any { tld -> 
-        trimmed.contains(tld, ignoreCase = true) 
-    }
-    
-    if (hasTld) {
-        // Validate with Android's URL pattern
-        // Prepend https:// for validation
-        val urlWithScheme = if (!trimmed.startsWith("http")) {
-            "https://$trimmed"
-        } else {
-            trimmed
+    if (finalUrl == null) {
+        // Common TLDs that users might type
+        val commonTlds = listOf(
+            ".com", ".org", ".net", ".io", ".co", ".edu", ".gov", 
+            ".dev", ".app", ".me", ".tech", ".xyz", ".info", ".biz",
+            ".online", ".site", ".store", ".blog"
+        )
+        
+        // Check if query contains a common TLD
+        val hasTld = commonTlds.any { tld -> 
+            trimmed.contains(tld, ignoreCase = true) 
         }
         
-        if (Patterns.WEB_URL.matcher(urlWithScheme).matches()) {
-            return UrlSearchResult(
-                url = urlWithScheme,
-                displayUrl = trimmed
-            )
+        if (hasTld) {
+            // Validate with Android's URL pattern
+            // Prepend https:// for validation and use
+            val urlWithScheme = if (!trimmed.startsWith("http")) {
+                "https://$trimmed"
+            } else {
+                trimmed
+            }
+            
+            if (Patterns.WEB_URL.matcher(urlWithScheme).matches()) {
+                finalUrl = urlWithScheme
+            }
         }
     }
     
-    return null
+    // If we found a valid URL, resolve the handler app
+    return finalUrl?.let { url ->
+        /**
+         * Use UrlHandlerResolver to find which app can handle this URL.
+         * This runs on the Default dispatcher (background thread).
+         *
+         * The resolver checks:
+         * 1. Is there a specific app for this domain (e.g., YouTube for youtube.com)
+         * 2. Is there a user-set default for this type of URL
+         * 3. Fall back to browser if no specific app
+         */
+        val handlerApp = urlHandlerResolver.resolveUrlHandler(url)
+        
+        UrlSearchResult(
+            url = url,
+            displayUrl = displayUrl,
+            handlerApp = handlerApp,
+            browserFallback = true
+        )
+    }
 }
 
     // ========================================================================

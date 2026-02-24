@@ -42,6 +42,33 @@
         <intent>
             <action android:name="android.intent.action.MAIN" />
         </intent>
+        
+        <!--
+          Query apps that can handle http/https URLs.
+          This allows us to detect which apps can open specific URLs.
+          
+          WHY THIS IS NEEDED:
+          When a user types "youtube.com", we want to know if YouTube app
+          is installed so we can show "Open in YouTube" instead of just
+          "Open in browser".
+          
+          Without this query declaration on Android 11+ (API 30+),
+          PackageManager.queryIntentActivities() would return an empty list
+          for http/https intents, and we couldn't detect URL handlers.
+          
+          This query matches:
+          - Browsers (Chrome, Firefox, etc.)
+          - Apps with deep links (YouTube, Twitter, Maps, etc.)
+          - Any app that can handle web URLs
+        -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
     </queries>
 
     <!--

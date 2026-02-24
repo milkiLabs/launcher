@@ -26,6 +26,7 @@ package com.milki.launcher.presentation.search
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
+import com.milki.launcher.domain.model.UrlHandlerApp
 
 /**
  * Sealed class representing all possible search-related actions.
@@ -84,6 +85,48 @@ sealed class SearchAction {
      * @property url The complete URL to open (normalized with https:// if needed)
      */
     data class OpenUrl(val url: String) : SearchAction()
+
+    /**
+     * Open a URL with a specific app.
+     *
+     * Emitted when the user types a URL that can be handled by a specific app
+     * (like YouTube for youtube.com URLs). The handlerApp contains information
+     * about which app should open the URL.
+     *
+     * WHY THIS EXISTS:
+     * - YouTube links should open in YouTube app (not browser)
+     * - Twitter links should open in Twitter/X app
+     * - Maps links should open in Google Maps
+     * - The user can still choose browser if they prefer
+     *
+     * HOW IT WORKS:
+     * 1. User types "youtube.com/watch?v=xyz"
+     * 2. System detects YouTube can handle this URL
+     * 3. UI shows "Open in YouTube"
+     * 4. User taps → This action is emitted with handlerApp info
+     * 5. ActionHandler opens the URL specifically in that app
+     *
+     * @property url The complete URL to open
+     * @property handlerApp The app that will handle the URL (contains package name)
+     */
+    data class OpenUrlWithApp(
+        val url: String,
+        val handlerApp: UrlHandlerApp
+    ) : SearchAction()
+
+    /**
+     * Open a URL in the browser (explicit browser choice).
+     *
+     * Emitted when the user explicitly chooses to open a URL in the browser
+     * instead of a specialized app. For example, if a YouTube URL is detected
+     * but the user wants to open it in Chrome instead of the YouTube app.
+     *
+     * This is different from OpenUrl because it explicitly bypasses any
+     * app-specific handling and forces browser opening.
+     *
+     * @property url The complete URL to open
+     */
+    data class OpenUrlInBrowser(val url: String) : SearchAction()
 
     /**
      * Make a phone call to a contact.
@@ -153,6 +196,8 @@ fun SearchAction.shouldCloseSearch(): Boolean {
         is SearchAction.OpenWebSearch -> true
         is SearchAction.OpenYouTubeSearch -> true
         is SearchAction.OpenUrl -> true
+        is SearchAction.OpenUrlWithApp -> true
+        is SearchAction.OpenUrlInBrowser -> true
         is SearchAction.CallContact -> true
         is SearchAction.OpenFile -> true
         is SearchAction.RequestContactsPermission -> false
