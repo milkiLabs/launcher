@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
@@ -254,11 +255,23 @@ private fun MixedResultsList(
                     )
                 }
                 is ContactSearchResult -> {
-                    ContactSearchResultItem(
-                        result = result,
-                        accentColor = activeProviderConfig?.color,
-                        onClick = { onResultClick(result) },
-                        onDialClick = onDialClick?.let { callback ->
+                    /**
+                     * Create a stable dial click callback using remember.
+                     * 
+                     * WHY USE REMEMBER:
+                     * Without remember, a new lambda would be created on every recomposition.
+                     * This is inefficient and can cause subtle issues with click handling.
+                     * 
+                     * The callback is recreated only when:
+                     * - onDialClick changes (parent provides new callback)
+                     * - result.contact changes (different contact displayed)
+                     * 
+                     * PERFORMANCE:
+                     * Using remember ensures the lambda is stable across recompositions,
+                     * which helps Compose optimize the composition process.
+                     */
+                    val dialClickHandler = remember(onDialClick, result.contact) {
+                        onDialClick?.let { callback ->
                             {
                                 val phone = result.contact.phoneNumbers.firstOrNull()
                                 if (phone != null) {
@@ -266,6 +279,13 @@ private fun MixedResultsList(
                                 }
                             }
                         }
+                    }
+                    
+                    ContactSearchResultItem(
+                        result = result,
+                        accentColor = activeProviderConfig?.color,
+                        onClick = { onResultClick(result) },
+                        onDialClick = dialClickHandler
                     )
                 }
                 is FileDocumentSearchResult -> {

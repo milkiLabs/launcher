@@ -103,6 +103,10 @@ class ContactsSearchProvider(
      * This method fetches the list of recently called phone numbers
      * and looks up each one to get the contact information.
      *
+     * PERFORMANCE OPTIMIZATION:
+     * Uses batch lookup (getContactsByPhoneNumbers) instead of individual
+     * lookups. This reduces N database queries to 1 query for N contacts.
+     *
      * FALLBACK BEHAVIOR:
      * If a phone number is in recent contacts but no longer matches
      * a contact in the device's contacts database (e.g., contact was deleted),
@@ -118,13 +122,23 @@ class ContactsSearchProvider(
             return emptyList()
         }
 
-        // Map each phone number to a contact
-        return recentPhones.mapNotNull { phoneNumber ->
-            // Try to find the contact for this phone number
-            val contact = contactsRepository.getContactByPhoneNumber(phoneNumber)
+        /**
+         * BATCH LOOKUP:
+         * Query all phone numbers in a single database call.
+         * This is significantly faster than N individual queries.
+         *
+         * The returned map only contains phone numbers that matched a contact.
+         * Phone numbers without matching contacts will be handled in the fallback.
+         */
+        val contactsByPhone = contactsRepository.getContactsByPhoneNumbers(recentPhones)
+
+        // Build results, using batch lookup results when available
+        return recentPhones.map { phoneNumber ->
+            // Check if we found a contact for this phone number
+            val contact = contactsByPhone[phoneNumber]
 
             if (contact != null) {
-                // Found a matching contact
+                // Found a matching contact from batch lookup
                 ContactSearchResult(contact = contact)
             } else {
                 // No matching contact - create a minimal contact with just the phone number

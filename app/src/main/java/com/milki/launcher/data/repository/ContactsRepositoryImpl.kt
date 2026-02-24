@@ -521,6 +521,99 @@ class ContactsRepositoryImpl(
         return phoneNumbers
     }
 
+    /**
+     * Get contacts by multiple phone numbers in a single query.
+     *
+     * PERFORMANCE OPTIMIZATION:
+     * Instead of making N separate queries for N phone numbers, this method
+     * uses a single query with placeholders to fetch all contacts at once.
+     *
+     * IMPLEMENTATION DETAILS:
+     * 1. Build a selection clause with IN (?, ?, ?...) for all phone numbers
+     * 2. Query the Phone table once
+     * 3. Group results by contact ID (one contact may match multiple numbers)
+     * 4. Build Contact objects for each unique contact
+     * 5. Map phone numbers to their matching contacts
+     *
+     * WHY NOT USE PHONE_NUMBER_NORMALIZATION:
+     * Android's Phone table stores numbers in various formats. The IN clause
+     * does exact matching, which works for most cases. If normalization is
+     * needed in the future, we could use PhoneLookup.CALLER_ID.
+     *
+     * @param phoneNumbers List of phone numbers to look up
+     * @return Map of phone number to Contact (only includes found contacts)
+     */
+    override suspend fun getContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {
+        // Permission check
+        if (!hasContactsPermission() || phoneNumbers.isEmpty()) {
+            return emptyMap()
+        }
+
+        return withContext(Dispatchers.IO) {
+            val result = mutableMapOf<String, Contact>()
+            
+            // Build the IN clause with placeholders
+            // Selection: NUMBER IN (?, ?, ?)
+            val placeholders = phoneNumbers.joinToString(",") { "?" }
+            val selection = "${ContactsContract.CommonDataKinds.Phone.NUMBER} IN ($placeholders)"
+            
+            // Query all matching phone numbers in one go
+            val uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+            
+            contentResolver.query(
+                uri,
+                arrayOf(
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    ContactsContract.CommonDataKinds.Phone.PHOTO_URI,
+                    ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY
+                ),
+                selection,
+                phoneNumbers.toTypedArray(),
+                null
+            )?.use { cursor ->
+                // Track contacts we've already built (by contact ID)
+                val builtContacts = mutableMapOf<Long, Contact>()
+                // Track which phone numbers match which contact ID
+                val phoneToContactId = mutableMapOf<String, Long>()
+                
+                while (cursor.moveToNext()) {
+                    val contactId = cursor.getLong(0)
+                    val matchedPhone = cursor.getString(1) ?: continue
+                    val displayName = cursor.getString(2) ?: continue
+                    val photoUri = cursor.getString(3)
+                    val lookupKey = cursor.getString(4) ?: continue
+                    
+                    // Record this phone -> contact mapping
+                    phoneToContactId[matchedPhone] = contactId
+                    
+                    // Build contact if we haven't already
+                    if (contactId !in builtContacts) {
+                        val allPhoneNumbers = getPhoneNumbersForContact(contactId)
+                        builtContacts[contactId] = Contact(
+                            id = contactId,
+                            displayName = displayName,
+                            phoneNumbers = allPhoneNumbers,
+                            emails = emptyList(),
+                            photoUri = photoUri,
+                            lookupKey = lookupKey
+                        )
+                    }
+                }
+                
+                // Build the result map: phone number -> Contact
+                for ((phone, contactId) in phoneToContactId) {
+                    builtContacts[contactId]?.let { contact ->
+                        result[phone] = contact
+                    }
+                }
+            }
+            
+            result
+        }
+    }
+
     companion object {
         /**
          * Projection for the single-query approach using the Data table.

@@ -74,4 +74,23 @@ interface ContactsRepository {
      * @return Contact if found, null otherwise
      */
     suspend fun getContactByPhoneNumber(phoneNumber: String): Contact?
+
+    /**
+     * Get contacts by multiple phone numbers in a single query.
+     *
+     * This is more efficient than calling getContactByPhoneNumber()
+     * multiple times when you need to look up several contacts at once.
+     *
+     * PERFORMANCE:
+     * Instead of N queries for N phone numbers, this makes a single
+     * query with an IN clause, significantly reducing database round-trips.
+     *
+     * USE CASE:
+     * Used when loading recent contacts - we need to resolve all phone
+     * numbers to contact names, and doing it in a batch is much faster.
+     *
+     * @param phoneNumbers List of phone numbers to look up
+     * @return Map of phone number to Contact (only includes found contacts)
+     */
+    suspend fun getContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact>
 }

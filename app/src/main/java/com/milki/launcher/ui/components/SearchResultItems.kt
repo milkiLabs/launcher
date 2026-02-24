@@ -578,8 +578,14 @@ fun FileDocumentSearchResultItem(
  * It provides helpful feedback and hints to the user.
  *
  * BEHAVIOR:
- * - If query is blank: Shows "No recent apps" with prefix hints
+ * - If query is blank: Shows provider-specific empty message with prefix hints
  * - If query has text: Shows "No [provider] results found"
+ *
+ * PROVIDER-SPECIFIC MESSAGES:
+ * - Apps (default): "No recent apps\nType to search"
+ * - Contacts: "No recent contacts\nType to search your contacts"
+ * - Files: "No recent files\nType to search files"
+ * - Web/YouTube: "No results found"
  *
  * @param searchQuery The current search query (used to determine message)
  * @param activeProvider The current search provider (for icon and theming)
@@ -626,15 +632,48 @@ fun EmptyState(
             Spacer(modifier = Modifier.height(Spacing.mediumLarge))
 
             /**
-             * Choose the appropriate message based on the current state:
-             * - Blank query: Invite user to start searching
-             * - Active provider: Show provider-specific "no results" message
-             * - Default: Generic "no apps found" message
+             * Choose the appropriate message based on the current state.
+             *
+             * We provide provider-specific messages for better UX:
+             * - Blank query with provider: Show what the provider does
+             * - Query with provider: Show "no results" for that provider
+             * - Blank query without provider: Default apps message
+             * - Query without provider: Generic "no apps" message
              */
             val message = when {
-                searchQuery.isBlank() -> "No recent apps\nType to search"
-                activeProvider != null -> "No ${activeProvider.name.lowercase()} results found"
-                else -> "No apps found"
+                searchQuery.isBlank() && activeProvider != null -> {
+                    /**
+                     * Blank query in a specific provider mode.
+                     * Show provider-specific empty state message.
+                     */
+                    when (activeProvider.prefix) {
+                        "c" -> "No recent contacts\nType to search your contacts"
+                        "f" -> "No recent files\nType to search files"
+                        "s" -> "Type to search the web"
+                        "y" -> "Type to search YouTube"
+                        else -> "No ${activeProvider.name.lowercase()} results"
+                    }
+                }
+                searchQuery.isBlank() -> {
+                    /**
+                     * Blank query in default app mode.
+                     * Show the recent apps message.
+                     */
+                    "No recent apps\nType to search"
+                }
+                activeProvider != null -> {
+                    /**
+                     * Query with active provider but no results.
+                     * Show provider-specific "no results" message.
+                     */
+                    "No ${activeProvider.name.lowercase()} results found"
+                }
+                else -> {
+                    /**
+                     * Query in default app mode but no results.
+                     */
+                    "No apps found"
+                }
             }
 
             Text(
