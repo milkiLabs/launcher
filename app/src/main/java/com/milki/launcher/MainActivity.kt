@@ -72,6 +72,26 @@ class MainActivity : ComponentActivity() {
     }
 
     // ========================================================================
+    // HOME BUTTON STATE TRACKING
+    // ========================================================================
+
+    /**
+     * Tracks whether the user is currently on the homescreen (activity is
+     * in the foreground and not returning from another app).
+     *
+     * This flag is the key to correctly handling the home button:
+     * - Set to FALSE in onStop() (user left the homescreen)
+     * - Set to TRUE in onResume() (user is now on the homescreen)
+     * - Checked in onNewIntent() to decide behavior
+     *
+     * When onNewIntent fires:
+     * - If wasAlreadyOnHomescreen == true → user was on homescreen, toggle dialog
+     * - If wasAlreadyOnHomescreen == false → user is returning from an app,
+     *   ensure dialog is closed
+     */
+    private var wasAlreadyOnHomescreen = false
+
+    // ========================================================================
     // PERMISSION LAUNCHER
     // ========================================================================
 
@@ -124,6 +144,19 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         updateContactsPermissionState()
         updateFilesPermissionState()
+        // Mark that the user is now on the homescreen.
+        // This is set AFTER onNewIntent would have already fired
+        // (Android calls onNewIntent before onResume), so the flag
+        // is only true when the user is already sitting on the homescreen.
+        wasAlreadyOnHomescreen = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // User has left the homescreen (another app is in the foreground).
+        // Clear the flag so that the next onNewIntent knows the user
+        // is returning from an app, not already on the homescreen.
+        wasAlreadyOnHomescreen = false
     }
 
     // ========================================================================
@@ -441,18 +474,33 @@ class MainActivity : ComponentActivity() {
      *
      * This happens when: User presses home button (sends MAIN action)
      *
-     * We use this to toggle the search dialog when home is pressed.
+     * BEHAVIOR:
+     * 1. If user is RETURNING from another app (wasAlreadyOnHomescreen == false):
+     *    → Always close the dialog. The user just wants to go home.
+     * 2. If user is ALREADY on the homescreen (wasAlreadyOnHomescreen == true):
+     *    → Toggle the search dialog (open if closed, clear query or close if open).
+     *
+     * NOTE: Android calls onNewIntent BEFORE onResume. So when returning from
+     * an app, the lifecycle is: onNewIntent → onResume. The flag is still false
+     * during onNewIntent, which is exactly what we want.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
 
         if (intent.action == Intent.ACTION_MAIN) {
-            val uiState = searchViewModel.uiState.value
-
-            when {
-                !uiState.isSearchVisible -> searchViewModel.showSearch()
-                uiState.query.isNotEmpty() -> searchViewModel.clearQuery()
-                else -> searchViewModel.hideSearch()
+            if (!wasAlreadyOnHomescreen) {
+                // User is returning from another app.
+                // Ensure the search dialog is closed.
+                searchViewModel.hideSearch()
+            } else {
+                // User is already on the homescreen.
+                // Toggle the search dialog.
+                val uiState = searchViewModel.uiState.value
+                when {
+                    !uiState.isSearchVisible -> searchViewModel.showSearch()
+                    uiState.query.isNotEmpty() -> searchViewModel.clearQuery()
+                    else -> searchViewModel.hideSearch()
+                }
             }
         }
     }
