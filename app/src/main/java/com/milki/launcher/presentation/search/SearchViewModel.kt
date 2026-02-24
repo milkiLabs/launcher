@@ -258,12 +258,15 @@ class SearchViewModel(
     }
 
     /**
-     * Clear the search query.
+     * Clear the search query and show recent apps.
+     * We call performSearch("") to trigger FilterAppsUseCase which
+     * returns recentApps when query is blank.
      */
     fun clearQuery() {
         updateState {
-            copy(query = "", results = emptyList(), activeProviderConfig = null)
+            copy(query = "", activeProviderConfig = null)
         }
+        performSearch("")
     }
 
     // ========================================================================
