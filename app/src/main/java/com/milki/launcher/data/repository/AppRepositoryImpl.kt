@@ -202,8 +202,8 @@ class AppRepositoryImpl(
             // Add to front (most recent)
             recentPackages.add(0, packageName)
             
-            // Save back: take first 5, join with commas
-            preferences[recentAppsKey] = recentPackages.take(5).joinToString(",")
+            // Save back: take first 8, join with commas
+            preferences[recentAppsKey] = recentPackages.take(8).joinToString(",")
         }
         // Note: No need to manually refresh - the Flow from getRecentApps()
         // will automatically emit a new value because DataStore changed

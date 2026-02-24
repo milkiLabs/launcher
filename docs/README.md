@@ -40,7 +40,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 
 - **LRU Memory Cache**: App icons cached using Coil with 15% memory allocation
 
-- **Recent Apps**: Saves and displays 5 most recently launched apps
+- **Recent Apps**: Saves and displays 8 most recently launched apps
 
 ---
 
