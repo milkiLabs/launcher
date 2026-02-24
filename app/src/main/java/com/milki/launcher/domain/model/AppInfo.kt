@@ -9,11 +9,15 @@ import android.content.Intent
  * AppInfo represents a single installed application.
  * @property name The human-readable display name (e.g., "YouTube")
  * @property packageName The unique identifier (e.g., "com.google.android.youtube")
+ * @property activityName The fully qualified activity class name for uniqueness
+ *                        (e.g., "com.milki.launcher.SettingsActivity")
+ *                        Multiple activities can share the same packageName.
  * @property launchIntent The Intent used to launch the app (null if not launchable)
  */
 data class AppInfo(
     val name: String,
     val packageName: String,
+    val activityName: String = packageName,
     val launchIntent: Intent?
 ) {
     /**

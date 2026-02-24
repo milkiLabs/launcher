@@ -44,6 +44,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.milki.launcher.data.repository.AppRepositoryImpl
 import com.milki.launcher.data.repository.ContactsRepositoryImpl
 import com.milki.launcher.data.repository.FilesRepositoryImpl
+import com.milki.launcher.data.repository.SettingsRepositoryImpl
 import com.milki.launcher.data.search.ContactsSearchProvider
 import com.milki.launcher.data.search.FilesSearchProvider
 import com.milki.launcher.data.search.WebSearchProvider
@@ -51,9 +52,11 @@ import com.milki.launcher.data.search.YouTubeSearchProvider
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.FilesRepository
+import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.presentation.search.SearchViewModel
+import com.milki.launcher.presentation.settings.SettingsViewModel
 
 /**
  * Application-wide dependency container.
@@ -100,6 +103,14 @@ class AppContainer(private val application: Application) {
      */
     private val filesRepository: FilesRepository by lazy {
         FilesRepositoryImpl(application)
+    }
+
+    /**
+     * Repository for launcher settings.
+     * Singleton - created lazily on first access.
+     */
+    private val settingsRepository: SettingsRepository by lazy {
+        SettingsRepositoryImpl(application)
     }
 
     // ========================================================================
@@ -189,6 +200,23 @@ class AppContainer(private val application: Application) {
                     appRepository = appRepository,
                     providerRegistry = searchProviderRegistry,
                     filterAppsUseCase = filterAppsUseCase
+                ) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+        }
+    }
+
+    /**
+     * Factory for creating SettingsViewModel instances.
+     *
+     * This factory provides the SettingsRepository to the ViewModel.
+     */
+    val settingsViewModelFactory: ViewModelProvider.Factory = object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(SettingsViewModel::class.java)) {
+                return SettingsViewModel(
+                    settingsRepository = settingsRepository
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

@@ -109,16 +109,32 @@ class AppRepositoryImpl(
             resolveInfos.chunked(8).flatMap { chunk ->
                 chunk.map { resolveInfo ->
                     async {
+                        // Build an explicit launch intent for this specific activity.
+                        // We use the full component name (package + activity class)
+                        // instead of getLaunchIntentForPackage() because multiple
+                        // activities in the same package can have MAIN+LAUNCHER
+                        // (e.g., our launcher's MainActivity and SettingsActivity).
+                        val launchIntent = Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_LAUNCHER)
+                            component = android.content.ComponentName(
+                                resolveInfo.activityInfo.packageName,
+                                resolveInfo.activityInfo.name
+                            )
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                    Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+                        }
+
                         // Convert ResolveInfo to our domain model AppInfo
                         AppInfo(
                             // loadLabel gets the localized display name
                             name = resolveInfo.loadLabel(pm).toString(),
-                            // activityInfo.packageName is the unique identifier
+                            // activityInfo.packageName is the package identifier
                             packageName = resolveInfo.activityInfo.packageName,
-                            // Create launch intent for this package
-                            launchIntent = pm.getLaunchIntentForPackage(
-                                resolveInfo.activityInfo.packageName
-                            )
+                            // activityInfo.name is the fully qualified activity class
+                            // This distinguishes multiple activities in the same package
+                            activityName = resolveInfo.activityInfo.name,
+                            // Explicit intent targeting this specific activity
+                            launchIntent = launchIntent
                         )
                     }
                 }.awaitAll() // Wait for all 8 in this chunk

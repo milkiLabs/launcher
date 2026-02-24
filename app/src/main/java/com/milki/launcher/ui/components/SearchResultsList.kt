@@ -136,8 +136,10 @@ private fun AppResultsGrid(
     ) {
         /**
          * items() creates a grid item for each result.
-         * key = { it.appInfo.packageName } ensures stable identity
-         * across recompositions, which improves performance.
+         * key = { it.id } ensures stable identity across recompositions,
+         * which improves performance. We use 'id' (which includes the
+         * activity name) instead of 'packageName' because multiple
+         * activities can share the same package (e.g., launcher + settings).
          *
          * Stable keys are important because:
          * - They prevent unnecessary recompositions
@@ -146,7 +148,7 @@ private fun AppResultsGrid(
          */
         items(
             items = appResults,
-            key = { it.appInfo.packageName }
+            key = { it.id }
         ) { result ->
             AppGridItem(
                 appInfo = result.appInfo,

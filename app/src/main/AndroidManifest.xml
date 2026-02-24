@@ -157,6 +157,42 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          ===================================================================
+          SETTINGS ACTIVITY
+          ===================================================================
+          A separate entry point for launcher settings.
+          
+          Unlike MainActivity:
+          - Does NOT have HOME category (not a home screen replacement)
+          - Uses standard launchMode (not singleTask)
+          - Shows as "Launcher Settings" in the app drawer
+          
+          This allows users to access settings from:
+          1. The app drawer (via LAUNCHER intent filter)
+          2. The launcher itself (via explicit Intent)
+          3. System settings → App info → Open
+        -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="true"
+            android:label="@string/settings_title"
+            android:taskAffinity="com.milki.launcher.settings"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Launcher">
+            
+            <!--
+              Intent filter for app drawer entry.
+              MAIN + LAUNCHER = shows in app drawer as a launchable app.
+              This is separate from the HOME intent filter, so tapping
+              this icon opens settings, not the home screen.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
