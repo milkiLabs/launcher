@@ -160,9 +160,6 @@ class PermissionHandler(
         callPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            // Update ViewModel state
-            searchViewModel.updateCallPermission(isGranted)
-            
             // Notify ActionExecutor to execute pending action if granted
             onCallPermissionResult?.invoke(isGranted)
         }
@@ -215,7 +212,6 @@ class PermissionHandler(
      */
     fun updateStates() {
         updateContactsPermissionState()
-        updateCallPermissionState()
         updateFilesPermissionState()
     }
 
@@ -233,28 +229,6 @@ class PermissionHandler(
         searchViewModel.updateContactsPermission(hasPermission)
     }
 
-    /**
-     * Checks and updates the call permission state.
-     *
-     * This is used to determine if we can make direct calls (ACTION_CALL)
-     * or if we need to request permission first.
-     */
-    private fun updateCallPermissionState() {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            activity,
-            Manifest.permission.CALL_PHONE
-        ) == PackageManager.PERMISSION_GRANTED
-
-        searchViewModel.updateCallPermission(hasPermission)
-    }
-
-    /**
-     * Checks and updates the files/storage permission state.
-     *
-     * This delegates to PermissionUtil which handles the version-specific logic:
-     * - Android 11+: Check Environment.isExternalStorageManager()
-     * - Android 10-: Check READ_EXTERNAL_STORAGE permission
-     */
     private fun updateFilesPermissionState() {
         val hasPermission = PermissionUtil.hasFilesPermission(activity)
         searchViewModel.updateFilesPermission(hasPermission)
