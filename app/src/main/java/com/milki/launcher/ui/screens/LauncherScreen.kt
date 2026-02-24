@@ -1,8 +1,8 @@
 /**
  * LauncherScreen.kt - Main home screen of the launcher with multi-mode search
  *
- * This is the main UI of the launcher. It displays a simple black background
- * that users can tap to open the search dialog.
+ * This is the main UI of the launcher. It displays a transparent background
+ * that shows the user's system wallpaper, with a "Tap to search" hint.
  *
  * ARCHITECTURE:
  * This is a "dumb" UI component following the Unidirectional Data Flow pattern:
@@ -19,6 +19,11 @@
  * - "s ": Web search
  * - "c ": Contacts search (requires permission)
  * - "y ": YouTube search
+ *
+ * WALLPAPER:
+ * The background is transparent, allowing the system wallpaper to show through.
+ * This is achieved by setting windowShowWallpaper=true and windowBackground=transparent
+ * in the theme (see themes.xml). This approach supports both static and live wallpapers.
  */
 
 package com.milki.launcher.ui.screens
@@ -38,12 +43,19 @@ import com.milki.launcher.ui.components.AppSearchDialog
 /**
  * LauncherScreen - The main home screen of the launcher.
  *
- * Displays a simple black background with a "Tap to search" hint.
- * When tapped, opens the AppSearchDialog with multi-mode search capabilities.
+ * Displays a transparent background showing the user's system wallpaper,
+ * with a "Tap to search" hint. When tapped, opens the AppSearchDialog
+ * with multi-mode search capabilities.
  *
  * ACTION HANDLING:
  * Search result clicks are handled via LocalSearchActionHandler, which is
  * provided by MainActivity. This eliminates the need for callback props.
+ *
+ * WALLPAPER:
+ * The background uses Color.Transparent to let the system wallpaper show through.
+ * The wallpaper visibility is configured in themes.xml:
+ * - android:windowShowWallpaper="true" - Enables wallpaper display
+ * - android:windowBackground="@android:color/transparent" - Makes window transparent
  *
  * @param uiState Current search state from ViewModel
  * @param onShowSearch Called when user taps the home screen background
@@ -60,7 +72,7 @@ fun LauncherScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Color.Transparent)
             .clickable { onShowSearch() },
         contentAlignment = Alignment.Center
     ) {

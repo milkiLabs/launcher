@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 
+  Theme.Launcher - Custom theme for the launcher app
+  
+  WALLPAPER SUPPORT:
+  - windowShowWallpaper: Shows the system wallpaper behind all windows
+  - windowBackground: Transparent to let the wallpaper show through
+  
+  This is essential for launcher apps - users expect to see their
+  chosen wallpaper on the home screen.
+-->
 <resources>
 
-    <style name="Theme.Launcher" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Launcher" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Show the system wallpaper behind this window -->
+        <item name="android:windowShowWallpaper">true</item>
+        <!-- Make the window background transparent so wallpaper is visible -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
 </resources>
