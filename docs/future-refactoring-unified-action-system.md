@@ -1,5 +1,7 @@
 # Future Refactoring: Unified Permission-Aware Action System
 
+> **STATUS: COMPLETED** - This refactoring has been implemented. See `unified-action-system-refactoring.md` for details.
+
 This document outlines a significant architectural improvement to simplify callback propagation and permission handling across the app.
 
 ## Current Problems

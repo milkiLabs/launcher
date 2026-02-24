@@ -10,6 +10,10 @@
  * - Events flow up via callbacks
  * - No business logic in this file
  *
+ * ACTION HANDLING:
+ * Search result actions are handled via LocalSearchActionHandler (CompositionLocal),
+ * not via callbacks. This eliminates prop drilling and simplifies the component hierarchy.
+ *
  * The search supports multiple modes via prefix shortcuts:
  * - No prefix: Search installed apps
  * - "s ": Web search
@@ -28,8 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.milki.launcher.domain.model.Contact
-import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.AppSearchDialog
 
@@ -39,21 +41,21 @@ import com.milki.launcher.ui.components.AppSearchDialog
  * Displays a simple black background with a "Tap to search" hint.
  * When tapped, opens the AppSearchDialog with multi-mode search capabilities.
  *
+ * ACTION HANDLING:
+ * Search result clicks are handled via LocalSearchActionHandler, which is
+ * provided by MainActivity. This eliminates the need for callback props.
+ *
  * @param uiState Current search state from ViewModel
  * @param onShowSearch Called when user taps the home screen background
  * @param onQueryChange Called when user types in search field
  * @param onDismissSearch Called when search dialog should close
- * @param onResultClick Called when user clicks a search result
- * @param onDialClick Called when user clicks the dial icon on a contact (for direct calling)
  */
 @Composable
 fun LauncherScreen(
     uiState: SearchUiState,
     onShowSearch: () -> Unit,
     onQueryChange: (String) -> Unit,
-    onDismissSearch: () -> Unit,
-    onResultClick: (SearchResult) -> Unit,
-    onDialClick: ((Contact, String) -> Unit)? = null
+    onDismissSearch: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -73,9 +75,7 @@ fun LauncherScreen(
         AppSearchDialog(
             uiState = uiState,
             onQueryChange = onQueryChange,
-            onDismiss = onDismissSearch,
-            onResultClick = onResultClick,
-            onDialClick = onDialClick
+            onDismiss = onDismissSearch
         )
     }
 }

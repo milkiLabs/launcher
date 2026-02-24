@@ -93,8 +93,11 @@ class AppContainer(private val application: Application) {
     /**
      * Repository for contacts data.
      * Singleton - created lazily on first access.
+     * 
+     * Public access needed for ActionExecutor which requires contacts repository
+     * to save recent contacts after making calls.
      */
-    private val contactsRepository: ContactsRepository by lazy {
+    val contactsRepository: ContactsRepository by lazy {
         ContactsRepositoryImpl(application)
     }
 

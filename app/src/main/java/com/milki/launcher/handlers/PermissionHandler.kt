@@ -91,6 +91,18 @@ class PermissionHandler(
      * - Google Play has strict review process for apps using this permission
      */
     private lateinit var manageStorageLauncher: ActivityResultLauncher<Intent>
+    
+    // ========================================================================
+    // CALLBACKS
+    // ========================================================================
+    
+    /**
+     * Callback invoked when call permission result is received.
+     *
+     * This is used by ActionExecutor to execute pending actions after
+     * permission is granted. Set by MainActivity after creating the executor.
+     */
+    var onCallPermissionResult: ((Boolean) -> Unit)? = null
 
     // ========================================================================
     // SETUP
@@ -133,22 +145,26 @@ class PermissionHandler(
      * Registers the call permission launcher.
      *
      * This is used when the user taps the dial icon on a contact result.
-     * If permission is granted, the ViewModel will execute the pending call.
-     * If denied, the pending call is cancelled.
+     * If permission is granted, the pending action in ActionExecutor will be executed.
+     * If denied, the pending action is cancelled.
      *
-     * PENDING CALL FLOW:
+     * FLOW:
      * 1. User taps dial icon on contact
-     * 2. ViewModel checks CALL_PHONE permission
-     * 3. If not granted, stores pending call and requests permission
+     * 2. ActionExecutor checks CALL_PHONE permission
+     * 3. If not granted, stores pending action and requests permission
      * 4. This callback receives the result
-     * 5. If granted, ViewModel executes the stored pending call
-     * 6. If denied, ViewModel clears the pending call
+     * 5. If granted, ActionExecutor executes the stored pending action
+     * 6. If denied, ActionExecutor clears the pending action
      */
     private fun registerCallLauncher() {
         callPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            searchViewModel.onCallPermissionResult(isGranted)
+            // Update ViewModel state
+            searchViewModel.updateCallPermission(isGranted)
+            
+            // Notify ActionExecutor to execute pending action if granted
+            onCallPermissionResult?.invoke(isGranted)
         }
     }
 
@@ -285,6 +301,22 @@ class PermissionHandler(
         return ContextCompat.checkSelfPermission(
             activity,
             Manifest.permission.CALL_PHONE
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    /**
+     * Checks if a specific permission is currently granted.
+     *
+     * This is a generic method that can check any Android permission.
+     * Used by ActionExecutor to check if actions requiring permissions can proceed.
+     *
+     * @param permission The Android permission string (e.g., Manifest.permission.CALL_PHONE)
+     * @return True if the permission is granted
+     */
+    fun hasPermission(permission: String): Boolean {
+        return ContextCompat.checkSelfPermission(
+            activity,
+            permission
         ) == PackageManager.PERMISSION_GRANTED
     }
 

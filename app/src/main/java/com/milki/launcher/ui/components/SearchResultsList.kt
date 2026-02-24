@@ -12,11 +12,9 @@
  * - Grid for quick app access (most common use case)
  * - List for mixed results (web search, contacts, etc.)
  *
- * ARCHITECTURE:
- * These are "dumb" UI components - they only display what they're given.
- * - No business logic in this file
- * - State comes from SearchViewModel via parameters
- * - User interactions emit callbacks
+ * ACTION HANDLING:
+ * Search result actions are handled via LocalSearchActionHandler (CompositionLocal),
+ * not via callbacks. This eliminates prop drilling and simplifies the component hierarchy.
  */
 
 package com.milki.launcher.ui.components
@@ -33,10 +31,10 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
+import com.milki.launcher.presentation.search.LocalSearchActionHandler
+import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -50,18 +48,24 @@ import com.milki.launcher.ui.theme.Spacing
  * - All AppSearchResult → Grid layout (compact, fast scanning)
  * - Mixed types → List layout (more space for details)
  *
+ * ACTION HANDLING:
+ * All result clicks are handled via LocalSearchActionHandler, which is
+ * provided by MainActivity. This eliminates the need for callback props.
+ *
  * @param results List of search results to display
  * @param activeProviderConfig Current search provider (for theming)
- * @param onResultClick Callback when user clicks a result
- * @param onDialClick Callback when user clicks the dial icon on a contact (for direct calling)
  */
 @Composable
 fun SearchResultsList(
     results: List<SearchResult>,
-    activeProviderConfig: SearchProviderConfig?,
-    onResultClick: (SearchResult) -> Unit,
-    onDialClick: ((Contact, String) -> Unit)? = null
+    activeProviderConfig: SearchProviderConfig?
 ) {
+    /**
+     * Get the action handler from CompositionLocal.
+     * This allows us to emit actions without prop drilling.
+     */
+    val actionHandler = LocalSearchActionHandler.current
+    
     /**
      * Check if all results are app results.
      * If true, we can display them in a compact grid layout.
@@ -87,7 +91,7 @@ fun SearchResultsList(
          */
         AppResultsGrid(
             appResults = results.filterIsInstance<AppSearchResult>(),
-            onResultClick = onResultClick
+            actionHandler = actionHandler
         )
     } else {
         /**
@@ -100,8 +104,7 @@ fun SearchResultsList(
         MixedResultsList(
             results = results,
             activeProviderConfig = activeProviderConfig,
-            onResultClick = onResultClick,
-            onDialClick = onDialClick
+            actionHandler = actionHandler
         )
     }
 }
@@ -123,12 +126,12 @@ fun SearchResultsList(
  * provides a clean API for grid layouts with proper key handling.
  *
  * @param appResults List of app search results to display (max 8)
- * @param onResultClick Callback when an app is clicked
+ * @param actionHandler The action handler to emit actions when user interacts
  */
 @Composable
 private fun AppResultsGrid(
     appResults: List<AppSearchResult>,
-    onResultClick: (SearchResult) -> Unit
+    actionHandler: (SearchResultAction) -> Unit
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(4),
@@ -156,7 +159,7 @@ private fun AppResultsGrid(
         ) { result ->
             AppGridItem(
                 appInfo = result.appInfo,
-                onClick = { onResultClick(result) }
+                onClick = { actionHandler(SearchResultAction.Tap(result)) }
             )
         }
     }
@@ -186,15 +189,13 @@ private fun AppResultsGrid(
  *
  * @param results List of search results (can be any type)
  * @param activeProviderConfig Current search provider configuration (for theming)
- * @param onResultClick Callback when a result is clicked
- * @param onDialClick Callback when the dial icon is clicked on a contact (for direct calling)
+ * @param actionHandler The action handler to emit actions when user interacts
  */
 @Composable
 private fun MixedResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
-    onResultClick: (SearchResult) -> Unit,
-    onDialClick: ((Contact, String) -> Unit)? = null
+    actionHandler: (SearchResultAction) -> Unit
 ) {
     /**
      * LazyListState allows us to control and observe the scroll position
@@ -237,76 +238,60 @@ private fun MixedResultsList(
                 is AppSearchResult -> {
                     AppListItem(
                         appInfo = result.appInfo,
-                        onClick = { onResultClick(result) }
+                        onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }
                 is WebSearchResult -> {
                     WebSearchResultItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
-                        onClick = { onResultClick(result) }
+                        onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }
                 is UrlSearchResult -> {
                     UrlSearchResultItem(
                         result = result,
-                        onOpenInApp = { onResultClick(result) },
-                        onOpenInBrowser = null
+                        onOpenInApp = { actionHandler(SearchResultAction.Tap(result)) },
+                        onOpenInBrowser = { actionHandler(SearchResultAction.OpenUrlInBrowser(result.url)) }
                     )
                 }
                 is ContactSearchResult -> {
-                    /**
-                     * Create a stable dial click callback using remember.
-                     * 
-                     * WHY USE REMEMBER:
-                     * Without remember, a new lambda would be created on every recomposition.
-                     * This is inefficient and can cause subtle issues with click handling.
-                     * 
-                     * The callback is recreated only when:
-                     * - onDialClick changes (parent provides new callback)
-                     * - result.contact changes (different contact displayed)
-                     * 
-                     * PERFORMANCE:
-                     * Using remember ensures the lambda is stable across recompositions,
-                     * which helps Compose optimize the composition process.
-                     */
-                    val dialClickHandler = remember(onDialClick, result.contact) {
-                        onDialClick?.let { callback ->
-                            {
-                                val phone = result.contact.phoneNumbers.firstOrNull()
-                                if (phone != null) {
-                                    callback(result.contact, phone)
-                                }
-                            }
-                        }
-                    }
-                    
                     ContactSearchResultItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
-                        onClick = { onResultClick(result) },
-                        onDialClick = dialClickHandler
+                        onClick = { actionHandler(SearchResultAction.Tap(result)) },
+                        onDialClick = {
+                            val phone = result.contact.phoneNumbers.firstOrNull()
+                            if (phone != null) {
+                                actionHandler(SearchResultAction.DialContact(result.contact, phone))
+                            }
+                        }
                     )
                 }
                 is FileDocumentSearchResult -> {
                     FileDocumentSearchResultItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
-                        onClick = { onResultClick(result) }
+                        onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }
                 is PermissionRequestResult -> {
                     PermissionRequestItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
-                        onClick = { onResultClick(result) }
+                        onClick = { 
+                            actionHandler(SearchResultAction.RequestPermission(
+                                result.permission,
+                                result.providerPrefix
+                            ))
+                        }
                     )
                 }
                 is YouTubeSearchResult -> {
                     YouTubeSearchResultItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
-                        onClick = { onResultClick(result) }
+                        onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }
             }

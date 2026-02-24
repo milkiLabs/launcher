@@ -9,18 +9,16 @@ import androidx.activity.viewModels
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import com.milki.launcher.handlers.ActionHandler
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.handlers.PermissionHandler
-import com.milki.launcher.presentation.search.SearchAction
+import com.milki.launcher.presentation.search.ActionExecutor
+import com.milki.launcher.presentation.search.LocalSearchActionHandler
+import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.ui.screens.LauncherScreen
 import com.milki.launcher.ui.theme.LauncherTheme
-import kotlinx.coroutines.launch
 
 /**
  * MainActivity - The launcher's home screen Activity.
@@ -59,18 +57,21 @@ class MainActivity : ComponentActivity() {
     private lateinit var permissionHandler: PermissionHandler
 
     /**
-     * ActionHandler - Executes search actions.
+     * ActionExecutor - Executes search result actions.
      *
-     * This handler is responsible for:
+     * This executor is responsible for:
      * - Launching apps
      * - Opening URLs and web searches
      * - Opening YouTube searches
-     * - Making phone calls
+     * - Making phone calls (direct and via dialer)
      * - Opening files
+     * - Handling permission-requiring actions
+     *
+     * Provided to composables via CompositionLocalProvider.
      *
      * Initialized in onCreate() after the Activity is ready.
      */
-    private lateinit var actionHandler: ActionHandler
+    private lateinit var actionExecutor: ActionExecutor
 
     // ========================================================================
     // HOME BUTTON STATE TRACKING
@@ -107,44 +108,82 @@ class MainActivity : ComponentActivity() {
     /**
      * Setup order matters:
      * 1. Initialize handlers (they need to register launchers before use)
-     * 2. Observe actions (so we can respond to ViewModel events)
-     * 3. Set content (Compose UI)
+     * 2. Set content (Compose UI)
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         initializeHandlers()
-        observeActions()
 
         setContent {
             val uiState by searchViewModel.uiState.collectAsStateWithLifecycle()
 
-            LauncherTheme {
-                LauncherScreen(
-                    uiState = uiState,
-                    onShowSearch = { searchViewModel.showSearch() },
-                    onQueryChange = { searchViewModel.onQueryChange(it) },
-                    onDismissSearch = { searchViewModel.hideSearch() },
-                    onResultClick = { result -> searchViewModel.onResultClick(result) },
-                    onDialClick = { contact, phoneNumber -> 
-                        searchViewModel.onDialClick(contact, phoneNumber) 
-                    }
-                )
+            /**
+             * Provide the action handler via CompositionLocal.
+             * Any descendant composable can access it via LocalSearchActionHandler.current.
+             */
+            CompositionLocalProvider(
+                LocalSearchActionHandler provides { action: SearchResultAction ->
+                    actionExecutor.execute(action, permissionHandler::hasPermission)
+                }
+            ) {
+                LauncherTheme {
+                    LauncherScreen(
+                        uiState = uiState,
+                        onShowSearch = { searchViewModel.showSearch() },
+                        onQueryChange = { searchViewModel.onQueryChange(it) },
+                        onDismissSearch = { searchViewModel.hideSearch() }
+                    )
+                }
             }
         }
     }
 
     /**
-     * Initializes the permission and action handlers.
+     * Initializes the permission handler and action executor.
      *
      * This is separated from onCreate() for clarity and potential future
-     * customization (e.g., passing settings repository to ActionHandler).
+     * customization (e.g., passing settings repository to ActionExecutor).
      */
     private fun initializeHandlers() {
+        // Initialize permission handler first (needed by action executor)
         permissionHandler = PermissionHandler(this, searchViewModel)
         permissionHandler.setup()
-
-        actionHandler = ActionHandler(this, searchViewModel)
+        
+        // Get contacts repository from the container
+        val container = (application as LauncherApplication).container
+        val contactsRepository = container.contactsRepository
+        
+        // Initialize action executor
+        actionExecutor = ActionExecutor(this, contactsRepository)
+        
+        // Set up executor callbacks
+        actionExecutor.onRequestPermission = { permission ->
+            when (permission) {
+                android.Manifest.permission.READ_CONTACTS -> {
+                    permissionHandler.requestContactsPermission()
+                }
+                android.Manifest.permission.CALL_PHONE -> {
+                    permissionHandler.requestCallPermission()
+                }
+                else -> {
+                    // Handle other permissions if needed
+                }
+            }
+        }
+        
+        actionExecutor.onCloseSearch = {
+            searchViewModel.hideSearch()
+        }
+        
+        actionExecutor.onSaveRecentApp = { componentName ->
+            searchViewModel.saveRecentApp(componentName)
+        }
+        
+        // Connect permission handler to action executor
+        permissionHandler.onCallPermissionResult = { granted ->
+            actionExecutor.onPermissionResult(granted)
+        }
     }
 
     /**
@@ -172,67 +211,6 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         wasAlreadyOnHomescreen = false
-    }
-
-    // ========================================================================
-    // ACTION OBSERVATION
-    // ========================================================================
-
-    /**
-     * Observes SearchAction events from the ViewModel.
-     *
-     * Actions are one-time events (navigation, calls, etc.) that the
-     * ViewModel emits when the user interacts with search results.
-     *
-     * WHY USE REPEATONLIFECYLE WITH STARTED?
-     * - STARTED ensures we only collect when the Activity is visible
-     * - Automatically cancels collection when Activity stops
-     * - Restarts collection if Activity is resumed
-     * - Prevents memory leaks and race conditions
-     */
-    private fun observeActions() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                searchViewModel.action.collect { action ->
-                    handleAction(action)
-                }
-            }
-        }
-    }
-
-    /**
-     * Handles a SearchAction event.
-     *
-     * Actions are split into two categories:
-     * 1. System actions - Delegated to ActionHandler (launch app, open URL, etc.)
-     * 2. Permission actions - Delegated to PermissionHandler
-     * 3. Local actions - Handled directly by ViewModel (close search, clear query)
-     *
-     * @param action The action to execute
-     */
-    private fun handleAction(action: SearchAction) {
-        when (action) {
-            is SearchAction.RequestContactsPermission -> {
-                permissionHandler.requestContactsPermission()
-            }
-            is SearchAction.RequestFilesPermission -> {
-                permissionHandler.requestFilesPermission()
-            }
-            is SearchAction.RequestCallPermission -> {
-                permissionHandler.requestCallPermission()
-            }
-            is SearchAction.CloseSearch -> {
-                searchViewModel.hideSearch()
-            }
-            is SearchAction.ClearQuery -> {
-                searchViewModel.clearQuery()
-            }
-            else -> {
-                // All other actions (launch app, open URL, call, file, etc.)
-                // are handled by ActionHandler
-                actionHandler.handle(action)
-            }
-        }
     }
 
     // ========================================================================

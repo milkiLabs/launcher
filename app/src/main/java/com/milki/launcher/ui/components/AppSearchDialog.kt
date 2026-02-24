@@ -7,6 +7,10 @@
  * - "c ": Search contacts (requires permission)
  * - "y ": YouTube search
  *
+ * ACTION HANDLING:
+ * Search result actions are handled via LocalSearchActionHandler (CompositionLocal),
+ * not via callbacks. This eliminates prop drilling and simplifies the component hierarchy.
+ *
  * RELATED FILES:
  * - SearchResultsList.kt: Contains the list/grid containers for results
  * - SearchResultItems.kt: Contains individual result item composables
@@ -38,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.milki.launcher.domain.model.*
+import com.milki.launcher.presentation.search.LocalSearchActionHandler
+import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -48,36 +54,30 @@ import kotlinx.coroutines.delay
  * AppSearchDialog - Main search dialog component supporting multiple search modes.
  *
  * This is a stateless composable that receives all data via SearchUiState
- * and communicates user actions via callbacks.
+ * and uses LocalSearchActionHandler for user actions.
  *
  * STATE MANAGEMENT:
  * - uiState: Contains all display data (query, results, provider config)
  * - onQueryChange: Emits when user types in search field
  * - onDismiss: Emits when dialog should close
- * - onResultClick: Emits when user clicks a search result
- * - onDialClick: Emits when user clicks the dial icon on a contact result
- *
- * UNIDIRECTIONAL DATA FLOW:
- * ┌─────────────┐     State      ┌──────────────────┐
- * │ ViewModel   │ ─────────────→ │ AppSearchDialog  │
- * │             │                │                  │
- * │             │ ←───────────── │                  │
- * └─────────────┘    Events      └──────────────────┘
+ * - Actions: Handled via LocalSearchActionHandler (CompositionLocal)
  *
  * @param uiState Current search state from ViewModel
  * @param onQueryChange Called when user types in search field
  * @param onDismiss Called when dialog should close
- * @param onResultClick Called when user clicks a search result
- * @param onDialClick Called when user clicks the dial icon on a contact (for direct calling)
  */
 @Composable
 fun AppSearchDialog(
     uiState: SearchUiState,
     onQueryChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onResultClick: (SearchResult) -> Unit,
-    onDialClick: ((Contact, String) -> Unit)? = null
+    onDismiss: () -> Unit
 ) {
+    /**
+     * Get the action handler from CompositionLocal.
+     * This allows us to emit actions without prop drilling.
+     */
+    val actionHandler = LocalSearchActionHandler.current
+    
     /**
      * FocusRequester allows us to programmatically request focus
      * on the text field when the dialog opens. This provides a
@@ -139,7 +139,9 @@ fun AppSearchDialog(
                     activeProviderConfig = uiState.activeProviderConfig,
                     placeholderText = uiState.placeholderText,
                     onLaunchFirstResult = {
-                        uiState.results.firstOrNull()?.let { onResultClick(it) }
+                        uiState.results.firstOrNull()?.let { result ->
+                            actionHandler(SearchResultAction.Tap(result))
+                        }
                     },
                     onClear = { onQueryChange("") }
                 )
@@ -158,12 +160,11 @@ fun AppSearchDialog(
                     /**
                      * SearchResultsList handles the display of results.
                      * It automatically chooses between grid and list layouts.
+                     * Actions are handled via LocalSearchActionHandler.
                      */
                     SearchResultsList(
                         results = uiState.results,
-                        activeProviderConfig = uiState.activeProviderConfig,
-                        onResultClick = onResultClick,
-                        onDialClick = onDialClick
+                        activeProviderConfig = uiState.activeProviderConfig
                     )
                 }
             }
