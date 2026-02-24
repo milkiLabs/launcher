@@ -27,7 +27,7 @@
 
 package com.milki.launcher
 
-import android.content.Intent
+import androidx.activity.viewModels
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -68,8 +68,8 @@ class MainActivity : ComponentActivity() {
      * This ViewModel manages all search state (query, results, visibility)
      * and emits actions for the Activity to execute.
      */
-    private val searchViewModel: SearchViewModel by lazy {
-        (application as LauncherApplication).container.searchViewModelFactory.create(SearchViewModel::class.java)
+    private val searchViewModel: SearchViewModel by viewModels {
+        (application as LauncherApplication).container.searchViewModelFactory
     }
 
     /**
@@ -287,18 +287,31 @@ class MainActivity : ComponentActivity() {
      *      - If search has text → Clear the text
      *      - If search is empty → Hide it
      *
-     * INTENT.ACTION_MAIN check:
-     * We only respond to ACTION_MAIN intents, which is what the system
-     * sends when the home button is pressed. This prevents us from
-     * accidentally responding to other intent types.
-     *
-     * IMPORTANT: onNewIntent fires BEFORE onResume!
-     * That's why our wasAlreadyOnHomescreen flag works correctly.
+     * INTENT.ACTION_MAIN + CATEGORY_HOME check:
+      * We check for ACTION_MAIN (the standard launch intent) AND CATEGORY_HOME
+      * to ensure this is specifically a home button press. While ACTION_MAIN
+      * is commonly used for the home button, other system events can also
+      * trigger ACTION_MAIN intents. Adding the CATEGORY_HOME check provides
+      * an extra layer of safety to ensure we only respond to actual home
+      * button presses and not other system events that might accidentally
+      * send ACTION_MAIN.
+      *
+      * Examples of events that might send ACTION_MAIN but NOT CATEGORY_HOME:
+      * - App shortcuts created by other apps
+      * - Certain system broadcasts
+      * - Intent filters from other apps that match the action
+      *
+      * By requiring both ACTION_MAIN and CATEGORY_HOME, we ensure our
+      * launcher behavior is only triggered when the user intentionally
+      * presses the home button.
+      *
+      * IMPORTANT: onNewIntent fires BEFORE onResume!
+      * That's why our wasAlreadyOnHomescreen flag works correctly.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
 
-        if (intent.action == Intent.ACTION_MAIN) {
+        if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
             if (!wasAlreadyOnHomescreen) {
                 // User is returning from another app
                 // Ensure clean state - just show the homescreen
