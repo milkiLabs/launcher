@@ -2,14 +2,6 @@
  * SearchViewModel.kt - ViewModel for the search feature
  *
  * This ViewModel manages all search-related state and logic.
- * It follows the Unidirectional Data Flow (UDF) pattern:
- *
- * ┌─────────────────────────────────────────────────────────────┐
- * │                      ViewModel                              │
- * │                                                             │
- * │  State (StateFlow)  ◄──── UI collects this                 │
- * │  Functions ◄──────────── UI calls these on user actions    │
- * └─────────────────────────────────────────────────────────────┘
  *
  * RESPONSIBILITIES:
  * - Hold and update search UI state
@@ -34,11 +26,8 @@ import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.domain.search.parseSearchQuery
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for the search feature.
@@ -84,17 +73,21 @@ class SearchViewModel(
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     /**
-     * Tracks the current search coroutine job.
+     * Internal flow for search queries.
      * 
-     * RACE CONDITION FIX:
-     * When the user types quickly (e.g., "a" then "ab"), multiple search
-     * coroutines could be running simultaneously. If the search for "a"
-     * takes longer than "ab", the "a" results would overwrite "ab" results.
+     * REACTIVE SEARCH PATTERN:
+     * Instead of manually managing coroutine jobs, we use a Flow-based approach.
+     * User input (queries) flows through this MutableStateFlow, and we react
+     * to each query using mapLatest - which automatically cancels any previous
+     * search when a new query arrives.
      * 
-     * By storing the job and cancelling it before starting a new search,
-     * we ensure only the most recent query's results are displayed.
+     * This is the standard modern Android pattern for "search-as-you-type" because:
+     * - No manual job cancellation needed (mapLatest handles it)
+     * - Can easily add debounce() to wait for user to stop typing
+     * - Declarative and idiomatic Kotlin Flow code
+     * - Race conditions are handled automatically
      */
-    private var searchJob: Job? = null
+    private val searchQuery = MutableStateFlow("")
 
     // ========================================================================
     // INITIALIZATION
@@ -106,6 +99,9 @@ class SearchViewModel(
 
         // Observe recent apps
         observeRecentApps()
+
+        // Set up reactive search pipeline
+        observeSearchQueries()
     }
 
     // ========================================================================
@@ -136,6 +132,33 @@ class SearchViewModel(
         }
     }
 
+    /**
+     * Set up the reactive search pipeline.
+     * 
+     * This replaces the manual searchJob cancellation approach with a declarative
+     * Flow-based pipeline. The key operator is mapLatest, which automatically
+     * cancels any ongoing search when a new query arrives.
+     * 
+     * PIPELINE STRUCTURE:
+     * 1. searchQuery (MutableStateFlow) - receives queries from onQueryChange()
+     * 2. onEach - sets loading state before search starts
+     * 3. mapLatest - executes search, cancels previous if new query arrives
+     * 4. onEach - updates results and clears loading state
+     * 
+     * WHY mapLatest:
+     * - When user types "a" then "ab" quickly, the search for "a" might still
+     *   be running when "ab" arrives. mapLatest automatically cancels the "a"
+     *   search and starts "ab", preventing stale results.
+     * - No manual Job tracking or cancellation needed.
+     */
+    private fun observeSearchQueries() {
+        searchQuery
+            .onEach { updateState { copy(isLoading = true) } }
+            .mapLatest { query -> executeSearchLogic(query) }
+            .onEach { results -> updateState { copy(results = results, isLoading = false) } }
+            .launchIn(viewModelScope)
+    }
+
     // ========================================================================
     // PUBLIC API - Called from UI
     // ========================================================================
@@ -146,23 +169,20 @@ class SearchViewModel(
      */
     fun showSearch() {
         updateState { copy(isSearchVisible = true) }
-        /**
-         * Trigger an empty search to show recent apps.
-         * Without this, the results list would be empty until
-         * the user types something.
-         */
-        performSearch("")
+        // Trigger an empty search to show recent apps.
+        // Without this, the results list would be empty until
+        // the user types something.
+        searchQuery.value = ""
     }
 
     /**
      * Hide the search dialog.
-     * Also clears the query and cancels any ongoing search.
+     * Also clears the query and results.
+     * 
+     * Note: No need to cancel any search job - the reactive pipeline
+     * handles that automatically through mapLatest.
      */
     fun hideSearch() {
-        // Cancel any ongoing search to prevent stale results
-        searchJob?.cancel()
-        searchJob = null
-        
         updateState {
             copy(
                 isSearchVisible = false,
@@ -176,13 +196,15 @@ class SearchViewModel(
 
     /**
      * Update the search query.
-     * Triggers a new search automatically.
+     * Triggers a new search automatically through the reactive pipeline.
      *
      * @param newQuery The new query text
      */
     fun onQueryChange(newQuery: String) {
         updateState { copy(query = newQuery) }
-        performSearch(newQuery)
+        // Emit to the search flow - this triggers the reactive pipeline
+        // which will cancel any ongoing search and start a new one
+        searchQuery.value = newQuery
     }
 
     /**
@@ -195,9 +217,10 @@ class SearchViewModel(
         updateState { copy(hasContactsPermission = hasPermission) }
 
         // Re-run search if we're in contacts mode
+        // Emit to searchQuery flow to trigger the reactive pipeline
         val currentState = _uiState.value
         if (currentState.activeProviderConfig?.prefix == "c") {
-            performSearch(currentState.query)
+            searchQuery.value = currentState.query
         }
     }
 
@@ -211,9 +234,10 @@ class SearchViewModel(
         updateState { copy(hasFilesPermission = hasPermission) }
 
         // Re-run search if we're in files mode
+        // Emit to searchQuery flow to trigger the reactive pipeline
         val currentState = _uiState.value
         if (currentState.activeProviderConfig?.prefix == "f") {
-            performSearch(currentState.query)
+            searchQuery.value = currentState.query
         }
     }
 
@@ -246,14 +270,14 @@ class SearchViewModel(
 
     /**
      * Clear the search query and show recent apps.
-     * We call performSearch("") to trigger FilterAppsUseCase which
+     * We emit empty string to searchQuery to trigger FilterAppsUseCase which
      * returns recentApps when query is blank.
      */
     fun clearQuery() {
         updateState {
             copy(query = "", activeProviderConfig = null)
         }
-        performSearch("")
+        searchQuery.value = ""
     }
 
     // ========================================================================
@@ -261,7 +285,11 @@ class SearchViewModel(
     // ========================================================================
 
     /**
-     * Perform a search based on the current query.
+     * Execute the search logic and return results.
+     * 
+     * This is a pure function that performs the search computation.
+     * It's called from the reactive pipeline (mapLatest) and returns
+     * results to be collected and displayed.
      *
      * Flow:
      * 1. Parse query to detect provider prefix
@@ -277,74 +305,53 @@ class SearchViewModel(
      * - Users can refine their search if the desired app isn't shown
      *
      * THREADING NOTE:
-     * This function runs heavy operations (Regex matching, app filtering)
-     * on Dispatchers.Default to prevent UI thread blocking.
+     * This function is called within mapLatest which runs on Dispatchers.Default
+     * by default when using the default context. Heavy operations (Regex matching,
+     * app filtering) don't block the UI thread.
      *
      * @param query The search query
+     * @return List of search results
      */
-    private fun performSearch(query: String) {
-        // Cancel any previous search before starting a new one
-        searchJob?.cancel()
+    private suspend fun executeSearchLogic(query: String): List<SearchResult> {
+        val parsed = parseSearchQuery(query, providerRegistry)
 
-        searchJob = viewModelScope.launch(Dispatchers.Default) {
-            val parsed = parseSearchQuery(query, providerRegistry)
+        // Update the active provider config in state
+        // This needs to happen separately since we're returning results
+        updateState { copy(activeProviderConfig = parsed.config) }
 
-            withContext(Dispatchers.Main) {
-                updateState {
-                    copy(activeProviderConfig = parsed.config)
-                }
+        if (parsed.provider != null) {
+            // Provider search - delegate to the provider
+            return try {
+                parsed.provider.search(parsed.query)
+            } catch (e: Exception) {
+                emptyList()
             }
+        }
 
-            if (parsed.provider != null) {
-                // Provider search
-                withContext(Dispatchers.Main) {
-                    updateState { copy(isLoading = true) }
-                }
+        // No provider prefix detected - search apps and check for URLs
+        val state = _uiState.value
+        
+        // Check if the query looks like a URL
+        val urlResult = detectUrl(parsed.query)
+        
+        // Filter apps using the use case
+        val filteredApps = filterAppsUseCase(
+            query = parsed.query,
+            installedApps = state.installedApps,
+            recentApps = state.recentApps
+        )
 
-                try {
-                    val results = parsed.provider.search(parsed.query)
-                    
-                    withContext(Dispatchers.Main) {
-                        updateState {
-                            copy(results = results, isLoading = false)
-                        }
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        updateState { copy(isLoading = false, results = emptyList()) }
-                    }
-                }
-            } else {
-                // No provider prefix detected
-                val state = _uiState.value
-                
-                // Check if the query looks like a URL
-                val urlResult = detectUrl(parsed.query)
-                
-                // Filter apps
-                val filteredApps = filterAppsUseCase(
-                    query = parsed.query,
-                    installedApps = state.installedApps,
-                    recentApps = state.recentApps
-                )
+        val limitedApps = filteredApps.take(8)
 
-                val limitedApps = filteredApps.take(8)
+        val appResults = limitedApps.map { app ->
+            AppSearchResult(appInfo = app)
+        }
 
-                val appResults = limitedApps.map { app ->
-                    AppSearchResult(appInfo = app)
-                }
-
-                // Combine URL result with app results
-                val results = if (urlResult != null) {
-                    listOf(urlResult) + appResults
-                } else {
-                    appResults
-                }
-
-                withContext(Dispatchers.Main) {
-                    updateState { copy(results = results) }
-                }
-            }
+        // Combine URL result with app results
+        return if (urlResult != null) {
+            listOf(urlResult) + appResults
+        } else {
+            appResults
         }
     }
 
@@ -355,10 +362,26 @@ class SearchViewModel(
     /**
      * Detect if the query looks like a URL and create a UrlSearchResult.
      *
-     * URL PATTERNS RECOGNIZED:
-     * 1. Full URLs: "https://example.com", "http://example.com/path"
-     * 2. Domain-only: "example.com", "sub.domain.org", "github.com/user/repo"
-     * 3. Common TLDs: .com, .org, .net, .io, .co, .edu, .gov, .dev, .app
+     * URL DETECTION STRATEGY:
+     * This function uses a multi-stage approach to detect URLs:
+     *
+     * 1. FAST-FAIL: Empty queries or queries with spaces are immediately rejected.
+     *    Spaces indicate the user is searching for apps, not typing a URL.
+     *
+     * 2. SCHEME PREFIX CHECK: Queries starting with http://, https://, or www.
+     *    are treated as URL candidates and validated.
+     *
+     * 3. ANDROID WEB_URL PATTERN: Uses the built-in Patterns.WEB_URL matcher
+     *    which handles most common URL formats.
+     *
+     * 4. FALLBACK REGEX: For newer/regional TLDs (like .ai, .eg, .io) that
+     *    older Android versions might not recognize, we use a generic pattern
+     *    that matches: domain.tld or domain.tld/path
+     *
+     * WHY NO HARDCODED TLD LIST:
+     * - New TLDs are constantly being added (there are now 1500+ TLDs)
+     * - Hardcoded lists become outdated quickly
+     * - The fallback regex handles any 2+ letter TLD
      *
      * @param query The search query to check
      * @return UrlSearchResult if query looks like a URL, null otherwise
@@ -366,53 +389,80 @@ class SearchViewModel(
     private fun detectUrl(query: String): UrlSearchResult? {
         val trimmed = query.trim()
         
-        if (trimmed.isEmpty()) return null
+        // FAST-FAIL: Empty or space-containing queries aren't URLs
+        // Users searching for apps will type single words without spaces
+        // like "youtube" or "maps". URLs typed by users don't have spaces.
+        if (trimmed.isEmpty() || trimmed.contains(" ")) {
+            return null
+        }
         
         var finalUrl: String? = null
-        var displayUrl = trimmed
+        val displayUrl = trimmed
         
-        // Check for full URL with scheme
-        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-            if (Patterns.WEB_URL.matcher(trimmed).matches()) {
+        // STAGE 1: Check for explicit URL prefixes
+        // These are strong indicators the user intends to visit a URL
+        val hasSchemePrefix = trimmed.startsWith("http://") || 
+                              trimmed.startsWith("https://") || 
+                              trimmed.startsWith("www.")
+        
+        if (hasSchemePrefix) {
+            // Normalize www. to https://www.
+            val urlToCheck = if (trimmed.startsWith("www.")) {
+                "https://$trimmed"
+            } else {
+                trimmed
+            }
+            
+            if (Patterns.WEB_URL.matcher(urlToCheck).matches()) {
+                finalUrl = urlToCheck
+            }
+        }
+        
+        // STAGE 2: Try Android's built-in WEB_URL pattern
+        // This handles most standard URL formats
+        if (finalUrl == null && Patterns.WEB_URL.matcher(trimmed).matches()) {
+            finalUrl = trimmed
+        }
+        
+        // STAGE 3: Fallback regex for newer/regional TLDs
+        // Older Android versions may not recognize newer TLDs like .ai, .eg, .shop
+        // This pattern matches: domain.tld or domain.tld/path with any 2+ letter TLD
+        if (finalUrl == null) {
+            // Regex explanation:
+            // ^                          - Start of string
+            // [a-zA-Z0-9]                - First char must be alphanumeric
+            // [a-zA-Z0-9-]*              - Domain can have alphanumeric and hyphens
+            // \.                         - Literal dot before TLD
+            // [a-zA-Z]{2,}               - TLD must be at least 2 letters
+            // (?:/.*)?                   - Optional path starting with /
+            // $                          - End of string
+            val fallbackUrlPattern = Regex(
+                "^[a-zA-Z0-9][a-zA-Z0-9-]*\\.[a-zA-Z]{2,}(?:/.*)?$"
+            )
+            
+            if (fallbackUrlPattern.matches(trimmed)) {
                 finalUrl = trimmed
             }
         }
         
-        // Check for domain-like patterns without scheme
-        if (finalUrl == null) {
-            val commonTlds = listOf(
-                ".com", ".org", ".net", ".io", ".co", ".edu", ".gov", 
-                ".dev", ".app", ".me", ".tech", ".xyz", ".info", ".biz",
-                ".online", ".site", ".store", ".blog"
-            )
-            
-            val hasTld = commonTlds.any { tld -> 
-                trimmed.contains(tld, ignoreCase = true) 
-            }
-            
-            if (hasTld) {
-                val urlWithScheme = if (!trimmed.startsWith("http")) {
-                    "https://$trimmed"
-                } else {
-                    trimmed
-                }
-                
-                if (Patterns.WEB_URL.matcher(urlWithScheme).matches()) {
-                    finalUrl = urlWithScheme
-                }
-            }
+        // Return null if no URL pattern matched
+        if (finalUrl == null) return null
+        
+        // Ensure the URL has a scheme for Intent.ACTION_VIEW
+        // Without https://, the intent won't open a browser
+        if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
+            finalUrl = "https://$finalUrl"
         }
         
-        return finalUrl?.let { url ->
-            val handlerApp = urlHandlerResolver.resolveUrlHandler(url)
-            
-            UrlSearchResult(
-                url = url,
-                displayUrl = displayUrl,
-                handlerApp = handlerApp,
-                browserFallback = true
-            )
-        }
+        // Resolve which app should handle this URL
+        val handlerApp = urlHandlerResolver.resolveUrlHandler(finalUrl)
+        
+        return UrlSearchResult(
+            url = finalUrl,
+            displayUrl = displayUrl,
+            handlerApp = handlerApp,
+            browserFallback = true
+        )
     }
 
     // ========================================================================
