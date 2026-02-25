@@ -355,19 +355,6 @@ fun ContactSearchResultItem(
                 )
             }
         }
-    } else if (result.contact.phoneNumbers.isNotEmpty()) {
-        /**
-         * Fallback: Show non-clickable dial icon when onDialClick is null.
-         * This maintains visual consistency even if dial functionality is disabled.
-         */
-        {
-            Icon(
-                imageVector = Icons.Default.Call,
-                contentDescription = "Call contact",
-                tint = iconColor.copy(alpha = 0.7f),
-                modifier = Modifier.size(IconSize.small)
-            )
-        }
     } else null
 
     /**
