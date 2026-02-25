@@ -32,6 +32,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 
@@ -65,6 +67,14 @@ fun ItemActionMenu(
     actions: List<MenuAction>,
     modifier: Modifier = Modifier
 ) {
+    /**
+     * Haptic feedback controller for providing tactile response on menu item selection.
+     * 
+     * When a user taps on a menu item, we provide a light haptic feedback to confirm
+     * the selection was registered. This creates a more polished and responsive feel.
+     */
+    val hapticFeedback = LocalHapticFeedback.current
+
     val actionHandler = LocalSearchActionHandler.current
 
     DropdownMenu(
@@ -82,6 +92,9 @@ fun ItemActionMenu(
                     )
                 },
                 onClick = {
+                    // Provide haptic feedback to confirm menu item selection
+                    // This gives the user tactile confirmation that their tap was registered
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                     actionHandler(menuAction.action)
                     onDismiss()
                 }

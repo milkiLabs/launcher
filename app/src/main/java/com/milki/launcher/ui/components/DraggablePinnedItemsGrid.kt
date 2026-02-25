@@ -65,12 +65,14 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.zIndex
@@ -114,6 +116,19 @@ fun DraggablePinnedItemsGrid(
     onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    /**
+     * Haptic feedback controller for providing tactile responses to user actions.
+     * 
+     * HAPTIC FEEDBACK EVENTS:
+     * - LongPress: When the user long-presses an item (triggers menu or drag preparation)
+     * - GestureThresholdActivate: When drag operation actually starts (finger moved beyond threshold)
+     * - Confirm: When item is successfully dropped in a new position
+     * 
+     * These haptic feedbacks make the interface feel more responsive and provide
+     * confirmation to the user that their action was recognized.
+     */
+    val hapticFeedback = LocalHapticFeedback.current
+
     // ========================================================================
     // STATE FOR DRAG AND DROP
     // ========================================================================
@@ -283,12 +298,18 @@ fun DraggablePinnedItemsGrid(
                             },
                             onLongPress = {
                                 // Long press without drag movement - show menu
+                                // Provide haptic feedback for long-press recognition
+                                // This gives the user tactile confirmation that the long-press was detected
                                 if (!hasDragStarted) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                     menuShownForItem = item
                                 }
                             },
                             onDragStart = {
                                 // User has moved finger after long press - start drag
+                                // Provide haptic feedback to confirm drag mode has started
+                                // This is a different haptic than long-press to distinguish the two states
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                                 draggedItem = item
                                 dragStartPosition = item.position
                                 dragOffset = Offset.Zero
@@ -317,6 +338,9 @@ fun DraggablePinnedItemsGrid(
 
                                     // Only move if position changed
                                     if (newPosition != dragStartPosition) {
+                                        // Provide haptic feedback to confirm successful drop
+                                        // This confirms to the user that their drag-and-drop was completed
+                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                                         onItemMove(item.id, newPosition)
                                     }
                                 }

@@ -57,6 +57,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -104,6 +106,18 @@ fun PinnedItem(
     modifier: Modifier = Modifier
 ) {
     /**
+     * Haptic feedback controller for providing tactile response on long-press.
+     * 
+     * When handleLongPress is true (standalone usage), this component handles
+     * the long-press gesture internally and provides haptic feedback to confirm
+     * the action was recognized.
+     * 
+     * When handleLongPress is false (used in DraggablePinnedItemsGrid), the
+     * parent component is responsible for haptic feedback.
+     */
+    val hapticFeedback = LocalHapticFeedback.current
+
+    /**
      * Internal state to control whether the dropdown menu is visible.
      * This is triggered by a long press on the item when handleLongPress is true.
      * When handleLongPress is false, the menu visibility is controlled by showMenu parameter.
@@ -134,7 +148,12 @@ fun PinnedItem(
                     .fillMaxWidth()
                     .combinedClickable(
                         onClick = onClick,
-                        onLongClick = { internalShowMenu = true }
+                        onLongClick = {
+                            // Provide haptic feedback for long-press recognition
+                            // This gives the user tactile confirmation that the long-press was detected
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            internalShowMenu = true
+                        }
                     ),
                 color = Color.Transparent,
                 shape = RoundedCornerShape(CornerRadius.medium)
