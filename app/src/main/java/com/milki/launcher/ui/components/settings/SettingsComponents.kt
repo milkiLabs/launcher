@@ -13,8 +13,6 @@
 
 package com.milki.launcher.ui.components.settings
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.ui.theme.CornerRadius
+import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -163,11 +162,26 @@ fun SwitchSettingItem(
 /**
  * Dropdown selector for choosing from a list of options.
  *
+ * IMPLEMENTATION DETAILS:
+ * This component uses Material3's DropdownMenu which provides:
+ * - Automatic outside-tap dismissal (tapping anywhere outside the menu closes it)
+ * - Proper positioning relative to the anchor element
+ * - Built-in elevation and theming
+ * - Keyboard navigation support
+ *
+ * PREVIOUS IMPLEMENTATION ISSUE:
+ * The old implementation used an inline Column that expanded within the Surface.
+ * This caused a bug where tapping outside the dropdown didn't close it because
+ * there was no mechanism to detect "outside" taps. DropdownMenu solves this by
+ * using a Popup internally that captures outside touches.
+ *
  * @param title Setting name
  * @param subtitle Optional description
  * @param selectedValue The currently selected option's display name
- * @param options List of (displayName, onSelect) pairs
- * @param icon Optional leading icon
+ * @param options List of (displayName, value) pairs where displayName is shown to user
+ *                and value is the actual enum/value to be passed to onOptionSelected
+ * @param onOptionSelected Callback invoked when user selects an option
+ * @param icon Optional leading icon displayed before the title
  */
 @Composable
 fun <T> DropdownSettingItem(
@@ -180,18 +194,20 @@ fun <T> DropdownSettingItem(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
-        shape = RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 0.dp
+            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall)
     ) {
-        Column {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(CornerRadius.medium),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 0.dp
+        ) {
             Row(
                 modifier = Modifier
-                    .clickable { expanded = !expanded }
+                    .clickable { expanded = true }
                     .padding(
                         horizontal = Spacing.mediumLarge,
                         vertical = Spacing.medium
@@ -204,7 +220,7 @@ fun <T> DropdownSettingItem(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(IconSize.standard)
                             .padding(end = Spacing.smallMedium)
                     )
                 }
@@ -233,58 +249,41 @@ fun <T> DropdownSettingItem(
                     fontWeight = FontWeight.Medium
                 )
             }
+        }
 
-            // Expandable option list
-            if (expanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateContentSize()
-                        .padding(bottom = Spacing.smallMedium)
-                ) {
-                    options.forEach { (displayName, value) ->
-                        val isSelected = displayName == selectedValue
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onOptionSelected(value)
-                                    expanded = false
-                                }
-                                .background(
-                                    if (isSelected) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerLow
-                                    }
-                                )
-                                .padding(
-                                    horizontal = Spacing.large + Spacing.mediumLarge,
-                                    vertical = Spacing.medium
-                                ),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { (displayName, value) ->
+                val isSelected = displayName == selectedValue
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
                             }
+                        )
+                    },
+                    onClick = {
+                        onOptionSelected(value)
+                        expanded = false
+                    },
+                    leadingIcon = if (isSelected) {
+                        {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(IconSize.small)
+                            )
                         }
-                    }
-                }
+                    } else null
+                )
             }
         }
     }
