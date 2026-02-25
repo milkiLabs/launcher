@@ -11,7 +11,11 @@
  *
  * INTERACTION:
  * - Tap: Open/launch the item
- * - Long press: Show remove confirmation dialog
+ * - Long press: Show dropdown menu with actions (handled by PinnedItem composable)
+ *
+ * The dropdown menu is shown directly by the PinnedItem composable using
+ * ItemActionMenu. Actions flow through LocalSearchActionHandler for consistency
+ * with search result actions.
  */
 
 package com.milki.launcher.ui.components
@@ -30,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.theme.Spacing
 
@@ -42,16 +45,19 @@ import com.milki.launcher.ui.theme.Spacing
  * - Adaptive spacing between items
  * - Vertical scrolling when items exceed screen height
  *
+ * INTERACTION:
+ * Each PinnedItem handles its own long-press interaction, showing a
+ * dropdown menu with actions. The menu actions are emitted through
+ * LocalSearchActionHandler for unified action handling.
+ *
  * @param items List of pinned items to display
  * @param onItemClick Called when user taps an item
- * @param onItemLongClick Called when user long-presses an item
  * @param modifier Optional modifier for external customization
  */
 @Composable
 fun PinnedItemsGrid(
     items: List<HomeItem>,
     onItemClick: (HomeItem) -> Unit,
-    onItemLongClick: (HomeItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) {
@@ -67,10 +73,14 @@ fun PinnedItemsGrid(
                 items = items,
                 key = { it.id }
             ) { item ->
+                /**
+                 * PinnedItem handles both tap and long-press interactions.
+                 * Long-press shows the ItemActionMenu dropdown with available actions.
+                 */
                 PinnedItem(
                     item = item,
                     onClick = { onItemClick(item) },
-                    onLongClick = { onItemLongClick(item) }
+                    onLongClick = { /* Handled internally by PinnedItem */ }
                 )
             }
         }

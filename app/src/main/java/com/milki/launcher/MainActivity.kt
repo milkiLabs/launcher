@@ -65,15 +65,6 @@ class MainActivity : ComponentActivity() {
                         onDismissSearch = { searchViewModel.hideSearch() },
                         onPinnedItemClick = { item ->
                             openPinnedItem(item, context)
-                        },
-                        onPinnedItemLongClick = { item ->
-                            homeViewModel.showRemoveDialog(item)
-                        },
-                        onConfirmRemoveItem = {
-                            homeViewModel.confirmRemove()
-                        },
-                        onDismissRemoveDialog = {
-                            homeViewModel.dismissRemoveDialog()
                         }
                     )
                 }

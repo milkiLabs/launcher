@@ -8,6 +8,13 @@
  * - PinnedApp: Shows the app icon and name
  * - PinnedFile: Shows a file type icon and filename
  * - AppShortcut: Shows the shortcut icon and label
+ *
+ * INTERACTION:
+ * - Tap: Open/launch the item
+ * - Long press: Show dropdown menu with actions (Unpin, App info for apps)
+ *
+ * The dropdown menu uses the same ItemActionMenu component as search results,
+ * ensuring a consistent UI across the app.
  */
 
 package com.milki.launcher.ui.components
@@ -24,19 +31,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.outlined.PictureAsPdf
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +57,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -60,9 +72,17 @@ import com.milki.launcher.ui.theme.Spacing
  * │   Label     │  <- 1 line max, centered
  * └─────────────┘
  *
+ * INTERACTION:
+ * - Tap: Opens/launches the item
+ * - Long press: Shows a dropdown menu with available actions
+ *
+ * MENU ACTIONS:
+ * - All items: "Unpin from home" - removes the item from the home screen
+ * - Apps only: "App info" - opens the system app info screen
+ *
  * @param item The pinned item to display
  * @param onClick Called when user taps this item
- * @param onLongClick Called when user long-presses this item (for remove option)
+ * @param onLongClick Called when user long-presses this item (DEPRECATED - menu is now shown directly)
  * @param modifier Optional modifier for external customization
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -73,45 +93,125 @@ fun PinnedItem(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
-        color = Color.Transparent,
-        shape = RoundedCornerShape(CornerRadius.medium)
-    ) {
-        Column(
+    /**
+     * State to control whether the dropdown menu is visible.
+     * This is triggered by a long press on the item.
+     */
+    var showMenu by remember { mutableStateOf(false) }
+
+    /**
+     * We wrap the entire item in a Box to allow the dropdown menu to be
+     * positioned relative to the item. The menu appears anchored to this Box.
+     */
+    Box(modifier = modifier) {
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = { showMenu = true }
+                ),
+            color = Color.Transparent,
+            shape = RoundedCornerShape(CornerRadius.medium)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(IconSize.appGrid)
-                    .clip(CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                PinnedItemIcon(item = item, size = IconSize.appGrid)
-            }
-
-            Text(
-                text = getItemLabel(item),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = Spacing.smallMedium)
-            )
+                    .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(IconSize.appGrid)
+                        .clip(CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    PinnedItemIcon(item = item, size = IconSize.appGrid)
+                }
+
+                Text(
+                    text = getItemLabel(item),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.smallMedium)
+                )
+            }
         }
+
+        /**
+         * Dropdown menu that appears when the user long-presses the item.
+         *
+         * The menu uses the ItemActionMenu component which is also used in
+         * search results, ensuring consistent styling and behavior.
+         *
+         * Actions are built dynamically based on the item type:
+         * - Unpin action: Always available for all item types
+         * - App info action: Only available for PinnedApp items
+         */
+        ItemActionMenu(
+            expanded = showMenu,
+            onDismiss = { showMenu = false },
+            actions = buildPinnedItemActions(item)
+        )
     }
+}
+
+/**
+ * Builds the list of menu actions for a pinned item.
+ *
+ * The actions available depend on the item type:
+ * - All items can be unpinned from the home screen
+ * - Apps additionally have an "App info" action
+ *
+ * @param item The pinned item to build actions for
+ * @return List of MenuAction objects to display in the dropdown menu
+ */
+private fun buildPinnedItemActions(item: HomeItem): List<MenuAction> {
+    /**
+     * Create a mutable list to hold the actions.
+     * We always start with the unpin action.
+     */
+    val actions = mutableListOf<MenuAction>()
+
+    /**
+     * The unpin action removes the item from the home screen.
+     * It uses SearchResultAction.UnpinItem with the item's ID.
+     *
+     * This action is available for all item types (apps, files, shortcuts).
+     */
+    actions.add(
+        MenuAction(
+            label = "Unpin from home",
+            icon = androidx.compose.material.icons.Icons.Filled.Delete,
+            action = SearchResultAction.UnpinItem(item.id)
+        )
+    )
+
+    /**
+     * For pinned apps, add the "App info" action.
+     * This opens the system's app info screen where the user can:
+     * - View app permissions
+     * - Clear cache/data
+     * - Uninstall the app
+     * - Force stop the app
+     */
+    if (item is HomeItem.PinnedApp) {
+        actions.add(
+            MenuAction(
+                label = "App info",
+                icon = androidx.compose.material.icons.Icons.Filled.Info,
+                action = SearchResultAction.OpenAppInfo(item.packageName)
+            )
+        )
+    }
+
+    return actions
 }
 
 /**
@@ -288,39 +388,5 @@ private fun ShortcutIcon(
         packageName = shortcut.packageName,
         size = size,
         modifier = modifier
-    )
-}
-
-/**
- * A dialog to confirm removing a pinned item.
- *
- * @param item The item to be removed
- * @param onConfirm Called when user confirms removal
- * @param onDismiss Called when user cancels
- */
-@Composable
-fun RemoveItemDialog(
-    item: HomeItem?,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    if (item == null) return
-
-    val itemName = getItemLabel(item)
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Remove shortcut?") },
-        text = { Text("Remove \"$itemName\" from home screen?") },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Remove")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
     )
 }

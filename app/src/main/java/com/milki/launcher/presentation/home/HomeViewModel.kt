@@ -2,7 +2,16 @@
  * HomeViewModel.kt - ViewModel for the home screen pinned items
  *
  * Manages the state of pinned items on the home screen.
- * Pinning/unpinning is now handled by ActionExecutor via SearchResultAction.
+ *
+ * ACTION HANDLING:
+ * All pinning/unpinning actions are handled by ActionExecutor via SearchResultAction:
+ * - SearchResultAction.PinApp: Pins an app to the home screen
+ * - SearchResultAction.PinFile: Pins a file to the home screen
+ * - SearchResultAction.UnpinItem: Removes an item from the home screen
+ *
+ * This ViewModel only observes the pinned items from the repository.
+ * The UI components (PinnedItem) emit actions via LocalSearchActionHandler,
+ * which are processed by ActionExecutor.
  */
 
 package com.milki.launcher.presentation.home
@@ -17,21 +26,24 @@ import kotlinx.coroutines.launch
 
 /**
  * UI State for the home screen.
+ *
+ * @property pinnedItems List of items currently pinned to the home screen
+ * @property isLoading Whether the initial load is in progress
  */
 data class HomeUiState(
     val pinnedItems: List<HomeItem> = emptyList(),
-    val isLoading: Boolean = true,
-    val showRemoveDialog: Boolean = false,
-    val itemToRemove: HomeItem? = null
+    val isLoading: Boolean = true
 )
 
 /**
  * ViewModel for the home screen.
  *
- * Note: Pinning actions are handled by ActionExecutor via SearchResultAction.
- * This ViewModel only manages:
- * - Observing pinned items from repository
- * - Remove confirmation dialog state
+ * RESPONSIBILITIES:
+ * - Observe pinned items from the repository
+ * - Provide pinned items state to the UI
+ *
+ * Note: Pinning/unpinning actions are handled by ActionExecutor via SearchResultAction.
+ * This separation keeps the action handling logic centralized and consistent.
  */
 class HomeViewModel(
     private val homeRepository: HomeRepository
@@ -44,6 +56,12 @@ class HomeViewModel(
         observePinnedItems()
     }
 
+    /**
+     * Observes pinned items from the repository.
+     *
+     * The repository emits a new list whenever pinned items change
+     * (due to pin/unpin actions processed by ActionExecutor).
+     */
     private fun observePinnedItems() {
         viewModelScope.launch {
             homeRepository.pinnedItems.collect { items ->
@@ -55,34 +73,14 @@ class HomeViewModel(
         }
     }
 
-    fun removePinnedItem(id: String) {
-        viewModelScope.launch {
-            homeRepository.removePinnedItem(id)
-        }
-    }
-
-    fun showRemoveDialog(item: HomeItem) {
-        _uiState.value = _uiState.value.copy(
-            showRemoveDialog = true,
-            itemToRemove = item
-        )
-    }
-
-    fun dismissRemoveDialog() {
-        _uiState.value = _uiState.value.copy(
-            showRemoveDialog = false,
-            itemToRemove = null
-        )
-    }
-
-    fun confirmRemove() {
-        val item = _uiState.value.itemToRemove
-        if (item != null) {
-            removePinnedItem(item.id)
-        }
-        dismissRemoveDialog()
-    }
-
+    /**
+     * Reorders pinned items in the grid.
+     *
+     * Called when the user drags an item to a new position.
+     *
+     * @param fromIndex Current index of the item
+     * @param toIndex Target index for the item
+     */
     fun reorderItems(fromIndex: Int, toIndex: Int) {
         viewModelScope.launch {
             homeRepository.reorderPinnedItems(fromIndex, toIndex)

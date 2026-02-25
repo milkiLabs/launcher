@@ -27,7 +27,10 @@
  *
  * PINNED ITEMS:
  * The home screen displays a grid of pinned items (apps, files, shortcuts).
- * Users can tap items to open them or long-press to remove them.
+ * - Tap: Opens/launches the item
+ * - Long press: Shows dropdown menu with actions (Unpin, App info for apps)
+ *
+ * All actions from the dropdown menu are handled via LocalSearchActionHandler.
  */
 
 package com.milki.launcher.ui.screens
@@ -51,7 +54,6 @@ import com.milki.launcher.presentation.home.HomeUiState
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.PinnedItemsGrid
-import com.milki.launcher.ui.components.RemoveItemDialog
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -65,6 +67,12 @@ import com.milki.launcher.ui.theme.Spacing
  * Search result clicks are handled via LocalSearchActionHandler, which is
  * provided by MainActivity. This eliminates the need for callback props.
  *
+ * PINNED ITEM ACTIONS:
+ * Long-press on pinned items shows a dropdown menu with actions that are
+ * also handled via LocalSearchActionHandler:
+ * - Unpin from home: Removes item from home screen
+ * - App info: Opens system app info (for apps only)
+ *
  * WALLPAPER:
  * The background uses Color.Transparent to let the system wallpaper show through.
  * The wallpaper visibility is configured in themes.xml:
@@ -77,9 +85,6 @@ import com.milki.launcher.ui.theme.Spacing
  * @param onQueryChange Called when user types in search field
  * @param onDismissSearch Called when search dialog should close
  * @param onPinnedItemClick Called when a pinned item is clicked
- * @param onPinnedItemLongClick Called when a pinned item is long-pressed
- * @param onConfirmRemoveItem Called when user confirms item removal
- * @param onDismissRemoveDialog Called when user cancels removal dialog
  */
 @Composable
 fun LauncherScreen(
@@ -88,10 +93,7 @@ fun LauncherScreen(
     onShowSearch: () -> Unit,
     onQueryChange: (String) -> Unit,
     onDismissSearch: () -> Unit,
-    onPinnedItemClick: (HomeItem) -> Unit,
-    onPinnedItemLongClick: (HomeItem) -> Unit,
-    onConfirmRemoveItem: () -> Unit,
-    onDismissRemoveDialog: () -> Unit
+    onPinnedItemClick: (HomeItem) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -112,7 +114,6 @@ fun LauncherScreen(
             PinnedItemsGrid(
                 items = homeUiState.pinnedItems,
                 onItemClick = onPinnedItemClick,
-                onItemLongClick = onPinnedItemLongClick,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(Spacing.mediumLarge)
@@ -128,12 +129,6 @@ fun LauncherScreen(
             onDismiss = onDismissSearch
         )
     }
-
-    RemoveItemDialog(
-        item = homeUiState.itemToRemove,
-        onConfirm = onConfirmRemoveItem,
-        onDismiss = onDismissRemoveDialog
-    )
 }
 
 /**
