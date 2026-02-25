@@ -50,10 +50,7 @@ import kotlinx.serialization.Serializable
  * SERIALIZATION:
  * The @Serializable annotation enables automatic JSON serialization.
  * The position is serialized as: {"row":2,"column":3}
- * This is safer than the previous pipe-delimited format because:
- * - No risk of delimiter collision
- * - Automatic handling of all data types
- * - Schema evolution support (adding new fields)
+ * This is safer than pipe-delimited formats because there's no risk of delimiter collision.
  *
  * @property row The row index (0-based, top to bottom)
  * @property column The column index (0-based, left to right)

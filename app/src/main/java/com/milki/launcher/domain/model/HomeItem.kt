@@ -31,7 +31,6 @@
  * WHY KOTLINX.SERIALIZATION?
  * - No fragile pipe-delimited parsing
  * - Handles special characters in labels/URIs correctly
- * - Automatic schema evolution support
  * - Single source of truth for serialization
  * - Type-safe deserialization
  */
@@ -225,17 +224,12 @@ sealed class HomeItem {
          * Creates a default Json instance configured for HomeItem serialization.
          *
          * CONFIGURATION:
-         * - ignoreUnknownKeys: Allows adding new fields without breaking old data
          * - classDiscriminator: Uses "type" field to identify subclasses
          * - encodeDefaults: Ensures default values are written to JSON
          *
-         * This configuration provides:
-         * - Forward compatibility: New fields won't break old deserialization
-         * - Backward compatibility: Missing fields use default values
-         * - Type safety: Each subclass is correctly identified
+         * This configuration provides type safety where each subclass is correctly identified.
          */
         val json: Json = Json {
-            ignoreUnknownKeys = true
             classDiscriminator = "type"
             encodeDefaults = true
         }
