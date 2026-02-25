@@ -3,11 +3,29 @@
  * 
  * This interface defines the contract for accessing document files on the device.
  * It is specifically designed for productivity files (PDFs, documents, ebooks)
- * and explicitly excludes media files (images, videos).
+ * and explicitly excludes media files (images, videos, audio) and noise files.
  * 
  * The implementation is in data/repository/FilesRepositoryImpl.kt
  * 
+ * FILTERING BEHAVIOR:
+ * ===================
+ * Files are filtered using FileFilterConfig to remove noise. Excluded files include:
+ * 
+ * - Hidden files (starting with . or ~)
+ * - Temporary files (.tmp, .temp, .cache)
+ * - Backup files (.bak, .backup)
+ * - Lock files (.lock)
+ * - Log files (.log)
+ * - Partial downloads (.part, .crdownload, .download)
+ * - System files (.ds_store, .nomedia, .thumbnails)
+ * - Media files (images, videos, audio - by MIME type)
+ * - Files in cache/temp directories
+ * - Files smaller than 1KB (empty/placeholder files)
+ * 
+ * See FileFilterConfig.kt for the complete filtering configuration.
+ * 
  * PERMISSION REQUIREMENTS:
+ * ========================
  * - Android 10 (API 29) and below: READ_EXTERNAL_STORAGE runtime permission
  * - Android 11+ (API 30+): MANAGE_EXTERNAL_STORAGE ("All files access" in Settings)
  *   This is required because scoped storage restricts MediaStore.Files to only
@@ -24,14 +42,22 @@ import com.milki.launcher.domain.model.FileDocument
 /**
  * Interface for accessing document files on the device.
  * 
- * This repository focuses specifically on document-type files:
+ * This repository focuses specifically on user-created document-type files:
  * - PDF documents
  * - EPUB ebooks
  * - Office documents (Word, Excel, PowerPoint)
  * - Text files
+ * - Archives (ZIP, RAR)
+ * - And other productivity files
  * 
- * Media files (images, videos, audio) are intentionally excluded
- * to keep the search focused on productivity documents.
+ * The following are intentionally excluded to keep search focused:
+ * - Media files (images, videos, audio)
+ * - Temporary/cache files
+ * - System files
+ * - Hidden files
+ * - Very small files (under 1KB)
+ * 
+ * See FileFilterConfig for the complete list of filtering rules.
  */
 interface FilesRepository {
     
@@ -52,10 +78,18 @@ interface FilesRepository {
      * Search for document files by name.
      * 
      * Searches through all accessible storage locations using MediaStore.
-     * Results are filtered to only include document types (no images/videos).
+     * Results are filtered using FileFilterConfig to remove noise files.
      * 
      * The search is case-insensitive and matches partial file names.
      * For example, searching "report" would match "Annual_Report_2024.pdf".
+     * 
+     * FILTERING:
+     * Files are excluded if they match any of these criteria:
+     * - Hidden (starting with . or ~)
+     * - Temporary/cache extensions
+     * - Media MIME types (image, video, audio)
+     * - Located in cache directories
+     * - Smaller than 1KB
      * 
      * @param query The search query (file name to search for)
      * @return List of matching FileDocument objects, sorted by date modified (newest first)
@@ -67,6 +101,8 @@ interface FilesRepository {
      * 
      * Returns the most recently modified documents, useful for showing
      * recent files when the search query is empty.
+     * 
+     * The same FileFilterConfig filtering rules apply as searchFiles().
      * 
      * @param limit Maximum number of files to return (default: 20)
      * @return List of recent FileDocument objects, sorted by date modified
