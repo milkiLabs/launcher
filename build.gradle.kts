@@ -49,6 +49,11 @@ plugins {
     // Used by: app module (for Jetpack Compose support)
     // Provides: Compose compiler, preview support
     alias(libs.plugins.kotlin.compose) apply false
+    
+    // Kotlin Serialization plugin
+    // Used by: app module (for JSON serialization of data classes)
+    // Provides: @Serializable annotation, compiler-generated serializers
+    alias(libs.plugins.kotlin.serialization) apply false
 }
 
 // ============================================================================

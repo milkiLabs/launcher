@@ -49,6 +49,7 @@ import kotlinx.coroutines.launch
  * @property filterAppsUseCase Use case for filtering apps
  * @property urlHandlerResolver Resolver for URL handler apps
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SearchViewModel(
     private val appRepository: AppRepository,
     private val contactsRepository: ContactsRepository,
@@ -204,6 +205,7 @@ class SearchViewModel(
                 isLoading = false
             )
         }
+        searchQuery.value = ""
     }
 
     /**

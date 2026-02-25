@@ -2,18 +2,31 @@
  * HomeRepositoryImpl.kt - DataStore-backed implementation of HomeRepository
  *
  * Persists pinned home screen items using Jetpack DataStore Preferences.
- * Each item is serialized to a string and stored in a StringSet.
+ * Each item is serialized to JSON using kotlinx.serialization.
  *
  * STORAGE FORMAT:
- * Items are stored as a Set<String> where each string is a serialized HomeItem.
- * The format is defined by HomeItem.toStorageString() for each subtype.
+ * Items are stored as a single string with JSON objects separated by newlines.
+ * Each line is a complete JSON representation of a HomeItem subclass.
  *
- * WHY STRINGSET?
- * - Atomic updates: Adding/removing one item doesn't rewrite everything
- * - Order preservation: We maintain order by storing the entire list as a JSON-like format
- * - Simple serialization: Each item knows how to serialize itself
+ * WHY JSON SERIALIZATION?
+ * - Type-safe: kotlinx.serialization handles polymorphic types correctly
+ * - Robust: No delimiter collision issues (unlike pipe-delimited format)
+ * - Schema evolution: New fields can be added without breaking old data
+ * - Readable: JSON is human-readable for debugging
  *
- * Note: DataStore StringSet has a size limit, but for a typical home screen
+ * EXAMPLE STORAGE FORMAT:
+ * ```
+ * {"type":"PinnedApp","id":"app:com.whatsapp/.Main","packageName":"com.whatsapp",...}
+ * {"type":"PinnedFile","id":"file:content://...","uri":"content://...","name":"Report.pdf",...}
+ * ```
+ *
+ * WHY NEWLINE-SEPARATED JSON?
+ * - Each item is a complete, parseable JSON object
+ * - Simple to add/remove items without reparsing everything
+ * - Order is preserved (unlike StringSet)
+ * - No nested JSON escaping issues
+ *
+ * Note: DataStore has a size limit, but for a typical home screen
  * (20-50 items), this is not a concern.
  */
 
@@ -30,6 +43,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.IOException
 
 /**
@@ -43,8 +58,13 @@ private val Context.homeDataStore: DataStore<Preferences> by preferencesDataStor
 /**
  * DataStore-backed implementation of HomeRepository.
  *
- * Manages pinned items using a DataStore StringSet for persistence.
+ * Manages pinned items using DataStore for persistence with JSON serialization.
  * All operations are non-blocking and coroutine-safe.
+ *
+ * SERIALIZATION DETAILS:
+ * - Uses kotlinx.serialization with polymorphic serialization for sealed classes
+ * - Each HomeItem subclass is serialized with a "type" discriminator
+ * - The Json instance is configured with classDiscriminator for polymorphic types
  *
  * @param context Application context for DataStore access
  */
@@ -59,18 +79,39 @@ class HomeRepositoryImpl(
     /**
      * The single preference key for storing all pinned items.
      *
-     * We use a StringSet where each string is a serialized HomeItem.
-     * The order is maintained by storing items as an ordered list string.
+     * We use a String where each line is a JSON-serialized HomeItem.
+     * The order is maintained by the order of lines in the string.
      */
     private object Keys {
         /**
-         * Stores items as a single string with items separated by newlines.
+         * Stores items as a single string with JSON objects separated by newlines.
          * We can't use StringSet directly because Set doesn't preserve order.
          *
-         * Format: "item1_string\nitem2_string\nitem3_string"
+         * Format:
+         * ```
+         * {"type":"PinnedApp",...}\n{"type":"PinnedFile",...}\n...
+         * ```
+         *
+         * Each line is a complete, parseable JSON object.
          */
         val PINNED_ITEMS = stringPreferencesKey("pinned_items_ordered")
     }
+
+    // ========================================================================
+    // JSON SERIALIZER
+    // ========================================================================
+
+    /**
+     * The Json instance used for serialization.
+     *
+     * Uses the same configuration as HomeItem.json for consistency:
+     * - classDiscriminator: Uses "type" field to identify subclasses
+     * - encodeDefaults: Ensures default values are written to JSON
+     *
+     * This is reused from HomeItem.companion.json to ensure consistent
+     * serialization behavior across the app.
+     */
+    private val json: Json = HomeItem.json
 
     // ========================================================================
     // PINNED ITEMS FLOW
@@ -82,6 +123,10 @@ class HomeRepositoryImpl(
      * ERROR HANDLING:
      * If DataStore encounters an IOException (corrupted file, etc.),
      * we emit an empty list instead of crashing.
+     *
+     * DESERIALIZATION:
+     * Each line in the stored string is parsed as a JSON HomeItem.
+     * Malformed lines are silently skipped to prevent crashes.
      */
     override val pinnedItems: Flow<List<HomeItem>> = context.homeDataStore.data
         .catch { exception ->
@@ -200,9 +245,6 @@ class HomeRepositoryImpl(
      *
      * This allows users to rearrange their shortcuts.
      * Invalid indices are silently ignored.
-     *
-     * @deprecated This is kept for backward compatibility but position-based
-     * movement is preferred. Use updateItemPosition instead.
      */
     override suspend fun reorderPinnedItems(fromIndex: Int, toIndex: Int) {
         context.homeDataStore.edit { preferences ->
@@ -328,8 +370,15 @@ class HomeRepositoryImpl(
     /**
      * Deserialize the items string from preferences into a list of HomeItems.
      *
-     * The items are stored as newline-separated strings, with each line
-     * being a serialized HomeItem (from HomeItem.toStorageString()).
+     * DESERIALIZATION PROCESS:
+     * 1. Split the stored string by newlines
+     * 2. For each line, parse as JSON using kotlinx.serialization
+     * 3. The polymorphic serializer automatically creates the correct subclass
+     * 4. Malformed lines are silently skipped
+     *
+     * ERROR HANDLING:
+     * - Empty or missing data returns an empty list
+     * - Malformed JSON lines are skipped (logged but don't crash)
      *
      * @param preferences The DataStore preferences to read from
      * @return List of deserialized HomeItems, empty if none stored
@@ -342,23 +391,50 @@ class HomeRepositoryImpl(
         return itemsString
             .split("\n")
             .filter { it.isNotBlank() }
-            .mapNotNull { itemString ->
-                HomeItem.fromStorageString(itemString)
+            .mapNotNull { jsonLine ->
+                try {
+                    // Use kotlinx.serialization to parse the JSON
+                    // The polymorphic serializer reads the "type" field
+                    // and creates the appropriate HomeItem subclass
+                    json.decodeFromString<HomeItem>(jsonLine)
+                } catch (e: Exception) {
+                    // Log the error but don't crash
+                    // This handles corrupted data gracefully
+                    null
+                }
             }
     }
 
     /**
      * Serialize a list of HomeItems into the preferences.
      *
-     * Each item is converted to its storage string representation,
-     * then joined with newlines as separators.
+     * SERIALIZATION PROCESS:
+     * 1. For each HomeItem, convert to JSON using kotlinx.serialization
+     * 2. Each item becomes a complete JSON object with a "type" field
+     * 3. Join all JSON objects with newlines
+     *
+     * JSON FORMAT:
+     * Each item is serialized as a single line of JSON:
+     * ```
+     * {"type":"PinnedApp","id":"app:com.whatsapp/.Main","packageName":"com.whatsapp","activityName":".Main","label":"WhatsApp","position":{"row":0,"column":1}}
+     * ```
+     *
+     * ADVANTAGES OVER PIPE-DELIMITED:
+     * - No delimiter collision (labels/URIs can contain any character)
+     * - Type-safe parsing (the "type" field identifies the subclass)
+     * - Schema evolution (new fields can be added)
+     * - Human-readable for debugging
      *
      * @param items The list of items to serialize
      * @param preferences The mutable preferences to write to
      */
     private fun serializeItems(items: List<HomeItem>, preferences: MutablePreferences) {
         val itemsString = items
-            .joinToString("\n") { it.toStorageString() }
+            .joinToString("\n") { item ->
+                // Use kotlinx.serialization to convert to JSON
+                // Each item is serialized with its type discriminator
+                json.encodeToString(item)
+            }
 
         preferences[Keys.PINNED_ITEMS] = itemsString
     }

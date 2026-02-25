@@ -26,6 +26,11 @@ plugins {
     // Kotlin Compose plugin - enables Jetpack Compose
     // Provides: Compose compiler, preview support, live literals
     alias(libs.plugins.kotlin.compose)
+    
+    // Kotlin Serialization plugin - enables @Serializable annotation
+    // Provides: Compiler-generated serializers for data classes
+    // Used for: JSON serialization of HomeItem and other models
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // ============================================================================
@@ -272,13 +277,18 @@ dependencies {
     // Includes icons not in the core set (PictureAsPdf, Article, etc.)
     implementation(libs.androidx.compose.material.icons.extended)
     
-    // ========================================================================
-    // DATA PERSISTENCE
-    // ========================================================================
-    
-    // DataStore - Modern data storage solution
-    // Replaces SharedPreferences, uses coroutines and Flow
-    implementation(libs.androidx.datastore.preferences)
+// ========================================================================
+// DATA PERSISTENCE
+// ========================================================================
+
+// DataStore - Modern data storage solution
+// Replaces SharedPreferences, uses coroutines and Flow
+implementation(libs.androidx.datastore.preferences)
+
+// Kotlinx Serialization - JSON serialization for Kotlin data classes
+// Used for serializing HomeItem models to/from DataStore
+// Provides: Json.encodeToString(), Json.decodeFromString()
+implementation(libs.kotlinx.serialization.json)
     
     // ========================================================================
     // IMAGE LOADING

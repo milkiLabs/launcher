@@ -2,7 +2,7 @@
  * LauncherScreen.kt - Main home screen of the launcher with multi-mode search
  *
  * This is the main UI of the launcher. It displays a transparent background
- * that shows the user's system wallpaper, with pinned items grid and a search hint.
+ * that shows the user's system wallpaper with a pinned items grid.
  *
  * ARCHITECTURE:
  * This is a "dumb" UI component following the Unidirectional Data Flow pattern:
@@ -43,8 +43,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,8 +60,7 @@ import com.milki.launcher.ui.theme.Spacing
  * LauncherScreen - The main home screen of the launcher.
  *
  * Displays a transparent background showing the user's system wallpaper,
- * with pinned items grid and a hint to press home to search when empty.
- * The search dialog opens when the user presses the home button.
+ * with a pinned items grid. The search dialog opens when the user presses the home button.
  *
  * ACTION HANDLING:
  * Search result clicks are handled via LocalSearchActionHandler, which is
@@ -105,34 +102,17 @@ fun LauncherScreen(
             .background(Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
-        if (homeUiState.pinnedItems.isEmpty()) {
-            Text(
-                text = "Press home to search",
-                color = Color.White.copy(alpha = 0.3f),
-                style = MaterialTheme.typography.bodyLarge
-            )
-        } else {
-            /**
-             * DraggablePinnedItemsGrid displays pinned items at their grid positions.
-             * Users can drag items to rearrange them on the home screen.
-             *
-             * INTERACTION MODEL:
-             * - Tap: Opens/launches the item
-             * - Long press (no drag): Shows action menu
-             * - Long press + drag: Moves item to new position
-             */
-            DraggablePinnedItemsGrid(
-                items = homeUiState.pinnedItems,
-                columns = 4,
-                onItemClick = onPinnedItemClick,
-                onItemLongPress = onPinnedItemLongPress,
-                onItemMove = onPinnedItemMove,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(Spacing.mediumLarge)
-                    .align(Alignment.Center)
-            )
-        }
+        DraggablePinnedItemsGrid(
+            items = homeUiState.pinnedItems,
+            columns = 4,
+            onItemClick = onPinnedItemClick,
+            onItemLongPress = onPinnedItemLongPress,
+            onItemMove = onPinnedItemMove,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(Spacing.mediumLarge)
+                .align(Alignment.Center)
+        )
     }
 
     if (searchUiState.isSearchVisible) {

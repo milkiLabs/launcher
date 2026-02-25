@@ -7,17 +7,40 @@
  * WHY SEALED CLASS?
  * - Type-safe: Each item type has its own specific data
  * - Exhaustive when expressions: Compiler ensures we handle all types
- * - Clean serialization: Each subtype can define its own serialization logic
+ * - Clean serialization: kotlinx.serialization handles polymorphic serialization
  *
  * ITEM TYPES:
  * 1. PinnedApp - Regular installed app
  * 2. PinnedFile - File (PDF, image, etc.) for quick opening
  * 3. AppShortcut - System shortcut from another app (e.g., WhatsApp chat)
+ *
+ * SERIALIZATION:
+ * Uses kotlinx.serialization with polymorphic serialization for the sealed class.
+ * Each item is serialized to JSON with a "type" discriminator field.
+ *
+ * EXAMPLE JSON OUTPUT:
+ * {
+ *   "type": "PinnedApp",
+ *   "id": "app:com.whatsapp/.Main",
+ *   "packageName": "com.whatsapp",
+ *   "activityName": ".Main",
+ *   "label": "WhatsApp",
+ *   "position": { "row": 0, "column": 1 }
+ * }
+ *
+ * WHY KOTLINX.SERIALIZATION?
+ * - No fragile pipe-delimited parsing
+ * - Handles special characters in labels/URIs correctly
+ * - Automatic schema evolution support
+ * - Single source of truth for serialization
+ * - Type-safe deserialization
  */
 
 package com.milki.launcher.domain.model
 
 import android.content.pm.ShortcutInfo
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 /**
  * Represents an item pinned to the home screen.
@@ -34,9 +57,10 @@ import android.content.pm.ShortcutInfo
  * - column 0 is at the left
  *
  * SERIALIZATION:
- * Each subclass provides toStorageString() and companion fromStorageString()
- * for persisting to DataStore.
+ * The @Serializable annotation enables automatic JSON serialization.
+ * Polymorphic serialization is configured with a "type" discriminator.
  */
+@Serializable
 sealed class HomeItem {
 
     abstract val id: String
@@ -48,12 +72,6 @@ sealed class HomeItem {
      * Multiple items should not share the same position.
      */
     abstract val position: GridPosition
-
-    /**
-     * Converts the item to a storage-friendly string format.
-     * Format is prefixed with item type for deserialization.
-     */
-    abstract fun toStorageString(): String
 
     /**
      * Creates a copy of this item with a new grid position.
@@ -73,6 +91,7 @@ sealed class HomeItem {
      * @property label Display name shown under the icon
      * @property position Grid position (row, column) on the home screen
      */
+    @Serializable
     data class PinnedApp(
         override val id: String,
         val packageName: String,
@@ -80,15 +99,6 @@ sealed class HomeItem {
         val label: String,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
-
-        /**
-         * Storage format: "app|{packageName}|{activityName}|{label}|{row},{column}"
-         * Uses pipe (|) as separator since it's unlikely to be in app names.
-         * Position is stored as "row,column" at the end.
-         */
-        override fun toStorageString(): String {
-            return "app|$packageName|$activityName|$label|${position.toStorageString()}"
-        }
 
         /**
          * Creates a copy of this PinnedApp with a new grid position.
@@ -114,45 +124,6 @@ sealed class HomeItem {
                     position = GridPosition.DEFAULT
                 )
             }
-
-            /**
-             * Parses a storage string back into a PinnedApp.
-             * Returns null if the format is invalid.
-             *
-             * SUPPORTED FORMATS:
-             * - Legacy (4 parts): "app|packageName|activityName|label" -> position defaults to (0,0)
-             * - New (5 parts): "app|packageName|activityName|label|row,column"
-             */
-            fun fromStorageString(str: String): PinnedApp? {
-                val parts = str.split("|")
-                if (parts.isEmpty() || parts[0] != "app") return null
-
-                // Handle legacy format (4 parts) without position
-                if (parts.size == 4) {
-                    return PinnedApp(
-                        id = "app:${parts[1]}/${parts[2]}",
-                        packageName = parts[1],
-                        activityName = parts[2],
-                        label = parts[3],
-                        position = GridPosition.DEFAULT
-                    )
-                }
-
-                // Handle new format (5 parts) with position
-                if (parts.size == 5) {
-                    val position = GridPosition.fromStorageString(parts[4])
-                        ?: GridPosition.DEFAULT
-                    return PinnedApp(
-                        id = "app:${parts[1]}/${parts[2]}",
-                        packageName = parts[1],
-                        activityName = parts[2],
-                        label = parts[3],
-                        position = position
-                    )
-                }
-
-                return null
-            }
         }
     }
 
@@ -166,6 +137,7 @@ sealed class HomeItem {
      * @property size File size in bytes (for display purposes)
      * @property position Grid position (row, column) on the home screen
      */
+    @Serializable
     data class PinnedFile(
         override val id: String,
         val uri: String,
@@ -174,15 +146,6 @@ sealed class HomeItem {
         val size: Long = 0,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
-
-        /**
-         * Storage format: "file|{uri}|{name}|{mimeType}|{size}|{row},{column}"
-         * Note: URIs can contain special characters, so we use a format
-         * that splits from the end to handle pipes in URIs (unlikely but possible).
-         */
-        override fun toStorageString(): String {
-            return "file|$uri|$name|$mimeType|$size|${position.toStorageString()}"
-        }
 
         /**
          * Creates a copy of this PinnedFile with a new grid position.
@@ -206,49 +169,6 @@ sealed class HomeItem {
                     position = GridPosition.DEFAULT
                 )
             }
-
-            /**
-             * Parses a storage string back into a PinnedFile.
-             * Returns null if the format is invalid.
-             *
-             * SUPPORTED FORMATS:
-             * - Legacy (5 parts): "file|uri|name|mimeType|size" -> position defaults to (0,0)
-             * - New (6 parts): "file|uri|name|mimeType|size|row,column"
-             */
-            fun fromStorageString(str: String): PinnedFile? {
-                val parts = str.split("|")
-                if (parts.isEmpty() || parts[0] != "file") return null
-
-                // Handle legacy format (5 parts) without position
-                if (parts.size == 5) {
-                    val uri = parts[1]
-                    return PinnedFile(
-                        id = "file:$uri",
-                        uri = uri,
-                        name = parts[2],
-                        mimeType = parts[3],
-                        size = parts[4].toLongOrNull() ?: 0,
-                        position = GridPosition.DEFAULT
-                    )
-                }
-
-                // Handle new format (6 parts) with position
-                if (parts.size == 6) {
-                    val uri = parts[1]
-                    val position = GridPosition.fromStorageString(parts[5])
-                        ?: GridPosition.DEFAULT
-                    return PinnedFile(
-                        id = "file:$uri",
-                        uri = uri,
-                        name = parts[2],
-                        mimeType = parts[3],
-                        size = parts[4].toLongOrNull() ?: 0,
-                        position = position
-                    )
-                }
-
-                return null
-            }
         }
     }
 
@@ -265,6 +185,7 @@ sealed class HomeItem {
      * @property longLabel Longer display name (may be same as shortLabel)
      * @property position Grid position (row, column) on the home screen
      */
+    @Serializable
     data class AppShortcut(
         override val id: String,
         val packageName: String,
@@ -273,13 +194,6 @@ sealed class HomeItem {
         val longLabel: String = shortLabel,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
-
-        /**
-         * Storage format: "shortcut|{packageName}|{shortcutId}|{shortLabel}|{longLabel}|{row},{column}"
-         */
-        override fun toStorageString(): String {
-            return "shortcut|$packageName|$shortcutId|$shortLabel|$longLabel|${position.toStorageString()}"
-        }
 
         /**
          * Creates a copy of this AppShortcut with a new grid position.
@@ -303,62 +217,27 @@ sealed class HomeItem {
                     position = GridPosition.DEFAULT
                 )
             }
-
-            /**
-             * Parses a storage string back into an AppShortcut.
-             * Returns null if the format is invalid.
-             *
-             * SUPPORTED FORMATS:
-             * - Legacy (5 parts): "shortcut|packageName|shortcutId|shortLabel|longLabel" -> position defaults to (0,0)
-             * - New (6 parts): "shortcut|packageName|shortcutId|shortLabel|longLabel|row,column"
-             */
-            fun fromStorageString(str: String): AppShortcut? {
-                val parts = str.split("|")
-                if (parts.isEmpty() || parts[0] != "shortcut") return null
-
-                // Handle legacy format (5 parts) without position
-                if (parts.size == 5) {
-                    return AppShortcut(
-                        id = "shortcut:${parts[1]}/${parts[2]}",
-                        packageName = parts[1],
-                        shortcutId = parts[2],
-                        shortLabel = parts[3],
-                        longLabel = parts[4],
-                        position = GridPosition.DEFAULT
-                    )
-                }
-
-                // Handle new format (6 parts) with position
-                if (parts.size == 6) {
-                    val position = GridPosition.fromStorageString(parts[5])
-                        ?: GridPosition.DEFAULT
-                    return AppShortcut(
-                        id = "shortcut:${parts[1]}/${parts[2]}",
-                        packageName = parts[1],
-                        shortcutId = parts[2],
-                        shortLabel = parts[3],
-                        longLabel = parts[4],
-                        position = position
-                    )
-                }
-
-                return null
-            }
         }
     }
 
     companion object {
         /**
-         * Parses any storage string into the appropriate HomeItem subtype.
-         * Returns null if the format is unrecognized or invalid.
+         * Creates a default Json instance configured for HomeItem serialization.
+         *
+         * CONFIGURATION:
+         * - ignoreUnknownKeys: Allows adding new fields without breaking old data
+         * - classDiscriminator: Uses "type" field to identify subclasses
+         * - encodeDefaults: Ensures default values are written to JSON
+         *
+         * This configuration provides:
+         * - Forward compatibility: New fields won't break old deserialization
+         * - Backward compatibility: Missing fields use default values
+         * - Type safety: Each subclass is correctly identified
          */
-        fun fromStorageString(str: String): HomeItem? {
-            return when {
-                str.startsWith("app|") -> PinnedApp.fromStorageString(str)
-                str.startsWith("file|") -> PinnedFile.fromStorageString(str)
-                str.startsWith("shortcut|") -> AppShortcut.fromStorageString(str)
-                else -> null
-            }
+        val json: Json = Json {
+            ignoreUnknownKeys = true
+            classDiscriminator = "type"
+            encodeDefaults = true
         }
     }
 }

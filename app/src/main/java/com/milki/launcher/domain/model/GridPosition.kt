@@ -26,11 +26,14 @@
  * - Computed properties: Can add bounds checking, neighbors, etc.
  *
  * SERIALIZATION:
- * Positions are serialized as "row,column" strings for storage in DataStore.
- * Example: GridPosition(2, 3) -> "2,3"
+ * Uses kotlinx.serialization for JSON serialization.
+ * This provides automatic serialization/deserialization without manual parsing.
+ * Example: GridPosition(2, 3) -> {"row":2,"column":3}
  */
 
 package com.milki.launcher.domain.model
+
+import kotlinx.serialization.Serializable
 
 /**
  * Represents a cell position in the home screen grid.
@@ -44,54 +47,23 @@ package com.milki.launcher.domain.model
  * - Positive row values go downward
  * - Positive column values go rightward
  *
+ * SERIALIZATION:
+ * The @Serializable annotation enables automatic JSON serialization.
+ * The position is serialized as: {"row":2,"column":3}
+ * This is safer than the previous pipe-delimited format because:
+ * - No risk of delimiter collision
+ * - Automatic handling of all data types
+ * - Schema evolution support (adding new fields)
+ *
  * @property row The row index (0-based, top to bottom)
  * @property column The column index (0-based, left to right)
  */
+@Serializable
 data class GridPosition(
     val row: Int,
     val column: Int
 ) {
-    /**
-     * Converts the position to a storage-friendly string format.
-     *
-     * FORMAT: "row,column"
-     * Example: GridPosition(2, 3) -> "2,3"
-     *
-     * This format is used when storing the position in DataStore alongside
-     * the HomeItem data.
-     *
-     * @return String representation of this position
-     */
-    fun toStorageString(): String = "$row,$column"
-
     companion object {
-        /**
-         * Parses a storage string back into a GridPosition.
-         *
-         * EXPECTED FORMAT: "row,column"
-         * Example: "2,3" -> GridPosition(2, 3)
-         *
-         * ERROR HANDLING:
-         * Returns null if the string is malformed or cannot be parsed.
-         * This prevents crashes when loading corrupted data.
-         *
-         * @param str The storage string to parse
-         * @return GridPosition if parsing succeeds, null otherwise
-         */
-        fun fromStorageString(str: String): GridPosition? {
-            // Split the string by comma
-            val parts = str.split(",")
-
-            // We expect exactly 2 parts: row and column
-            if (parts.size != 2) return null
-
-            // Try to parse each part as an integer
-            val row = parts[0].toIntOrNull() ?: return null
-            val column = parts[1].toIntOrNull() ?: return null
-
-            return GridPosition(row, column)
-        }
-
         /**
          * Default position for newly pinned items.
          *
