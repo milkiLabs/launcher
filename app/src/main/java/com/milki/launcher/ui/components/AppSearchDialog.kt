@@ -35,10 +35,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.delay
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -50,7 +49,6 @@ import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
-import kotlinx.coroutines.flow.first
 
 /**
  * AppSearchDialog - Main search dialog component supporting multiple search modes.
@@ -86,15 +84,6 @@ fun AppSearchDialog(
      * better user experience by immediately showing the keyboard.
      */
     val focusRequester = remember { FocusRequester() }
-    
-    /**
-     * LocalWindowInfo provides information about the window state.
-     * We use this to detect when the Dialog's window has received focus
-     * from the Android OS. This is critical because Dialogs are rendered
-     * in a separate window, and requesting focus before that window is
-     * focused by the OS will be silently ignored.
-     */
-    val windowInfo = LocalWindowInfo.current
 
     /**
      * BackHandler intercepts the system back button.
@@ -198,33 +187,20 @@ fun AppSearchDialog(
     }
 
     /**
-     * LaunchedEffect runs when the dialog is composed.
+     * LaunchedEffect runs when the dialog is first composed.
      * 
-     * WHY WE CAN'T JUST CALL requestFocus() IMMEDIATELY:
+     * WHY WE NEED A DELAY:
      * Dialogs in Compose are rendered in a separate window. When LaunchedEffect
      * runs immediately upon composition, the new Dialog window hasn't actually
      * received focus from the Android OS yet. If we ask the TextField to focus
      * before its parent window is focused, the system simply ignores the request.
      * 
-     * THE OLD (HACKY) APPROACH:
-     * Previously, we used delay(10) to give the OS "enough time" to focus the window.
-     * However, this is unreliable - 10ms might be enough on some devices but not others,
-     * especially on slower devices or when the system is under load.
-     * 
-     * THE PROPER SOLUTION:
-     * We use snapshotFlow to convert windowInfo.isWindowFocused into a Flow.
-     * The .first { it } call suspends the coroutine until the window is actually focused.
-     * This gives us the EXACT moment when focus is ready, with no guesswork involved.
-     * 
-     * This approach is:
-     * - Reliable: Works on all devices regardless of speed
-     * - Efficient: No unnecessary delays, focuses as soon as possible
-     * - Correct: Uses the proper Compose/Android APIs
+     * The delay gives the OS time to focus the dialog window before we request
+     * focus on the text field. 50ms is a reasonable compromise - long enough
+     * to work reliably on most devices, but short enough that users won't notice.
      */
-    LaunchedEffect(windowInfo) {
-        snapshotFlow { windowInfo.isWindowFocused }
-            .first { isWindowFocused -> isWindowFocused }
-        
+    LaunchedEffect(Unit) {
+        delay(50)
         focusRequester.requestFocus()
     }
 }
