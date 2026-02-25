@@ -122,28 +122,12 @@ class SearchViewModel(
     /**
      * Observe recent apps from the repository.
      * Updates automatically when recent apps change.
-     * 
-     * RACE CONDITION FIX:
-     * When the search dialog opens, showSearch() triggers a search with empty query.
-     * However, recentApps might not be loaded yet from DataStore. Since StateFlow
-     * doesn't emit duplicate values (searchQuery.value = "" when already "" does nothing),
-     * we directly compute and update results when recentApps are loaded AND the search
-     * is visible with an empty query.
      */
     private fun observeRecentApps() {
         viewModelScope.launch {
             appRepository.getRecentApps()
                 .collect { recentApps ->
                     updateState { copy(recentApps = recentApps) }
-                    
-                    // If search is visible with empty query, directly update results
-                    // We can't rely on searchQuery.value = "" because StateFlow
-                    // doesn't emit duplicate values
-                    val currentState = _uiState.value
-                    if (currentState.isSearchVisible && currentState.query.isBlank()) {
-                        val appResults = recentApps.map { app -> AppSearchResult(appInfo = app) }
-                        updateState { copy(results = appResults) }
-                    }
                 }
         }
     }
@@ -182,13 +166,25 @@ class SearchViewModel(
     /**
      * Show the search dialog.
      * Also triggers an initial search to show recent apps.
+     * 
+     * IMPORTANT: We cannot just set searchQuery.value = "" because:
+     * 1. searchQuery is initialized to "" in the MutableStateFlow
+     * 2. Setting a StateFlow to its current value does NOT trigger emission
+     * 3. The initial "" was processed before recentApps was loaded
+     * 
+     * SOLUTION: Directly execute search for the current query.
+     * This ensures recentApps (now loaded) are included in results.
      */
     fun showSearch() {
         updateState { copy(isSearchVisible = true) }
-        // Trigger an empty search to show recent apps.
-        // Without this, the results list would be empty until
-        // the user types something.
-        searchQuery.value = ""
+        // Force a search refresh to show recent apps.
+        // We directly execute the search logic instead of relying on
+        // the reactive pipeline because the query might already be "".
+        viewModelScope.launch {
+            updateState { copy(isLoading = true) }
+            val results = executeSearchLogic(searchQuery.value)
+            updateState { copy(results = results, isLoading = false) }
+        }
     }
 
     /**

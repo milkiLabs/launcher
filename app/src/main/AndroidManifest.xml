@@ -2,26 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!--
-      The <queries> element declares what other apps our app needs to interact with.
-      By default, apps can no longer see all installed apps. We must declare which apps we need to query.
-      Without this section, PackageManager.queryIntentActivities() would return an empty list or only system apps!
-    -->
     <!-- Permission to read contacts for contacts search feature -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     
-    <!--
-      Permission to make phone calls directly from the launcher.
-      This is used when the user taps the dial icon on a contact result.
-      Without this permission, tapping the dial icon would only open the dialer
-      (ACTION_DIAL) instead of making the call directly (ACTION_CALL).
-      
-      WHY WE NEED THIS:
-      - ACTION_DIAL: Opens the dialer with number pre-filled (no permission needed)
-      - ACTION_CALL: Makes the call directly (requires CALL_PHONE permission)
-      
-      The user is asked for this permission only when they first tap the dial icon.
-    -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
     
     <!--
@@ -30,8 +13,6 @@
       - READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_AUDIO: For Android 13+ (API 33+)
         These replace READ_EXTERNAL_STORAGE on newer Android versions
       - MANAGE_EXTERNAL_STORAGE: For Android 11+ (API 30+) to access ALL files
-        This is a special permission that requires user approval in Settings
-        Without this, MediaStore.Files can only see files the app created
     -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -41,10 +22,15 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
 
+    <!--
+      The <queries> element declares what other apps our app needs to interact with.
+      By default, apps can no longer see all installed apps. We must declare which apps we need to query.
+    -->
+
     <queries>
         <!-- 
           Query apps that have MAIN action in their intent filter.
-          This matches all apps that have launcher icons (apps that can be launched).
+          This matches all apps that have launcher icons 
           
           Alternative approaches:
           1. Query specific packages: <package android:name="com.example.app" />
@@ -65,10 +51,6 @@
           When a user types "youtube.com", we want to know if YouTube app
           is installed so we can show "Open in YouTube" instead of just
           "Open in browser".
-          
-          Without this query declaration on Android 11+ (API 30+),
-          PackageManager.queryIntentActivities() would return an empty list
-          for http/https intents, and we couldn't detect URL handlers.
           
           This query matches:
           - Browsers (Chrome, Firefox, etc.)
@@ -103,22 +85,6 @@
       
       android:fullBackupContent - Configuration for cloud backup (Google Drive).
       Points to XML file defining what data to backup.
-      
-      android:icon - App icon resource reference.
-      @mipmap/ic_launcher points to multiple density versions.
-      
-      android:label - App display name.
-      @string/app_name references res/values/strings.xml
-      Shows in: Settings, launcher, share dialogs
-      
-      android:roundIcon - Round icon for devices with circular icon masks.
-      Modern Android devices use this for adaptive icons.
-      
-      android:supportsRtl - Support right-to-left (RTL) layouts.
-      Required for Arabic, Hebrew, and other RTL languages.
-      
-      android:theme - Default theme for all activities.
-      @style/Theme.Launcher references res/values/themes.xml
     -->
     <application
         android:name=".LauncherApplication"
@@ -132,11 +98,6 @@
         android:theme="@style/Theme.Launcher">
         
         <!--
-          ===================================================================
-          MAIN ACTIVITY
-          ===================================================================
-          The MainActivity is the entry point of our launcher.
-          
           Special configuration for launcher apps:
           1. launchMode="singleTask" - Only one instance exists
           2. Intent filter with HOME category - Makes it a home screen
@@ -145,16 +106,6 @@
           android:exported="true" - Allow other apps (including the system) to launch this Activity.
           REQUIRED for launcher activities - the system needs to start it
           when user presses Home button.
-          
-          android:label="@string/app_name" - Display name shown in system launcher (same as app name)
-          
-          android:launchMode="singleTask" - Control how Activity instances are created.
-          singleTask = Only one instance can exist. If already running,
-          it's brought to front instead of creating new instance.
-          This is crucial for launchers - we don't want multiple
-          launcher instances in the back stack.
-          
-          android:theme="@style/Theme.Launcher" - Theme for this Activity (can override application theme)
         -->
         <activity
             android:name=".MainActivity"
@@ -165,9 +116,6 @@
             android:theme="@style/Theme.Launcher">
             
             <!--
-              ===============================================================
-              INTENT FILTER - MAKES THIS A LAUNCHER
-              ===============================================================
               This intent filter is what makes our app a home screen replacement.
               
               Required combination for launcher:
@@ -180,41 +128,21 @@
               CATEGORY_HOME. Our Activity handles this and becomes the home screen.
             -->
             <intent-filter>
-                <!-- Main entry point action -->
                 <action android:name="android.intent.action.MAIN" />
                 
-                <!-- 
-                  HOME category - THIS MAKES IT A LAUNCHER!
-                  Without this, it's just a regular app.
-                -->
+                <!-- Without this, it's just a regular app. -->
                 <category android:name="android.intent.category.HOME" />
                 
                 <!-- Default category for implicit intents -->
                 <category android:name="android.intent.category.DEFAULT" />
                 
-                <!-- 
-                  LAUNCHER category - Shows app icon in system launcher.
-                  Without this, app wouldn't appear in app drawer!
-                -->
+                <!-- Shows app icon in system launcher. -->
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
         <!--
-          ===================================================================
-          SETTINGS ACTIVITY
-          ===================================================================
           A separate entry point for launcher settings.
-          
-          Unlike MainActivity:
-          - Does NOT have HOME category (not a home screen replacement)
-          - Uses standard launchMode (not singleTask)
-          - Shows as "Launcher Settings" in the app drawer
-          
-          This allows users to access settings from:
-          1. The app drawer (via LAUNCHER intent filter)
-          2. The launcher itself (via explicit Intent)
-          3. System settings → App info → Open
         -->
         <activity
             android:name=".SettingsActivity"
@@ -224,12 +152,6 @@
             android:launchMode="singleTop"
             android:theme="@style/Theme.Launcher">
             
-            <!--
-              Intent filter for app drawer entry.
-              MAIN + LAUNCHER = shows in app drawer as a launchable app.
-              This is separate from the HOME intent filter, so tapping
-              this icon opens settings, not the home screen.
-            -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
