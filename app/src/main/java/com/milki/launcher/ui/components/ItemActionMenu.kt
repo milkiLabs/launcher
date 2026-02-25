@@ -1,17 +1,13 @@
 /**
- * ItemActionMenu.kt - Dropdown menu for item actions
+ * ItemActionMenu.kt - Unified dropdown menu for item actions
  *
- * This component displays a dropdown menu when the user long-presses on
- * a search result item. It provides actions like pinning to home screen.
+ * This component provides a consistent action menu that uses the unified
+ * SearchResultAction system. All actions flow through the same handler.
  *
  * USAGE:
- * - Long-press on app/file in search results → Shows this menu
- * - Menu contains contextual actions for the item type
- *
- * ACTIONS:
- * - Pin to home: Adds item to home screen grid
- * - App info: Opens system app info (for apps only)
- * - Remove from home: Shows if item is already pinned
+ * - Long-press on any item shows this menu
+ * - Actions are emitted via LocalSearchActionHandler
+ * - No callbacks needed, uses the same action system as tap actions
  */
 
 package com.milki.launcher.ui.components
@@ -20,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -28,60 +23,57 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.milki.launcher.presentation.search.LocalSearchActionHandler
+import com.milki.launcher.presentation.search.SearchResultAction
 
 /**
- * Data class representing an action that can be performed on an item.
+ * MenuAction - Represents an action in the dropdown menu.
  *
- * @property label The text to display in the menu
- * @property icon The icon to show next to the label
- * @property onClick The action to perform when clicked
+ * @property label The text to display
+ * @property icon The icon to show
+ * @property action The SearchResultAction to emit when clicked
  */
-data class ItemAction(
+data class MenuAction(
     val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val onClick: () -> Unit
+    val action: SearchResultAction
 )
 
 /**
  * ItemActionMenu - Dropdown menu for item actions.
  *
- * Displays a list of actions that can be performed on a search result item.
- * The menu appears anchored to a specific position (typically the item that
- * was long-pressed).
+ * Uses the unified SearchResultAction system. All actions are emitted
+ * through LocalSearchActionHandler.
  *
- * COMMON ACTIONS:
- * - Pin to home: Pin the item to the home screen
- * - Unpin from home: Remove the item from home screen (if pinned)
- * - App info: Open system app settings (for apps)
- *
- * @param expanded Whether the menu is currently visible
- * @param onDismiss Called when the menu should be dismissed
- * @param actions List of actions to display in the menu
- * @param modifier Optional modifier for the menu
+ * @param expanded Whether the menu is visible
+ * @param onDismiss Called when menu should close
+ * @param actions List of actions to display
  */
 @Composable
 fun ItemActionMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    actions: List<ItemAction>,
+    actions: List<MenuAction>,
     modifier: Modifier = Modifier
 ) {
+    val actionHandler = LocalSearchActionHandler.current
+
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         modifier = modifier
     ) {
-        actions.forEach { action ->
+        actions.forEach { menuAction ->
             DropdownMenuItem(
-                text = { Text(action.label) },
+                text = { Text(menuAction.label) },
                 leadingIcon = {
                     Icon(
-                        imageVector = action.icon,
+                        imageVector = menuAction.icon,
                         contentDescription = null
                     )
                 },
                 onClick = {
-                    action.onClick()
+                    actionHandler(menuAction.action)
                     onDismiss()
                 }
             )
@@ -90,91 +82,50 @@ fun ItemActionMenu(
 }
 
 /**
- * Creates the standard action list for an app item.
+ * Creates pin/unpin action for any item type.
  *
- * @param isPinned Whether the app is already pinned to home
- * @param onPin Action to pin the app to home
- * @param onUnpin Action to remove the app from home
- * @param onAppInfo Action to open app info (optional)
+ * @param isPinned Whether the item is currently pinned
+ * @param pinAction Action to emit for pinning
+ * @param unpinAction Action to emit for unpinning
  */
-fun createAppActions(
+fun createPinAction(
     isPinned: Boolean,
-    onPin: () -> Unit,
-    onUnpin: () -> Unit,
-    onAppInfo: (() -> Unit)? = null
-): List<ItemAction> {
-    return buildList {
-        if (isPinned) {
-            add(
-                ItemAction(
-                    label = "Unpin from home",
-                    icon = Icons.Filled.Delete,
-                    onClick = onUnpin
-                )
-            )
-        } else {
-            add(
-                ItemAction(
-                    label = "Pin to home",
-                    icon = Icons.Outlined.PushPin,
-                    onClick = onPin
-                )
-            )
-        }
-        
-        if (onAppInfo != null) {
-            add(
-                ItemAction(
-                    label = "App info",
-                    icon = Icons.Filled.Info,
-                    onClick = onAppInfo
-                )
-            )
-        }
+    pinAction: SearchResultAction,
+    unpinAction: SearchResultAction
+): MenuAction {
+    return if (isPinned) {
+        MenuAction(
+            label = "Unpin from home",
+            icon = Icons.Filled.Delete,
+            action = unpinAction
+        )
+    } else {
+        MenuAction(
+            label = "Pin to home",
+            icon = Icons.Outlined.PushPin,
+            action = pinAction
+        )
     }
 }
 
 /**
- * Creates the standard action list for a file item.
- *
- * @param isPinned Whether the file is already pinned to home
- * @param onPin Action to pin the file to home
- * @param onUnpin Action to remove the file from home
- * @param onOpenWith Action to open file with specific app (optional)
+ * Creates app info action.
  */
-fun createFileActions(
-    isPinned: Boolean,
-    onPin: () -> Unit,
-    onUnpin: () -> Unit,
-    onOpenWith: (() -> Unit)? = null
-): List<ItemAction> {
-    return buildList {
-        if (isPinned) {
-            add(
-                ItemAction(
-                    label = "Unpin from home",
-                    icon = Icons.Filled.Delete,
-                    onClick = onUnpin
-                )
-            )
-        } else {
-            add(
-                ItemAction(
-                    label = "Pin to home",
-                    icon = Icons.Outlined.PushPin,
-                    onClick = onPin
-                )
-            )
-        }
-        
-        if (onOpenWith != null) {
-            add(
-                ItemAction(
-                    label = "Open with...",
-                    icon = Icons.AutoMirrored.Filled.OpenInNew,
-                    onClick = onOpenWith
-                )
-            )
-        }
-    }
+fun createAppInfoAction(packageName: String): MenuAction {
+    return MenuAction(
+        label = "App info",
+        icon = Icons.Filled.Info,
+        action = SearchResultAction.OpenAppInfo(packageName)
+    )
+}
+
+/**
+ * Creates open with action for files.
+ */
+fun createOpenWithAction(): MenuAction {
+    return MenuAction(
+        label = "Open with...",
+        icon = Icons.AutoMirrored.Filled.OpenInNew,
+        action = SearchResultAction.RequestPermission("", "")
+    )
 }

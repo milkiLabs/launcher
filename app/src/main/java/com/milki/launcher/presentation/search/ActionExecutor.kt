@@ -1,28 +1,16 @@
 /**
- * PermissionAwareAction.kt - Base class for actions requiring runtime permissions
+ * ActionExecutor.kt - Central handler for all user actions
  *
- * This file provides a pattern for handling actions that require Android
- * runtime permissions. It centralizes the permission check/request/execute flow.
+ * This class centralizes all action execution logic:
+ * - Permission checking and requesting
+ * - App launching and pinning
+ * - File opening and pinning
+ * - URL handling
+ * - Pending action storage
  *
- * WHY THIS PATTERN:
- * Without this pattern, permission handling was scattered:
- * - CALL_PHONE: Handled in ViewModel with pending state
- * - READ_CONTACTS: Handled via PermissionRequestResult in search results
- * - READ_EXTERNAL_STORAGE: Handled via PermissionRequestResult
- *
- * This created inconsistency and made it hard to understand the flow.
- *
- * With PermissionAwareAction:
- * - All permission-requiring actions follow the same pattern
- * - Clear separation: check → request → execute
- * - Easy to add new permission-requiring actions
- *
- * FLOW:
- * 1. UI triggers SearchResultAction
- * 2. ActionExecutor checks if action requires permission
- * 3. If permission granted: execute immediately
- * 4. If permission not granted: store pending action, request permission
- * 5. On permission result: execute pending action if granted
+ * ARCHITECTURE:
+ * All actions flow through this single executor, ensuring consistent
+ * behavior and centralizing side effects.
  */
 
 package com.milki.launcher.presentation.search
@@ -33,6 +21,7 @@ import android.net.Uri
 import android.widget.Toast
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,13 +29,6 @@ import kotlinx.coroutines.launch
 
 /**
  * Represents a pending action that requires a permission.
- *
- * This is stored when a user triggers an action that needs a permission
- * they haven't granted yet. Once they grant the permission, the action
- * is executed.
- *
- * @property action The original SearchResultAction that triggered this
- * @property requiredPermission The Android permission string needed
  */
 data class PendingPermissionAction(
     val action: SearchResultAction,
@@ -54,60 +36,28 @@ data class PendingPermissionAction(
 )
 
 /**
- * Executes a SearchResultAction, handling permissions if needed.
- *
- * This class centralizes all action execution logic:
- * - Permission checking and requesting
- * - Pending action storage
- * - Actual action execution
- * - Fallback handling
+ * Executes all user actions, handling permissions if needed.
  *
  * @property context Android context for starting activities
- * @property contactsRepository Repository for contacts (for saving recent contacts)
+ * @property contactsRepository Repository for contacts
+ * @property homeRepository Repository for pinned items
  */
 class ActionExecutor(
     private val context: Context,
-    private val contactsRepository: ContactsRepository
+    private val contactsRepository: ContactsRepository,
+    private val homeRepository: HomeRepository
 ) {
-    /**
-     * Coroutine scope for background operations like saving recent contacts.
-     * Uses SupervisorJob so failures don't cancel other operations.
-     */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
-    /**
-     * The currently pending action waiting for permission.
-     * Null if no action is pending.
-     */
     var pendingAction: PendingPermissionAction? = null
         private set
     
-    /**
-     * Callback to request a permission from the UI layer.
-     * Set by the Activity when creating the executor.
-     */
     var onRequestPermission: ((String) -> Unit)? = null
-    
-    /**
-     * Callback to close the search dialog.
-     * Set by the Activity when creating the executor.
-     */
     var onCloseSearch: (() -> Unit)? = null
-    
-    /**
-     * Callback to save a recent app.
-     * Set by the Activity when creating the executor.
-     */
     var onSaveRecentApp: ((String) -> Unit)? = null
 
     /**
      * Execute a SearchResultAction.
-     *
-     * This is the main entry point. It checks if the action requires
-     * permission and either executes immediately or requests permission.
-     *
-     * @param action The action to execute
-     * @param hasPermission Function to check if a permission is granted
      */
     fun execute(
         action: SearchResultAction,
@@ -116,23 +66,13 @@ class ActionExecutor(
         val requiredPermission = action.requiredPermission()
         
         if (requiredPermission != null && !hasPermission(requiredPermission)) {
-            // Permission required but not granted - store pending and request
             pendingAction = PendingPermissionAction(action, requiredPermission)
             onRequestPermission?.invoke(requiredPermission)
         } else {
-            // No permission needed or already granted - execute immediately
             executeAction(action)
         }
     }
 
-    /**
-     * Handle permission result.
-     *
-     * Called by the Activity when the user responds to a permission request.
-     * If granted and there's a pending action, executes it.
-     *
-     * @param granted Whether the permission was granted
-     */
     fun onPermissionResult(granted: Boolean) {
         val pending = pendingAction
         pendingAction = null
@@ -142,17 +82,15 @@ class ActionExecutor(
         }
     }
 
-    /**
-     * Execute an action without permission checking.
-     *
-     * This is called internally after permission checks pass.
-     * It dispatches to the appropriate handler method.
-     */
     private fun executeAction(action: SearchResultAction) {
         when (action) {
             is SearchResultAction.Tap -> handleTap(action)
             is SearchResultAction.DialContact -> handleDialContact(action)
             is SearchResultAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
+            is SearchResultAction.PinApp -> handlePinApp(action)
+            is SearchResultAction.PinFile -> handlePinFile(action)
+            is SearchResultAction.UnpinItem -> handleUnpinItem(action)
+            is SearchResultAction.OpenAppInfo -> handleOpenAppInfo(action)
             is SearchResultAction.RequestPermission -> handleRequestPermission(action)
         }
         
@@ -165,11 +103,6 @@ class ActionExecutor(
     // TAP ACTION HANDLERS
     // ========================================================================
 
-    /**
-     * Handle a tap on a search result.
-     *
-     * Dispatches to the appropriate handler based on result type.
-     */
     private fun handleTap(action: SearchResultAction.Tap) {
         when (val result = action.result) {
             is AppSearchResult -> launchApp(result)
@@ -179,8 +112,6 @@ class ActionExecutor(
             is ContactSearchResult -> callContact(result)
             is FileDocumentSearchResult -> openFile(result)
             is PermissionRequestResult -> {
-                // This shouldn't happen - RequestPermission action should be used
-                // But handle it gracefully
                 handleRequestPermission(SearchResultAction.RequestPermission(
                     result.permission,
                     result.providerPrefix
@@ -189,16 +120,12 @@ class ActionExecutor(
         }
     }
 
-    /**
-     * Launch an app.
-     */
     private fun launchApp(result: AppSearchResult) {
         result.appInfo.launchIntent?.let { intent ->
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         }
         
-        // Save to recent apps
         val componentName = android.content.ComponentName(
             result.appInfo.packageName,
             result.appInfo.activityName
@@ -206,25 +133,17 @@ class ActionExecutor(
         onSaveRecentApp?.invoke(componentName)
     }
 
-    /**
-     * Open a web search URL.
-     */
     private fun openWebSearch(result: WebSearchResult) {
         openUrlInBrowser(result.url)
     }
 
-    /**
-     * Open a YouTube search.
-     */
     private fun openYouTubeSearch(result: YouTubeSearchResult) {
-        // Try to find YouTube app, fallback to browser
         val youtubeUrl = "https://www.youtube.com/results?search_query=${Uri.encode(result.query)}"
         
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(youtubeUrl)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         
-        // Try to find a YouTube app
         val pm = context.packageManager
         val resolved = pm.queryIntentActivities(intent, 0)
         val youtubePackage = resolved.firstOrNull {
@@ -242,12 +161,8 @@ class ActionExecutor(
         }
     }
 
-    /**
-     * Open a URL result.
-     */
     private fun openUrl(result: UrlSearchResult) {
         result.handlerApp?.let { handler ->
-            // Open with specific app
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.url)).apply {
                 `package` = handler.packageName
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -260,9 +175,6 @@ class ActionExecutor(
         } ?: openUrlInBrowser(result.url)
     }
 
-    /**
-     * Open a URL in the default browser.
-     */
     private fun openUrlInBrowser(url: String) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -274,9 +186,6 @@ class ActionExecutor(
         }
     }
 
-    /**
-     * Call a contact (opens dialer).
-     */
     private fun callContact(result: ContactSearchResult) {
         val phone = result.contact.phoneNumbers.firstOrNull() ?: return
         
@@ -291,13 +200,9 @@ class ActionExecutor(
             Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
         
-        // Save to recent contacts
         saveRecentContact(phone)
     }
 
-    /**
-     * Open a file.
-     */
     private fun openFile(result: FileDocumentSearchResult) {
         val file = result.file
         
@@ -322,12 +227,6 @@ class ActionExecutor(
     // DIAL CONTACT HANDLER
     // ========================================================================
 
-    /**
-     * Handle direct dial action.
-     *
-     * Makes a call directly using ACTION_CALL (requires CALL_PHONE permission).
-     * Permission should already be checked before calling this.
-     */
     private fun handleDialContact(action: SearchResultAction.DialContact) {
         val intent = Intent(Intent.ACTION_CALL).apply {
             data = Uri.parse("tel:${action.phoneNumber}")
@@ -337,23 +236,59 @@ class ActionExecutor(
         try {
             context.startActivity(intent)
         } catch (e: SecurityException) {
-            // This shouldn't happen since we check permission first
             Toast.makeText(context, "Call permission not granted", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
         
-        // Save to recent contacts
         saveRecentContact(action.phoneNumber)
+    }
+
+    // ========================================================================
+    // PIN ACTIONS
+    // ========================================================================
+
+    private fun handlePinApp(action: SearchResultAction.PinApp) {
+        scope.launch {
+            val pinnedApp = HomeItem.PinnedApp.fromAppInfo(action.appInfo)
+            homeRepository.addPinnedItem(pinnedApp)
+        }
+        Toast.makeText(context, "${action.appInfo.name} pinned to home", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun handlePinFile(action: SearchResultAction.PinFile) {
+        scope.launch {
+            val pinnedFile = HomeItem.PinnedFile.fromFileDocument(action.file)
+            homeRepository.addPinnedItem(pinnedFile)
+        }
+        Toast.makeText(context, "${action.file.name} pinned to home", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun handleUnpinItem(action: SearchResultAction.UnpinItem) {
+        scope.launch {
+            homeRepository.removePinnedItem(action.itemId)
+        }
+        Toast.makeText(context, "Removed from home screen", Toast.LENGTH_SHORT).show()
+    }
+
+    // ========================================================================
+    // APP INFO HANDLER
+    // ========================================================================
+
+    private fun handleOpenAppInfo(action: SearchResultAction.OpenAppInfo) {
+        val intent = Intent(
+            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:${action.packageName}")
+        ).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
     }
 
     // ========================================================================
     // OPEN IN BROWSER HANDLER
     // ========================================================================
 
-    /**
-     * Handle open URL in browser action.
-     */
     private fun handleOpenUrlInBrowser(action: SearchResultAction.OpenUrlInBrowser) {
         openUrlInBrowser(action.url)
     }
@@ -362,12 +297,6 @@ class ActionExecutor(
     // PERMISSION REQUEST HANDLER
     // ========================================================================
 
-    /**
-     * Handle a permission request action.
-     *
-     * This is triggered when user taps a PermissionRequestResult.
-     * It requests the permission via the callback.
-     */
     private fun handleRequestPermission(action: SearchResultAction.RequestPermission) {
         onRequestPermission?.invoke(action.permission)
     }
@@ -376,9 +305,6 @@ class ActionExecutor(
     // HELPER METHODS
     // ========================================================================
 
-    /**
-     * Save a phone number to recent contacts.
-     */
     private fun saveRecentContact(phoneNumber: String) {
         scope.launch {
             contactsRepository.saveRecentContact(phoneNumber)

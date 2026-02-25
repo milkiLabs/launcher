@@ -59,7 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
-import com.milki.launcher.presentation.home.LocalPinAction
+import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -482,32 +482,9 @@ fun PermissionRequestItem(
 /**
  * FileDocumentSearchResultItem - Displays a file/document search result.
  *
- * This item represents a document file from the device storage. It shows:
- * - A document icon (tinted with accent color)
- * - The file name as the headline
- * - File details as supporting text (folder, size, extension)
- * - An appropriate icon based on file type (PDF, Word, etc.)
- *
- * FILE TYPE INDICATORS:
- * - PDF files show a distinctive PDF icon
- * - Word documents show a document icon
- * - Excel spreadsheets show a table icon
- * - PowerPoint presentations show a slideshow icon
- * - EPUB books show a book icon
- * - Text files show a text snippet icon
- * - Other files show a generic file icon
- *
- * ACTIONS:
- * - Tap: Open the file
- * - Long-press: Show action menu (Pin to home)
- *
- * USAGE:
- * Displayed when the user uses the "f " prefix to search files.
- * Requires storage permission on Android 10 and below.
- *
  * @param result The file search result to display
- * @param accentColor Color for icons (defaults to primary if null)
- * @param onClick Callback when the item is clicked
+ * @param accentColor Color for icons
+ * @param onClick Callback when clicked
  */
 @Composable
 fun FileDocumentSearchResultItem(
@@ -516,7 +493,6 @@ fun FileDocumentSearchResultItem(
     onClick: () -> Unit
 ) {
     val file = result.file
-    val pinAction = LocalPinAction.current
     var showMenu by remember { mutableStateOf(false) }
 
     val fileIcon = when {
@@ -552,12 +528,14 @@ fun FileDocumentSearchResultItem(
         ItemActionMenu(
             expanded = showMenu,
             onDismiss = { showMenu = false },
-            actions = createFileActions(
-                isPinned = false,
-                onPin = {
-                    pinAction(HomeItem.PinnedFile.fromFileDocument(file))
-                },
-                onUnpin = {}
+            actions = listOf(
+                createPinAction(
+                    isPinned = false,
+                    pinAction = SearchResultAction.PinFile(file),
+                    unpinAction = SearchResultAction.UnpinItem(
+                        HomeItem.PinnedFile.fromFileDocument(file).id
+                    )
+                )
             )
         )
     }

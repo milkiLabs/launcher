@@ -1,15 +1,22 @@
 /**
- * AppListItem.kt - Reusable component for displaying an app in a list
+ * AppListItem.kt - List item component for displaying apps
  *
- * This component displays an app in a horizontal list item format with
- * support for an action menu on long-press.
+ * Displays an app in a horizontal list format with:
+ * - App icon (40dp)
+ * - App name
+ * - Long-press menu for actions
  */
 
 package com.milki.launcher.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,23 +28,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.presentation.home.LocalPinAction
+import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
 /**
- * AppListItem displays a single row in the app list.
+ * AppListItem displays an app in a horizontal list row.
  *
- * Supports:
- * - Tap: Launch the app
- * - Long-press: Show action menu (Pin to home, App info)
- *
- * @param appInfo The app to display (from domain model)
+ * @param appInfo The app to display
  * @param onClick Called when user taps this item
- * @param modifier Optional modifier for external customization
+ * @param modifier Optional modifier
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -46,9 +48,6 @@ fun AppListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pinAction = LocalPinAction.current
-    val context = LocalContext.current
-    
     var showMenu by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
@@ -62,7 +61,10 @@ fun AppListItem(
             color = Color.Transparent
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = Spacing.mediumLarge, vertical = Spacing.medium),
+                modifier = Modifier.padding(
+                    horizontal = Spacing.mediumLarge,
+                    vertical = Spacing.medium
+                ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AppIcon(
@@ -82,21 +84,15 @@ fun AppListItem(
         ItemActionMenu(
             expanded = showMenu,
             onDismiss = { showMenu = false },
-            actions = createAppActions(
-                isPinned = false,
-                onPin = {
-                    pinAction(HomeItem.PinnedApp.fromAppInfo(appInfo))
-                },
-                onUnpin = {},
-                onAppInfo = {
-                    val intent = android.content.Intent(
-                        android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        android.net.Uri.parse("package:${appInfo.packageName}")
-                    ).apply {
-                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
-                }
+            actions = listOf(
+                createPinAction(
+                    isPinned = false,
+                    pinAction = SearchResultAction.PinApp(appInfo),
+                    unpinAction = SearchResultAction.UnpinItem(
+                        HomeItem.PinnedApp.fromAppInfo(appInfo).id
+                    )
+                ),
+                createAppInfoAction(appInfo.packageName)
             )
         )
     }
