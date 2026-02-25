@@ -26,8 +26,9 @@ import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -56,44 +57,31 @@ class HomeViewModel(
     private val homeRepository: HomeRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
-    val uiState = _uiState.asStateFlow()
-
-    init {
-        observePinnedItems()
-    }
-
     /**
-     * Observes pinned items from the repository.
+     * UI state derived directly from the repository's pinned items flow.
      *
-     * The repository emits a new list whenever pinned items change
-     * (due to pin/unpin actions processed by ActionExecutor).
+     * This uses the stateIn operator to convert the cold Flow from the repository
+     * into a hot StateFlow that can be collected by the UI. The advantages are:
+     *
+     * - No manual collection boilerplate (no init block, no collect {}, no MutableStateFlow)
+     * - Resource efficient: SharingStarted.WhileSubscribed(5000) stops the upstream
+     *   flow collection when no subscribers are active for 5 seconds (e.g., when the
+     *   launcher UI is not visible)
+     * - Declarative: the state is a pure transformation of the repository flow
+     * - Automatic loading state: initialValue shows loading until first emission
+     *
+     * Note: Pinning/unpinning actions are handled by ActionExecutor via SearchResultAction.
+     * This ViewModel only observes the pinned items and handles item position updates.
      */
-    private fun observePinnedItems() {
-        viewModelScope.launch {
-            homeRepository.pinnedItems.collect { items ->
-                _uiState.value = _uiState.value.copy(
-                    pinnedItems = items,
-                    isLoading = false
-                )
-            }
+    val uiState = homeRepository.pinnedItems
+        .map { items ->
+            HomeUiState(pinnedItems = items, isLoading = false)
         }
-    }
-
-    /**
-     * Reorders pinned items in the grid.
-     *
-     * Called when the user drags an item to a new position.
-     *
-     * @param fromIndex Current index of the item
-     * @param toIndex Target index for the item
-     * @deprecated Use moveItemToPosition instead for grid-based positioning
-     */
-    fun reorderItems(fromIndex: Int, toIndex: Int) {
-        viewModelScope.launch {
-            homeRepository.reorderPinnedItems(fromIndex, toIndex)
-        }
-    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = HomeUiState(isLoading = true)
+        )
 
     /**
      * Moves an item to a new grid position.
