@@ -449,14 +449,14 @@ fun DraggablePinnedItemsGrid(
  * - A long-press without movement (shows menu)
  * - A long-press followed by drag (moves item)
  *
- * THRESHOLD BEHAVIOR:
- * We use a movement threshold to distinguish between "menu" and "drag" actions:
- * - If movement after long-press is < threshold: Show menu
- * - If movement after long-press is >= threshold: Start drag
+ * INTERACTION MODEL (more natural feel):
+ * 1. Long-press immediately shows the dropdown menu
+ * 2. If user starts moving (beyond threshold), close menu and start drag
+ * 3. If user releases without moving, menu stays open
  *
  * @param onTap Called when user taps without long-press
- * @param onLongPress Called when user long-presses without significant drag
- * @param onDragStart Called when drag starts (after threshold movement)
+ * @param onLongPress Called immediately when long-press is detected (show menu)
+ * @param onDragStart Called when drag starts (movement exceeds threshold)
  * @param onDrag Called continuously during drag
  * @param onDragEnd Called when drag ends successfully
  * @param onDragCancel Called when drag is cancelled
@@ -469,20 +469,82 @@ private suspend fun PointerInputScope.detectDragOrTapGesture(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit
 ) {
+    /**
+     * Movement threshold in pixels.
+     * If finger moves more than this after long-press, we start drag mode.
+     * Otherwise, we treat it as a "show menu" action.
+     * 20 pixels is a reasonable threshold that prevents accidental drags.
+     */
     val dragThreshold = 20f
 
+    /**
+     * We use awaitEachGesture to handle the complete gesture lifecycle.
+     * This allows us to track the entire touch interaction from down to up.
+     */
     awaitEachGesture {
-        // 1. Wait for the first finger to touch the screen
-        val down = awaitFirstDown(requireUnconsumed = false)
-        
-        // 2. Wait for that specific finger to long press
-        val longPress = awaitLongPressOrCancellation(pointerId = down.id)
+        /**
+         * Wait for a long-press or cancellation.
+         * If the user lifts their finger before the long-press timeout,
+         * this returns null and we handle it as a tap.
+         */
+        val longPress = awaitLongPressOrCancellation()
 
         if (longPress == null) {
-            // No long-press detected (finger lifted early) - this was a tap
+            // No long-press detected - this was a tap
             onTap()
             return@awaitEachGesture
         }
+
+        /**
+         * Long-press detected - immediately show the menu.
+         * This gives instant feedback to the user.
+         */
+        onLongPress(longPress.position)
+
+        /**
+         * Now track subsequent movement to determine if this becomes a drag.
+         */
+        var totalDrag = Offset.Zero
+        var dragStarted = false
+
+        /**
+         * Continue tracking finger movement.
+         * The drag function will continue until the finger is lifted.
+         */
+        try {
+            drag(pointerId = longPress.id) { change ->
+                // Calculate drag amount from position change
+                val dragAmount = change.position - change.previousPosition
+                
+                // Accumulate total drag distance
+                totalDrag += dragAmount
+
+                // Check if we've crossed the drag threshold
+                if (!dragStarted && (abs(totalDrag.x) > dragThreshold || abs(totalDrag.y) > dragThreshold)) {
+                    // Threshold exceeded - start drag mode
+                    dragStarted = true
+                    onDragStart()
+                }
+
+                // If drag has started, notify parent of movement
+                if (dragStarted) {
+                    onDrag(change, dragAmount)
+                }
+            }
+
+            // Finger lifted - complete the gesture
+            if (dragStarted) {
+                onDragEnd()
+            }
+            // If no drag happened, the menu stays open (already shown)
+        } catch (e: Exception) {
+            // Gesture was cancelled (e.g., another touch event)
+            if (dragStarted) {
+                onDragCancel()
+            }
+        }
+    }
+}
 
         // Long-press detected. Track movement.
         var totalDrag = Offset.Zero
