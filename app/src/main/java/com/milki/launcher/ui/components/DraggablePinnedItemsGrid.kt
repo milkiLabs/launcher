@@ -469,25 +469,14 @@ private suspend fun PointerInputScope.detectDragOrTapGesture(
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit
 ) {
-    /**
-     * Movement threshold in pixels.
-     * If finger moves more than this after long-press, we start drag mode.
-     * Otherwise, we treat it as a "show menu" action.
-     * 20 pixels is a reasonable threshold that prevents accidental drags.
-     */
     val dragThreshold = 20f
 
-    /**
-     * We use awaitEachGesture to handle the complete gesture lifecycle.
-     * This allows us to track the entire touch interaction from down to up.
-     */
     awaitEachGesture {
-        /**
-         * Wait for a long-press or cancellation.
-         * If the user lifts their finger before the long-press timeout,
-         * this returns null and we handle it as a tap.
-         */
-        val longPress = awaitLongPressOrCancellation()
+        // FIX: Wait for the first down event to identify the pointer
+        val down = awaitFirstDown()
+
+        // FIX: Pass the pointerId to awaitLongPressOrCancellation
+        val longPress = awaitLongPressOrCancellation(down.id)
 
         if (longPress == null) {
             // No long-press detected - this was a tap
@@ -539,39 +528,6 @@ private suspend fun PointerInputScope.detectDragOrTapGesture(
             // If no drag happened, the menu stays open (already shown)
         } catch (e: Exception) {
             // Gesture was cancelled (e.g., another touch event)
-            if (dragStarted) {
-                onDragCancel()
-            }
-        }
-    }
-}
-
-        // Long-press detected. Track movement.
-        var totalDrag = Offset.Zero
-        var dragStarted = false
-
-        try {
-            // 3. Start dragging using the same pointer ID
-            drag(pointerId = longPress.id) { change ->
-                val dragAmount = change.position - change.previousPosition
-                totalDrag += dragAmount
-
-                if (!dragStarted && (abs(totalDrag.x) > dragThreshold || abs(totalDrag.y) > dragThreshold)) {
-                    dragStarted = true
-                    onDragStart()
-                }
-
-                if (dragStarted) {
-                    onDrag(change, dragAmount)
-                }
-            }
-
-            if (dragStarted) {
-                onDragEnd()
-            } else {
-                onLongPress(longPress.position)
-            }
-        } catch (e: Exception) {
             if (dragStarted) {
                 onDragCancel()
             }
