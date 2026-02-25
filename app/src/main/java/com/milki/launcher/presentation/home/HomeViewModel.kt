@@ -1,7 +1,8 @@
 /**
  * HomeViewModel.kt - ViewModel for the home screen pinned items
  *
- * Manages the state of pinned items on the home screen.
+ * Manages the state of pinned items on the home screen, including their
+ * positions on the grid.
  *
  * ACTION HANDLING:
  * All pinning/unpinning actions are handled by ActionExecutor via SearchResultAction:
@@ -12,12 +13,17 @@
  * This ViewModel only observes the pinned items from the repository.
  * The UI components (PinnedItem) emit actions via LocalSearchActionHandler,
  * which are processed by ActionExecutor.
+ *
+ * POSITION MANAGEMENT:
+ * Each item has a grid position (row, column). The ViewModel provides
+ * functions to move items to new positions when the user drags them.
  */
 
 package com.milki.launcher.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +47,7 @@ data class HomeUiState(
  * RESPONSIBILITIES:
  * - Observe pinned items from the repository
  * - Provide pinned items state to the UI
+ * - Handle item position updates when user drags items
  *
  * Note: Pinning/unpinning actions are handled by ActionExecutor via SearchResultAction.
  * This separation keeps the action handling logic centralized and consistent.
@@ -80,10 +87,26 @@ class HomeViewModel(
      *
      * @param fromIndex Current index of the item
      * @param toIndex Target index for the item
+     * @deprecated Use moveItemToPosition instead for grid-based positioning
      */
     fun reorderItems(fromIndex: Int, toIndex: Int) {
         viewModelScope.launch {
             homeRepository.reorderPinnedItems(fromIndex, toIndex)
+        }
+    }
+
+    /**
+     * Moves an item to a new grid position.
+     *
+     * This is called when the user finishes dragging an item.
+     * If the target position is occupied, the items swap positions.
+     *
+     * @param itemId The ID of the item to move
+     * @param newPosition The new grid position (row, column)
+     */
+    fun moveItemToPosition(itemId: String, newPosition: GridPosition) {
+        viewModelScope.launch {
+            homeRepository.updateItemPosition(itemId, newPosition)
         }
     }
 }

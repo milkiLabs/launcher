@@ -69,7 +69,7 @@ When you open the search dialog without typing:
 
 ### Basic Usage
 
-1. **Tap anywhere on the home screen** to open the search dialog
+1. **Press the home button** to open the search dialog
 2. **Type your search** with or without a prefix:
     - Without prefix: Searches installed apps
     - With prefix: Activates special search mode

@@ -16,6 +16,7 @@
 
 package com.milki.launcher.domain.repository
 
+import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import kotlinx.coroutines.flow.Flow
 
@@ -72,8 +73,32 @@ interface HomeRepository {
      *
      * @param fromIndex Current position of the item
      * @param toIndex Target position for the item
+     * @deprecated Use updateItemPosition instead for grid-based positioning
      */
     suspend fun reorderPinnedItems(fromIndex: Int, toIndex: Int)
+
+    /**
+     * Update the grid position of a pinned item.
+     *
+     * This is used when the user drags an icon to a new location on the grid.
+     * If the target position is occupied, the items are swapped.
+     *
+     * @param itemId The ID of the item to move
+     * @param newPosition The new grid position (row, column)
+     */
+    suspend fun updateItemPosition(itemId: String, newPosition: GridPosition)
+
+    /**
+     * Find the next available grid position for a new item.
+     *
+     * Searches the grid from top-left to bottom-right to find the first
+     * empty cell. Used when pinning new items to place them automatically.
+     *
+     * @param columns The number of columns in the grid
+     * @param maxRows The maximum number of rows to search (default: 100)
+     * @return The first available GridPosition
+     */
+    suspend fun findAvailablePosition(columns: Int, maxRows: Int = 100): GridPosition
 
     /**
      * Clear all pinned items.

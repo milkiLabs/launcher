@@ -13,6 +13,11 @@
  * - Tap: Open/launch the item
  * - Long press: Show dropdown menu with actions (Unpin, App info for apps)
  *
+ * NOTE ON LONG-PRESS HANDLING:
+ * When used within DraggablePinnedItemsGrid, the long-press and drag gestures are
+ * handled by the parent grid. In this case, pass handleLongPress = false.
+ * When used standalone (e.g., in search results), pass handleLongPress = true.
+ *
  * The dropdown menu uses the same ItemActionMenu component as search results,
  * ensuring a consistent UI across the app.
  */
@@ -21,6 +26,7 @@ package com.milki.launcher.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,7 +77,7 @@ import com.milki.launcher.ui.theme.Spacing
  *
  * INTERACTION:
  * - Tap: Opens/launches the item
- * - Long press: Shows a dropdown menu with available actions
+ * - Long press: Shows a dropdown menu with available actions (if handleLongPress is true)
  *
  * MENU ACTIONS:
  * - All items: "Unpin from home" - removes the item from the home screen
@@ -79,7 +85,11 @@ import com.milki.launcher.ui.theme.Spacing
  *
  * @param item The pinned item to display
  * @param onClick Called when user taps this item
- * @param onLongClick Called when user long-presses this item (DEPRECATED - menu is now shown directly)
+ * @param onLongClick Called when user long-presses this item (only if handleLongPress is true)
+ * @param handleLongPress Whether this composable should handle long-press gestures.
+ *                        Set to false when used in DraggablePinnedItemsGrid (parent handles gestures).
+ *                        Set to true when used standalone.
+ * @param showMenu External control for showing the menu (used by parent when handleLongPress is false)
  * @param modifier Optional modifier for external customization
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -88,56 +98,57 @@ fun PinnedItem(
     item: HomeItem,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    handleLongPress: Boolean = true,
+    showMenu: Boolean = false,
+    onMenuDismiss: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     /**
-     * State to control whether the dropdown menu is visible.
-     * This is triggered by a long press on the item.
+     * Internal state to control whether the dropdown menu is visible.
+     * This is triggered by a long press on the item when handleLongPress is true.
+     * When handleLongPress is false, the menu visibility is controlled by showMenu parameter.
      */
-    var showMenu by remember { mutableStateOf(false) }
+    var internalShowMenu by remember { mutableStateOf(false) }
+
+    /**
+     * Determine which state controls the menu visibility.
+     * If handleLongPress is true, use internal state (long-press shows menu).
+     * If handleLongPress is false, use external showMenu parameter (parent controls menu).
+     */
+    val isMenuVisible = if (handleLongPress) internalShowMenu else showMenu
 
     /**
      * We wrap the entire item in a Box to allow the dropdown menu to be
      * positioned relative to the item. The menu appears anchored to this Box.
      */
     Box(modifier = modifier) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { showMenu = true }
-                ),
-            color = Color.Transparent,
-            shape = RoundedCornerShape(CornerRadius.medium)
-        ) {
-            Column(
+        /**
+         * When handleLongPress is false, we don't use Surface at all to avoid
+         * it intercepting touch events. The parent DraggablePinnedItemsGrid
+         * handles all gestures via its pointerInput modifier.
+         */
+        if (handleLongPress) {
+            // Handle gestures internally
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = { internalShowMenu = true }
+                    ),
+                color = Color.Transparent,
+                shape = RoundedCornerShape(CornerRadius.medium)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(IconSize.appGrid)
-                        .clip(CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PinnedItemIcon(item = item, size = IconSize.appGrid)
-                }
-
-                Text(
-                    text = getItemLabel(item),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Spacing.smallMedium)
-                )
+                PinnedItemContent(item)
+            }
+        } else {
+            // No gesture handling - parent handles all gestures
+            // Use a simple Box instead of Surface to not intercept touch events
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                PinnedItemContent(item)
             }
         }
 
@@ -152,9 +163,51 @@ fun PinnedItem(
          * - App info action: Only available for PinnedApp items
          */
         ItemActionMenu(
-            expanded = showMenu,
-            onDismiss = { showMenu = false },
+            expanded = isMenuVisible,
+            onDismiss = {
+                if (handleLongPress) {
+                    internalShowMenu = false
+                } else {
+                    onMenuDismiss()
+                }
+            },
             actions = buildPinnedItemActions(item)
+        )
+    }
+}
+
+/**
+ * The content of a pinned item - icon and label.
+ * Extracted to a separate composable to avoid code duplication.
+ */
+@Composable
+private fun PinnedItemContent(item: HomeItem) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(IconSize.appGrid)
+                .clip(CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            PinnedItemIcon(item = item, size = IconSize.appGrid)
+        }
+
+        Text(
+            text = getItemLabel(item),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = Spacing.smallMedium)
         )
     }
 }

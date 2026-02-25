@@ -94,7 +94,7 @@ sealed class HomeItem {
 ### Pinning an App
 
 ```
-1. User opens search dialog (tap home screen)
+1. User opens search dialog (press home button)
 2. User searches for an app
 3. User long-presses the app in results
 4. Action menu appears with "Pin to home" and "App info"

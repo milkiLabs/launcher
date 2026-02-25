@@ -71,7 +71,7 @@ The app is organized into four distinct layers, following the **Dependency Rule*
 
 **Key Components**:
 - **MainActivity**: Entry point, handles navigation actions, manages permission requests
-- **LauncherScreen**: Main home screen with black background and tap-to-search
+- **LauncherScreen**: Main home screen with wallpaper background and home-button-to-search
 - **AppSearchDialog**: Full-featured search dialog with text field and results
 - **AppGridItem/AppListItem**: Individual app displays (grid for apps, list for mixed results)
 - **SearchResultsList**: Container for search results with different layouts

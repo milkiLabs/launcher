@@ -27,6 +27,12 @@ import android.content.pm.ShortcutInfo
  * - Removing specific items
  * - Preventing duplicates
  *
+ * GRID POSITION:
+ * Each item has a position property that determines where it appears on the
+ * home screen grid. The grid is a 2D coordinate system (row, column) where:
+ * - row 0 is at the top
+ * - column 0 is at the left
+ *
  * SERIALIZATION:
  * Each subclass provides toStorageString() and companion fromStorageString()
  * for persisting to DataStore.
@@ -36,10 +42,27 @@ sealed class HomeItem {
     abstract val id: String
 
     /**
+     * The grid position where this item is located on the home screen.
+     *
+     * This determines the cell (row, column) where the icon appears.
+     * Multiple items should not share the same position.
+     */
+    abstract val position: GridPosition
+
+    /**
      * Converts the item to a storage-friendly string format.
      * Format is prefixed with item type for deserialization.
      */
     abstract fun toStorageString(): String
+
+    /**
+     * Creates a copy of this item with a new grid position.
+     * Used when the user drags an item to a new location.
+     *
+     * @param newPosition The new grid position for the item
+     * @return A new HomeItem instance with the updated position
+     */
+    abstract fun withPosition(newPosition: GridPosition): HomeItem
 
     /**
      * A pinned installed application.
@@ -48,26 +71,38 @@ sealed class HomeItem {
      * @property packageName The app's package name (e.g., "com.whatsapp")
      * @property activityName The specific activity to launch
      * @property label Display name shown under the icon
+     * @property position Grid position (row, column) on the home screen
      */
     data class PinnedApp(
         override val id: String,
         val packageName: String,
         val activityName: String,
-        val label: String
+        val label: String,
+        override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
         /**
-         * Storage format: "app|{packageName}|{activityName}|{label}"
+         * Storage format: "app|{packageName}|{activityName}|{label}|{row},{column}"
          * Uses pipe (|) as separator since it's unlikely to be in app names.
+         * Position is stored as "row,column" at the end.
          */
         override fun toStorageString(): String {
-            return "app|$packageName|$activityName|$label"
+            return "app|$packageName|$activityName|$label|${position.toStorageString()}"
+        }
+
+        /**
+         * Creates a copy of this PinnedApp with a new grid position.
+         * Called when the user drags the app icon to a new location.
+         */
+        override fun withPosition(newPosition: GridPosition): PinnedApp {
+            return copy(position = newPosition)
         }
 
         companion object {
             /**
              * Creates a PinnedApp from an AppInfo instance.
              * Generates a consistent ID from package and activity name.
+             * Position defaults to (0, 0) - should be adjusted by caller if needed.
              */
             fun fromAppInfo(appInfo: AppInfo): PinnedApp {
                 val id = "app:${appInfo.packageName}/${appInfo.activityName}"
@@ -75,23 +110,48 @@ sealed class HomeItem {
                     id = id,
                     packageName = appInfo.packageName,
                     activityName = appInfo.activityName,
-                    label = appInfo.name
+                    label = appInfo.name,
+                    position = GridPosition.DEFAULT
                 )
             }
 
             /**
              * Parses a storage string back into a PinnedApp.
              * Returns null if the format is invalid.
+             *
+             * SUPPORTED FORMATS:
+             * - Legacy (4 parts): "app|packageName|activityName|label" -> position defaults to (0,0)
+             * - New (5 parts): "app|packageName|activityName|label|row,column"
              */
             fun fromStorageString(str: String): PinnedApp? {
                 val parts = str.split("|")
-                if (parts.size != 4 || parts[0] != "app") return null
-                return PinnedApp(
-                    id = "app:${parts[1]}/${parts[2]}",
-                    packageName = parts[1],
-                    activityName = parts[2],
-                    label = parts[3]
-                )
+                if (parts.isEmpty() || parts[0] != "app") return null
+
+                // Handle legacy format (4 parts) without position
+                if (parts.size == 4) {
+                    return PinnedApp(
+                        id = "app:${parts[1]}/${parts[2]}",
+                        packageName = parts[1],
+                        activityName = parts[2],
+                        label = parts[3],
+                        position = GridPosition.DEFAULT
+                    )
+                }
+
+                // Handle new format (5 parts) with position
+                if (parts.size == 5) {
+                    val position = GridPosition.fromStorageString(parts[4])
+                        ?: GridPosition.DEFAULT
+                    return PinnedApp(
+                        id = "app:${parts[1]}/${parts[2]}",
+                        packageName = parts[1],
+                        activityName = parts[2],
+                        label = parts[3],
+                        position = position
+                    )
+                }
+
+                return null
             }
         }
     }
@@ -104,22 +164,32 @@ sealed class HomeItem {
      * @property name Display name (filename without path)
      * @property mimeType MIME type for opening with correct app
      * @property size File size in bytes (for display purposes)
+     * @property position Grid position (row, column) on the home screen
      */
     data class PinnedFile(
         override val id: String,
         val uri: String,
         val name: String,
         val mimeType: String,
-        val size: Long = 0
+        val size: Long = 0,
+        override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
         /**
-         * Storage format: "file|{uri}|{name}|{mimeType}|{size}"
+         * Storage format: "file|{uri}|{name}|{mimeType}|{size}|{row},{column}"
          * Note: URIs can contain special characters, so we use a format
          * that splits from the end to handle pipes in URIs (unlikely but possible).
          */
         override fun toStorageString(): String {
-            return "file|$uri|$name|$mimeType|$size"
+            return "file|$uri|$name|$mimeType|$size|${position.toStorageString()}"
+        }
+
+        /**
+         * Creates a copy of this PinnedFile with a new grid position.
+         * Called when the user drags the file icon to a new location.
+         */
+        override fun withPosition(newPosition: GridPosition): PinnedFile {
+            return copy(position = newPosition)
         }
 
         companion object {
@@ -132,26 +202,52 @@ sealed class HomeItem {
                     uri = file.uri.toString(),
                     name = file.name,
                     mimeType = file.mimeType,
-                    size = file.size
+                    size = file.size,
+                    position = GridPosition.DEFAULT
                 )
             }
 
             /**
              * Parses a storage string back into a PinnedFile.
              * Returns null if the format is invalid.
+             *
+             * SUPPORTED FORMATS:
+             * - Legacy (5 parts): "file|uri|name|mimeType|size" -> position defaults to (0,0)
+             * - New (6 parts): "file|uri|name|mimeType|size|row,column"
              */
             fun fromStorageString(str: String): PinnedFile? {
                 val parts = str.split("|")
-                if (parts.size < 5 || parts[0] != "file") return null
-                // Rejoin URI parts in case URI contained pipes
-                val uri = parts.subList(1, parts.size - 3).joinToString("|")
-                return PinnedFile(
-                    id = "file:$uri",
-                    uri = uri,
-                    name = parts[parts.size - 3],
-                    mimeType = parts[parts.size - 2],
-                    size = parts[parts.size - 1].toLongOrNull() ?: 0
-                )
+                if (parts.isEmpty() || parts[0] != "file") return null
+
+                // Handle legacy format (5 parts) without position
+                if (parts.size == 5) {
+                    val uri = parts[1]
+                    return PinnedFile(
+                        id = "file:$uri",
+                        uri = uri,
+                        name = parts[2],
+                        mimeType = parts[3],
+                        size = parts[4].toLongOrNull() ?: 0,
+                        position = GridPosition.DEFAULT
+                    )
+                }
+
+                // Handle new format (6 parts) with position
+                if (parts.size == 6) {
+                    val uri = parts[1]
+                    val position = GridPosition.fromStorageString(parts[5])
+                        ?: GridPosition.DEFAULT
+                    return PinnedFile(
+                        id = "file:$uri",
+                        uri = uri,
+                        name = parts[2],
+                        mimeType = parts[3],
+                        size = parts[4].toLongOrNull() ?: 0,
+                        position = position
+                    )
+                }
+
+                return null
             }
         }
     }
@@ -167,20 +263,30 @@ sealed class HomeItem {
      * @property shortcutId The shortcut's unique ID within the app
      * @property shortLabel Short display name
      * @property longLabel Longer display name (may be same as shortLabel)
+     * @property position Grid position (row, column) on the home screen
      */
     data class AppShortcut(
         override val id: String,
         val packageName: String,
         val shortcutId: String,
         val shortLabel: String,
-        val longLabel: String = shortLabel
+        val longLabel: String = shortLabel,
+        override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
         /**
-         * Storage format: "shortcut|{packageName}|{shortcutId}|{shortLabel}|{longLabel}"
+         * Storage format: "shortcut|{packageName}|{shortcutId}|{shortLabel}|{longLabel}|{row},{column}"
          */
         override fun toStorageString(): String {
-            return "shortcut|$packageName|$shortcutId|$shortLabel|$longLabel"
+            return "shortcut|$packageName|$shortcutId|$shortLabel|$longLabel|${position.toStorageString()}"
+        }
+
+        /**
+         * Creates a copy of this AppShortcut with a new grid position.
+         * Called when the user drags the shortcut icon to a new location.
+         */
+        override fun withPosition(newPosition: GridPosition): AppShortcut {
+            return copy(position = newPosition)
         }
 
         companion object {
@@ -193,24 +299,50 @@ sealed class HomeItem {
                     packageName = info.`package` ?: "",
                     shortcutId = info.id ?: "",
                     shortLabel = info.shortLabel?.toString() ?: "",
-                    longLabel = info.longLabel?.toString() ?: info.shortLabel?.toString() ?: ""
+                    longLabel = info.longLabel?.toString() ?: info.shortLabel?.toString() ?: "",
+                    position = GridPosition.DEFAULT
                 )
             }
 
             /**
              * Parses a storage string back into an AppShortcut.
              * Returns null if the format is invalid.
+             *
+             * SUPPORTED FORMATS:
+             * - Legacy (5 parts): "shortcut|packageName|shortcutId|shortLabel|longLabel" -> position defaults to (0,0)
+             * - New (6 parts): "shortcut|packageName|shortcutId|shortLabel|longLabel|row,column"
              */
             fun fromStorageString(str: String): AppShortcut? {
                 val parts = str.split("|")
-                if (parts.size != 5 || parts[0] != "shortcut") return null
-                return AppShortcut(
-                    id = "shortcut:${parts[1]}/${parts[2]}",
-                    packageName = parts[1],
-                    shortcutId = parts[2],
-                    shortLabel = parts[3],
-                    longLabel = parts[4]
-                )
+                if (parts.isEmpty() || parts[0] != "shortcut") return null
+
+                // Handle legacy format (5 parts) without position
+                if (parts.size == 5) {
+                    return AppShortcut(
+                        id = "shortcut:${parts[1]}/${parts[2]}",
+                        packageName = parts[1],
+                        shortcutId = parts[2],
+                        shortLabel = parts[3],
+                        longLabel = parts[4],
+                        position = GridPosition.DEFAULT
+                    )
+                }
+
+                // Handle new format (6 parts) with position
+                if (parts.size == 6) {
+                    val position = GridPosition.fromStorageString(parts[5])
+                        ?: GridPosition.DEFAULT
+                    return AppShortcut(
+                        id = "shortcut:${parts[1]}/${parts[2]}",
+                        packageName = parts[1],
+                        shortcutId = parts[2],
+                        shortLabel = parts[3],
+                        longLabel = parts[4],
+                        position = position
+                    )
+                }
+
+                return null
             }
         }
     }

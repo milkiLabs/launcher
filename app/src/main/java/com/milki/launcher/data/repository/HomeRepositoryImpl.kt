@@ -23,6 +23,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.Flow
@@ -102,7 +103,8 @@ class HomeRepositoryImpl(
      * Add a new item to the pinned items list.
      *
      * If the item ID already exists, the operation is silently ignored.
-     * New items are appended to the end of the list.
+     * The item is placed at the next available grid position automatically.
+     * The grid has 4 columns by default.
      */
     override suspend fun addPinnedItem(item: HomeItem) {
         context.homeDataStore.edit { preferences ->
@@ -113,10 +115,46 @@ class HomeRepositoryImpl(
                 return@edit // Item already pinned, do nothing
             }
 
+            // Find the next available position for the new item
+            // The grid has 4 columns by default
+            val availablePosition = findAvailablePositionInList(currentItems, columns = 4)
+
+            // Place the item at the available position
+            val itemWithPosition = item.withPosition(availablePosition)
+
             // Add new item to the end
-            val updatedItems = currentItems + item
+            val updatedItems = currentItems + itemWithPosition
             serializeItems(updatedItems, preferences)
         }
+    }
+
+    /**
+     * Helper function to find an available position within a list of items.
+     *
+     * This is used internally to find an empty cell when adding new items.
+     * It doesn't require accessing DataStore, making it more efficient.
+     *
+     * @param items The current list of items
+     * @param columns Number of columns in the grid
+     * @return The first available GridPosition
+     */
+    private fun findAvailablePositionInList(items: List<HomeItem>, columns: Int): GridPosition {
+        // Collect all occupied positions
+        val occupiedPositions = items.map { it.position }.toSet()
+
+        // Search for the first available position
+        // Start from row 0, column 0 and search left-to-right, top-to-bottom
+        for (row in 0..100) { // Limit to 100 rows to prevent infinite loop
+            for (column in 0 until columns) {
+                val position = GridPosition(row, column)
+                if (position !in occupiedPositions) {
+                    return position
+                }
+            }
+        }
+
+        // Fallback: return position at the end
+        return GridPosition(100, 0)
     }
 
     // ========================================================================
@@ -162,6 +200,9 @@ class HomeRepositoryImpl(
      *
      * This allows users to rearrange their shortcuts.
      * Invalid indices are silently ignored.
+     *
+     * @deprecated This is kept for backward compatibility but position-based
+     * movement is preferred. Use updateItemPosition instead.
      */
     override suspend fun reorderPinnedItems(fromIndex: Int, toIndex: Int) {
         context.homeDataStore.edit { preferences ->
@@ -172,12 +213,97 @@ class HomeRepositoryImpl(
                 return@edit
             }
 
-            // Move the item
+            // Move the item and update its position
             val item = currentItems.removeAt(fromIndex)
             currentItems.add(toIndex, item)
 
+            // Recalculate all positions based on new order
+            val reorderedItems = currentItems.mapIndexed { index, homeItem ->
+                val newRow = index / 4 // Assuming 4 columns
+                val newCol = index % 4
+                homeItem.withPosition(GridPosition(newRow, newCol))
+            }
+
+            serializeItems(reorderedItems, preferences)
+        }
+    }
+
+    // ========================================================================
+    // UPDATE ITEM POSITION
+    // ========================================================================
+
+    /**
+     * Update the grid position of a specific item.
+     *
+     * This is called when the user drags an icon to a new location.
+     * If the target position is occupied by another item, the items swap positions.
+     *
+     * @param itemId The ID of the item to move
+     * @param newPosition The new grid position (row, column)
+     */
+    override suspend fun updateItemPosition(itemId: String, newPosition: GridPosition) {
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            // Find the item to move
+            val itemIndex = currentItems.indexOfFirst { it.id == itemId }
+            if (itemIndex == -1) return@edit // Item not found
+
+            val itemToMove = currentItems[itemIndex]
+
+            // Check if the target position is occupied
+            val occupantIndex = currentItems.indexOfFirst { 
+                it.id != itemId && it.position == newPosition 
+            }
+
+            if (occupantIndex != -1) {
+                // Position is occupied - swap the items
+                val occupant = currentItems[occupantIndex]
+                // Give the occupant the old position of the moving item
+                currentItems[occupantIndex] = occupant.withPosition(itemToMove.position)
+            }
+
+            // Update the item's position
+            currentItems[itemIndex] = itemToMove.withPosition(newPosition)
+
             serializeItems(currentItems, preferences)
         }
+    }
+
+    // ========================================================================
+    // FIND AVAILABLE POSITION
+    // ========================================================================
+
+    /**
+     * Find the next available grid position for a new item.
+     *
+     * Searches the grid from top-left (0,0) to find the first empty cell.
+     * This is used when pinning a new item to automatically place it.
+     *
+     * @param columns The number of columns in the grid (typically 4)
+     * @param maxRows Maximum rows to search (prevents infinite loop)
+     * @return The first available GridPosition
+     */
+    override suspend fun findAvailablePosition(columns: Int, maxRows: Int): GridPosition {
+        val currentItems = context.homeDataStore.data.map { preferences ->
+            deserializeItems(preferences)
+        }.first()
+
+        // Collect all occupied positions
+        val occupiedPositions = currentItems.map { it.position }.toSet()
+
+        // Search for the first available position
+        for (row in 0 until maxRows) {
+            for (column in 0 until columns) {
+                val position = GridPosition(row, column)
+                if (position !in occupiedPositions) {
+                    return position
+                }
+            }
+        }
+
+        // Fallback: return a position at the end
+        return GridPosition(maxRows, 0)
     }
 
     // ========================================================================
