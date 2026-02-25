@@ -147,6 +147,21 @@ fun AppSearchDialog(
                 )
 
                 /**
+                 * Loading indicator shown when a search is in progress.
+                 * This provides visual feedback to the user that the app is
+                 * actively searching, especially important for slower providers
+                 * like file search. Without this, users might think the app
+                 * is frozen or unresponsive.
+                 */
+                if (uiState.isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.mediumLarge)
+                    )
+                }
+
+                /**
                  * Show either the empty state or results list.
                  * The decision is based on whether results are empty.
                  */
