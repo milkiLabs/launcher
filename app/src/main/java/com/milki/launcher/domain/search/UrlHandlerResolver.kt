@@ -10,33 +10,6 @@
  * 1. Show that YouTube can open this URL (if installed)
  * 2. Still offer browser as a fallback
  * 3. Let the user know what will happen when they tap
- *
- * HOW IT WORKS:
- * 1. Create an ACTION_VIEW intent with the URL
- * 2. Query PackageManager for apps that can handle this intent
- * 3. Resolve the "preferred" app (user's default choice)
- * 4. Return information about the handler apps
- *
- * INTENT RESOLUTION:
- * Android uses a complex algorithm to determine which app opens a URL:
- * - If user set a default: Always use that app
- * - If no default set: System picks based on app capabilities
- * - If multiple apps can handle: System may show chooser
- *
- * BROWSER DETECTION:
- * We detect browsers by checking for apps that handle http/https URLs
- * without specific domain restrictions. Common browsers include:
- * Chrome, Firefox, Edge, Brave, Opera, Samsung Internet, etc.
- *
- * ARCHITECTURE:
- * ┌─────────────────────────────────────────────────────────────┐
- * │                    UrlHandlerResolver                       │
- * │                                                             │
- * │  resolveUrlHandler(url) → UrlHandlerApp?                    │
- * │                                                             │
- * │  Uses: PackageManager.queryIntentActivities()               │
- * │        PackageManager.resolveActivity()                     │
- * └─────────────────────────────────────────────────────────────┘
  */
 
 package com.milki.launcher.domain.search
@@ -70,6 +43,21 @@ class UrlHandlerResolver(
      * Cached for performance since we use it frequently.
      */
     private val packageManager: PackageManager = context.packageManager
+
+    /**
+     * Cache for dynamically discovered browser packages.
+     * 
+     * WHY CACHE THIS:
+     * Querying the OS for browser packages is an expensive operation.
+     * We don't want to do this every time isBrowserPackage() is called.
+     * The list of installed browsers rarely changes, so we cache it
+     * after the first query.
+     * 
+     * NULL vs EMPTY SET:
+     * - null means we haven't queried yet
+     * - empty set means we queried but found no browsers
+     */
+    private var cachedBrowserPackages: Set<String>? = null
 
     /**
      * Resolves the app that will handle a URL when the user taps it.
@@ -234,46 +222,117 @@ class UrlHandlerResolver(
      * Heuristic to detect if a package is a browser.
      *
      * Browsers are apps that can handle any http/https URL.
-     * We maintain a list of known browser packages for detection.
-     *
-     * KNOWN BROWSERS:
-     * - Chrome (com.android.chrome)
-     * - Firefox (org.mozilla.firefox)
-     * - Edge (com.microsoft.emmx)
-     * - Brave (com.brave.browser)
-     * - Opera (com.opera.browser)
-     * - Samsung Internet (com.sec.android.app.sbrowser)
-     * - DuckDuckGo (com.duckduckgo.mobile.android)
+     * 
+     * DETECTION STRATEGY:
+     * This uses a hybrid approach for maximum accuracy:
+     * 
+     * 1. DYNAMIC DETECTION (Primary):
+     *    Query the OS for apps that can handle generic http URLs.
+     *    This catches ANY browser the user has installed, including
+     *    obscure ones from F-Droid like Kiwi, Ghostery, Tor, Waterfox.
+     * 
+     * 2. HARDCODED FALLBACK (Secondary):
+     *    A small list of the most popular browsers as a safety net.
+     *    This handles edge cases where the dynamic query might miss
+     *    a browser due to unusual manifest configurations.
+     * 
+     * WHY THIS APPROACH IS BETTER:
+     * - Adapts to any browser the user installs
+     * - No need to update the list when new browsers appear
+     * - Works with browsers from any app store
+     * - Still has a safety net for edge cases
      *
      * @param packageName The package name to check
      * @return true if this package is likely a browser
      */
     private fun isBrowserPackage(packageName: String): Boolean {
-        val browserPackages = setOf(
+        /**
+         * Step 1: Check our dynamic cache first.
+         * If we haven't queried the OS yet, do so now.
+         */
+        if (cachedBrowserPackages == null) {
+            cachedBrowserPackages = getDynamicBrowserPackages()
+        }
+
+        /**
+         * Step 2: Check if the package is in our dynamically discovered list.
+         * This catches ANY browser installed on the device.
+         */
+        if (cachedBrowserPackages?.contains(packageName) == true) {
+            return true
+        }
+
+        /**
+         * Step 3: Fallback to a small list of known top browsers.
+         * This is a safety net for edge cases where the dynamic query
+         * might miss a browser due to unusual manifest configurations.
+         * 
+         * We only include the most popular browsers here to keep the
+         * list maintainable. The dynamic detection should catch most.
+         */
+        val knownBrowsers = setOf(
             "com.android.chrome",
-            "com.chrome.beta",
-            "com.chrome.dev",
-            "com.chrome.canary",
             "org.mozilla.firefox",
-            "org.mozilla.firefox_beta",
-            "org.mozilla.fenix",
-            "com.microsoft.emmx",
-            "com.brave.browser",
-            "com.opera.browser",
-            "com.opera.mini.native",
-            "com.sec.android.app.sbrowser",
-            "com.duckduckgo.mobile.android",
-            "com.vivaldi.browser",
-            "com.yandex.browser",
-            "com.UCMobile.intl",
-            "com.UCMobile",
-            "mobi.mgeek.TunnyBrowser",
-            "com.browser.provider",
-            "com.htc.sense.browser",
-            "com.android.browser"
+            "com.sec.android.app.sbrowser"
         )
 
-        return packageName in browserPackages
+        return packageName in knownBrowsers
+    }
+
+    /**
+     * Dynamically queries the OS for all installed web browsers.
+     *
+     * HOW THIS WORKS:
+     * We create a generic http intent and ask Android: "Who can handle this?"
+     * Any app that can open a generic website is, by definition, a browser.
+     * 
+     * THE INTENT:
+     * - ACTION_VIEW with a generic http URL (google.com)
+     * - CATEGORY_BROWSABLE indicates this can be opened in a browser
+     * 
+     * MATCH_ALL FLAG:
+     * We use MATCH_ALL to get ALL apps that can handle the URL,
+     * not just the default one.
+     * 
+     * ANDROID VERSION HANDLING:
+     * Android 13 (Tiramisu) introduced a new API with ResolveInfoFlags.
+     * We handle both old and new APIs for compatibility.
+     *
+     * @return Set of package names that can act as web browsers
+     */
+    private fun getDynamicBrowserPackages(): Set<String> {
+        /**
+         * Create a generic http intent.
+         * We use google.com as a simple, always-available test URL.
+         */
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://www.google.com"))
+        
+        /**
+         * CATEGORY_BROWSABLE indicates that the activity can be safely
+         * invoked from a browser. Most browsers declare this category.
+         */
+        browserIntent.addCategory(Intent.CATEGORY_BROWSABLE)
+
+        /**
+         * Query the package manager for all activities that can handle
+         * this intent. The MATCH_ALL flag ensures we get ALL matches,
+         * not just the default/preferred one.
+         */
+        val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.queryIntentActivities(
+                browserIntent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_ALL.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(browserIntent, PackageManager.MATCH_ALL)
+        }
+
+        /**
+         * Extract just the package names from the ResolveInfo objects.
+         * This gives us a set of all browser packages on the device.
+         */
+        return resolveInfos.map { it.activityInfo.packageName }.toSet()
     }
 
     /**
