@@ -8,6 +8,15 @@
  * - Long-press on any item shows this menu
  * - Actions are emitted via LocalSearchActionHandler
  * - No callbacks needed, uses the same action system as tap actions
+ *
+ * ACTION BUILDERS:
+ * This file provides helper functions to create common menu actions:
+ * - createUnpinAction(): For removing items from home screen
+ * - createPinAction(): Toggle action for pin/unpin (used in search results)
+ * - createAppInfoAction(): For opening system app info screen
+ * - createOpenWithAction(): For opening files with specific app
+ *
+ * These helpers ensure consistent labels, icons, and actions across the app.
  */
 
 package com.milki.launcher.ui.components
@@ -81,8 +90,32 @@ fun ItemActionMenu(
     }
 }
 
+// ========================================================================
+// ACTION BUILDER HELPERS
+// ========================================================================
+
 /**
- * Creates pin/unpin action for any item type.
+ * Creates an "Unpin from home" action.
+ *
+ * This action removes an item from the home screen.
+ * Used for items that are already pinned (home screen items).
+ *
+ * @param itemId The ID of the item to unpin
+ * @return MenuAction that will remove the item from home screen
+ */
+fun createUnpinAction(itemId: String): MenuAction {
+    return MenuAction(
+        label = "Unpin from home",
+        icon = Icons.Filled.Delete,
+        action = SearchResultAction.UnpinItem(itemId)
+    )
+}
+
+/**
+ * Creates pin/unpin toggle action for search results.
+ *
+ * This is used in search results where items can be either pinned or not.
+ * For items already on the home screen, use createUnpinAction() instead.
  *
  * @param isPinned Whether the item is currently pinned
  * @param pinAction Action to emit for pinning
@@ -109,7 +142,16 @@ fun createPinAction(
 }
 
 /**
- * Creates app info action.
+ * Creates "App info" action.
+ *
+ * This action opens the system's app info screen where users can:
+ * - View app permissions
+ * - Clear cache/data
+ * - Uninstall the app
+ * - Force stop the app
+ *
+ * @param packageName The package name of the app
+ * @return MenuAction that will open the app info screen
  */
 fun createAppInfoAction(packageName: String): MenuAction {
     return MenuAction(
@@ -120,7 +162,12 @@ fun createAppInfoAction(packageName: String): MenuAction {
 }
 
 /**
- * Creates open with action for files.
+ * Creates "Open with..." action for files.
+ *
+ * This allows users to choose which app to open a file with.
+ * Note: Currently uses a placeholder action that needs proper implementation.
+ *
+ * @return MenuAction for opening file with specific app
  */
 fun createOpenWithAction(): MenuAction {
     return MenuAction(

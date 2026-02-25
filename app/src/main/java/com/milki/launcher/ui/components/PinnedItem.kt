@@ -31,11 +31,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.outlined.PictureAsPdf
@@ -57,7 +55,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -169,32 +166,31 @@ fun PinnedItem(
  * - All items can be unpinned from the home screen
  * - Apps additionally have an "App info" action
  *
+ * This function uses the helper functions from ItemActionMenu.kt to ensure
+ * consistent action creation across the app.
+ *
  * @param item The pinned item to build actions for
  * @return List of MenuAction objects to display in the dropdown menu
  */
 private fun buildPinnedItemActions(item: HomeItem): List<MenuAction> {
     /**
      * Create a mutable list to hold the actions.
-     * We always start with the unpin action.
+     * We use the helper functions from ItemActionMenu.kt to ensure consistency.
      */
     val actions = mutableListOf<MenuAction>()
 
     /**
      * The unpin action removes the item from the home screen.
-     * It uses SearchResultAction.UnpinItem with the item's ID.
+     * We use the createUnpinAction() helper for consistency.
      *
      * This action is available for all item types (apps, files, shortcuts).
      */
-    actions.add(
-        MenuAction(
-            label = "Unpin from home",
-            icon = androidx.compose.material.icons.Icons.Filled.Delete,
-            action = SearchResultAction.UnpinItem(item.id)
-        )
-    )
+    actions.add(createUnpinAction(item.id))
 
     /**
      * For pinned apps, add the "App info" action.
+     * We use the createAppInfoAction() helper for consistency.
+     *
      * This opens the system's app info screen where the user can:
      * - View app permissions
      * - Clear cache/data
@@ -202,13 +198,7 @@ private fun buildPinnedItemActions(item: HomeItem): List<MenuAction> {
      * - Force stop the app
      */
     if (item is HomeItem.PinnedApp) {
-        actions.add(
-            MenuAction(
-                label = "App info",
-                icon = androidx.compose.material.icons.Icons.Filled.Info,
-                action = SearchResultAction.OpenAppInfo(item.packageName)
-            )
-        )
+        actions.add(createAppInfoAction(item.packageName))
     }
 
     return actions
