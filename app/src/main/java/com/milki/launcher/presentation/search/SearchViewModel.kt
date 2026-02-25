@@ -122,12 +122,25 @@ class SearchViewModel(
     /**
      * Observe recent apps from the repository.
      * Updates automatically when recent apps change.
+     * 
+     * RACE CONDITION FIX:
+     * When the search dialog opens, showSearch() triggers a search with empty query.
+     * However, recentApps might not be loaded yet from DataStore. This observer
+     * re-triggers the search whenever recent apps are loaded/updated AND the search
+     * is visible with an empty query, ensuring the UI always shows recent apps.
      */
     private fun observeRecentApps() {
         viewModelScope.launch {
             appRepository.getRecentApps()
                 .collect { recentApps ->
                     updateState { copy(recentApps = recentApps) }
+                    
+                    // If search is visible with empty query, re-trigger search
+                    // to update results with the newly loaded recent apps
+                    val currentState = _uiState.value
+                    if (currentState.isSearchVisible && currentState.query.isBlank()) {
+                        searchQuery.value = ""
+                    }
                 }
         }
     }
