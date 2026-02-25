@@ -125,9 +125,10 @@ class SearchViewModel(
      * 
      * RACE CONDITION FIX:
      * When the search dialog opens, showSearch() triggers a search with empty query.
-     * However, recentApps might not be loaded yet from DataStore. This observer
-     * re-triggers the search whenever recent apps are loaded/updated AND the search
-     * is visible with an empty query, ensuring the UI always shows recent apps.
+     * However, recentApps might not be loaded yet from DataStore. Since StateFlow
+     * doesn't emit duplicate values (searchQuery.value = "" when already "" does nothing),
+     * we directly compute and update results when recentApps are loaded AND the search
+     * is visible with an empty query.
      */
     private fun observeRecentApps() {
         viewModelScope.launch {
@@ -135,11 +136,13 @@ class SearchViewModel(
                 .collect { recentApps ->
                     updateState { copy(recentApps = recentApps) }
                     
-                    // If search is visible with empty query, re-trigger search
-                    // to update results with the newly loaded recent apps
+                    // If search is visible with empty query, directly update results
+                    // We can't rely on searchQuery.value = "" because StateFlow
+                    // doesn't emit duplicate values
                     val currentState = _uiState.value
                     if (currentState.isSearchVisible && currentState.query.isBlank()) {
-                        searchQuery.value = ""
+                        val appResults = recentApps.map { app -> AppSearchResult(appInfo = app) }
+                        updateState { copy(results = appResults) }
                     }
                 }
         }
