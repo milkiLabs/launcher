@@ -221,6 +221,26 @@ fun DraggablePinnedItemsGrid(
         // Using LocalDensity to convert Dp to pixels
         val cellWidthPx = with(LocalDensity.current) { maxWidth.toPx() / config.columns }
         val cellHeightPx = cellWidthPx // Square cells
+        
+        /**
+         * Calculate the maximum drag bounds to prevent dragging beyond visible screen.
+         * The item should stay within the grid bounds during drag:
+         * - Left: column 0 position
+         * - Right: last column position (columns - 1)
+         * - Top: row 0 position
+         * - Bottom: last visible row position (based on available height)
+         * 
+         * This prevents the drag preview from going off-screen and ensures
+         * the item always drops within valid grid bounds.
+         */
+        val gridHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
+        val maxVisibleRows = (gridHeightPx / cellHeightPx).toInt().coerceAtLeast(1)
+        
+        // Maximum drag offset from the starting position
+        // For columns: can drag from column 0 to (columns-1)
+        // For rows: can drag from row 0 to the last visible row
+        val maxDragX = (config.columns - 1) * cellWidthPx
+        val maxDragY = (maxVisibleRows - 1) * cellHeightPx
 
         // Update cell size state for use in gesture handlers
         cellSizePx = IntSize(cellWidthPx.roundToInt(), cellHeightPx.roundToInt())
@@ -312,7 +332,39 @@ fun DraggablePinnedItemsGrid(
                             // Update drag offset as user moves finger
                             if (draggedItem?.id == item.id && !isDragEnding) {
                                 change.consume()
-                                dragOffset += dragAmount
+                                
+                                /**
+                                 * Calculate the new drag offset by adding the drag amount.
+                                 * We need to clamp this to prevent dragging beyond visible bounds.
+                                 */
+                                val newOffsetX = dragOffset.x + dragAmount.x
+                                val newOffsetY = dragOffset.y + dragAmount.y
+                                
+                                /**
+                                 * Calculate bounds based on the starting position.
+                                 * The item can be dragged from its starting column/row to any valid position.
+                                 * 
+                                 * For X (columns):
+                                 * - Minimum: can drag left to column 0, so min offset = -startColumn * cellWidth
+                                 * - Maximum: can drag right to last column, so max offset = (columns-1-startColumn) * cellWidth
+                                 * 
+                                 * For Y (rows):
+                                 * - Minimum: can drag up to row 0, so min offset = -startRow * cellHeight
+                                 * - Maximum: can drag down to last visible row, so max offset = (maxVisibleRows-1-startRow) * cellHeight
+                                 */
+                                val startColumn = dragStartPosition.column
+                                val startRow = dragStartPosition.row
+                                
+                                val minDragX = -startColumn * cellWidthPx
+                                val maxDragX = (config.columns - 1 - startColumn) * cellWidthPx
+                                val minDragY = -startRow * cellHeightPx
+                                val maxDragY = (maxVisibleRows - 1 - startRow) * cellHeightPx
+                                
+                                // Clamp the drag offset to stay within bounds
+                                dragOffset = Offset(
+                                    x = newOffsetX.coerceIn(minDragX, maxDragX),
+                                    y = newOffsetY.coerceIn(minDragY, maxDragY)
+                                )
                             }
                         },
                         onDragEnd = {
