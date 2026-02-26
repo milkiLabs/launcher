@@ -33,7 +33,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * The search logic is implemented in SearchProvider implementations
  * (see domain/repository/SearchProvider.kt interface).
  *
- * @property prefix The prefix that activates this provider (e.g., "s", "c", "y")
+ * @property providerId Unique identifier for this provider.
+ *                       Used to match with prefix configurations.
+ *                       Must match one of the constants in ProviderId.
+ * @property prefix The default prefix that activates this provider (e.g., "s", "c", "y").
+ *                   This is the fallback prefix if no custom configuration exists.
+ *                   NOTE: This is now the DEFAULT prefix - users can configure different ones.
  * @property name Human-readable name for display (e.g., "Web Search", "Contacts")
  * @property description Short description shown in hints
  * @property color Accent color for visual indicators
@@ -42,6 +47,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * Example:
  * ```kotlin
  * val webConfig = SearchProviderConfig(
+ *     providerId = ProviderId.WEB,
  *     prefix = "s",
  *     name = "Web Search",
  *     description = "Search the web",
@@ -51,6 +57,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * ```
  */
 data class SearchProviderConfig(
+    val providerId: String,
     val prefix: String,
     val name: String,
     val description: String,

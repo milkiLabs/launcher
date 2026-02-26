@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+import org.json.JSONObject
+import org.json.JSONArray
 
 /**
  * DataStore instance for settings, scoped to the application context.
@@ -80,6 +82,10 @@ class SettingsRepositoryImpl(
 
         // Hidden Apps
         val HIDDEN_APPS = stringSetPreferencesKey("hidden_apps")
+
+        // Prefix Configuration - stored as JSON string
+        // Format: {"web":["s","ج"],"files":["f","م"],...}
+        val PREFIX_CONFIGURATIONS = stringPreferencesKey("prefix_configurations")
     }
 
     // ========================================================================
@@ -157,6 +163,9 @@ class SettingsRepositoryImpl(
                 ?: defaults.youtubeSearchEnabled,
             filesSearchEnabled = preferences[Keys.FILES_SEARCH_ENABLED] ?: defaults.filesSearchEnabled,
 
+            // Prefix Configuration
+            prefixConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS]),
+
             // Hidden Apps
             hiddenApps = preferences[Keys.HIDDEN_APPS] ?: defaults.hiddenApps
         )
@@ -193,7 +202,97 @@ class SettingsRepositoryImpl(
         preferences[Keys.YOUTUBE_SEARCH_ENABLED] = settings.youtubeSearchEnabled
         preferences[Keys.FILES_SEARCH_ENABLED] = settings.filesSearchEnabled
 
+        // Prefix Configuration
+        preferences[Keys.PREFIX_CONFIGURATIONS] = serializePrefixConfigurations(settings.prefixConfigurations)
+
         // Hidden Apps
         preferences[Keys.HIDDEN_APPS] = settings.hiddenApps
+    }
+
+    // ========================================================================
+    // PREFIX CONFIGURATION SERIALIZATION
+    // ========================================================================
+
+    /**
+     * Parse a JSON string into a ProviderPrefixConfiguration map.
+     *
+     * JSON FORMAT:
+     * ```json
+     * {
+     *   "web": ["s", "ج"],
+     *   "files": ["f", "م"],
+     *   "contacts": ["c"],
+     *   "youtube": ["y", "yt"]
+     * }
+     * ```
+     *
+     * This format was chosen because:
+     * - It's human-readable and easy to debug
+     * - It handles the list of prefixes naturally
+     * - It's more compact than XML
+     * - Android has built-in JSONObject/JSONArray support
+     *
+     * @param json The JSON string to parse, or null
+     * @return Map of provider ID to PrefixConfig, or empty map if parsing fails
+     */
+    private fun parsePrefixConfigurations(json: String?): ProviderPrefixConfiguration {
+        if (json.isNullOrBlank()) {
+            return emptyMap()
+        }
+
+        return try {
+            val jsonObject = JSONObject(json)
+            val result = mutableMapOf<String, PrefixConfig>()
+
+            // Iterate through all keys in the JSON object
+            val keys = jsonObject.keys()
+            while (keys.hasNext()) {
+                val providerId = keys.next()
+                val prefixesArray = jsonObject.getJSONArray(providerId)
+
+                // Convert JSONArray to List<String>
+                val prefixes = mutableListOf<String>()
+                for (i in 0 until prefixesArray.length()) {
+                    prefixes.add(prefixesArray.getString(i))
+                }
+
+                // Only add if there's at least one prefix
+                if (prefixes.isNotEmpty()) {
+                    result[providerId] = PrefixConfig(prefixes)
+                }
+            }
+
+            result
+        } catch (e: Exception) {
+            // If parsing fails for any reason, return empty map
+            // This could happen if the JSON is malformed or if the data type is wrong
+            // Returning empty map is safe - it means default prefixes will be used
+            emptyMap()
+        }
+    }
+
+    /**
+     * Serialize a ProviderPrefixConfiguration map to a JSON string.
+     *
+     * @param config The configuration map to serialize
+     * @return JSON string representation
+     */
+    private fun serializePrefixConfigurations(config: ProviderPrefixConfiguration): String {
+        if (config.isEmpty()) {
+            return "{}"
+        }
+
+        val jsonObject = JSONObject()
+
+        for ((providerId, prefixConfig) in config) {
+            // Create a JSONArray from the prefixes list
+            val prefixesArray = JSONArray()
+            for (prefix in prefixConfig.prefixes) {
+                prefixesArray.put(prefix)
+            }
+            jsonObject.put(providerId, prefixesArray)
+        }
+
+        return jsonObject.toString()
     }
 }

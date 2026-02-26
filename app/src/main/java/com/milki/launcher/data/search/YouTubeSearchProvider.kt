@@ -19,6 +19,7 @@ package com.milki.launcher.data.search
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.YouTubeSearchResult
@@ -35,6 +36,7 @@ import com.milki.launcher.domain.repository.SearchProvider
 class YouTubeSearchProvider : SearchProvider {
 
     override val config: SearchProviderConfig = SearchProviderConfig(
+        providerId = ProviderId.YOUTUBE,
         prefix = "y",
         name = "YouTube",
         description = "Search YouTube videos",

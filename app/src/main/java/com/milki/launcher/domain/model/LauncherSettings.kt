@@ -13,6 +13,17 @@
 package com.milki.launcher.domain.model
 
 /**
+ * ProviderPrefixConfiguration.kt - Type alias for provider prefix settings
+ *
+ * This type alias makes the code more readable by giving a meaningful name
+ * to the Map<String, PrefixConfig> type used throughout the app.
+ *
+ * The map keys are provider IDs (see ProviderId constants).
+ * The map values are PrefixConfig objects containing the list of prefixes.
+ */
+typealias ProviderPrefixConfiguration = Map<String, PrefixConfig>
+
+/**
  * Search engine options for web search provider.
  */
 enum class SearchEngine(val displayName: String, val urlTemplate: String) {
@@ -124,6 +135,38 @@ data class LauncherSettings(
 
     /** Whether files search provider is enabled */
     val filesSearchEnabled: Boolean = true,
+
+    // ========================================================================
+    // PREFIX CONFIGURATION
+    // ========================================================================
+
+    /**
+     * Configurable prefixes for each search provider.
+     *
+     * This map allows users to:
+     * 1. Change the default prefix for a provider (e.g., "sd" instead of "s" for web)
+     * 2. Add multiple prefixes per provider (e.g., "f" and "م" for files)
+     * 3. Use prefixes with multiple characters (e.g., "web", "find")
+     *
+     * The keys are provider IDs (see ProviderId constants):
+     * - "web" -> Web search (Google, DuckDuckGo)
+     * - "contacts" -> Contacts search
+     * - "youtube" -> YouTube search
+     * - "files" -> Files search
+     *
+     * If a provider is not in this map, its default prefix is used.
+     * If the map is empty, all providers use their default prefixes.
+     *
+     * Example:
+     * ```kotlin
+     * mapOf(
+     *     "web" to PrefixConfig(listOf("s", "ج")),      // Arabic 'ج'
+     *     "files" to PrefixConfig(listOf("f", "م", "find")), // Arabic 'م' and "find"
+     *     "youtube" to PrefixConfig(listOf("yt"))       // Custom "yt" prefix
+     * )
+     * ```
+     */
+    val prefixConfigurations: ProviderPrefixConfiguration = emptyMap(),
 
     // ========================================================================
     // HIDDEN APPS

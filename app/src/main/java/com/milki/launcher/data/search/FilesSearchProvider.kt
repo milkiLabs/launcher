@@ -38,6 +38,7 @@ class FilesSearchProvider(
 ) : SearchProvider {
 
     override val config: SearchProviderConfig = SearchProviderConfig(
+        providerId = ProviderId.FILES,
         prefix = "f",
         name = "Files",
         description = "Search all files on device",

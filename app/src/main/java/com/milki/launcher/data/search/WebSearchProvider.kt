@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Search
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.WebSearchResult
+import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.repository.SearchProvider
 
 /**
@@ -38,6 +39,7 @@ import com.milki.launcher.domain.repository.SearchProvider
 class WebSearchProvider : SearchProvider {
 
     override val config: SearchProviderConfig = SearchProviderConfig(
+        providerId = ProviderId.WEB,
         prefix = "s",
         name = "Web Search",
         description = "Search the web",

@@ -42,6 +42,7 @@ class ContactsSearchProvider(
 ) : SearchProvider {
 
     override val config: SearchProviderConfig = SearchProviderConfig(
+        providerId = ProviderId.CONTACTS,
         prefix = "c",
         name = "Contacts",
         description = "Search your contacts",

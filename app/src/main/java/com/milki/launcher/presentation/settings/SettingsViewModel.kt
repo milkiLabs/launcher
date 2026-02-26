@@ -122,6 +122,125 @@ class SettingsViewModel(
     }
 
     // ========================================================================
+    // PREFIX CONFIGURATION
+    // ========================================================================
+
+    /**
+     * Set the prefixes for a specific provider.
+     *
+     * This replaces all existing prefixes for the provider with the new list.
+     * The first prefix in the list is considered the "primary" prefix for display.
+     *
+     * @param providerId The provider ID (e.g., ProviderId.WEB)
+     * @param prefixes List of prefixes to set for this provider
+     */
+    fun setProviderPrefixes(providerId: String, prefixes: List<String>) {
+        updateSetting { settings ->
+            val newConfigurations = settings.prefixConfigurations.toMutableMap()
+            if (prefixes.isNotEmpty()) {
+                newConfigurations[providerId] = PrefixConfig(prefixes)
+            } else {
+                // If no prefixes, remove the configuration (will use default)
+                newConfigurations.remove(providerId)
+            }
+            settings.copy(prefixConfigurations = newConfigurations)
+        }
+    }
+
+    /**
+     * Add a prefix to a provider's existing prefixes.
+     *
+     * If the provider has no existing configuration, this creates one with
+     * the default prefix plus the new prefix.
+     *
+     * @param providerId The provider ID
+     * @param prefix The prefix to add
+     */
+    fun addProviderPrefix(providerId: String, prefix: String) {
+        updateSetting { settings ->
+            val currentPrefixes = settings.prefixConfigurations[providerId]?.prefixes
+                ?: listOf(getDefaultPrefix(providerId))
+
+            // Don't add duplicate prefixes
+            if (prefix in currentPrefixes) {
+                return@updateSetting settings
+            }
+
+            val newConfigurations = settings.prefixConfigurations.toMutableMap()
+            newConfigurations[providerId] = PrefixConfig(currentPrefixes + prefix)
+            settings.copy(prefixConfigurations = newConfigurations)
+        }
+    }
+
+    /**
+     * Remove a prefix from a provider's prefixes.
+     *
+     * If this is the last prefix, the provider will fall back to its default prefix.
+     *
+     * @param providerId The provider ID
+     * @param prefix The prefix to remove
+     */
+    fun removeProviderPrefix(providerId: String, prefix: String) {
+        updateSetting { settings ->
+            val currentPrefixes = settings.prefixConfigurations[providerId]?.prefixes
+                ?: return@updateSetting settings
+
+            val newPrefixes = currentPrefixes - prefix
+
+            val newConfigurations = settings.prefixConfigurations.toMutableMap()
+            if (newPrefixes.isNotEmpty()) {
+                newConfigurations[providerId] = PrefixConfig(newPrefixes)
+            } else {
+                // Remove configuration to fall back to default
+                newConfigurations.remove(providerId)
+            }
+            settings.copy(prefixConfigurations = newConfigurations)
+        }
+    }
+
+    /**
+     * Reset a provider's prefixes to the default.
+     *
+     * This removes any custom configuration for the provider.
+     *
+     * @param providerId The provider ID to reset
+     */
+    fun resetProviderPrefixes(providerId: String) {
+        updateSetting { settings ->
+            val newConfigurations = settings.prefixConfigurations.toMutableMap()
+            newConfigurations.remove(providerId)
+            settings.copy(prefixConfigurations = newConfigurations)
+        }
+    }
+
+    /**
+     * Reset all prefix configurations to defaults.
+     *
+     * This removes all custom prefix configurations.
+     */
+    fun resetAllPrefixConfigurations() {
+        updateSetting { it.copy(prefixConfigurations = emptyMap()) }
+    }
+
+    /**
+     * Get the default prefix for a provider.
+     *
+     * This is used when there's no custom configuration for the provider.
+     *
+     * @param providerId The provider ID
+     * @return The default prefix for this provider
+     */
+    private fun getDefaultPrefix(providerId: String): String {
+        return when (providerId) {
+            ProviderId.WEB -> "s"
+            ProviderId.CONTACTS -> "c"
+            ProviderId.YOUTUBE -> "y"
+            ProviderId.FILES -> "f"
+            else -> ""
+        }
+    }
+
+    // ========================================================================
     // HIDDEN APPS
     // ========================================================================
 

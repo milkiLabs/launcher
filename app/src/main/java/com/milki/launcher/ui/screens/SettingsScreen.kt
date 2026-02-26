@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,6 +52,9 @@ import com.milki.launcher.ui.theme.Spacing
  * @param onSetContactsSearchEnabled Toggle contacts search provider
  * @param onSetYoutubeSearchEnabled Toggle YouTube search provider
  * @param onSetFilesSearchEnabled Toggle files search provider
+ * @param onAddProviderPrefix Add a prefix to a provider
+ * @param onRemoveProviderPrefix Remove a prefix from a provider
+ * @param onResetProviderPrefixes Reset a provider's prefixes to default
  * @param onResetToDefaults Reset all settings to defaults
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,6 +78,9 @@ fun SettingsScreen(
     onSetContactsSearchEnabled: (Boolean) -> Unit,
     onSetYoutubeSearchEnabled: (Boolean) -> Unit,
     onSetFilesSearchEnabled: (Boolean) -> Unit,
+    onAddProviderPrefix: (String, String) -> Unit,
+    onRemoveProviderPrefix: (String, String) -> Unit,
+    onResetProviderPrefixes: (String) -> Unit,
     onResetToDefaults: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -249,6 +256,74 @@ fun SettingsScreen(
                 subtitle = "Search files with prefix \"f\"",
                 checked = settings.filesSearchEnabled,
                 onCheckedChange = onSetFilesSearchEnabled
+            )
+
+            // ================================================================
+            // PREFIX CONFIGURATION
+            // ================================================================
+            SettingsCategory(title = "Prefix Configuration")
+
+            // Helper text for prefix configuration
+            Text(
+                text = "Customize prefixes for each search provider. You can add multiple prefixes per provider (useful for multilingual input).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(
+                    horizontal = Spacing.mediumLarge,
+                    vertical = Spacing.small
+                )
+            )
+
+            // Web Search prefix configuration
+            PrefixSettingItem(
+                providerName = "Web Search",
+                providerIcon = Icons.Default.Search,
+                providerColor = androidx.compose.ui.graphics.Color(0xFF4285F4),
+                defaultPrefix = "s",
+                currentPrefixes = settings.prefixConfigurations[ProviderId.WEB]?.prefixes
+                    ?: listOf("s"),
+                onAddPrefix = { onAddProviderPrefix(ProviderId.WEB, it) },
+                onRemovePrefix = { onRemoveProviderPrefix(ProviderId.WEB, it) },
+                onReset = { onResetProviderPrefixes(ProviderId.WEB) }
+            )
+
+            // Contacts prefix configuration
+            PrefixSettingItem(
+                providerName = "Contacts",
+                providerIcon = Icons.Default.Person,
+                providerColor = androidx.compose.ui.graphics.Color(0xFF34A853),
+                defaultPrefix = "c",
+                currentPrefixes = settings.prefixConfigurations[ProviderId.CONTACTS]?.prefixes
+                    ?: listOf("c"),
+                onAddPrefix = { onAddProviderPrefix(ProviderId.CONTACTS, it) },
+                onRemovePrefix = { onRemoveProviderPrefix(ProviderId.CONTACTS, it) },
+                onReset = { onResetProviderPrefixes(ProviderId.CONTACTS) }
+            )
+
+            // YouTube prefix configuration
+            PrefixSettingItem(
+                providerName = "YouTube",
+                providerIcon = Icons.Default.PlayArrow,
+                providerColor = androidx.compose.ui.graphics.Color(0xFFFF0000),
+                defaultPrefix = "y",
+                currentPrefixes = settings.prefixConfigurations[ProviderId.YOUTUBE]?.prefixes
+                    ?: listOf("y"),
+                onAddPrefix = { onAddProviderPrefix(ProviderId.YOUTUBE, it) },
+                onRemovePrefix = { onRemoveProviderPrefix(ProviderId.YOUTUBE, it) },
+                onReset = { onResetProviderPrefixes(ProviderId.YOUTUBE) }
+            )
+
+            // Files prefix configuration
+            PrefixSettingItem(
+                providerName = "Files",
+                providerIcon = Icons.AutoMirrored.Filled.InsertDriveFile,
+                providerColor = androidx.compose.ui.graphics.Color(0xFFFF9800),
+                defaultPrefix = "f",
+                currentPrefixes = settings.prefixConfigurations[ProviderId.FILES]?.prefixes
+                    ?: listOf("f"),
+                onAddPrefix = { onAddProviderPrefix(ProviderId.FILES, it) },
+                onRemovePrefix = { onRemoveProviderPrefix(ProviderId.FILES, it) },
+                onReset = { onResetProviderPrefixes(ProviderId.FILES) }
             )
 
             // ================================================================

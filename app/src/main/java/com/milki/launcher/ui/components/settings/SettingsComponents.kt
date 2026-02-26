@@ -15,9 +15,13 @@ package com.milki.launcher.ui.components.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -442,5 +446,256 @@ fun ActionSettingItem(
             }
         }
     }
+}
+
+// ============================================================================
+// PREFIX CONFIGURATION COMPONENTS
+// ============================================================================
+
+/**
+ * A setting item for configuring provider prefixes.
+ *
+ * This component displays:
+ * - The provider name and icon
+ * - The current prefixes as chips
+ * - An add button to add new prefixes
+ * - A reset button to restore defaults
+ *
+ * MULTI-PREFIX SUPPORT:
+ * The user can add multiple prefixes for each provider.
+ * Each prefix is displayed as a chip that can be tapped to remove.
+ * This is useful for multilingual users who want both English
+ * and native language prefixes (e.g., "f" and "م" for files).
+ *
+ * @param providerName The display name of the provider (e.g., "Files")
+ * @param providerIcon The icon for the provider
+ * @param providerColor The accent color for the provider
+ * @param defaultPrefix The default prefix for this provider
+ * @param currentPrefixes The currently configured prefixes
+ * @param onAddPrefix Called when user wants to add a new prefix
+ * @param onRemovePrefix Called when user wants to remove a prefix
+ * @param onReset Called when user wants to reset to default
+ */
+@Composable
+fun PrefixSettingItem(
+    providerName: String,
+    providerIcon: ImageVector,
+    providerColor: androidx.compose.ui.graphics.Color,
+    defaultPrefix: String,
+    currentPrefixes: List<String>,
+    onAddPrefix: (String) -> Unit,
+    onRemovePrefix: (String) -> Unit,
+    onReset: () -> Unit
+) {
+    // State for the add prefix dialog
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
+        shape = RoundedCornerShape(CornerRadius.medium),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(Spacing.medium)
+        ) {
+            // Header row with provider name and icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = providerIcon,
+                    contentDescription = null,
+                    tint = providerColor,
+                    modifier = Modifier.size(IconSize.standard)
+                )
+                Spacer(modifier = Modifier.width(Spacing.smallMedium))
+                Text(
+                    text = providerName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                // Reset button - only show if there are custom prefixes
+                if (currentPrefixes != listOf(defaultPrefix) && currentPrefixes.isNotEmpty()) {
+                    TextButton(
+                        onClick = onReset,
+                        contentPadding = PaddingValues(horizontal = Spacing.smallMedium)
+                    ) {
+                        Text(
+                            text = "Reset",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Spacing.smallMedium))
+
+            // Prefix chips row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Display current prefixes as chips
+                LazyRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+                ) {
+                    items(currentPrefixes) { prefix ->
+                        PrefixChip(
+                            text = prefix,
+                            onRemove = { onRemovePrefix(prefix) },
+                            color = providerColor
+                        )
+                    }
+                }
+
+                // Add prefix button
+                IconButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.size(IconSize.appList)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "Add prefix",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    }
+
+    // Add prefix dialog
+    if (showAddDialog) {
+        AddPrefixDialog(
+            existingPrefixes = currentPrefixes,
+            onDismiss = { showAddDialog = false },
+            onAdd = { prefix ->
+                onAddPrefix(prefix)
+                showAddDialog = false
+            }
+        )
+    }
+}
+
+/**
+ * A chip displaying a prefix with a remove button.
+ *
+ * @param text The prefix text to display
+ * @param onRemove Called when the remove button is tapped
+ * @param color The accent color for the chip
+ */
+@Composable
+fun PrefixChip(
+    text: String,
+    onRemove: () -> Unit,
+    color: androidx.compose.ui.graphics.Color
+) {
+    Surface(
+        shape = RoundedCornerShape(CornerRadius.small),
+        color = color.copy(alpha = 0.15f),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = color.copy(alpha = 0.3f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                start = Spacing.smallMedium,
+                end = Spacing.extraSmall,
+                top = Spacing.small,
+                bottom = Spacing.small
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Medium,
+                color = color
+            )
+            Spacer(modifier = Modifier.width(Spacing.extraSmall))
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "Remove",
+                tint = color,
+                modifier = Modifier
+                    .size(IconSize.small)
+                    .clip(RoundedCornerShape(CornerRadius.extraSmall))
+                    .clickable(onClick = onRemove)
+            )
+        }
+    }
+}
+
+/**
+ * Dialog for adding a new prefix.
+ *
+ * @param existingPrefixes List of prefixes that already exist (for validation)
+ * @param onDismiss Called when the dialog is dismissed
+ * @param onAdd Called when the user confirms adding a new prefix
+ */
+@Composable
+fun AddPrefixDialog(
+    existingPrefixes: List<String>,
+    onDismiss: () -> Unit,
+    onAdd: (String) -> Unit
+) {
+    var text by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Prefix") },
+        text = {
+            Column {
+                Text(
+                    text = "Enter a new prefix for this provider. It can be one or more characters.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(Spacing.medium))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { newText ->
+                        text = newText
+                        error = null
+                    },
+                    label = { Text("Prefix") },
+                    placeholder = { Text("e.g., f, م, find") },
+                    isError = error != null,
+                    supportingText = error?.let { { Text(it) } },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val trimmed = text.trim()
+                    when {
+                        trimmed.isEmpty() -> error = "Prefix cannot be empty"
+                        trimmed.contains(" ") -> error = "Prefix cannot contain spaces"
+                        trimmed in existingPrefixes -> error = "This prefix already exists"
+                        else -> onAdd(trimmed)
+                    }
+                }
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 

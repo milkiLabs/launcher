@@ -278,6 +278,7 @@ val appModule = module {
      * DEPENDENCIES:
      * - AppRepository (for installed apps and recent apps)
      * - ContactsRepository (for recent contacts)
+     * - SettingsRepository (for prefix configurations)
      * - SearchProviderRegistry (for search providers)
      * - FilterAppsUseCase (for filtering apps)
      * - UrlHandlerResolver (for URL handling)
@@ -288,6 +289,7 @@ val appModule = module {
         SearchViewModel(
             appRepository = get(),
             contactsRepository = get(),
+            settingsRepository = get(),
             providerRegistry = get(),
             filterAppsUseCase = get(),
             urlHandlerResolver = get()

@@ -22,6 +22,7 @@ import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
@@ -37,14 +38,21 @@ import kotlinx.coroutines.launch
  * - UI input (query changes)
  * - Search providers (app, web, contacts, YouTube)
  * - Data sources (installed apps, recent apps)
+ * - Settings (prefix configurations)
  *
  * ACTION HANDLING:
  * User actions (launching apps, making calls, etc.) are handled by
  * ActionExecutor via LocalSearchActionHandler. This separation keeps
  * the ViewModel focused on state management.
  *
+ * PREFIX CONFIGURATION:
+ * The ViewModel observes settings changes and updates the SearchProviderRegistry
+ * when prefix configurations change. This allows users to customize their
+ * prefixes without restarting the app.
+ *
  * @property appRepository Repository for app data
  * @property contactsRepository Repository for contacts data (for recent contacts)
+ * @property settingsRepository Repository for settings (including prefix configs)
  * @property providerRegistry Registry of search providers
  * @property filterAppsUseCase Use case for filtering apps
  * @property urlHandlerResolver Resolver for URL handler apps
@@ -53,6 +61,7 @@ import kotlinx.coroutines.launch
 class SearchViewModel(
     private val appRepository: AppRepository,
     private val contactsRepository: ContactsRepository,
+    private val settingsRepository: SettingsRepository,
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
     private val urlHandlerResolver: UrlHandlerResolver
@@ -103,6 +112,9 @@ class SearchViewModel(
 
         // Set up reactive search pipeline
         observeSearchQueries()
+
+        // Observe settings and update provider registry when prefix configs change
+        observePrefixConfiguration()
     }
 
     // ========================================================================
@@ -158,6 +170,31 @@ class SearchViewModel(
             .mapLatest { query -> executeSearchLogic(query) }
             .onEach { results -> updateState { copy(results = results, isLoading = false) } }
             .launchIn(viewModelScope)
+    }
+
+    /**
+     * Observe settings for prefix configuration changes.
+     *
+     * When the user changes their prefix settings, the SearchProviderRegistry
+     * needs to be updated to reflect the new prefixes. This method observes
+     * the settings flow and updates the registry whenever prefix configurations change.
+     *
+     * REACTIVE APPROACH:
+     * Instead of manually updating the registry on each settings change,
+     * we use a Flow-based approach that automatically reacts to changes.
+     * This ensures the registry is always in sync with the user's preferences.
+     */
+    private fun observePrefixConfiguration() {
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { it.prefixConfigurations }
+                .distinctUntilChanged()
+                .collect { prefixConfigurations ->
+                    // Update the registry with new prefix configurations
+                    // This rebuilds the prefix-to-provider mappings
+                    providerRegistry.updatePrefixConfigurations(prefixConfigurations)
+                }
+        }
     }
 
     // ========================================================================

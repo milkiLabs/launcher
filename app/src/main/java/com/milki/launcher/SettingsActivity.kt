@@ -62,6 +62,9 @@ class SettingsActivity : ComponentActivity() {
                     onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,
                     onSetYoutubeSearchEnabled = settingsViewModel::setYoutubeSearchEnabled,
                     onSetFilesSearchEnabled = settingsViewModel::setFilesSearchEnabled,
+                    onAddProviderPrefix = settingsViewModel::addProviderPrefix,
+                    onRemoveProviderPrefix = settingsViewModel::removeProviderPrefix,
+                    onResetProviderPrefixes = settingsViewModel::resetProviderPrefixes,
                     onResetToDefaults = settingsViewModel::resetToDefaults
                 )
             }
