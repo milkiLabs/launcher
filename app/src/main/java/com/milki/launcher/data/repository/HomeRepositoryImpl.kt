@@ -237,40 +237,6 @@ class HomeRepositoryImpl(
     }
 
     // ========================================================================
-    // REORDER PINNED ITEMS
-    // ========================================================================
-
-    /**
-     * Move an item from one position to another in the list.
-     *
-     * This allows users to rearrange their shortcuts.
-     * Invalid indices are silently ignored.
-     */
-    override suspend fun reorderPinnedItems(fromIndex: Int, toIndex: Int) {
-        context.homeDataStore.edit { preferences ->
-            val currentItems = deserializeItems(preferences).toMutableList()
-
-            // Validate indices
-            if (fromIndex !in currentItems.indices || toIndex !in currentItems.indices) {
-                return@edit
-            }
-
-            // Move the item and update its position
-            val item = currentItems.removeAt(fromIndex)
-            currentItems.add(toIndex, item)
-
-            // Recalculate all positions based on new order
-            val reorderedItems = currentItems.mapIndexed { index, homeItem ->
-                val newRow = index / 4 // Assuming 4 columns
-                val newCol = index % 4
-                homeItem.withPosition(GridPosition(newRow, newCol))
-            }
-
-            serializeItems(reorderedItems, preferences)
-        }
-    }
-
-    // ========================================================================
     // UPDATE ITEM POSITION
     // ========================================================================
 

@@ -11,10 +11,17 @@
 | Category | Count | Severity Distribution |
 |----------|-------|----------------------|
 | Deprecated Android APIs | 4 | High: 2, Medium: 2 |
-| TODO/FIXME Comments | 5 | Low: 5 |
-| Deprecated Methods (Self-Documented) | 3 | Medium: 3 |
+| TODO/FIXME Comments | 4 | Low: 4 |
+| Deprecated Methods (Self-Documented) | 0 | None |
 | Potentially Outdated Dependencies | 1 | Low: 1 |
-| Unused Code | 1 | Low: 1 |
+| Unused Code | 0 | None |
+
+**Last Updated:** 2026-02-26
+
+### Recently Fixed Issues
+- ✅ Fixed `ActionExecutor.kt` to use version-checked `queryIntentActivities` API
+- ✅ Removed deprecated `reorderPinnedItems()` from `HomeRepository` interface and `HomeRepositoryImpl`
+- ✅ Removed TODO comment in `AppRepository.kt` since `getRecentApps()` is being used
 
 ---
 
@@ -38,18 +45,7 @@ The `queryIntentActivities(intent, 0)` method with Int flags was deprecated in A
 queryIntentActivities(intent, 0)
 ```
 
-**Status:** Properly handled with extension functions in `AppRepositoryImpl.kt` (`queryIntentActivitiesCompat`) and `UrlHandlerResolver.kt` with version checks. However, `ActionExecutor.kt:147-148` uses the deprecated API directly without proper version check.
-
-**Suggested Fix for ActionExecutor.kt:**
-```kotlin
-// Import the compat extension from AppRepositoryImpl or create a local one
-val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-    pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
-} else {
-    @Suppress("DEPRECATION")
-    pm.queryIntentActivities(intent, 0)
-}
-```
+**Status:** ✅ **FIXED** - All affected files now use version-checked APIs with proper `@Suppress` annotations.
 
 ---
 
@@ -187,72 +183,6 @@ Properly handled with version checks that use `MANAGE_EXTERNAL_STORAGE` on API 3
 
 ---
 
-### 2.5 TODO: Question About getRecentApps Necessity
-
-**Severity: LOW**  
-**File:** `app/src/main/java/com/milki/launcher/domain/repository/AppRepository.kt:32`
-
-```kotlin
-* TODO: is this actually needed?
-```
-
-**Context:** Developer question about whether the Flow-based `getRecentApps()` is necessary.
-
-**Status:** This is used extensively in `SearchViewModel` and `FilterAppsUseCase`, so it is needed. The TODO should be removed.
-
----
-
-## 3. Deprecated Methods (Self-Documented)
-
-### 3.1 HomeViewModel.reorderItems()
-
-**Severity: MEDIUM**  
-**File:** `app/src/main/java/com/milki/launcher/presentation/home/HomeViewModel.kt:90-96`
-
-```kotlin
-/**
- * @deprecated Use moveItemToPosition instead for grid-based positioning
- */
-fun reorderItems(fromIndex: Int, toIndex: Int) {
-    viewModelScope.launch {
-        homeRepository.reorderPinnedItems(fromIndex, toIndex)
-    }
-}
-```
-
-**Issue:** This method is deprecated but still exposed. It's not being used anywhere in the codebase (dead code).
-
-**Suggested Fix:** Remove this method entirely since `moveItemToPosition` is the preferred approach.
-
----
-
-### 3.2 HomeRepository.reorderPinnedItems()
-
-**Severity: MEDIUM**  
-**File:** `app/src/main/java/com/milki/launcher/domain/repository/HomeRepository.kt:76-78`
-
-```kotlin
-/**
- * @deprecated Use updateItemPosition instead for grid-based positioning
- */
-suspend fun reorderPinnedItems(fromIndex: Int, toIndex: Int)
-```
-
-**Issue:** This interface method is deprecated. It's implemented in `HomeRepositoryImpl` but only called from the deprecated `HomeViewModel.reorderItems()`.
-
-**Suggested Fix:** Remove from both interface and implementation after removing `HomeViewModel.reorderItems()`.
-
----
-
-### 3.3 HomeRepositoryImpl.reorderPinnedItems()
-
-**Severity: MEDIUM**  
-**File:** `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:204-228`
-
-**Issue:** Implementation of deprecated method. Can be removed along with interface method.
-
----
-
 ## 4. Potentially Outdated Dependencies
 
 ### 4.1 Coil 2.7.0
@@ -279,37 +209,19 @@ coil = "2.7.0"
 
 ---
 
-## 5. Unused/Dead Code
-
-### 5.1 HomeViewModel.reorderItems() - Unused Method
-
-**Severity: LOW**  
-**File:** `app/src/main/java/com/milki/launcher/presentation/home/HomeViewModel.kt:92-96`
-
-**Issue:** This deprecated method is not called anywhere in the codebase.
-
-**Search Results:**
-- Not called in MainActivity
-- Not called in any composables
-- Replaced by `moveItemToPosition()`
-
-**Suggested Fix:** Remove this method and its associated repository methods.
-
----
-
-## 6. Unused Imports (Potential)
+## 5. Unused Imports (Potential)
 
 No obvious unused imports were found during the audit. The codebase appears to be well-maintained in this regard.
 
 ---
 
-## 7. Commented-Out Code
+## 6. Commented-Out Code
 
 No significant blocks of commented-out code were found. The codebase maintains clean version control practices.
 
 ---
 
-## 8. Build Configuration Issues
+## 7. Build Configuration Issues
 
 ### 8.1 Java Version Compatibility
 
@@ -326,15 +238,12 @@ compileOptions {
 
 ---
 
-## 9. Action Items Summary
+## 8. Action Items Summary
 
-### Immediate (High Priority)
-1. Fix `ActionExecutor.kt:147-148` to use version-checked `queryIntentActivities` API
-
-### Short Term (Medium Priority)
-1. Remove deprecated `reorderItems()` from `HomeViewModel`
-2. Remove deprecated `reorderPinnedItems()` from `HomeRepository` interface and `HomeRepositoryImpl`
-3. Remove the TODO comment in `AppRepository.kt:32` since `getRecentApps()` is being used
+### Completed
+- ✅ Fixed `ActionExecutor.kt` to use version-checked `queryIntentActivities` API
+- ✅ Removed deprecated `reorderPinnedItems()` from `HomeRepository` interface and `HomeRepositoryImpl`
+- ✅ Removed TODO comment in `AppRepository.kt` since `getRecentApps()` is being used
 
 ### Long Term (Low Priority)
 1. Implement proper shortcut icon loading using LauncherApps API

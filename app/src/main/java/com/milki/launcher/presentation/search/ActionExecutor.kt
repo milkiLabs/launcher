@@ -17,7 +17,9 @@ package com.milki.launcher.presentation.search
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
@@ -145,7 +147,12 @@ class ActionExecutor(
         }
         
         val pm = context.packageManager
-        val resolved = pm.queryIntentActivities(intent, 0)
+        val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(intent, 0)
+        }
         val youtubePackage = resolved.firstOrNull {
             it.activityInfo.packageName.contains("youtube", ignoreCase = true)
         }?.activityInfo?.packageName

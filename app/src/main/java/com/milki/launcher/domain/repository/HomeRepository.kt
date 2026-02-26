@@ -66,18 +66,6 @@ interface HomeRepository {
     suspend fun isPinned(id: String): Boolean
 
     /**
-     * Reorder pinned items.
-     *
-     * Moves an item from one position to another.
-     * This allows users to arrange their shortcuts.
-     *
-     * @param fromIndex Current position of the item
-     * @param toIndex Target position for the item
-     * @deprecated Use updateItemPosition instead for grid-based positioning
-     */
-    suspend fun reorderPinnedItems(fromIndex: Int, toIndex: Int)
-
-    /**
      * Update the grid position of a pinned item.
      *
      * This is used when the user drags an icon to a new location on the grid.
