@@ -96,17 +96,20 @@ fun FileDocument.matchesQuery(query: String): Boolean {
 }
 
 /**
- * Extension function to get a human-readable file size.
+ * Extension property to get a human-readable file size.
+ * Uses lazy initialization to avoid recalculating the formatted string on every access.
  * Converts bytes to KB, MB, or GB as appropriate.
+ * 
+ * Since FileDocument is immutable (all val properties), caching is safe.
  * 
  * @return Formatted file size string (e.g., "1.5 MB")
  */
-fun FileDocument.formattedSize(): String {
+val FileDocument.formattedSize: String by lazy {
     val kb = 1024.0
     val mb = kb * 1024
     val gb = mb * 1024
     
-    return when {
+    when {
         size >= gb -> String.format("%.1f GB", size / gb)
         size >= mb -> String.format("%.1f MB", size / mb)
         size >= kb -> String.format("%.1f KB", size / kb)
