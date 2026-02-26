@@ -104,18 +104,19 @@ fun FileDocument.matchesQuery(query: String): Boolean {
  * 
  * @return Formatted file size string (e.g., "1.5 MB")
  */
-val FileDocument.formattedSize: String by lazy {
-    val kb = 1024.0
-    val mb = kb * 1024
-    val gb = mb * 1024
-    
-    when {
-        size >= gb -> String.format("%.1f GB", size / gb)
-        size >= mb -> String.format("%.1f MB", size / mb)
-        size >= kb -> String.format("%.1f KB", size / kb)
-        else -> "$size B"
+val FileDocument.formattedSize: String
+    get() {
+        val kb = 1024.0
+        val mb = kb * 1024
+        val gb = mb * 1024
+        
+        return when {
+            size >= gb -> String.format("%.1f GB", size / gb)
+            size >= mb -> String.format("%.1f MB", size / mb)
+            size >= kb -> String.format("%.1f KB", size / kb)
+            else -> "$size B"
+        }
     }
-}
 
 /**
  * Extension function to get the file extension from the name.

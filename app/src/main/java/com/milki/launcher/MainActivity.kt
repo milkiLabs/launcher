@@ -26,6 +26,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.handlers.PermissionHandler
@@ -165,7 +166,7 @@ class MainActivity : ComponentActivity() {
         permissionHandler.setup()
         
         // Initialize action executor
-        actionExecutor = ActionExecutor(this, contactsRepository, homeRepository)
+        actionExecutor = ActionExecutor(this, contactsRepository, homeRepository, lifecycleScope)
         
         // Set up permission request callback
         actionExecutor.onRequestPermission = { permission ->

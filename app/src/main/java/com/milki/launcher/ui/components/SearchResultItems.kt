@@ -498,7 +498,7 @@ fun FileDocumentSearchResultItem(
         }
         if (file.size > 0) {
             if (isNotEmpty()) append(" • ")
-            append(file.formattedSize())
+            append(file.formattedSize)
         }
     }.takeIf { it.isNotEmpty() }
 

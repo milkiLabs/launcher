@@ -27,8 +27,6 @@ import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.util.openFile
 import com.milki.launcher.util.launchApp
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
@@ -45,13 +43,16 @@ data class PendingPermissionAction(
  * @property context Android context for starting activities
  * @property contactsRepository Repository for contacts
  * @property homeRepository Repository for pinned items
+ * @property scope CoroutineScope tied to the caller's lifecycle (e.g., Activity's lifecycleScope).
+ *                 This ensures all coroutines are cancelled when the lifecycle owner is destroyed,
+ *                 preventing memory leaks and ensuring proper structured concurrency.
  */
 class ActionExecutor(
     private val context: Context,
     private val contactsRepository: ContactsRepository,
-    private val homeRepository: HomeRepository
+    private val homeRepository: HomeRepository,
+    private val scope: CoroutineScope
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     var pendingAction: PendingPermissionAction? = null
         private set
