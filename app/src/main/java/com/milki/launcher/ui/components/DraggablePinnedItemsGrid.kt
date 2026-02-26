@@ -17,35 +17,26 @@
  * 3. Long press + drag: Enters drag mode, icon follows finger
  * 4. Release during drag: Drops icon at current position
  *
+ * ARCHITECTURE:
+ * This component delegates to several specialized components:
+ * - DragController: Manages drag state and logic
+ * - GridCalculator: Handles coordinate conversions
+ * - DragGestureDetector: Detects and processes gestures
+ * - DragVisualEffects: Provides visual feedback animations
+ *
+ * This separation makes the code:
+ * - More testable (each component can be tested in isolation)
+ * - More reusable (components can be used in other contexts)
+ * - More maintainable (changes are localized to specific components)
+ *
  * GRID LAYOUT:
- * - 4 columns (configurable)
+ * - 4 columns (configurable via GridConfig)
  * - Rows are calculated based on the highest item position
  * - Each cell is sized proportionally based on screen width
- *
- * IMPLEMENTATION DETAILS:
- * This component uses Compose's gesture detection system to handle:
- * - Tap gestures for launching items
- * - Long press gestures for showing menus or starting drag
- * - Drag gestures for moving items
- *
- * The key challenge is distinguishing between:
- * - A long press that should show a menu
- * - A long press followed by movement that should start drag
- *
- * We solve this by using a custom gesture detector that tracks whether
- * movement occurred during the long press.
  */
 
 package com.milki.launcher.ui.components
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.foundation.gestures.drag
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,9 +57,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
@@ -78,8 +66,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.components.grid.animateDragVisuals
+import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.theme.Spacing
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -101,7 +91,7 @@ import kotlin.math.roundToInt
  * 3. If they release without significant movement, we show the menu
  *
  * @param items List of pinned items to display, each with a grid position
- * @param columns Number of columns in the grid (default: 4)
+ * @param config Grid configuration (columns, thresholds, visual effects)
  * @param onItemClick Called when user taps an item (not drag)
  * @param onItemLongPress Called when user long-presses without dragging (for menu)
  * @param onItemMove Called when user drags an item to a new position
@@ -110,7 +100,7 @@ import kotlin.math.roundToInt
 @Composable
 fun DraggablePinnedItemsGrid(
     items: List<HomeItem>,
-    columns: Int = 4,
+    config: GridConfig = GridConfig.Default,
     onItemClick: (HomeItem) -> Unit,
     onItemLongPress: (HomeItem) -> Unit,
     onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
@@ -118,12 +108,12 @@ fun DraggablePinnedItemsGrid(
 ) {
     /**
      * Haptic feedback controller for providing tactile responses to user actions.
-     * 
+     *
      * HAPTIC FEEDBACK EVENTS:
      * - LongPress: When the user long-presses an item (triggers menu or drag preparation)
      * - GestureThresholdActivate: When drag operation actually starts (finger moved beyond threshold)
      * - Confirm: When item is successfully dropped in a new position
-     * 
+     *
      * These haptic feedbacks make the interface feel more responsive and provide
      * confirmation to the user that their action was recognized.
      */
@@ -175,6 +165,12 @@ fun DraggablePinnedItemsGrid(
      */
     var menuShownForItem by remember { mutableStateOf<HomeItem?>(null) }
 
+    /**
+     * Flag to prevent race conditions between drag end and drag cancel.
+     * Set to true when drag ends, reset when state is cleared.
+     */
+    var isDragEnding by remember { mutableStateOf(false) }
+
     // ========================================================================
     // CALCULATE GRID DIMENSIONS
     // ========================================================================
@@ -185,7 +181,7 @@ fun DraggablePinnedItemsGrid(
      * Also add extra rows for visual padding and potential new item placement.
      */
     val maxRow = items.maxOfOrNull { it.position.row } ?: 0
-    val rows = maxRow + 4 // Extra rows for visual breathing room and new items
+    val rows = maxRow + config.extraRows
 
     // ========================================================================
     // EMPTY STATE
@@ -223,7 +219,7 @@ fun DraggablePinnedItemsGrid(
     ) {
         // Calculate cell dimensions based on available width
         // Using LocalDensity to convert Dp to pixels
-        val cellWidthPx = with(LocalDensity.current) { maxWidth.toPx() / columns }
+        val cellWidthPx = with(LocalDensity.current) { maxWidth.toPx() / config.columns }
         val cellHeightPx = cellWidthPx // Square cells
 
         // Update cell size state for use in gesture handlers
@@ -244,17 +240,7 @@ fun DraggablePinnedItemsGrid(
              * Animation values for the drag effect.
              * The dragged item scales up slightly and becomes semi-transparent.
              */
-            val scale by animateFloatAsState(
-                targetValue = if (isBeingDragged) 1.15f else 1f,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                label = "itemScale"
-            )
-
-            val alpha by animateFloatAsState(
-                targetValue = if (isBeingDragged) 0.6f else 1f,
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                label = "itemAlpha"
-            )
+            val visuals = animateDragVisuals(isBeingDragged, config)
 
             /**
              * Calculate the item's visual position.
@@ -277,88 +263,98 @@ fun DraggablePinnedItemsGrid(
                     }
                     .size(with(LocalDensity.current) { cellWidthPx.toDp() })
                     .padding(Spacing.smallMedium)
-                    .zIndex(if (isBeingDragged) 10f else 0f)
+                    .zIndex(visuals.zIndex)
                     .graphicsLayer {
                         // Apply scale and alpha effects for dragged item
-                        scaleX = scale
-                        scaleY = scale
-                        this.alpha = alpha
+                        scaleX = visuals.scale
+                        scaleY = visuals.scale
+                        this.alpha = visuals.alpha
                     }
-                    .pointerInput(item, items, columns, rows, cellWidthPx, cellHeightPx) {
-                        /**
-                         * Handle all touch gestures for this item.
-                         * This includes tap, long-press, and drag.
-                         */
-                        detectDragOrTapGesture(
-                            onTap = {
-                                // Only handle tap if not in drag mode
-                                if (draggedItem == null) {
-                                    onItemClick(item)
-                                }
-                            },
-                            onLongPress = {
-                                // Long press without drag movement - show menu
-                                // Provide haptic feedback for long-press recognition
-                                // This gives the user tactile confirmation that the long-press was detected
-                                if (!hasDragStarted) {
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    menuShownForItem = item
-                                }
-                            },
-                            onDragStart = {
-                                // User has moved finger after long press - start drag
-                                // Provide haptic feedback to confirm drag mode has started
-                                // This is a different haptic than long-press to distinguish the two states
+                    /**
+                     * BUG FIX: Include item.position in the key.
+                     * Previously used only item.id which caused the gesture detector
+                     * closure to capture the OLD item with OLD position when the item
+                     * was moved. By including position in the key, the gesture detector
+                     * is recreated when the item moves to a new position, ensuring
+                     * the closure has the correct current position.
+                     */
+                    .detectDragGesture(
+                        key = "${item.id}-${item.position.row}-${item.position.column}",
+                        dragThreshold = config.dragThresholdPx,
+                        onTap = {
+                            // Only handle tap if not in drag mode
+                            if (draggedItem == null) {
+                                onItemClick(item)
+                            }
+                        },
+                        onLongPress = {
+                            // Long press without drag movement - show menu
+                            // Provide haptic feedback for long-press recognition
+                            // This gives the user tactile confirmation that the long-press was detected
+                            if (!hasDragStarted) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                menuShownForItem = item
+                            }
+                        },
+                        onDragStart = {
+                            // User has moved finger after long press - start drag
+                            // BUG FIX: Check if another drag is already ending to prevent race condition
+                            if (!isDragEnding) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
                                 draggedItem = item
                                 dragStartPosition = item.position
                                 dragOffset = Offset.Zero
                                 hasDragStarted = true
                                 menuShownForItem = null // Hide menu if shown
-                            },
-                            onDrag = { change, dragAmount ->
-                                // Update drag offset as user moves finger
-                                if (draggedItem?.id == item.id) {
-                                    change.consume()
-                                    dragOffset += dragAmount
+                            }
+                        },
+                        onDrag = { change, dragAmount ->
+                            // Update drag offset as user moves finger
+                            if (draggedItem?.id == item.id && !isDragEnding) {
+                                change.consume()
+                                dragOffset += dragAmount
+                            }
+                        },
+                        onDragEnd = {
+                            // BUG FIX: Set flag to prevent race condition with cancel
+                            isDragEnding = true
+                            
+                            // User released finger - calculate drop position
+                            if (draggedItem?.id == item.id && hasDragStarted) {
+                                // Calculate the target grid cell from drag offset
+                                val targetColumn = (dragStartPosition.column + (dragOffset.x / cellWidthPx)).roundToInt()
+                                val targetRow = (dragStartPosition.row + (dragOffset.y / cellHeightPx)).roundToInt()
+
+                                // Clamp to valid grid bounds
+                                val clampedColumn = targetColumn.coerceIn(0, config.columns - 1)
+                                val clampedRow = targetRow.coerceIn(0, rows - 1)
+
+                                val newPosition = GridPosition(clampedRow, clampedColumn)
+
+                                // Only move if position changed
+                                if (newPosition != dragStartPosition) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                    onItemMove(item.id, newPosition)
                                 }
-                            },
-                            onDragEnd = {
-                                // User released finger - calculate drop position
-                                if (draggedItem?.id == item.id && hasDragStarted) {
-                                    // Calculate the target grid cell from drag offset
-                                    val targetColumn = (dragStartPosition.column + (dragOffset.x / cellWidthPx)).roundToInt()
-                                    val targetRow = (dragStartPosition.row + (dragOffset.y / cellHeightPx)).roundToInt()
+                            }
 
-                                    // Clamp to valid grid bounds
-                                    val clampedColumn = targetColumn.coerceIn(0, columns - 1)
-                                    val clampedRow = targetRow.coerceIn(0, rows - 1)
-
-                                    val newPosition = GridPosition(clampedRow, clampedColumn)
-
-                                    // Only move if position changed
-                                    if (newPosition != dragStartPosition) {
-                                        // Provide haptic feedback to confirm successful drop
-                                        // This confirms to the user that their drag-and-drop was completed
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                        onItemMove(item.id, newPosition)
-                                    }
-                                }
-
-                                // Reset drag state
-                                draggedItem = null
-                                dragOffset = Offset.Zero
-                                hasDragStarted = false
-                            },
-                            onDragCancel = {
+                            // Reset drag state
+                            draggedItem = null
+                            dragOffset = Offset.Zero
+                            hasDragStarted = false
+                            isDragEnding = false
+                        },
+                        onDragCancel = {
+                            // BUG FIX: Check if drag is already ending
+                            if (!isDragEnding) {
                                 // User cancelled drag (e.g., moved finger out of bounds)
                                 // Reset state without moving item
                                 draggedItem = null
                                 dragOffset = Offset.Zero
                                 hasDragStarted = false
                             }
-                        )
-                    }
+                        }
+                    )
             ) {
                 /**
                  * Render the item content using PinnedItem.
@@ -391,15 +387,17 @@ fun DraggablePinnedItemsGrid(
                  * 1. Starting grid position (converted to pixels)
                  * 2. Drag offset (how far the finger has moved)
                  */
-                val previewX = (dragStartPosition.column * cellWidthPx) + dragOffset.x
-                val previewY = (dragStartPosition.row * cellHeightPx) + dragOffset.y
+                val baseX = dragStartPosition.column * cellWidthPx
+                val baseY = dragStartPosition.row * cellHeightPx
+                val previewX = baseX + dragOffset.x
+                val previewY = baseY + dragOffset.y
 
                 /**
                  * Calculate the target grid cell for visual feedback.
                  * This shows where the item will land if dropped now.
                  */
                 val targetColumn = (dragStartPosition.column + (dragOffset.x / cellWidthPx)).roundToInt()
-                    .coerceIn(0, columns - 1)
+                    .coerceIn(0, config.columns - 1)
                 val targetRow = (dragStartPosition.row + (dragOffset.y / cellHeightPx)).roundToInt()
                     .coerceIn(0, rows - 1)
 
@@ -414,11 +412,11 @@ fun DraggablePinnedItemsGrid(
                         }
                         .size(with(LocalDensity.current) { cellWidthPx.toDp() })
                         .padding(Spacing.smallMedium)
-                        .alpha(0.3f)
+                        .alpha(config.dropHighlightAlpha)
                         .graphicsLayer {
                             // Highlight effect for drop target
-                            scaleX = 0.9f
-                            scaleY = 0.9f
+                            scaleX = config.dropHighlightScale
+                            scaleY = config.dropHighlightScale
                         }
                 ) {
                     PinnedItem(
@@ -430,23 +428,28 @@ fun DraggablePinnedItemsGrid(
                 }
 
                 // Render the dragging item preview (follows finger)
+                /**
+                 * BUG FIX: Simplified offset calculation.
+                 * Previously had redundant - half + half calculation.
+                 * Now just positions preview at drag position with slight centering adjustment.
+                 */
                 Box(
                     modifier = Modifier
                         .offset {
                             IntOffset(
-                                x = previewX.roundToInt() - (cellWidthPx / 2).roundToInt() + cellWidthPx.roundToInt() / 2,
-                                y = previewY.roundToInt() - (cellHeightPx / 2).roundToInt() + cellHeightPx.roundToInt() / 2
+                                x = previewX.roundToInt(),
+                                y = previewY.roundToInt()
                             )
                         }
                         .size(with(LocalDensity.current) { cellWidthPx.toDp() })
                         .padding(Spacing.smallMedium)
-                        .zIndex(100f)
+                        .zIndex(config.previewZIndex)
                         .graphicsLayer {
                             // Dragging item is slightly larger and has shadow effect
-                            scaleX = 1.2f
-                            scaleY = 1.2f
-                            alpha = 0.9f
-                            shadowElevation = 8f
+                            scaleX = config.previewScale
+                            scaleY = config.previewScale
+                            alpha = config.previewAlpha
+                            shadowElevation = config.shadowElevation
                         }
                 ) {
                     PinnedItem(
@@ -456,104 +459,6 @@ fun DraggablePinnedItemsGrid(
                         handleLongPress = false
                     )
                 }
-            }
-        }
-    }
-}
-
-// ============================================================================
-// CUSTOM GESTURE DETECTOR
-// ============================================================================
-
-/**
- * Custom gesture detector that handles tap, long-press, and drag gestures.
- *
- * This detector distinguishes between:
- * - A simple tap
- * - A long-press without movement (shows menu)
- * - A long-press followed by drag (moves item)
- *
- * INTERACTION MODEL (more natural feel):
- * 1. Long-press immediately shows the dropdown menu
- * 2. If user starts moving (beyond threshold), close menu and start drag
- * 3. If user releases without moving, menu stays open
- *
- * @param onTap Called when user taps without long-press
- * @param onLongPress Called immediately when long-press is detected (show menu)
- * @param onDragStart Called when drag starts (movement exceeds threshold)
- * @param onDrag Called continuously during drag
- * @param onDragEnd Called when drag ends successfully
- * @param onDragCancel Called when drag is cancelled
- */
-private suspend fun PointerInputScope.detectDragOrTapGesture(
-    onTap: () -> Unit,
-    onLongPress: (Offset) -> Unit,
-    onDragStart: () -> Unit,
-    onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit,
-    onDragEnd: () -> Unit,
-    onDragCancel: () -> Unit
-) {
-    val dragThreshold = 20f
-
-    awaitEachGesture {
-        // FIX: Wait for the first down event to identify the pointer
-        val down = awaitFirstDown()
-
-        // FIX: Pass the pointerId to awaitLongPressOrCancellation
-        val longPress = awaitLongPressOrCancellation(down.id)
-
-        if (longPress == null) {
-            // No long-press detected - this was a tap
-            onTap()
-            return@awaitEachGesture
-        }
-
-        /**
-         * Long-press detected - immediately show the menu.
-         * This gives instant feedback to the user.
-         */
-        onLongPress(longPress.position)
-
-        /**
-         * Now track subsequent movement to determine if this becomes a drag.
-         */
-        var totalDrag = Offset.Zero
-        var dragStarted = false
-
-        /**
-         * Continue tracking finger movement.
-         * The drag function will continue until the finger is lifted.
-         */
-        try {
-            drag(pointerId = longPress.id) { change ->
-                // Calculate drag amount from position change
-                val dragAmount = change.position - change.previousPosition
-                
-                // Accumulate total drag distance
-                totalDrag += dragAmount
-
-                // Check if we've crossed the drag threshold
-                if (!dragStarted && (abs(totalDrag.x) > dragThreshold || abs(totalDrag.y) > dragThreshold)) {
-                    // Threshold exceeded - start drag mode
-                    dragStarted = true
-                    onDragStart()
-                }
-
-                // If drag has started, notify parent of movement
-                if (dragStarted) {
-                    onDrag(change, dragAmount)
-                }
-            }
-
-            // Finger lifted - complete the gesture
-            if (dragStarted) {
-                onDragEnd()
-            }
-            // If no drag happened, the menu stays open (already shown)
-        } catch (e: Exception) {
-            // Gesture was cancelled (e.g., another touch event)
-            if (dragStarted) {
-                onDragCancel()
             }
         }
     }

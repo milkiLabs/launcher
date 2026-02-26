@@ -55,6 +55,9 @@ import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.theme.Spacing
+import com.milki.launcher.util.openFile
+import com.milki.launcher.util.launchPinnedApp
+import com.milki.launcher.util.launchAppShortcut
 
 /**
  * LauncherScreen - The main home screen of the launcher.
@@ -104,7 +107,6 @@ fun LauncherScreen(
     ) {
         DraggablePinnedItemsGrid(
             items = homeUiState.pinnedItems,
-            columns = 4,
             onItemClick = onPinnedItemClick,
             onItemLongPress = onPinnedItemLongPress,
             onItemMove = onPinnedItemMove,
@@ -144,11 +146,7 @@ fun openPinnedItem(item: HomeItem, context: Context) {
  * Launches a pinned app.
  */
 private fun openPinnedApp(item: HomeItem.PinnedApp, context: Context) {
-    val intent = context.packageManager.getLaunchIntentForPackage(item.packageName)
-    if (intent != null) {
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-    } else {
+    if (!launchPinnedApp(context, item)) {
         Toast.makeText(context, "App not found: ${item.label}", Toast.LENGTH_SHORT).show()
     }
 }
@@ -158,21 +156,7 @@ private fun openPinnedApp(item: HomeItem.PinnedApp, context: Context) {
  */
 private fun openPinnedFile(item: HomeItem.PinnedFile, context: Context) {
     val uri = Uri.parse(item.uri)
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(uri, item.mimeType.ifBlank { "application/octet-stream" })
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    val chooserIntent = Intent.createChooser(intent, "Open ${item.name}").apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    try {
-        context.startActivity(chooserIntent)
-    } catch (e: Exception) {
-        Toast.makeText(context, "No app found to open ${item.name}", Toast.LENGTH_SHORT).show()
-    }
+    openFile(context, uri, item.mimeType, item.name)
 }
 
 /**
@@ -182,12 +166,7 @@ private fun openPinnedFile(item: HomeItem.PinnedFile, context: Context) {
  * TODO: Implement using LauncherApps.pinShortcut() API
  */
 private fun openAppShortcut(item: HomeItem.AppShortcut, context: Context) {
-    // For now, just open the parent app
-    val intent = context.packageManager.getLaunchIntentForPackage(item.packageName)
-    if (intent != null) {
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-    } else {
+    if (!launchAppShortcut(context, item)) {
         Toast.makeText(context, "App not found: ${item.shortLabel}", Toast.LENGTH_SHORT).show()
     }
 }

@@ -2,7 +2,7 @@
 
 **Project:** Milki Launcher  
 **Date:** 2026-02-25  
-**Reviewer:** Architecture Audit  
+**Reviewer:** Architecture Audit
 
 ---
 
@@ -21,16 +21,20 @@ The Milki Launcher codebase demonstrates a generally solid architecture with goo
 **Severity:** CRITICAL
 
 **Problem:**
+
 ```kotlin
 private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ```
+
 ActionExecutor creates its own `CoroutineScope` with a `SupervisorJob()` that is never cancelled. This creates a potential memory leak because:
+
 1. The scope lives independently of any lifecycle
 2. If the Activity is destroyed while a coroutine is running, the coroutine continues
 3. The scope holds a reference to the containing class
 
 **Suggested Fix:**
 Pass a `CoroutineScope` or `LifecycleScope` from the Activity/ViewModel:
+
 ```kotlin
 class ActionExecutor(
     private val context: Context,
@@ -53,14 +57,17 @@ Or use `lifecycleScope` from the Activity when creating ActionExecutor.
 **Severity:** HIGH
 
 **Problem:**
+
 ```kotlin
 private val contactsRepository: ContactsRepository by inject()
 private val homeRepository: HomeRepository by inject()
 ```
+
 The Activity directly injects repositories and passes them to `ActionExecutor`. This violates the MVVM pattern where Activities should only communicate with ViewModels, not directly with the data layer.
 
 **Suggested Fix:**
 Move action execution logic into a ViewModel or UseCase, or have ActionExecutor receive only what it needs (Context) and use the action handler pattern more fully:
+
 ```kotlin
 // ActionExecutor should receive callbacks, not repositories
 class ActionExecutor(
@@ -79,15 +86,18 @@ class ActionExecutor(
 **Severity:** HIGH
 
 **Problem:**
+
 ```kotlin
 var onRequestPermission: ((String) -> Unit)? = null
 var onCloseSearch: (() -> Unit)? = null
 var onSaveRecentApp: ((String) -> Unit)? = null
 ```
+
 Using mutable `var` properties for callbacks is fragile and error-prone. Callbacks can be null unexpectedly, and setting them requires external coordination.
 
 **Suggested Fix:**
 Pass callbacks through constructor:
+
 ```kotlin
 class ActionExecutor(
     private val context: Context,
@@ -111,6 +121,7 @@ class ActionExecutor(
 
 **Problem:**
 SearchViewModel handles multiple concerns:
+
 1. Search state management (lines 68-73)
 2. Installed apps loading (lines 115-120)
 3. Recent apps observation (lines 126-133)
@@ -123,52 +134,12 @@ At 479 lines, this ViewModel is doing too much.
 
 **Suggested Fix:**
 Extract responsibilities into separate classes:
+
 - `UrlDetector` class for URL detection logic (lines 389-466)
 - `SearchOrchestrator` for search execution
 - Consider splitting permission management into a separate coordinator
 
 ---
-
-### 2.2 Duplicate File Opening Logic (Code Duplication)
-
-**Files:**
-- `app/src/main/java/com/milki/launcher/presentation/search/ActionExecutor.kt:206-224`
-- `app/src/main/java/com/milki/launcher/ui/screens/LauncherScreen.kt:179-196`
-
-**Severity:** HIGH
-
-**Problem:**
-The file opening logic is duplicated in two places:
-- `ActionExecutor.openFile()` 
-- `LauncherScreen.openPinnedFile()`
-
-Both implement the same Intent creation and chooser logic.
-
-**Suggested Fix:**
-Extract to a shared `FileOpener` utility class:
-```kotlin
-object FileOpener {
-    fun openFile(context: Context, file: FileDocument) {
-        // Shared implementation
-    }
-}
-```
-
----
-
-### 2.3 Duplicate App Launching Logic
-
-**Files:**
-- `app/src/main/java/com/milki/launcher/presentation/search/ActionExecutor.kt:123-134`
-- `app/src/main/java/com/milki/launcher/ui/screens/LauncherScreen.kt:166-174`
-
-**Severity:** HIGH
-
-**Problem:**
-App launching logic is duplicated between ActionExecutor.launchApp() and LauncherScreen.openPinnedApp().
-
-**Suggested Fix:**
-Create a shared `AppLauncher` utility or move this logic into a UseCase.
 
 ---
 
@@ -179,19 +150,23 @@ Create a shared `AppLauncher` utility or move this logic into a UseCase.
 **Severity:** HIGH
 
 **Problem:**
+
 ```kotlin
 class PermissionHandler(
     private val activity: ComponentActivity,
     private val searchViewModel: SearchViewModel
 )
 ```
+
 PermissionHandler is tightly coupled to SearchViewModel, making it:
+
 1. Not reusable for other permission scenarios
 2. Hard to test in isolation
 3. Violates single responsibility (handles both permission logic AND ViewModel updates)
 
 **Suggested Fix:**
 Use callbacks or a more generic interface:
+
 ```kotlin
 class PermissionHandler(
     private val activity: ComponentActivity,
@@ -211,6 +186,7 @@ class PermissionHandler(
 
 **Problem:**
 At 651 lines, this repository handles:
+
 - Permission checking
 - Contact searching with complex SQL
 - Recent contacts storage
@@ -219,6 +195,7 @@ At 651 lines, this repository handles:
 
 **Suggested Fix:**
 Split into:
+
 - `ContactsQueryService` - handles contact searching
 - `RecentContactsStorage` - handles recent contacts persistence
 - Keep `ContactsRepositoryImpl` as a coordinator
@@ -228,6 +205,7 @@ Split into:
 ### 3.2 Multiple DataStore Instances Scattered Across Files
 
 **Files:**
+
 - `AppRepositoryImpl.kt:116` - `launcher_prefs`
 - `ContactsRepositoryImpl.kt:39` - `recent_contacts`
 - `HomeRepositoryImpl.kt:39` - `home_items`
@@ -250,13 +228,16 @@ Consider consolidating related data or creating a centralized `DataStoreManager`
 **Severity:** MEDIUM
 
 **Problem:**
+
 ```kotlin
 private val limitedDispatcher = Dispatchers.IO.limitedParallelism(8)
 ```
+
 The number 8 is a magic number without clear documentation of why 8 was chosen.
 
 **Suggested Fix:**
 Extract to a named constant with documentation:
+
 ```kotlin
 companion object {
     // Limit parallel app loading to typical mobile CPU core count
@@ -274,13 +255,16 @@ companion object {
 **Severity:** MEDIUM
 
 **Problem:**
+
 ```kotlin
 val newRow = index / 4 // Assuming 4 columns
 ```
+
 Grid column count is hardcoded in multiple places (4 columns assumption).
 
 **Suggested Fix:**
 Define grid configuration in a central place:
+
 ```kotlin
 object GridConfig {
     const val COLUMNS = 4
@@ -311,12 +295,14 @@ Move these functions to a ViewModel or create a `PinnedItemOpener` UseCase.
 
 **Problem:**
 SettingsScreen has 20 parameters, making it:
+
 1. Hard to read and maintain
 2. Error-prone when reordering parameters
 3. Difficult to test
 
 **Suggested Fix:**
 Use a state hoisting pattern or pass a single `SettingsCallbacks` interface:
+
 ```kotlin
 data class SettingsCallbacks(
     val onSetMaxSearchResults: (Int) -> Unit,
@@ -357,9 +343,11 @@ Consider a more type-safe approach where each provider returns its specific resu
 **Severity:** LOW
 
 **Problem:**
+
 ```kotlin
 // TODO: is this actually needed?
 ```
+
 A TODO comment exists in production code questioning the necessity of `getRecentApps()`.
 
 **Suggested Fix:**
@@ -374,10 +362,12 @@ Resolve the TODO - either remove the method if not needed, or document why it's 
 **Severity:** LOW
 
 **Problem:**
+
 ```kotlin
 // TODO: Implement using LauncherApps.pinShortcut() API
 private fun openAppShortcut(item: HomeItem.AppShortcut, context: Context) {
 ```
+
 The AppShortcut feature is partially implemented but uses a fallback.
 
 **Suggested Fix:**
@@ -388,6 +378,7 @@ Complete the implementation or mark as a known limitation.
 ### 4.3 Inconsistent Error Handling
 
 **Files:**
+
 - `FilesRepositoryImpl.kt` - Returns empty list on error
 - `ContactsRepositoryImpl.kt` - Throws SecurityException on permission denied
 - `HomeRepositoryImpl.kt` - Silently handles IOException
@@ -399,6 +390,7 @@ Error handling strategy is inconsistent across repositories. Some throw exceptio
 
 **Suggested Fix:**
 Define a consistent error handling strategy:
+
 - Use `Result<T>` wrapper for operations that can fail
 - Or define domain-specific exceptions
 
@@ -427,6 +419,7 @@ While documentation is good, some inline comments are excessively verbose (e.g.,
 `AppIconFetcher.Factory` is a stateless class that could be a singleton/object instead of a class.
 
 **Suggested Fix:**
+
 ```kotlin
 object Factory : Fetcher.Factory<AppIconRequest> {
     override fun create(...)
@@ -452,24 +445,25 @@ Despite the issues above, the codebase has several architectural strengths:
 
 ## 6. RECOMMENDATIONS SUMMARY
 
-| Priority | Issue | Action |
-|----------|-------|--------|
-| Critical | ActionExecutor coroutine scope leak | Inject scope or use lifecycleScope |
-| Critical | MainActivity repository references | Move to ViewModel layer |
-| High | ActionExecutor mutable callbacks | Constructor injection |
-| High | SearchViewModel too large | Extract URL detection, orchestrator |
-| High | Duplicate file/app opening logic | Create shared utilities |
-| High | PermissionHandler coupling | Use callbacks instead of ViewModel |
-| Medium | Multiple DataStore instances | Consider consolidation |
-| Medium | Hardcoded grid columns | Extract to configuration |
-| Medium | SettingsScreen parameters | Use callback interface |
-| Low | TODO comments | Resolve or document |
+| Priority | Issue                               | Action                              |
+| -------- | ----------------------------------- | ----------------------------------- |
+| Critical | ActionExecutor coroutine scope leak | Inject scope or use lifecycleScope  |
+| Critical | MainActivity repository references  | Move to ViewModel layer             |
+| High     | ActionExecutor mutable callbacks    | Constructor injection               |
+| High     | SearchViewModel too large           | Extract URL detection, orchestrator |
+| High     | Duplicate file/app opening logic    | Create shared utilities             |
+| High     | PermissionHandler coupling          | Use callbacks instead of ViewModel  |
+| Medium   | Multiple DataStore instances        | Consider consolidation              |
+| Medium   | Hardcoded grid columns              | Extract to configuration            |
+| Medium   | SettingsScreen parameters           | Use callback interface              |
+| Low      | TODO comments                       | Resolve or document                 |
 
 ---
 
 ## 7. FILES REVIEWED
 
 All 64 Kotlin source files were reviewed including:
+
 - Activities: MainActivity, SettingsActivity
 - Application: LauncherApplication
 - ViewModels: SearchViewModel, HomeViewModel, SettingsViewModel
@@ -481,4 +475,4 @@ All 64 Kotlin source files were reviewed including:
 
 ---
 
-*End of Report*
+_End of Report_
