@@ -46,7 +46,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -128,6 +130,20 @@ fun DraggablePinnedItemsGrid(
      * When null, no drag is in progress.
      */
     var draggedItem by remember { mutableStateOf<HomeItem?>(null) }
+    
+    /**
+     * Derived state for the dragged item's ID.
+     * 
+     * PERFORMANCE OPTIMIZATION:
+     * Using derivedStateOf prevents unnecessary recompositions of ALL items
+     * when draggedItem changes. Only items that need to check their drag status
+     * will recompose.
+     * 
+     * Without this, when draggedItem changes (during drag start/end), every item
+     * in the grid would recompose to evaluate `draggedItem?.id == item.id`.
+     * With derivedStateOf, Compose can optimize the recomposition scope.
+     */
+    val draggedItemId by remember { derivedStateOf { draggedItem?.id } }
 
     /**
      * The current drag offset in pixels from the original touch point.
@@ -251,131 +267,146 @@ fun DraggablePinnedItemsGrid(
 
         items.forEach { item ->
             /**
-             * Determine if this item is currently being dragged.
-             * Dragged items are rendered with special effects (scaled up, semi-transparent).
+             * PERFORMANCE OPTIMIZATION: Using key() to minimize recomposition scope.
+             * 
+             * The key() composable helps Compose identify which specific item changed,
+             * allowing it to skip recomposition of unchanged items. This is especially
+             * important during drag operations where we want only the affected items
+             * to recompose, not all items in the grid.
+             * 
+             * The key includes both id and position to ensure the gesture detector
+             * is recreated when an item moves to a new position.
              */
-            val isBeingDragged = draggedItem?.id == item.id
+            key(item.id, item.position.row, item.position.column) {
+                /**
+                 * Determine if this item is currently being dragged.
+                 * Dragged items are rendered with special effects (scaled up, semi-transparent).
+                 * 
+                 * PERFORMANCE: Using draggedItemId (derivedStateOf) instead of draggedItem?.id
+                 * prevents all items from recomposing when draggedItem changes.
+                 */
+                val isBeingDragged = draggedItemId == item.id
 
-            /**
-             * Animation values for the drag effect.
-             * The dragged item scales up slightly and becomes semi-transparent.
-             */
-            val visuals = animateDragVisuals(isBeingDragged, config)
+                /**
+                 * Animation values for the drag effect.
+                 * The dragged item scales up slightly and becomes semi-transparent.
+                 */
+                val visuals = animateDragVisuals(isBeingDragged, config)
 
-            /**
-             * Calculate the item's visual position.
-             * For dragged items, this is the starting position (the item stays in place
-             * while a visual copy follows the finger).
-             */
-            val basePosition = if (isBeingDragged) dragStartPosition else item.position
+                /**
+                 * Calculate the item's visual position.
+                 * For dragged items, this is the starting position (the item stays in place
+                 * while a visual copy follows the finger).
+                 */
+                val basePosition = if (isBeingDragged) dragStartPosition else item.position
 
-            /**
-             * Render the item at its grid position.
-             * We use a Box with offset for absolute positioning within the grid.
-             */
-            Box(
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            x = (basePosition.column * cellWidthPx).roundToInt(),
-                            y = (basePosition.row * cellHeightPx).roundToInt()
-                        )
-                    }
-                    .size(with(LocalDensity.current) { cellWidthPx.toDp() })
-                    .padding(Spacing.smallMedium)
-                    .zIndex(visuals.zIndex)
-                    .graphicsLayer {
-                        // Apply scale and alpha effects for dragged item
-                        scaleX = visuals.scale
-                        scaleY = visuals.scale
-                        this.alpha = visuals.alpha
-                    }
-                    /**
-                     * BUG FIX: Include item.position in the key.
-                     * Previously used only item.id which caused the gesture detector
-                     * closure to capture the OLD item with OLD position when the item
-                     * was moved. By including position in the key, the gesture detector
-                     * is recreated when the item moves to a new position, ensuring
-                     * the closure has the correct current position.
-                     */
-                    .detectDragGesture(
-                        key = "${item.id}-${item.position.row}-${item.position.column}",
-                        dragThreshold = config.dragThresholdPx,
-                        onTap = {
-                            // Only handle tap if not in drag mode
-                            if (draggedItem == null) {
-                                onItemClick(item)
-                            }
-                        },
-                        onLongPress = {
-                            // Long press without drag movement - show menu
-                            // Provide haptic feedback for long-press recognition
-                            // This gives the user tactile confirmation that the long-press was detected
-                            if (!hasDragStarted) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                menuShownForItem = item
-                            }
-                        },
-                        onDragStart = {
-                            // User has moved finger after long press - start drag
-                            // BUG FIX: Check if another drag is already ending to prevent race condition
-                            if (!isDragEnding) {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                                draggedItem = item
-                                dragStartPosition = item.position
-                                dragOffset = Offset.Zero
-                                hasDragStarted = true
-                                menuShownForItem = null // Hide menu if shown
-                            }
-                        },
-                        onDrag = { change, dragAmount ->
-                            // Update drag offset as user moves finger
-                            if (draggedItem?.id == item.id && !isDragEnding) {
-                                change.consume()
+                /**
+                 * Render the item at its grid position.
+                 * We use a Box with offset for absolute positioning within the grid.
+                 */
+                Box(
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                x = (basePosition.column * cellWidthPx).roundToInt(),
+                                y = (basePosition.row * cellHeightPx).roundToInt()
+                            )
+                        }
+                        .size(with(LocalDensity.current) { cellWidthPx.toDp() })
+                        .padding(Spacing.smallMedium)
+                        .zIndex(visuals.zIndex)
+                        .graphicsLayer {
+                            // Apply scale and alpha effects for dragged item
+                            scaleX = visuals.scale
+                            scaleY = visuals.scale
+                            this.alpha = visuals.alpha
+                        }
+                        /**
+                         * BUG FIX: Include item.position in the key.
+                         * Previously used only item.id which caused the gesture detector
+                         * closure to capture the OLD item with OLD position when the item
+                         * was moved. By including position in the key, the gesture detector
+                         * is recreated when the item moves to a new position, ensuring
+                         * the closure has the correct current position.
+                         */
+                        .detectDragGesture(
+                            key = "${item.id}-${item.position.row}-${item.position.column}",
+                            dragThreshold = config.dragThresholdPx,
+                            onTap = {
+                                // Only handle tap if not in drag mode
+                                if (draggedItem == null) {
+                                    onItemClick(item)
+                                }
+                            },
+                            onLongPress = {
+                                // Long press without drag movement - show menu
+                                // Provide haptic feedback for long-press recognition
+                                // This gives the user tactile confirmation that the long-press was detected
+                                if (!hasDragStarted) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    menuShownForItem = item
+                                }
+                            },
+                            onDragStart = {
+                                // User has moved finger after long press - start drag
+                                // BUG FIX: Check if another drag is already ending to prevent race condition
+                                if (!isDragEnding) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                    draggedItem = item
+                                    dragStartPosition = item.position
+                                    dragOffset = Offset.Zero
+                                    hasDragStarted = true
+                                    menuShownForItem = null // Hide menu if shown
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                // Update drag offset as user moves finger
+                                if (draggedItem?.id == item.id && !isDragEnding) {
+                                    change.consume()
+                                    
+                                    /**
+                                     * Calculate the new drag offset by adding the drag amount.
+                                     * We need to clamp this to prevent dragging beyond visible bounds.
+                                     */
+                                    val newOffsetX = dragOffset.x + dragAmount.x
+                                    val newOffsetY = dragOffset.y + dragAmount.y
+                                    
+                                    /**
+                                     * Calculate bounds based on the starting position.
+                                     * The item can be dragged from its starting column/row to any valid position.
+                                     * 
+                                     * For X (columns):
+                                     * - Minimum: can drag left to column 0, so min offset = -startColumn * cellWidth
+                                     * - Maximum: can drag right to last column, so max offset = (columns-1-startColumn) * cellWidth
+                                     * 
+                                     * For Y (rows):
+                                     * - Minimum: can drag up to row 0, so min offset = -startRow * cellHeight
+                                     * - Maximum: can drag down to last visible row, so max offset = (maxVisibleRows-1-startRow) * cellHeight
+                                     */
+                                    val startColumn = dragStartPosition.column
+                                    val startRow = dragStartPosition.row
+                                    
+                                    val minDragX = -startColumn * cellWidthPx
+                                    val maxDragX = (config.columns - 1 - startColumn) * cellWidthPx
+                                    val minDragY = -startRow * cellHeightPx
+                                    val maxDragY = (maxVisibleRows - 1 - startRow) * cellHeightPx
+                                    
+                                    // Clamp the drag offset to stay within bounds
+                                    dragOffset = Offset(
+                                        x = newOffsetX.coerceIn(minDragX, maxDragX),
+                                        y = newOffsetY.coerceIn(minDragY, maxDragY)
+                                    )
+                                }
+                            },
+                            onDragEnd = {
+                                // BUG FIX: Set flag to prevent race condition with cancel
+                                isDragEnding = true
                                 
-                                /**
-                                 * Calculate the new drag offset by adding the drag amount.
-                                 * We need to clamp this to prevent dragging beyond visible bounds.
-                                 */
-                                val newOffsetX = dragOffset.x + dragAmount.x
-                                val newOffsetY = dragOffset.y + dragAmount.y
-                                
-                                /**
-                                 * Calculate bounds based on the starting position.
-                                 * The item can be dragged from its starting column/row to any valid position.
-                                 * 
-                                 * For X (columns):
-                                 * - Minimum: can drag left to column 0, so min offset = -startColumn * cellWidth
-                                 * - Maximum: can drag right to last column, so max offset = (columns-1-startColumn) * cellWidth
-                                 * 
-                                 * For Y (rows):
-                                 * - Minimum: can drag up to row 0, so min offset = -startRow * cellHeight
-                                 * - Maximum: can drag down to last visible row, so max offset = (maxVisibleRows-1-startRow) * cellHeight
-                                 */
-                                val startColumn = dragStartPosition.column
-                                val startRow = dragStartPosition.row
-                                
-                                val minDragX = -startColumn * cellWidthPx
-                                val maxDragX = (config.columns - 1 - startColumn) * cellWidthPx
-                                val minDragY = -startRow * cellHeightPx
-                                val maxDragY = (maxVisibleRows - 1 - startRow) * cellHeightPx
-                                
-                                // Clamp the drag offset to stay within bounds
-                                dragOffset = Offset(
-                                    x = newOffsetX.coerceIn(minDragX, maxDragX),
-                                    y = newOffsetY.coerceIn(minDragY, maxDragY)
-                                )
-                            }
-                        },
-                        onDragEnd = {
-                            // BUG FIX: Set flag to prevent race condition with cancel
-                            isDragEnding = true
-                            
-                            // User released finger - calculate drop position
-                            if (draggedItem?.id == item.id && hasDragStarted) {
-                                // Calculate the target grid cell from drag offset
-                                val targetColumn = (dragStartPosition.column + (dragOffset.x / cellWidthPx)).roundToInt()
-                                val targetRow = (dragStartPosition.row + (dragOffset.y / cellHeightPx)).roundToInt()
+                                // User released finger - calculate drop position
+                                if (draggedItem?.id == item.id && hasDragStarted) {
+                                    // Calculate the target grid cell from drag offset
+                                    val targetColumn = (dragStartPosition.column + (dragOffset.x / cellWidthPx)).roundToInt()
+                                    val targetRow = (dragStartPosition.row + (dragOffset.y / cellHeightPx)).roundToInt()
 
                                 // Clamp to valid grid bounds
                                 val clampedColumn = targetColumn.coerceIn(0, config.columns - 1)
@@ -421,6 +452,7 @@ fun DraggablePinnedItemsGrid(
                     showMenu = menuShownForItem?.id == item.id,
                     onMenuDismiss = { menuShownForItem = null }
                 )
+            }
             }
         }
 
