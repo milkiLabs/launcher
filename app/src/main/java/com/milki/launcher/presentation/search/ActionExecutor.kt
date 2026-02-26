@@ -24,6 +24,8 @@ import android.widget.Toast
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.HomeRepository
+import com.milki.launcher.util.openFile
+import com.milki.launcher.util.launchApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -123,16 +125,17 @@ class ActionExecutor(
     }
 
     private fun launchApp(result: AppSearchResult) {
-        result.appInfo.launchIntent?.let { intent ->
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-        }
+        val success = launchApp(
+            context = context,
+            appInfo = result.appInfo,
+            onRecentAppSaved = { componentName ->
+                onSaveRecentApp?.invoke(componentName)
+            }
+        )
         
-        val componentName = android.content.ComponentName(
-            result.appInfo.packageName,
-            result.appInfo.activityName
-        ).flattenToString()
-        onSaveRecentApp?.invoke(componentName)
+        if (!success) {
+            Toast.makeText(context, "App not found: ${result.appInfo.name}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun openWebSearch(result: WebSearchResult) {
@@ -212,22 +215,7 @@ class ActionExecutor(
 
     private fun openFile(result: FileDocumentSearchResult) {
         val file = result.file
-        
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(file.uri, file.mimeType.ifBlank { "application/octet-stream" })
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        
-        val chooserIntent = Intent.createChooser(intent, "Open ${file.name}").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        
-        try {
-            context.startActivity(chooserIntent)
-        } catch (e: Exception) {
-            Toast.makeText(context, "No app found to open ${file.name}", Toast.LENGTH_SHORT).show()
-        }
+        openFile(context, file.uri, file.mimeType, file.name)
     }
 
     // ========================================================================
