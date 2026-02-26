@@ -67,7 +67,34 @@ When a user types a URL into the search bar, the launcher:
 
 ## Key Components
 
-### 1. UrlHandlerApp (Data Model)
+### 1. UrlValidator (Utility)
+
+Location: `util/UrlValidator.kt`
+
+This utility provides centralized URL validation and normalization. It replaced the complex multi-stage URL detection logic that was previously in SearchViewModel.
+
+**Why UrlValidator Exists:**
+- URL detection logic was complex and hard to maintain
+- Multiple regex patterns made testing difficult
+- No centralized place for URL normalization
+- Separation of concerns: validation logic separate from ViewModel
+
+**Validation Strategy:**
+1. **Fast-fail**: Empty strings or strings with spaces are not URLs
+2. **Normalize prefixes**: Handle http://, https://, and www.
+3. **Validate format**: Use Android's Patterns.WEB_URL + fallback regex
+4. **Ensure scheme**: All URLs need https:// for browser intent
+
+```kotlin
+val result = UrlValidator.validateUrl("youtube.com")
+// result.url = "https://youtube.com"
+// result.displayUrl = "youtube.com"
+
+val invalid = UrlValidator.validateUrl("hello world")
+// invalid = null (has spaces)
+```
+
+### 2. UrlHandlerApp (Data Model)
 
 Location: `domain/model/SearchResult.kt`
 

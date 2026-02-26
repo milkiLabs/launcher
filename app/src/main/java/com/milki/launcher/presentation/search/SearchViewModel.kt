@@ -16,7 +16,6 @@
 
 package com.milki.launcher.presentation.search
 
-import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.*
@@ -27,6 +26,7 @@ import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.domain.search.parseSearchQuery
+import com.milki.launcher.util.UrlValidator
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -413,104 +413,35 @@ class SearchViewModel(
     /**
      * Detect if the query looks like a URL and create a UrlSearchResult.
      *
-     * URL DETECTION STRATEGY:
-     * This function uses a multi-stage approach to detect URLs:
+     * DELEGATION PATTERN:
+     * This function delegates all URL validation logic to UrlValidator.
+     * The UrlValidator handles:
+     * - Fast-fail checks (empty, spaces)
+     * - Prefix normalization (www., http://, https://)
+     * - URL validation (Android's WEB_URL pattern + fallback)
+     * - Scheme normalization (ensuring https://)
      *
-     * 1. FAST-FAIL: Empty queries or queries with spaces are immediately rejected.
-     *    Spaces indicate the user is searching for apps, not typing a URL.
-     *
-     * 2. SCHEME PREFIX CHECK: Queries starting with http://, https://, or www.
-     *    are treated as URL candidates and validated.
-     *
-     * 3. ANDROID WEB_URL PATTERN: Uses the built-in Patterns.WEB_URL matcher
-     *    which handles most common URL formats.
-     *
-     * 4. FALLBACK REGEX: For newer/regional TLDs (like .ai, .eg, .io) that
-     *    older Android versions might not recognize, we use a generic pattern
-     *    that matches: domain.tld or domain.tld/path
-     *
-     * WHY NO HARDCODED TLD LIST:
-     * - New TLDs are constantly being added (there are now 1500+ TLDs)
-     * - Hardcoded lists become outdated quickly
-     * - The fallback regex handles any 2+ letter TLD
+     * WHY DELEGATE TO UrlValidator:
+     * - Single Responsibility: UrlValidator handles all URL logic
+     * - Testability: URL validation can be tested independently
+     * - Maintainability: Changes to URL logic go in one place
+     * - Reusability: Other components can use UrlValidator
      *
      * @param query The search query to check
      * @return UrlSearchResult if query looks like a URL, null otherwise
      */
     private fun detectUrl(query: String): UrlSearchResult? {
-        val trimmed = query.trim()
-        
-        // FAST-FAIL: Empty or space-containing queries aren't URLs
-        // Users searching for apps will type single words without spaces
-        // like "youtube" or "maps". URLs typed by users don't have spaces.
-        if (trimmed.isEmpty() || trimmed.contains(" ")) {
-            return null
-        }
-        
-        var finalUrl: String? = null
-        val displayUrl = trimmed
-        
-        // STAGE 1: Check for explicit URL prefixes
-        // These are strong indicators the user intends to visit a URL
-        val hasSchemePrefix = trimmed.startsWith("http://") || 
-                              trimmed.startsWith("https://") || 
-                              trimmed.startsWith("www.")
-        
-        if (hasSchemePrefix) {
-            // Normalize www. to https://www.
-            val urlToCheck = if (trimmed.startsWith("www.")) {
-                "https://$trimmed"
-            } else {
-                trimmed
-            }
-            
-            if (Patterns.WEB_URL.matcher(urlToCheck).matches()) {
-                finalUrl = urlToCheck
-            }
-        }
-        
-        // STAGE 2: Try Android's built-in WEB_URL pattern
-        // This handles most standard URL formats
-        if (finalUrl == null && Patterns.WEB_URL.matcher(trimmed).matches()) {
-            finalUrl = trimmed
-        }
-        
-        // STAGE 3: Fallback regex for newer/regional TLDs
-        // Older Android versions may not recognize newer TLDs like .ai, .eg, .shop
-        // This pattern matches: domain.tld or domain.tld/path with any 2+ letter TLD
-        if (finalUrl == null) {
-            // Regex explanation:
-            // ^                          - Start of string
-            // [a-zA-Z0-9]                - First char must be alphanumeric
-            // [a-zA-Z0-9-]*              - Domain can have alphanumeric and hyphens
-            // \.                         - Literal dot before TLD
-            // [a-zA-Z]{2,}               - TLD must be at least 2 letters
-            // (?:/.*)?                   - Optional path starting with /
-            // $                          - End of string
-            val fallbackUrlPattern = Regex(
-                "^[a-zA-Z0-9][a-zA-Z0-9-]*\\.[a-zA-Z]{2,}(?:/.*)?$"
-            )
-            
-            if (fallbackUrlPattern.matches(trimmed)) {
-                finalUrl = trimmed
-            }
-        }
-        
-        // Return null if no URL pattern matched
-        if (finalUrl == null) return null
-        
-        // Ensure the URL has a scheme for Intent.ACTION_VIEW
-        // Without https://, the intent won't open a browser
-        if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
-            finalUrl = "https://$finalUrl"
-        }
+        // Delegate URL validation to the centralized UrlValidator utility
+        // This keeps URL detection logic in one maintainable place
+        val validationResult = UrlValidator.validateUrl(query) ?: return null
         
         // Resolve which app should handle this URL
-        val handlerApp = urlHandlerResolver.resolveUrlHandler(finalUrl)
+        // This queries Android's PackageManager to find apps that can open the URL
+        val handlerApp = urlHandlerResolver.resolveUrlHandler(validationResult.url)
         
         return UrlSearchResult(
-            url = finalUrl,
-            displayUrl = displayUrl,
+            url = validationResult.url,
+            displayUrl = validationResult.displayUrl,
             handlerApp = handlerApp,
             browserFallback = true
         )
