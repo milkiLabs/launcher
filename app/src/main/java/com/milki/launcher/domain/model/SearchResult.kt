@@ -42,7 +42,7 @@ data class AppSearchResult(
     val appInfo: AppInfo
 ) : SearchResult() {
     override val title: String = appInfo.name
-    override val id: String = "app_${appInfo.activityName}"
+    override val id: String = "app_${appInfo.packageName}_${appInfo.activityName}"
 }
 
 /**
