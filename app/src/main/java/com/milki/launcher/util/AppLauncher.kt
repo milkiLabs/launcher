@@ -91,7 +91,8 @@ fun launchApp(
  * Launches a pinned app from the home screen.
  *
  * This function is used when launching apps that have been pinned to
- * the home screen. It uses PackageManager to get the launch intent.
+ * the home screen. It directly creates an intent using the activity name
+ * stored in PinnedApp, avoiding the overhead of PackageManager lookup.
  *
  * @param context The Android context
  * @param pinnedApp The PinnedApp from the home screen
@@ -108,14 +109,16 @@ fun launchPinnedApp(
     context: Context,
     pinnedApp: HomeItem.PinnedApp
 ): Boolean {
-    // Get launch intent from PackageManager using the package name
-    // This is the standard way to launch an app from its package name
-    val intent = context.packageManager.getLaunchIntentForPackage(pinnedApp.packageName)
+    // Create intent directly using the activity name stored in PinnedApp
+    // This avoids the I/O overhead of calling PackageManager.getLaunchIntentForPackage()
+    // which queries the system for the default launcher activity every time.
+    val intent = Intent().apply {
+        setClassName(pinnedApp.packageName, pinnedApp.activityName)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
     
-    if (intent != null) {
-        // Add NEW_TASK flag because we're typically not in an Activity context
-        // when launching from the home screen
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    // Verify the activity exists before launching
+    if (intent.resolveActivity(context.packageManager) != null) {
         context.startActivity(intent)
         return true
     }
