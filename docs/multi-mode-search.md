@@ -536,22 +536,11 @@ How it works:
 2. When the dialog window becomes focused, it waits one Compose frame
 3. Then it requests focus for the search text field and asks the software keyboard to show
 
-In addition, for split-screen / multi-window reliability, focus requests are retried for a few Compose frames until the text field actually reports focused state.
-
 Why this approach is better than `delay(...)`:
 
 - Uses real window focus state instead of guessed timing
 - More reliable across different devices and OEM Android variants
 - Eliminates arbitrary wait values that can be too short or too long
-
-## Multi-Window / Split-Screen Support
-
-Launcher is configured to be resizable for multi-window usage:
-
-- `android:resizeableActivity="true"` is enabled for the app/activity
-- Fixed portrait lock was removed from `MainActivity` so Android can size/orient the task for split-screen
-
-This allows opening launcher in split mode without requiring the developer option that forces non-resizable activities.
 
 ### Empty States
 
