@@ -22,7 +22,6 @@
 
 package com.milki.launcher.presentation.home
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.AppInfo
@@ -202,18 +201,6 @@ class HomeViewModel(
                 item = pinnedApp,
                 targetPosition = dropPosition
             )
-
-            if (wasApplied) {
-                Log.d(
-                    "HomeViewModel",
-                    "External drop applied for ${appInfo.packageName}/${appInfo.activityName} at row=${dropPosition.row}, col=${dropPosition.column}"
-                )
-            } else {
-                Log.w(
-                    "HomeViewModel",
-                    "External drop rejected for ${appInfo.packageName}/${appInfo.activityName} at row=${dropPosition.row}, col=${dropPosition.column} (target likely occupied)"
-                )
-            }
 
             wasApplied
         }

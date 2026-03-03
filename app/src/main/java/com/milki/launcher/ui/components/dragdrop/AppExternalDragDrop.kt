@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.viewinterop.AndroidView
@@ -173,29 +172,29 @@ fun AppExternalDropTargetOverlay(
     onDragEnded: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val currentOnAppDropped by rememberUpdatedState(onAppDropped)
-    val currentOnDragStarted by rememberUpdatedState(onDragStarted)
-    val currentOnDragMoved by rememberUpdatedState(onDragMoved)
-    val currentOnDragEnded by rememberUpdatedState(onDragEnded)
+    val currentOnAppDroppedState = rememberUpdatedState(onAppDropped)
+    val currentOnDragStartedState = rememberUpdatedState(onDragStarted)
+    val currentOnDragMovedState = rememberUpdatedState(onDragMoved)
+    val currentOnDragEndedState = rememberUpdatedState(onDragEnded)
 
     val coordinator = remember { DefaultExternalAppDragDropCoordinator() }
     val listener = remember(coordinator) {
         coordinator.createListener(
             object : ExternalAppDragDropCoordinator.TargetCallbacks {
                 override fun onStarted() {
-                    currentOnDragStarted?.invoke()
+                    currentOnDragStartedState.value?.invoke()
                 }
 
                 override fun onMoved(localOffset: Offset, appInfo: AppInfo?) {
-                    currentOnDragMoved?.invoke(localOffset, appInfo)
+                    currentOnDragMovedState.value?.invoke(localOffset, appInfo)
                 }
 
                 override fun onDropped(appInfo: AppInfo, localOffset: Offset): Boolean {
-                    return currentOnAppDropped(appInfo, localOffset)
+                    return currentOnAppDroppedState.value(appInfo, localOffset)
                 }
 
                 override fun onEnded(result: Boolean) {
-                    currentOnDragEnded?.invoke()
+                    currentOnDragEndedState.value?.invoke()
                 }
             }
         )

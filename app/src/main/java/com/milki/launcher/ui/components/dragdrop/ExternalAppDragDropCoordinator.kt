@@ -1,6 +1,5 @@
 package com.milki.launcher.ui.components.dragdrop
 
-import android.util.Log
 import android.view.DragEvent
 import android.view.View
 import androidx.compose.runtime.Stable
@@ -49,7 +48,6 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                     if (!ExternalDragPayloadCodec.isLikelyAppPayload(event)) {
                         activeDragAppInfo = null
                         hasActiveSession = false
-                        Log.d("AppExternalDragDrop", "ACTION_DRAG_STARTED ignored: payload not likely app drag")
                         return@OnDragListener false
                     }
 
@@ -57,15 +55,6 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                     callbacks.onStarted()
 
                     activeDragAppInfo = ExternalDragPayloadCodec.decodeAppInfo(event)
-                    val dragAppInfo = activeDragAppInfo
-                    if (dragAppInfo != null) {
-                        Log.d(
-                            "AppExternalDragDrop",
-                            "ACTION_DRAG_STARTED accepted for ${dragAppInfo.packageName}/${dragAppInfo.activityName}"
-                        )
-                    } else {
-                        Log.d("AppExternalDragDrop", "ACTION_DRAG_STARTED accepted with deferred payload decode")
-                    }
                     true
                 }
 
@@ -77,10 +66,6 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
 
                     if (dragAppInfo != null && activeDragAppInfo == null) {
                         activeDragAppInfo = dragAppInfo
-                        Log.d(
-                            "AppExternalDragDrop",
-                            "Deferred payload decode resolved on DRAG_LOCATION for ${dragAppInfo.packageName}/${dragAppInfo.activityName}"
-                        )
                     }
 
                     val localOffset = ExternalDragCoordinateMapper.toLocalOffset(
@@ -104,20 +89,11 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                         event = event
                     )
 
-                    Log.d(
-                        "AppExternalDragDrop",
-                        "ACTION_DROP received for ${appInfo.packageName}/${appInfo.activityName} raw=(${event.x},${event.y}) local=(${localOffset.x},${localOffset.y}) viewSize=(${dragTargetView.width},${dragTargetView.height})"
-                    )
-
                     callbacks.onDropped(appInfo, localOffset)
                 }
 
                 DragEvent.ACTION_DRAG_ENDED -> {
                     val eventResult = event.result
-                    Log.d(
-                        "AppExternalDragDrop",
-                        "ACTION_DRAG_ENDED result=$eventResult hadActivePayload=${activeDragAppInfo != null}"
-                    )
 
                     if (hasActiveSession) {
                         callbacks.onEnded(eventResult)
