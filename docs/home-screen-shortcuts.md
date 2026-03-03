@@ -125,6 +125,15 @@ Position updates now include explicit reliability guards:
 
 ## User Flow
 
+### Back Button on Home Screen
+
+Launcher behavior is intentionally different from regular apps:
+
+- When search is open, pressing Back closes the search dialog.
+- When search is closed and user is on home screen, pressing Back is consumed and the launcher stays on home.
+
+This prevents accidental navigation to recents/previous tasks while the launcher is acting as the active home surface.
+
 ### Pinning an App
 
 ```

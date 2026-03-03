@@ -21,6 +21,7 @@ package com.milki.launcher
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -107,6 +108,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         initializeHandlers()
+        initializeBackButtonBehavior()
 
         setContent {
             // Collect state from ViewModels
@@ -156,6 +158,43 @@ class MainActivity : ComponentActivity() {
     // ========================================================================
     // INITIALIZATION
     // ========================================================================
+
+    /**
+     * Configures launcher-specific back button behavior.
+     *
+     * UX REQUIREMENT:
+     * When the user is on the launcher home screen, pressing back should
+     * keep them on home instead of navigating to previous apps / recents.
+     *
+     * IMPLEMENTATION NOTES:
+     * - We register an always-enabled OnBackPressedCallback at Activity level.
+     * - If search dialog is visible, back closes search (expected UX).
+     * - If search is not visible, we intentionally consume back and do nothing.
+     *
+     * WHY ACTIVITY-LEVEL CALLBACK:
+     * This guarantees the launcher remains a stable "root" surface.
+     * Without this callback, Android's default back behavior may navigate
+     * away from launcher into previous tasks.
+     */
+    private fun initializeBackButtonBehavior() {
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    val uiState = searchViewModel.uiState.value
+
+                    // If search is open, close it.
+                    if (uiState.isSearchVisible) {
+                        searchViewModel.hideSearch()
+                        return
+                    }
+
+                    // Launcher home screen behavior:
+                    // Consume back press and stay on home.
+                }
+            }
+        )
+    }
 
     /**
      * Initializes all handlers and sets up callbacks.
