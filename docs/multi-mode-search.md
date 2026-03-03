@@ -65,6 +65,24 @@ When you open the search dialog without typing:
 - Helps you quickly access apps you use frequently
 - No typing required for common apps
 
+### Recent Apps Refresh Reliability
+
+The search system now uses a **derived-state pipeline** where results are computed from source flows (query, dialog visibility, installed apps, recent apps, permissions, and prefix configuration).
+
+Why this matters:
+
+- Returning to launcher from another app can involve asynchronous state restoration
+- Recent apps can finish loading slightly after the dialog is opened
+- Query text may remain unchanged (`""`), so query-only architectures can miss updates
+
+Current behavior:
+
+1. Opening search changes visibility input, which recomputes results for the current query
+2. If recent apps update while search is visible and query is blank, combined inputs emit and results recompute immediately
+3. If installed apps, permissions, or prefix configuration change, results are recomputed from the latest snapshot
+
+This removes the stale-empty-state scenario where the first open could show no recent apps until the user manually retriggered search.
+
 ## How to Use
 
 ### Basic Usage

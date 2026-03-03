@@ -1,54 +1,5 @@
 ## 3. Threading Issues
 
-### 3.1 ActionExecutor Uses Custom CoroutineScope
-
-**Severity: MEDIUM**  
-**File:** `app/src/main/java/com/milki/launcher/presentation/search/ActionExecutor.kt:50`
-
-**Issue:**
-ActionExecutor creates its own `CoroutineScope(SupervisorJob() + Dispatchers.IO)` instead of using structured concurrency.
-
-**Current Code:**
-
-```kotlin
-class ActionExecutor(
-    // ...
-) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-```
-
-**Problems:**
-
-- Scope is not tied to any lifecycle
-- Potential for memory leaks if activities are destroyed
-- Operations continue even after user leaves the app
-- Testing is harder with uncontrolled scope
-
-**Suggested Fix:**
-Accept a `CoroutineScope` as a parameter or use `viewModelScope`:
-
-```kotlin
-class ActionExecutor(
-    private val context: Context,
-    private val contactsRepository: ContactsRepository,
-    private val homeRepository: HomeRepository,
-    private val scope: CoroutineScope // Inject scope
-) {
-    // Use injected scope
-}
-```
-
-Or make the methods suspend and let the caller decide the scope:
-
-```kotlin
-suspend fun handlePinApp(action: SearchResultAction.PinApp) {
-    val pinnedApp = HomeItem.PinnedApp.fromAppInfo(action.appInfo)
-    homeRepository.addPinnedItem(pinnedApp)
-}
-```
-
----
-
 ### 3.2 Missing flowOn in Some Repository Methods
 
 **Severity: MEDIUM**  

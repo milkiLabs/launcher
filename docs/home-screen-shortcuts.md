@@ -89,6 +89,40 @@ sealed class HomeItem {
 | `HomeViewModel.kt` | Home screen state management |
 | `ItemActionMenu.kt` | Dropdown menu component |
 
+### HomeViewModel Architecture (Redesigned)
+
+The home screen state now follows a **derived-state architecture** similar to search.
+
+Instead of manually mutating multiple state fields, `HomeViewModel` combines three source streams:
+
+1. `HomeRepository.pinnedItems` (source of truth for icon positions and items)
+2. `pendingPositionUpdateCount` (number of in-flight drag position updates)
+3. `lastMoveErrorMessage` (latest user-visible move failure message)
+
+These inputs are combined into a single `HomeUiState` stream via `combine(...).stateIn(...)`.
+
+Why this is cleaner:
+
+- **Deterministic rendering:** UI is always a function of explicit inputs
+- **No stale flags:** loading/updating/error are derived consistently
+- **Better observability:** transient operation state is first-class, not hidden in callbacks
+
+### Drag & Drop Reliability Improvements
+
+Position updates now include explicit reliability guards:
+
+1. **Serialized writes with a Mutex**
+    - Prevents overlapping reorder writes during rapid drag interactions
+    - Ensures deterministic operation ordering
+
+2. **No-op guard for same-position drops**
+    - Skips unnecessary DataStore writes when an item is dropped back to its original cell
+    - Reduces storage churn and recomposition noise
+
+3. **Operation state tracking**
+    - `isUpdatingPositions` is derived from in-flight operation count
+    - `lastMoveErrorMessage` captures failures for optional UI messaging
+
 ## User Flow
 
 ### Pinning an App

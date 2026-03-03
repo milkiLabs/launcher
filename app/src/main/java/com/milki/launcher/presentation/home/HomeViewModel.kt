@@ -26,10 +26,15 @@ import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * UI State for the home screen.
@@ -39,7 +44,9 @@ import kotlinx.coroutines.launch
  */
 data class HomeUiState(
     val pinnedItems: List<HomeItem> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val isUpdatingPositions: Boolean = false,
+    val lastMoveErrorMessage: String? = null
 )
 
 /**
@@ -58,25 +65,54 @@ class HomeViewModel(
 ) : ViewModel() {
 
     /**
-     * UI state derived directly from the repository's pinned items flow.
+     * Number of currently running position-update operations.
      *
-     * This uses the stateIn operator to convert the cold Flow from the repository
-     * into a hot StateFlow that can be collected by the UI. The advantages are:
-     *
-     * - No manual collection boilerplate (no init block, no collect {}, no MutableStateFlow)
-     * - Resource efficient: SharingStarted.WhileSubscribed(5000) stops the upstream
-     *   flow collection when no subscribers are active for 5 seconds (e.g., when the
-     *   launcher UI is not visible)
-     * - Declarative: the state is a pure transformation of the repository flow
-     * - Automatic loading state: initialValue shows loading until first emission
-     *
-     * Note: Pinning/unpinning actions are handled by ActionExecutor via SearchResultAction.
-     * This ViewModel only observes the pinned items and handles item position updates.
+     * WHY COUNTER INSTEAD OF BOOLEAN:
+     * Multiple drag-drop updates can be triggered close together.
+     * A counter allows us to represent true in-flight state even when
+     * operations overlap briefly.
      */
-    val uiState = homeRepository.pinnedItems
-        .map { items ->
-            HomeUiState(pinnedItems = items, isLoading = false)
-        }
+    private val pendingPositionUpdateCount = MutableStateFlow(0)
+
+    /**
+     * Latest user-visible move error message.
+     *
+     * This stays nullable to avoid forcing UI to show any message by default.
+     */
+    private val lastMoveErrorMessage = MutableStateFlow<String?>(null)
+
+    /**
+     * Mutex used to serialize DataStore position writes.
+     *
+     * PAIN POINT REMOVED:
+     * Rapid drag-drop interactions could trigger overlapping writes.
+     * DataStore itself is safe, but serialization here gives deterministic
+     * ordering and avoids race-like visual churn.
+     */
+    private val positionUpdateMutex = Mutex()
+
+    /**
+     * UI state derived from source streams.
+     *
+     * Sources:
+     * 1) Repository pinned items
+     * 2) Position update in-flight count
+     * 3) Last position update error message
+     *
+     * This keeps UI rendering deterministic and avoids imperative state mutation.
+     */
+    val uiState = combine(
+        homeRepository.pinnedItems,
+        pendingPositionUpdateCount,
+        lastMoveErrorMessage
+    ) { items, pendingUpdates, moveErrorMessage ->
+        HomeUiState(
+            pinnedItems = items,
+            isLoading = false,
+            isUpdatingPositions = pendingUpdates > 0,
+            lastMoveErrorMessage = moveErrorMessage
+        )
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -94,7 +130,39 @@ class HomeViewModel(
      */
     fun moveItemToPosition(itemId: String, newPosition: GridPosition) {
         viewModelScope.launch {
-            homeRepository.updateItemPosition(itemId, newPosition)
+            positionUpdateMutex.withLock {
+                // Read current snapshot once to avoid unnecessary writes.
+                val currentItems = homeRepository.pinnedItems.first()
+                val currentItem = currentItems.firstOrNull { it.id == itemId }
+
+                // If the item no longer exists, no operation is needed.
+                if (currentItem == null) return@withLock
+
+                // If dropped back onto the same position, skip write.
+                // This removes avoidable DataStore transactions.
+                if (currentItem.position == newPosition) return@withLock
+
+                pendingPositionUpdateCount.update { current -> current + 1 }
+                lastMoveErrorMessage.value = null
+
+                try {
+                    homeRepository.updateItemPosition(itemId, newPosition)
+                } catch (exception: Exception) {
+                    lastMoveErrorMessage.value = exception.message
+                        ?: "Failed to update item position"
+                } finally {
+                    pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
+                }
+            }
         }
+    }
+
+    /**
+     * Clear the last move error after the UI has consumed it.
+     *
+     * This keeps error signaling explicit and avoids sticky stale messages.
+     */
+    fun clearMoveError() {
+        lastMoveErrorMessage.value = null
     }
 }

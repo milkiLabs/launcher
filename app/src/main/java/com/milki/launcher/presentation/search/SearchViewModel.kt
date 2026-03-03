@@ -68,12 +68,61 @@ class SearchViewModel(
 ) : ViewModel() {
 
     // ========================================================================
+    // INTERNAL MODELS
+    // ========================================================================
+
+    /**
+     * Consolidated inputs used by the derived-state pipeline.
+     *
+     * WHY THIS EXISTS:
+     * The ViewModel now follows a "single derived state" architecture.
+     * Instead of mutating UI state from many places, we first gather all source
+     * inputs (query, visibility, recent apps, installed apps, permissions, etc.)
+     * into this immutable snapshot and then compute UI state from it.
+     *
+     * BENEFITS:
+     * - Deterministic behavior (same inputs => same output)
+     * - Easier debugging (inspect one snapshot)
+     * - Eliminates stale-state races
+     */
+    private data class SearchInputs(
+        val query: String,
+        val isSearchVisible: Boolean,
+        val installedApps: List<AppInfo>,
+        val recentApps: List<AppInfo>,
+        val hasContactsPermission: Boolean,
+        val hasFilesPermission: Boolean
+    )
+
+    /**
+     * Encapsulates pure search computation output.
+     *
+     * We keep provider config and results together because both are produced
+     * by the same parsing/search pass and should be updated atomically.
+     */
+    private data class SearchComputation(
+        val activeProviderConfig: SearchProviderConfig?,
+        val results: List<SearchResult>
+    )
+
+    /**
+     * Intermediate typed input snapshot used to avoid heterogeneous vararg-combine
+     * inference issues when building SearchInputs.
+     */
+    private data class SearchInputsWithoutFilesPermission(
+        val query: String,
+        val isSearchVisible: Boolean,
+        val installedApps: List<AppInfo>,
+        val recentApps: List<AppInfo>,
+        val hasContactsPermission: Boolean
+    )
+
+    // ========================================================================
     // PRIVATE STATE
     // ========================================================================
 
     /**
-     * Private mutable state flow for UI state.
-     * Only the ViewModel can modify this.
+     * Final derived UI state observed by Compose.
      */
     private val _uiState = MutableStateFlow(SearchUiState())
 
@@ -82,38 +131,43 @@ class SearchViewModel(
      */
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
-    /**
-     * Internal flow for search queries.
-     * 
-     * REACTIVE SEARCH PATTERN:
-     * Instead of manually managing coroutine jobs, we use a Flow-based approach.
-     * User input (queries) flows through this MutableStateFlow, and we react
-     * to each query using mapLatest - which automatically cancels any previous
-     * search when a new query arrives.
-     * 
-     * This is the standard modern Android pattern for "search-as-you-type" because:
-     * - No manual job cancellation needed (mapLatest handles it)
-     * - Can easily add debounce() to wait for user to stop typing
-     * - Declarative and idiomatic Kotlin Flow code
-     * - Race conditions are handled automatically
-     */
+    /** Query input source. */
     private val searchQuery = MutableStateFlow("")
+
+    /** Dialog visibility source. */
+    private val isSearchVisible = MutableStateFlow(false)
+
+    /** Installed-apps data source. */
+    private val installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
+
+    /** Recent-apps data source. */
+    private val recentApps = MutableStateFlow<List<AppInfo>>(emptyList())
+
+    /** Contacts permission source. */
+    private val hasContactsPermission = MutableStateFlow(false)
+
+    /** Files permission source. */
+    private val hasFilesPermission = MutableStateFlow(false)
+
+    /**
+     * Prefix configuration version source.
+     *
+     * WHY THIS EXISTS:
+     * Prefix changes can alter parsing behavior for the SAME query text.
+     * Because the query string may not change, we expose a small version token
+     * that increments whenever prefix mapping changes, forcing recomputation
+     * from the derived-state pipeline.
+     */
+    private val prefixConfigVersion = MutableStateFlow(0)
 
     // ========================================================================
     // INITIALIZATION
     // ========================================================================
 
     init {
-        // Load installed apps
+        observeDerivedUiState()
         loadInstalledApps()
-
-        // Observe recent apps
         observeRecentApps()
-
-        // Set up reactive search pipeline
-        observeSearchQueries()
-
-        // Observe settings and update provider registry when prefix configs change
         observePrefixConfiguration()
     }
 
@@ -127,8 +181,7 @@ class SearchViewModel(
      */
     private fun loadInstalledApps() {
         viewModelScope.launch {
-            val apps = appRepository.getInstalledApps()
-            updateState { copy(installedApps = apps) }
+            installedApps.value = appRepository.getInstalledApps()
         }
     }
 
@@ -139,36 +192,77 @@ class SearchViewModel(
     private fun observeRecentApps() {
         viewModelScope.launch {
             appRepository.getRecentApps()
-                .collect { recentApps ->
-                    updateState { copy(recentApps = recentApps) }
+                .collect { updatedRecentApps ->
+                    recentApps.value = updatedRecentApps
                 }
         }
     }
 
     /**
-     * Set up the reactive search pipeline.
-     * 
-     * This replaces the manual searchJob cancellation approach with a declarative
-     * Flow-based pipeline. The key operator is mapLatest, which automatically
-     * cancels any ongoing search when a new query arrives.
-     * 
-     * PIPELINE STRUCTURE:
-     * 1. searchQuery (MutableStateFlow) - receives queries from onQueryChange()
-     * 2. onEach - sets loading state before search starts
-     * 3. mapLatest - executes search, cancels previous if new query arrives
-     * 4. onEach - updates results and clears loading state
-     * 
-     * WHY mapLatest:
-     * - When user types "a" then "ab" quickly, the search for "a" might still
-     *   be running when "ab" arrives. mapLatest automatically cancels the "a"
-     *   search and starts "ab", preventing stale results.
-     * - No manual Job tracking or cancellation needed.
+     * Build UI state from source flows.
+     *
+     * ARCHITECTURE CHANGE:
+     * Old approach: Imperative updates from multiple methods + manual refresh trigger.
+     * New approach: Derived-state pipeline.
+     *
+     * We combine all source flows into SearchInputs and then compute SearchUiState.
+     * This makes recent-app updates, installed-app updates, permission updates,
+     * and query updates all behave consistently.
+     *
+     * RELIABILITY IMPROVEMENT:
+     * The empty-state race is removed because recent-app updates are first-class
+     * inputs to this pipeline. When recent apps arrive, the combined flow emits,
+     * and results recompute even if query is still "".
      */
-    private fun observeSearchQueries() {
-        searchQuery
-            .onEach { updateState { copy(isLoading = true) } }
-            .mapLatest { query -> executeSearchLogic(query) }
-            .onEach { results -> updateState { copy(results = results, isLoading = false) } }
+    private fun observeDerivedUiState() {
+        combine(
+            searchQuery,
+            isSearchVisible,
+            installedApps,
+            recentApps,
+            hasContactsPermission
+        ) { query, visible, installed, recent, contactsPermission ->
+            SearchInputsWithoutFilesPermission(
+                query = query,
+                isSearchVisible = visible,
+                installedApps = installed,
+                recentApps = recent,
+                hasContactsPermission = contactsPermission
+            )
+        }
+            .combine(hasFilesPermission) { partialInputs, filesPermission ->
+                SearchInputs(
+                    query = partialInputs.query,
+                    isSearchVisible = partialInputs.isSearchVisible,
+                    installedApps = partialInputs.installedApps,
+                    recentApps = partialInputs.recentApps,
+                    hasContactsPermission = partialInputs.hasContactsPermission,
+                    hasFilesPermission = filesPermission
+                )
+            }
+            .combine(prefixConfigVersion) { inputs, _ ->
+                // Prefix changes may alter parsing for the same query.
+                // Passing inputs through this combine forces recomputation.
+                inputs
+            }
+            .flatMapLatest { inputs ->
+                if (!inputs.isSearchVisible) {
+                    flowOf(buildHiddenUiState(inputs))
+                } else {
+                    flow {
+                        emit(buildLoadingUiState(inputs))
+                        val computation = executeSearchLogic(
+                            query = inputs.query,
+                            installedApps = inputs.installedApps,
+                            recentApps = inputs.recentApps
+                        )
+                        emit(buildReadyUiState(inputs, computation))
+                    }
+                }
+            }
+            .onEach { derivedState ->
+                _uiState.value = derivedState
+            }
             .launchIn(viewModelScope)
     }
 
@@ -193,6 +287,10 @@ class SearchViewModel(
                     // Update the registry with new prefix configurations
                     // This rebuilds the prefix-to-provider mappings
                     providerRegistry.updatePrefixConfigurations(prefixConfigurations)
+
+                    // Increment version to force recompute for current query,
+                    // even if text did not change.
+                    prefixConfigVersion.update { current -> current + 1 }
                 }
         }
     }
@@ -203,45 +301,18 @@ class SearchViewModel(
 
     /**
      * Show the search dialog.
-     * Also triggers an initial search to show recent apps.
-     * 
-     * IMPORTANT: We cannot just set searchQuery.value = "" because:
-     * 1. searchQuery is initialized to "" in the MutableStateFlow
-     * 2. Setting a StateFlow to its current value does NOT trigger emission
-     * 3. The initial "" was processed before recentApps was loaded
-     * 
-     * SOLUTION: Directly execute search for the current query.
-     * This ensures recentApps (now loaded) are included in results.
+     *
+     * Derived-state pipeline handles recomputation automatically.
      */
     fun showSearch() {
-        updateState { copy(isSearchVisible = true) }
-        // Force a search refresh to show recent apps.
-        // We directly execute the search logic instead of relying on
-        // the reactive pipeline because the query might already be "".
-        viewModelScope.launch {
-            updateState { copy(isLoading = true) }
-            val results = executeSearchLogic(searchQuery.value)
-            updateState { copy(results = results, isLoading = false) }
-        }
+        isSearchVisible.value = true
     }
 
     /**
-     * Hide the search dialog.
-     * Also clears the query and results.
-     * 
-     * Note: No need to cancel any search job - the reactive pipeline
-     * handles that automatically through mapLatest.
+     * Hide the search dialog and reset query text.
      */
     fun hideSearch() {
-        updateState {
-            copy(
-                isSearchVisible = false,
-                query = "",
-                results = emptyList(),
-                activeProviderConfig = null,
-                isLoading = false
-            )
-        }
+        isSearchVisible.value = false
         searchQuery.value = ""
     }
 
@@ -252,9 +323,6 @@ class SearchViewModel(
      * @param newQuery The new query text
      */
     fun onQueryChange(newQuery: String) {
-        updateState { copy(query = newQuery) }
-        // Emit to the search flow - this triggers the reactive pipeline
-        // which will cancel any ongoing search and start a new one
         searchQuery.value = newQuery
     }
 
@@ -265,14 +333,7 @@ class SearchViewModel(
      * @param hasPermission Whether permission is granted
      */
     fun updateContactsPermission(hasPermission: Boolean) {
-        updateState { copy(hasContactsPermission = hasPermission) }
-
-        // Re-run search if we're in contacts mode
-        // Emit to searchQuery flow to trigger the reactive pipeline
-        val currentState = _uiState.value
-        if (currentState.activeProviderConfig?.prefix == "c") {
-            searchQuery.value = currentState.query
-        }
+        hasContactsPermission.value = hasPermission
     }
 
     /**
@@ -282,14 +343,7 @@ class SearchViewModel(
      * @param hasPermission Whether permission is granted
      */
     fun updateFilesPermission(hasPermission: Boolean) {
-        updateState { copy(hasFilesPermission = hasPermission) }
-
-        // Re-run search if we're in files mode
-        // Emit to searchQuery flow to trigger the reactive pipeline
-        val currentState = _uiState.value
-        if (currentState.activeProviderConfig?.prefix == "f") {
-            searchQuery.value = currentState.query
-        }
+        hasFilesPermission.value = hasPermission
     }
 
     /**
@@ -325,9 +379,6 @@ class SearchViewModel(
      * returns recentApps when query is blank.
      */
     fun clearQuery() {
-        updateState {
-            copy(query = "", activeProviderConfig = null)
-        }
         searchQuery.value = ""
     }
 
@@ -361,35 +412,40 @@ class SearchViewModel(
      * app filtering) don't block the UI thread.
      *
      * @param query The search query
-     * @return List of search results
+     * @param installedApps Latest installed apps snapshot
+     * @param recentApps Latest recent apps snapshot
+     * @return SearchComputation containing active provider + results
      */
-    private suspend fun executeSearchLogic(query: String): List<SearchResult> {
+    private suspend fun executeSearchLogic(
+        query: String,
+        installedApps: List<AppInfo>,
+        recentApps: List<AppInfo>
+    ): SearchComputation {
         val parsed = parseSearchQuery(query, providerRegistry)
-
-        // Update the active provider config in state
-        // This needs to happen separately since we're returning results
-        updateState { copy(activeProviderConfig = parsed.config) }
 
         if (parsed.provider != null) {
             // Provider search - delegate to the provider
-            return try {
+            val providerResults = try {
                 parsed.provider.search(parsed.query)
             } catch (e: Exception) {
                 emptyList()
             }
+
+            return SearchComputation(
+                activeProviderConfig = parsed.config,
+                results = providerResults
+            )
         }
 
         // No provider prefix detected - search apps and check for URLs
-        val state = _uiState.value
-        
         // Check if the query looks like a URL
         val urlResult = detectUrl(parsed.query)
         
         // Filter apps using the use case
         val filteredApps = filterAppsUseCase(
             query = parsed.query,
-            installedApps = state.installedApps,
-            recentApps = state.recentApps
+            installedApps = installedApps,
+            recentApps = recentApps
         )
 
         val limitedApps = filteredApps.take(8)
@@ -399,11 +455,16 @@ class SearchViewModel(
         }
 
         // Combine URL result with app results
-        return if (urlResult != null) {
+        val combinedResults = if (urlResult != null) {
             listOf(urlResult) + appResults
         } else {
             appResults
         }
+
+        return SearchComputation(
+            activeProviderConfig = parsed.config,
+            results = combinedResults
+        )
     }
 
     // ========================================================================
@@ -452,10 +513,59 @@ class SearchViewModel(
     // ========================================================================
 
     /**
-     * Update state with a transformation.
-     * Provides a cleaner API for state updates.
+     * Build hidden-state UI snapshot.
+     *
+     * We intentionally clear results when hidden to keep semantics consistent
+     * with previous behavior and avoid showing stale data on next open.
      */
-    private inline fun updateState(transform: SearchUiState.() -> SearchUiState) {
-        _uiState.update { it.transform() }
+    private fun buildHiddenUiState(inputs: SearchInputs): SearchUiState {
+        return SearchUiState(
+            query = "",
+            isSearchVisible = false,
+            results = emptyList(),
+            activeProviderConfig = null,
+            isLoading = false,
+            recentApps = inputs.recentApps,
+            installedApps = inputs.installedApps,
+            hasContactsPermission = inputs.hasContactsPermission,
+            hasFilesPermission = inputs.hasFilesPermission
+        )
+    }
+
+    /**
+     * Build loading-state UI snapshot.
+     */
+    private fun buildLoadingUiState(inputs: SearchInputs): SearchUiState {
+        return SearchUiState(
+            query = inputs.query,
+            isSearchVisible = true,
+            results = emptyList(),
+            activeProviderConfig = null,
+            isLoading = true,
+            recentApps = inputs.recentApps,
+            installedApps = inputs.installedApps,
+            hasContactsPermission = inputs.hasContactsPermission,
+            hasFilesPermission = inputs.hasFilesPermission
+        )
+    }
+
+    /**
+     * Build ready-state UI snapshot from computation output.
+     */
+    private fun buildReadyUiState(
+        inputs: SearchInputs,
+        computation: SearchComputation
+    ): SearchUiState {
+        return SearchUiState(
+            query = inputs.query,
+            isSearchVisible = true,
+            results = computation.results,
+            activeProviderConfig = computation.activeProviderConfig,
+            isLoading = false,
+            recentApps = inputs.recentApps,
+            installedApps = inputs.installedApps,
+            hasContactsPermission = inputs.hasContactsPermission,
+            hasFilesPermission = inputs.hasFilesPermission
+        )
     }
 }
