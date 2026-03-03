@@ -10,7 +10,6 @@
 package com.milki.launcher.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,17 +27,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.search.SearchResultAction
+import com.milki.launcher.ui.components.dragdrop.AppDragDropGestureCallbacks
+import com.milki.launcher.ui.components.dragdrop.appDragDropGestures
+import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.components.dragdrop.startExternalAppDrag
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
 /**
  * AppListItem displays an app in a horizontal list row.
  *
+ * GESTURE INTERACTION MODEL:
+ * Same model as AppGridItem — see its documentation for full details.
+ * - Long-press shows non-focusable menu (doesn't steal touches)
+ * - Finger lift makes menu interactive
+ * - Drag closes menu and starts external platform drag
+ *
  * @param appInfo The app to display
  * @param onClick Called when user taps this item
+ * @param onExternalDragStarted Called when an external drag starts (dismisses search dialog)
  * @param modifier Optional modifier
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -46,17 +57,51 @@ import com.milki.launcher.ui.theme.Spacing
 fun AppListItem(
     appInfo: AppInfo,
     onClick: () -> Unit,
+    onExternalDragStarted: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var isGestureActive by remember { mutableStateOf(false) }
+    val hostView = LocalView.current
 
     Box(modifier = modifier) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = { showMenu = true }
+                .appDragDropGestures(
+                    key = "${appInfo.packageName}/${appInfo.activityName}",
+                    dragThresholdPx = GridConfig.Default.dragThresholdPx,
+                    callbacks = AppDragDropGestureCallbacks(
+                        onTap = onClick,
+                        onLongPress = {
+                            showMenu = true
+                            isGestureActive = true
+                        },
+                        onLongPressRelease = {
+                            isGestureActive = false
+                        },
+                        onDragStart = {
+                            showMenu = false
+                            isGestureActive = false
+
+                            val dragStarted = startExternalAppDrag(
+                                hostView = hostView,
+                                appInfo = appInfo,
+                                dragShadowSize = IconSize.appList
+                            )
+
+                            if (dragStarted) {
+                                hostView.post {
+                                    onExternalDragStarted()
+                                }
+                            }
+                        },
+                        onDrag = { change, _ -> change.consume() },
+                        onDragEnd = {},
+                        onDragCancel = {
+                            isGestureActive = false
+                        }
+                    )
                 ),
             color = Color.Transparent
         ) {
@@ -83,7 +128,8 @@ fun AppListItem(
 
         ItemActionMenu(
             expanded = showMenu,
-            onDismiss = { showMenu = false },
+            onDismiss = { showMenu = false; isGestureActive = false },
+            focusable = !isGestureActive,
             actions = listOf(
                 createPinAction(
                     isPinned = false,

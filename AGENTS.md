@@ -1,4 +1,4 @@
-- don't run gradle commands: build,test etc.
+- don't run gradle commands: build,test etc. don't run IDE validation, don't check files for diagnostic
 - please write down extensive documentation and very detailed incode comments. this project is meant to be for educational purposes for people who are very new to android. i don't care about best practices or writing concise comments etc. comment everything and write documentation files in docs
 - don't document existing code unless you changed implementation or changes it's behavior etc.
 - update relevant docs/

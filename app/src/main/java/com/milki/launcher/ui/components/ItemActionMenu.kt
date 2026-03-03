@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.window.PopupProperties
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 
@@ -56,15 +57,29 @@ data class MenuAction(
  * Uses the unified SearchResultAction system. All actions are emitted
  * through LocalSearchActionHandler.
  *
+ * FOCUSABLE PARAMETER:
+ * When [focusable] is false, the popup window does not steal focus or touch events
+ * from the underlying composable. This is essential for drag-capable items:
+ * if the popup is focusable while the finger is still down (long-press hold),
+ * Android routes subsequent touch events to the popup window instead of the
+ * original gesture detector, preventing drag detection.
+ *
+ * Callers should set focusable=false during the active gesture and switch to
+ * focusable=true when the finger lifts (via onLongPressRelease).
+ *
  * @param expanded Whether the menu is visible
  * @param onDismiss Called when menu should close
  * @param actions List of actions to display
+ * @param focusable Whether the popup can receive focus and steal touches.
+ *                  Set to false during active gestures to prevent popup from
+ *                  intercepting touch events meant for the gesture detector.
  */
 @Composable
 fun ItemActionMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     actions: List<MenuAction>,
+    focusable: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     /**
@@ -80,6 +95,7 @@ fun ItemActionMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = focusable),
         modifier = modifier
     ) {
         actions.forEach { menuAction ->

@@ -72,6 +72,18 @@ class HomeRepositoryImpl(
     private val context: Context
 ) : HomeRepository {
 
+    /**
+     * Default column count used by repository-level auto-placement.
+     *
+     * IMPORTANT:
+     * This value is only used for "find first available slot" behavior during
+     * generic pin actions that do not specify an explicit drop target. Explicit
+     * drag-drop placement always uses provided GridPosition values.
+     */
+    private companion object {
+        private const val DEFAULT_GRID_COLUMNS = 4
+    }
+
     // ========================================================================
     // PREFERENCE KEY
     // ========================================================================
@@ -162,7 +174,7 @@ class HomeRepositoryImpl(
 
             // Find the next available position for the new item
             // The grid has 4 columns by default
-            val availablePosition = findAvailablePositionInList(currentItems, columns = 4)
+            val availablePosition = findAvailablePositionInList(currentItems, columns = DEFAULT_GRID_COLUMNS)
 
             // Place the item at the available position
             val itemWithPosition = item.withPosition(availablePosition)
@@ -219,6 +231,44 @@ class HomeRepositoryImpl(
         }
     }
 
+    /**
+     * Atomic pin-or-move operation used by external app drops.
+     *
+     * RULES ENFORCED:
+     * 1) If target is occupied by another item -> reject (return false)
+     * 2) If item already exists -> move it to target
+     * 3) If item does not exist -> add it directly at target
+     */
+    override suspend fun pinOrMoveItemToPosition(item: HomeItem, targetPosition: GridPosition): Boolean {
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val existingItemIndex = currentItems.indexOfFirst { it.id == item.id }
+            val targetOccupantIndex = currentItems.indexOfFirst {
+                it.id != item.id && it.position == targetPosition
+            }
+
+            if (targetOccupantIndex != -1) {
+                wasApplied = false
+                return@edit
+            }
+
+            if (existingItemIndex != -1) {
+                val existingItem = currentItems[existingItemIndex]
+                currentItems[existingItemIndex] = existingItem.withPosition(targetPosition)
+            } else {
+                currentItems.add(item.withPosition(targetPosition))
+            }
+
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
     // ========================================================================
     // IS PINNED CHECK
     // ========================================================================
@@ -243,39 +293,55 @@ class HomeRepositoryImpl(
     /**
      * Update the grid position of a specific item.
      *
-     * This is called when the user drags an icon to a new location.
-     * If the target position is occupied by another item, the items swap positions.
+      * This is called when the user drags an icon to a new location.
+      *
+      * BEHAVIOR:
+      * For compatibility, this delegates to moveItemToPositionIfEmpty(), which
+      * rejects moves into occupied target cells.
      *
      * @param itemId The ID of the item to move
      * @param newPosition The new grid position (row, column)
      */
     override suspend fun updateItemPosition(itemId: String, newPosition: GridPosition) {
+        moveItemToPositionIfEmpty(itemId, newPosition)
+    }
+
+    /**
+     * Move operation that rejects occupied target cells.
+     */
+    override suspend fun moveItemToPositionIfEmpty(itemId: String, newPosition: GridPosition): Boolean {
+        var wasApplied = false
+
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            // Find the item to move
             val itemIndex = currentItems.indexOfFirst { it.id == itemId }
-            if (itemIndex == -1) return@edit // Item not found
-
-            val itemToMove = currentItems[itemIndex]
-
-            // Check if the target position is occupied
-            val occupantIndex = currentItems.indexOfFirst { 
-                it.id != itemId && it.position == newPosition 
+            if (itemIndex == -1) {
+                wasApplied = false
+                return@edit
             }
 
-            if (occupantIndex != -1) {
-                // Position is occupied - swap the items
-                val occupant = currentItems[occupantIndex]
-                // Give the occupant the old position of the moving item
-                currentItems[occupantIndex] = occupant.withPosition(itemToMove.position)
+            val currentItem = currentItems[itemIndex]
+            if (currentItem.position == newPosition) {
+                wasApplied = true
+                return@edit
             }
 
-            // Update the item's position
-            currentItems[itemIndex] = itemToMove.withPosition(newPosition)
+            val targetOccupiedByAnotherItem = currentItems.any {
+                it.id != itemId && it.position == newPosition
+            }
 
+            if (targetOccupiedByAnotherItem) {
+                wasApplied = false
+                return@edit
+            }
+
+            currentItems[itemIndex] = currentItem.withPosition(newPosition)
             serializeItems(currentItems, preferences)
+            wasApplied = true
         }
+
+        return wasApplied
     }
 
     // ========================================================================

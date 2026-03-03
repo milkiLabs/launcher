@@ -20,6 +20,7 @@ import androidx.datastore.preferences.preferencesDataStore
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
+import com.milki.launcher.data.icon.AppIconMemoryCache
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -212,6 +213,20 @@ class AppRepositoryImpl(
             // As each finishes, the next one starts immediately (no batch waiting)
             resolveInfos.map { resolveInfo ->
                 async {
+                    val packageName = resolveInfo.activityInfo.packageName
+
+                    // Preload icon into the launcher's dedicated memory cache.
+                    //
+                    // WHY WE DO THIS HERE:
+                    // This repository method already runs on a background dispatcher and
+                    // iterates every launcher activity to build AppInfo objects.
+                    // Preloading at this stage means the UI can usually render icons from
+                    // memory on first composition instead of triggering per-item loads.
+                    AppIconMemoryCache.preload(
+                        packageName = packageName,
+                        icon = resolveInfo.loadIcon(pm)
+                    )
+
                     // Build an explicit launch intent for this specific activity.
                     // We use the full component name (package + activity class)
                     // instead of getLaunchIntentForPackage() because multiple
@@ -232,7 +247,7 @@ class AppRepositoryImpl(
                         // loadLabel gets the localized display name
                         name = resolveInfo.loadLabel(pm).toString(),
                         // activityInfo.packageName is the package identifier
-                        packageName = resolveInfo.activityInfo.packageName,
+                        packageName = packageName,
                         // activityInfo.name is the fully qualified activity class
                         // This distinguishes multiple activities in the same package
                         activityName = resolveInfo.activityInfo.name,
@@ -290,6 +305,17 @@ class AppRepositoryImpl(
                     // Get app info from PackageManager using compat extension
                     // This throws NameNotFoundException if app was uninstalled
                     val appInfo = pm.getApplicationInfoCompat(packageName)
+
+                    // Preload icon for recent app entries as well.
+                    //
+                    // WHY THIS HELPS:
+                    // Recent apps may appear before or independent of the full installed
+                    // app list in some UI states. Preloading here keeps icon rendering
+                    // consistently fast for recent sections too.
+                    AppIconMemoryCache.preload(
+                        packageName = packageName,
+                        icon = pm.getApplicationIcon(packageName)
+                    )
                     
                     // Build explicit launch intent targeting the SPECIFIC activity
                     // This is critical for apps with multiple launcher activities

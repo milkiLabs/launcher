@@ -58,7 +58,8 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun SearchResultsList(
     results: List<SearchResult>,
-    activeProviderConfig: SearchProviderConfig?
+    activeProviderConfig: SearchProviderConfig?,
+    onExternalAppDragStart: () -> Unit = {}
 ) {
     /**
      * Get the action handler from CompositionLocal.
@@ -91,7 +92,8 @@ fun SearchResultsList(
          */
         AppResultsGrid(
             appResults = results.filterIsInstance<AppSearchResult>(),
-            actionHandler = actionHandler
+            actionHandler = actionHandler,
+            onExternalAppDragStart = onExternalAppDragStart
         )
     } else {
         /**
@@ -104,7 +106,8 @@ fun SearchResultsList(
         MixedResultsList(
             results = results,
             activeProviderConfig = activeProviderConfig,
-            actionHandler = actionHandler
+            actionHandler = actionHandler,
+            onExternalAppDragStart = onExternalAppDragStart
         )
     }
 }
@@ -131,7 +134,8 @@ fun SearchResultsList(
 @Composable
 private fun AppResultsGrid(
     appResults: List<AppSearchResult>,
-    actionHandler: (SearchResultAction) -> Unit
+    actionHandler: (SearchResultAction) -> Unit,
+    onExternalAppDragStart: () -> Unit
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(4),
@@ -159,6 +163,7 @@ private fun AppResultsGrid(
         ) { result ->
             AppGridItem(
                 appInfo = result.appInfo,
+                onExternalDragStarted = onExternalAppDragStart,
                 onClick = { actionHandler(SearchResultAction.Tap(result)) }
             )
         }
@@ -195,7 +200,8 @@ private fun AppResultsGrid(
 private fun MixedResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
-    actionHandler: (SearchResultAction) -> Unit
+    actionHandler: (SearchResultAction) -> Unit,
+    onExternalAppDragStart: () -> Unit
 ) {
     /**
      * LazyListState allows us to control and observe the scroll position
@@ -238,6 +244,7 @@ private fun MixedResultsList(
                 is AppSearchResult -> {
                     AppListItem(
                         appInfo = result.appInfo,
+                        onExternalDragStarted = onExternalAppDragStart,
                         onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }

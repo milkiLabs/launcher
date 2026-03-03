@@ -47,6 +47,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -85,7 +86,20 @@ interface DragGestureCallbacks {
      * @param position The screen position where long-press occurred
      */
     fun onLongPress(position: Offset) {}
-    
+
+    /**
+     * Called when the finger lifts after a long-press WITHOUT exceeding the drag threshold.
+     *
+     * This is the point where the gesture system knows the user intended a "long-press
+     * and release" rather than a "long-press and drag". Callers can use this to switch
+     * any non-interactive UI shown during onLongPress (e.g., a non-focusable menu) into
+     * its interactive state (e.g., a focusable popup).
+     *
+     * Also fires when the gesture is cancelled before drag starts (multi-touch, etc.),
+     * ensuring the caller always gets a clean end-of-long-press signal.
+     */
+    fun onLongPressRelease() {}
+
     /**
      * Called when drag starts (movement exceeded threshold after long-press).
      */
@@ -134,6 +148,7 @@ suspend fun PointerInputScope.detectDragOrTapGesture(
         consumeChanges = config.consumeChanges,
         onTap = { callbacks.onTap() },
         onLongPress = { callbacks.onLongPress(it) },
+        onLongPressRelease = { callbacks.onLongPressRelease() },
         onDragStart = { callbacks.onDragStart() },
         onDrag = { change, offset -> callbacks.onDrag(change, offset) },
         onDragEnd = { callbacks.onDragEnd() },
@@ -159,6 +174,7 @@ suspend fun PointerInputScope.detectDragOrTapGesture(
  * @param consumeChanges Whether to consume pointer changes during drag
  * @param onTap Called for tap gesture
  * @param onLongPress Called when long-press is detected
+ * @param onLongPressRelease Called when finger lifts after long-press without drag
  * @param onDragStart Called when drag begins (threshold exceeded)
  * @param onDrag Called during drag with movement delta
  * @param onDragEnd Called when drag ends successfully
@@ -169,6 +185,7 @@ suspend fun PointerInputScope.detectDragOrTapGesture(
     consumeChanges: Boolean = true,
     onTap: () -> Unit,
     onLongPress: (Offset) -> Unit,
+    onLongPressRelease: () -> Unit = {},
     onDragStart: () -> Unit,
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit,
     onDragEnd: () -> Unit,
@@ -183,8 +200,22 @@ suspend fun PointerInputScope.detectDragOrTapGesture(
         val longPress = awaitLongPressOrCancellation(down.id)
         
         if (longPress == null) {
-            // No long-press detected - this was a tap
-            onTap()
+            /**
+             * IMPORTANT CANCELLATION SAFETY:
+             * awaitLongPressOrCancellation() can return null for both:
+             * 1) Legitimate tap release before long-press timeout
+             * 2) Gesture cancellation (multi-touch/system interruption)
+             *
+             * We probe for an actual up event. If present, treat as tap.
+             * If not present, treat as cancellation so we never misfire a tap
+             * during interrupted drag/long-press interactions.
+             */
+            val upEvent = waitForUpOrCancellation()
+            if (upEvent != null) {
+                onTap()
+            } else {
+                onDragCancel()
+            }
             return@awaitEachGesture
         }
         
@@ -225,8 +256,16 @@ suspend fun PointerInputScope.detectDragOrTapGesture(
             // Finger lifted - complete the gesture
             if (dragStarted) {
                 onDragEnd()
+            } else {
+                /**
+                 * Finger lifted after long-press without exceeding drag threshold.
+                 *
+                 * This is the "long-press and release" case. Callers use this to
+                 * transition a non-focusable menu (shown during onLongPress to avoid
+                 * stealing the gesture) into its interactive/focusable state.
+                 */
+                onLongPressRelease()
             }
-            // If no drag happened, the menu stays open (already shown)
             
         } catch (e: Exception) {
             // Gesture was cancelled (e.g., another touch event, system interrupt)
@@ -235,6 +274,13 @@ suspend fun PointerInputScope.detectDragOrTapGesture(
             
             if (dragStarted) {
                 onDragCancel()
+            } else {
+                /**
+                 * Gesture cancelled before drag started (e.g., multi-touch or system
+                 * interrupt during long-press hold). Fire onLongPressRelease so callers
+                 * still get a clean end-of-long-press signal and can reset their state.
+                 */
+                onLongPressRelease()
             }
         }
     }
@@ -273,6 +319,7 @@ fun Modifier.detectDragGesture(
  * @param dragThreshold Minimum pixels to move before drag starts
  * @param onTap Called for tap gesture
  * @param onLongPress Called when long-press is detected
+ * @param onLongPressRelease Called when finger lifts after long-press without drag
  * @param onDragStart Called when drag begins
  * @param onDrag Called during drag
  * @param onDragEnd Called when drag ends
@@ -283,6 +330,7 @@ fun Modifier.detectDragGesture(
     dragThreshold: Float = 20f,
     onTap: () -> Unit,
     onLongPress: (Offset) -> Unit,
+    onLongPressRelease: () -> Unit = {},
     onDragStart: () -> Unit,
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit,
     onDragEnd: () -> Unit,
@@ -293,6 +341,7 @@ fun Modifier.detectDragGesture(
             dragThreshold = dragThreshold,
             onTap = onTap,
             onLongPress = onLongPress,
+            onLongPressRelease = onLongPressRelease,
             onDragStart = onDragStart,
             onDrag = onDrag,
             onDragEnd = onDragEnd,
@@ -315,6 +364,7 @@ fun Modifier.detectDragGesture(
 fun simpleDragCallbacks(
     onTap: () -> Unit = {},
     onLongPress: (Offset) -> Unit = {},
+    onLongPressRelease: () -> Unit = {},
     onDragStart: () -> Unit = {},
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit = { _, _ -> },
     onDragEnd: () -> Unit = {},
@@ -323,6 +373,7 @@ fun simpleDragCallbacks(
     return object : DragGestureCallbacks {
         override fun onTap() = onTap()
         override fun onLongPress(position: Offset) = onLongPress(position)
+        override fun onLongPressRelease() = onLongPressRelease()
         override fun onDragStart() = onDragStart()
         override fun onDrag(change: PointerInputChange, dragAmount: Offset) = onDrag(change, dragAmount)
         override fun onDragEnd() = onDragEnd()

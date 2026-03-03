@@ -8,8 +8,8 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 |----------|-------------|
 | **[Architecture.md](Architecture.md)** | Complete architecture guide (Clean Architecture + MVVM) |
 | **[multi-mode-search.md](multi-mode-search.md)** | Multi-mode search feature documentation |
-| **[AppIconFetcher.md](AppIconFetcher.md)** | Custom Coil icon loading implementation |
-| **[LauncherApplication.md](LauncherApplication.md)** | Application class and Coil configuration |
+| **[app-icon-memory-cache.md](app-icon-memory-cache.md)** | Launcher-optimized app icon caching and rendering flow |
+| **[LauncherApplication.md](LauncherApplication.md)** | Application class and Koin startup configuration |
 | **[Theme.md](Theme.md)** | Material Design 3 theming explained |
 | **[BuildConfiguration.md](BuildConfiguration.md)** | Gradle build files explained |
 | **[AndroidManifest.md](AndroidManifest.md)** | App configuration explained |
@@ -38,7 +38,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
   
 - **Controlled Parallelism**: Processes apps in chunks of 8 to avoid memory spikes
 
-- **LRU Memory Cache**: App icons cached using Coil with 15% memory allocation
+- **Launcher Icon Cache**: App icons preloaded from PackageManager into an in-memory LRU cache
 
 - **Recent Apps**: Saves and displays 8 most recently launched apps
 
@@ -52,7 +52,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | **UI Framework** | Jetpack Compose with Material Design 3 |
 | **Architecture** | MVVM + Clean Architecture |
 | **Dependency Injection** | Manual (Service Locator in AppContainer) |
-| **Image Loading** | Coil |
+| **Image Loading** | PackageManager + in-memory LRU icon cache |
 | **Data Persistence** | DataStore Preferences |
 | **Async Operations** | Kotlin Coroutines + Flow |
 | **Minimum SDK** | API 24 (Android 7.0) |
@@ -86,7 +86,6 @@ See **[Architecture.md](Architecture.md)** for complete details.
 app/src/main/java/com/milki/launcher/
 ├── MainActivity.kt                    # Entry point, handles actions
 ├── LauncherApplication.kt             # App class, DI container init
-├── AppIconFetcher.kt                  # Coil icon loader
 │
 ├── di/
 │   └── AppContainer.kt                # Manual DI container
@@ -97,6 +96,7 @@ app/src/main/java/com/milki/launcher/
 │   └── search/                        # Use cases and query parsing
 │
 ├── data/                              # Implementation
+│   ├── icon/                          # App icon memory cache
 │   ├── repository/                    # Repository implementations
 │   └── search/                        # Search providers (Web, Contacts, YouTube)
 │
@@ -174,7 +174,8 @@ Avoids calling `lowercase()` on every search keystroke.
 
 ### 3. Memory Cache for Icons
 
-Coil configured with 15% memory allocation for caching app icons.
+App icons are preloaded into a dedicated in-memory LRU cache during app discovery,
+so icon composables can usually render immediately from memory.
 
 ### 4. Smart Search Algorithm
 
@@ -222,8 +223,8 @@ This project is extensively documented for educational purposes. Each major comp
 - **[multi-mode-search.md](multi-mode-search.md)** - Multi-mode search feature with usage examples and extension guide
 
 ### Technical Components
-- **[AppIconFetcher.md](AppIconFetcher.md)** - How custom Coil fetcher loads app icons
-- **[LauncherApplication.md](LauncherApplication.md)** - Application class and Coil configuration
+- **[app-icon-memory-cache.md](app-icon-memory-cache.md)** - How launcher icon caching and rendering works
+- **[LauncherApplication.md](LauncherApplication.md)** - Application class and startup initialization
 - **[Theme.md](Theme.md)** - Material Design 3 theming explained
 
 ### Configuration

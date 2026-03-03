@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.domain.repository.ContactsRepository
-import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.search.ActionExecutor
@@ -71,12 +70,6 @@ class MainActivity : ComponentActivity() {
      * Provided by Koin DI.
      */
     private val contactsRepository: ContactsRepository by inject()
-
-    /**
-     * HomeRepository for pinned items persistence.
-     * Provided by Koin DI.
-     */
-    private val homeRepository: HomeRepository by inject()
 
     // ========================================================================
     // HANDLERS
@@ -148,6 +141,16 @@ class MainActivity : ComponentActivity() {
                              * Delegate to HomeViewModel to update the position.
                              */
                             homeViewModel.moveItemToPosition(itemId, newPosition)
+                        },
+                        onAppDroppedToHome = { appInfo, position ->
+                            /**
+                             * User dropped an app payload onto the home grid.
+                             *
+                             * Behavior is centralized in HomeViewModel:
+                             * - If app is not pinned yet: pin it first, then place at drop cell.
+                             * - If app is already pinned: move existing icon to drop cell.
+                             */
+                            homeViewModel.pinOrMoveAppToPosition(appInfo, position)
                         }
                     )
                 }
@@ -205,7 +208,7 @@ class MainActivity : ComponentActivity() {
         permissionHandler.setup()
         
         // Initialize action executor
-        actionExecutor = ActionExecutor(this, contactsRepository, homeRepository, lifecycleScope)
+        actionExecutor = ActionExecutor(this, contactsRepository, homeViewModel, lifecycleScope)
         
         // Set up permission request callback
         actionExecutor.onRequestPermission = { permission ->

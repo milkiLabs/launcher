@@ -23,7 +23,7 @@ import android.os.Build
 import android.widget.Toast
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
-import com.milki.launcher.domain.repository.HomeRepository
+import com.milki.launcher.presentation.home.HomeMutationHandler
 import com.milki.launcher.util.openFile
 import com.milki.launcher.util.launchApp
 import kotlinx.coroutines.CoroutineScope
@@ -42,7 +42,7 @@ data class PendingPermissionAction(
  *
  * @property context Android context for starting activities
  * @property contactsRepository Repository for contacts
- * @property homeRepository Repository for pinned items
+ * @property homeMutationHandler Unified home mutation entrypoint
  * @property scope CoroutineScope tied to the caller's lifecycle (e.g., Activity's lifecycleScope).
  *                 This ensures all coroutines are cancelled when the lifecycle owner is destroyed,
  *                 preventing memory leaks and ensuring proper structured concurrency.
@@ -50,7 +50,7 @@ data class PendingPermissionAction(
 class ActionExecutor(
     private val context: Context,
     private val contactsRepository: ContactsRepository,
-    private val homeRepository: HomeRepository,
+    private val homeMutationHandler: HomeMutationHandler,
     private val scope: CoroutineScope
 ) {
     
@@ -245,25 +245,17 @@ class ActionExecutor(
     // ========================================================================
 
     private fun handlePinApp(action: SearchResultAction.PinApp) {
-        scope.launch {
-            val pinnedApp = HomeItem.PinnedApp.fromAppInfo(action.appInfo)
-            homeRepository.addPinnedItem(pinnedApp)
-        }
+        homeMutationHandler.pinApp(action.appInfo)
         Toast.makeText(context, "${action.appInfo.name} pinned to home", Toast.LENGTH_SHORT).show()
     }
 
     private fun handlePinFile(action: SearchResultAction.PinFile) {
-        scope.launch {
-            val pinnedFile = HomeItem.PinnedFile.fromFileDocument(action.file)
-            homeRepository.addPinnedItem(pinnedFile)
-        }
+        homeMutationHandler.pinFile(action.file)
         Toast.makeText(context, "${action.file.name} pinned to home", Toast.LENGTH_SHORT).show()
     }
 
     private fun handleUnpinItem(action: SearchResultAction.UnpinItem) {
-        scope.launch {
-            homeRepository.removePinnedItem(action.itemId)
-        }
+        homeMutationHandler.unpinItem(action.itemId)
         Toast.makeText(context, "Removed from home screen", Toast.LENGTH_SHORT).show()
     }
 

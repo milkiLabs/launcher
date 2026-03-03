@@ -10,9 +10,10 @@
  * - SearchResultAction.PinFile: Pins a file to the home screen
  * - SearchResultAction.UnpinItem: Removes an item from the home screen
  *
- * This ViewModel only observes the pinned items from the repository.
- * The UI components (PinnedItem) emit actions via LocalSearchActionHandler,
- * which are processed by ActionExecutor.
+ * This ViewModel now acts as the single home mutation coordinator.
+ * UI actions still originate from LocalSearchActionHandler + ActionExecutor,
+ * but ActionExecutor routes home write actions back into this ViewModel through
+ * HomeMutationHandler, so ordering stays serialized in one place.
  *
  * POSITION MANAGEMENT:
  * Each item has a grid position (row, column). The ViewModel provides
@@ -21,8 +22,11 @@
 
 package com.milki.launcher.presentation.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
@@ -55,14 +59,14 @@ data class HomeUiState(
  * RESPONSIBILITIES:
  * - Observe pinned items from the repository
  * - Provide pinned items state to the UI
- * - Handle item position updates when user drags items
+ * - Handle all home layout writes (move/pin/unpin/drop) through one serialized path
  *
  * Note: Pinning/unpinning actions are handled by ActionExecutor via SearchResultAction.
  * This separation keeps the action handling logic centralized and consistent.
  */
 class HomeViewModel(
     private val homeRepository: HomeRepository
-) : ViewModel() {
+) : ViewModel(), HomeMutationHandler {
 
     /**
      * Number of currently running position-update operations.
@@ -90,6 +94,37 @@ class HomeViewModel(
      * ordering and avoids race-like visual churn.
      */
     private val positionUpdateMutex = Mutex()
+
+    /**
+     * Execute a home-layout mutation through one serialized coordinator path.
+     *
+     * WHY THIS HELPER EXISTS:
+     * - Guarantees ordering across all home layout writes handled by this ViewModel.
+     * - Keeps loading/error bookkeeping consistent.
+     * - Prevents multiple call sites from duplicating mutex/try-catch logic.
+     */
+    private fun launchSerializedHomeMutation(
+        fallbackErrorMessage: String,
+        mutation: suspend () -> Boolean
+    ) {
+        viewModelScope.launch {
+            positionUpdateMutex.withLock {
+                pendingPositionUpdateCount.update { current -> current + 1 }
+                lastMoveErrorMessage.value = null
+
+                try {
+                    val wasApplied = mutation()
+                    if (!wasApplied) {
+                        lastMoveErrorMessage.value = fallbackErrorMessage
+                    }
+                } catch (exception: Exception) {
+                    lastMoveErrorMessage.value = exception.message ?: fallbackErrorMessage
+                } finally {
+                    pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
+                }
+            }
+        }
+    }
 
     /**
      * UI state derived from source streams.
@@ -122,38 +157,113 @@ class HomeViewModel(
     /**
      * Moves an item to a new grid position.
      *
-     * This is called when the user finishes dragging an item.
-     * If the target position is occupied, the items swap positions.
+        * This is called when the user finishes dragging an item.
+        * If the target position is occupied by another item, the move is rejected.
      *
      * @param itemId The ID of the item to move
      * @param newPosition The new grid position (row, column)
      */
     fun moveItemToPosition(itemId: String, newPosition: GridPosition) {
-        viewModelScope.launch {
-            positionUpdateMutex.withLock {
-                // Read current snapshot once to avoid unnecessary writes.
-                val currentItems = homeRepository.pinnedItems.first()
-                val currentItem = currentItems.firstOrNull { it.id == itemId }
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Target position is occupied or item no longer exists"
+        ) {
+            val currentItems = homeRepository.pinnedItems.first()
+            val currentItem = currentItems.firstOrNull { it.id == itemId } ?: return@launchSerializedHomeMutation false
 
-                // If the item no longer exists, no operation is needed.
-                if (currentItem == null) return@withLock
-
-                // If dropped back onto the same position, skip write.
-                // This removes avoidable DataStore transactions.
-                if (currentItem.position == newPosition) return@withLock
-
-                pendingPositionUpdateCount.update { current -> current + 1 }
-                lastMoveErrorMessage.value = null
-
-                try {
-                    homeRepository.updateItemPosition(itemId, newPosition)
-                } catch (exception: Exception) {
-                    lastMoveErrorMessage.value = exception.message
-                        ?: "Failed to update item position"
-                } finally {
-                    pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
-                }
+            if (currentItem.position == newPosition) {
+                return@launchSerializedHomeMutation true
             }
+
+            homeRepository.moveItemToPositionIfEmpty(itemId, newPosition)
+        }
+    }
+
+    /**
+     * Pins a dropped app if needed, or moves the already-pinned app to the drop position.
+     *
+        * DROP HANDLING RULES:
+        * 1) If the app is not currently pinned: pin directly into the requested cell.
+        * 2) If the app is already pinned: move existing item to that cell.
+        * 3) If another item already occupies the target cell: reject the drop.
+        *
+        * WHY THIS IS ATOMIC:
+        * Repository performs pin-or-move in one edit transaction to avoid
+        * transient "added in wrong slot then moved" intermediate states.
+     *
+     * @param appInfo The dropped app payload from drag-and-drop
+     * @param dropPosition The target grid position where user released the drag
+     */
+    fun pinOrMoveAppToPosition(appInfo: AppInfo, dropPosition: GridPosition) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Target position is occupied"
+        ) {
+            val pinnedApp = HomeItem.PinnedApp.fromAppInfo(appInfo)
+            val wasApplied = homeRepository.pinOrMoveItemToPosition(
+                item = pinnedApp,
+                targetPosition = dropPosition
+            )
+
+            if (wasApplied) {
+                Log.d(
+                    "HomeViewModel",
+                    "External drop applied for ${appInfo.packageName}/${appInfo.activityName} at row=${dropPosition.row}, col=${dropPosition.column}"
+                )
+            } else {
+                Log.w(
+                    "HomeViewModel",
+                    "External drop rejected for ${appInfo.packageName}/${appInfo.activityName} at row=${dropPosition.row}, col=${dropPosition.column} (target likely occupied)"
+                )
+            }
+
+            wasApplied
+        }
+    }
+
+    /**
+     * Pin an app from search/home actions through the same serialized mutation path.
+     */
+    override fun pinApp(appInfo: AppInfo) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Failed to pin app"
+        ) {
+            val pinnedApp = HomeItem.PinnedApp.fromAppInfo(appInfo)
+            val existingItem = homeRepository.pinnedItems.first().firstOrNull { it.id == pinnedApp.id }
+            if (existingItem != null) {
+                return@launchSerializedHomeMutation true
+            }
+
+            homeRepository.addPinnedItem(pinnedApp)
+            true
+        }
+    }
+
+    /**
+     * Pin a file shortcut through the same serialized mutation path.
+     */
+    override fun pinFile(file: FileDocument) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Failed to pin file"
+        ) {
+            val pinnedFile = HomeItem.PinnedFile.fromFileDocument(file)
+            val existingItem = homeRepository.pinnedItems.first().firstOrNull { it.id == pinnedFile.id }
+            if (existingItem != null) {
+                return@launchSerializedHomeMutation true
+            }
+
+            homeRepository.addPinnedItem(pinnedFile)
+            true
+        }
+    }
+
+    /**
+     * Unpin an item through the same serialized mutation path.
+     */
+    override fun unpinItem(itemId: String) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Failed to remove item"
+        ) {
+            homeRepository.removePinnedItem(itemId)
+            true
         }
     }
 

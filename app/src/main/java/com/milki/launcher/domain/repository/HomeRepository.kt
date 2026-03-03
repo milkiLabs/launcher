@@ -49,6 +49,26 @@ interface HomeRepository {
     suspend fun addPinnedItem(item: HomeItem)
 
     /**
+     * Add a new item at a specific target position, or move an already pinned item
+     * with the same ID to that position.
+     *
+     * OCCUPANCY RULE:
+     * The operation succeeds only when the target position is empty OR already
+     * occupied by the same item ID. If another item occupies the target cell,
+     * this operation is rejected and returns false.
+     *
+     * WHY THIS METHOD EXISTS:
+     * External drag-and-drop needs an atomic "pin or move" operation so we avoid
+     * two-phase writes (add first, then move) that can produce transient layout
+     * flicker and ordering races.
+     *
+     * @param item The home item to pin or move.
+     * @param targetPosition The exact grid position requested by the user drop.
+     * @return true when the item is placed at targetPosition; false when rejected.
+     */
+    suspend fun pinOrMoveItemToPosition(item: HomeItem, targetPosition: GridPosition): Boolean
+
+    /**
      * Remove an item from the home screen by its ID.
      *
      * If no item with the given ID exists, this is a no-op.
@@ -68,13 +88,27 @@ interface HomeRepository {
     /**
      * Update the grid position of a pinned item.
      *
-     * This is used when the user drags an icon to a new location on the grid.
-     * If the target position is occupied, the items are swapped.
+      * This is used when the user drags an icon to a new location on the grid.
+      *
+      * COMPATIBILITY NOTE:
+      * Current implementation keeps this method for backward compatibility and
+      * applies the same semantics as moveItemToPositionIfEmpty (no swap).
+      * New call sites should prefer moveItemToPositionIfEmpty.
      *
      * @param itemId The ID of the item to move
      * @param newPosition The new grid position (row, column)
      */
     suspend fun updateItemPosition(itemId: String, newPosition: GridPosition)
+
+    /**
+     * Move an existing pinned item to a target position if and only if that target
+     * position is currently empty (or already occupied by the same item).
+     *
+     * @param itemId The ID of the item to move.
+     * @param newPosition Requested destination.
+     * @return true when the move was applied or already at that position; false if rejected.
+     */
+    suspend fun moveItemToPositionIfEmpty(itemId: String, newPosition: GridPosition): Boolean
 
     /**
      * Find the next available grid position for a new item.

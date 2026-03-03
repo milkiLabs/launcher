@@ -26,14 +26,14 @@
  *
  * HOW IT WORKS:
  * 1. Takes a package name and size as parameters
- * 2. Creates an AppIconRequest model for Coil
- * 3. Uses rememberAsyncImagePainter to load the icon asynchronously
- * 4. Displays the icon with the specified size
+ * 2. Tries to read icon from launcher memory cache synchronously
+ * 3. If cache miss, loads icon on a background coroutine and caches it
+ * 4. Displays the icon using an ImageView-backed AndroidView
  *
  * PERFORMANCE:
- * - Coil handles caching automatically (memory + disk)
- * - Icons are loaded asynchronously (doesn't block UI thread)
- * - Our custom AppIconFetcher efficiently loads icons from PackageManager
+ * - In-memory cache avoids per-item image-pipeline overhead
+ * - Repository preloads icons during app discovery for near-instant first render
+ * - Cache misses are loaded off the main thread, then reused everywhere
  */
 
 package com.milki.launcher.ui.components
@@ -41,11 +41,19 @@ package com.milki.launcher.ui.components
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import com.milki.launcher.domain.model.AppIconRequest
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.ImageView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.ui.theme.IconSize
 
 /**
@@ -87,43 +95,61 @@ fun AppIcon(
     modifier: Modifier = Modifier,
     size: Dp = IconSize.appList
 ) {
-    /**
-     * Create the async image painter.
-     *
-     * rememberAsyncImagePainter is a Coil function that:
-     * 1. Takes a model (our AppIconRequest with the package name)
-     * 2. Returns a Painter that loads the image asynchronously
-     * 3. Handles caching automatically (memory + disk)
-     * 4. Shows a placeholder while loading
-     * 5. Handles errors gracefully
-     *
-     * The "remember" prefix means this painter is cached across recompositions.
-     * If the packageName doesn't change, the same painter instance is reused.
-     *
-     * AppIconRequest is our custom model that works with AppIconFetcher.
-     * The fetcher knows how to load app icons from Android's PackageManager.
-     */
-    val painter = rememberAsyncImagePainter(
-        model = AppIconRequest(packageName)
-    )
+    val context = LocalContext.current
 
     /**
-     * Display the icon using the Image composable.
+     * Immediate cache read for first composition.
      *
-     * The Image composable:
-     * - Takes the painter we created above
-     * - Applies the size modifier to control dimensions
-     * - Applies any additional modifiers passed by the caller
-     *
-     * contentDescription is null because:
-     * - This icon is always shown with the app name as text
-     * - Screen readers will read the text label
-     * - Adding a description would be redundant
-     * - This follows Android accessibility best practices
+     * WHY THIS IS IMPORTANT FOR A LAUNCHER:
+     * Users expect icons to appear instantly. We read from our process-wide
+     * memory cache synchronously here. In most cases this is already populated
+     * by repository preloading, so the icon is available in the first frame.
      */
-    Image(
-        painter = painter,
-        contentDescription = null,
-        modifier = modifier.then(Modifier.size(size))
+    var iconDrawable by remember(packageName) {
+        mutableStateOf(AppIconMemoryCache.get(packageName))
+    }
+
+    /**
+     * Background fallback load for cache misses.
+     *
+     * If this specific icon wasn't preloaded yet, we load it on IO and store it
+     * in memory cache for all future consumers. Once loaded, state updates and
+     * this composable re-renders with the real icon.
+     */
+    LaunchedEffect(packageName, iconDrawable) {
+        if (iconDrawable == null) {
+            iconDrawable = withContext(Dispatchers.IO) {
+                AppIconMemoryCache.getOrLoad(
+                    packageName = packageName,
+                    packageManager = context.packageManager
+                )
+            }
+        }
+    }
+
+    /**
+     * Fallback icon used while async load is still in progress.
+     */
+    val iconToDisplay = iconDrawable ?: context.packageManager.defaultActivityIcon
+
+    /**
+     * Render via ImageView-backed AndroidView.
+     *
+     * WHY ANDROIDVIEW:
+     * - We already have a Drawable from PackageManager/cache.
+     * - ImageView can display Drawables directly without conversion overhead.
+     * - This keeps the icon path simple and avoids extra image-pipeline layers.
+     */
+    AndroidView(
+        modifier = modifier.then(Modifier.size(size)),
+        factory = { imageViewContext ->
+            ImageView(imageViewContext).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                setImageDrawable(iconToDisplay)
+            }
+        },
+        update = { imageView ->
+            imageView.setImageDrawable(iconToDisplay)
+        }
     )
 }

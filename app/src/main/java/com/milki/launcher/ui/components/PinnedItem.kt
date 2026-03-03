@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
@@ -56,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -92,6 +92,9 @@ import com.milki.launcher.ui.theme.Spacing
  *                        Set to false when used in DraggablePinnedItemsGrid (parent handles gestures).
  *                        Set to true when used standalone.
  * @param showMenu External control for showing the menu (used by parent when handleLongPress is false)
+ * @param menuFocusable Whether the menu popup can receive focus. When false, touches pass through
+ *                      to the underlying gesture detector. Used by DraggablePinnedItemsGrid to
+ *                      keep drag detection working while the menu is visually shown.
  * @param modifier Optional modifier for external customization
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -103,6 +106,7 @@ fun PinnedItem(
     handleLongPress: Boolean = true,
     showMenu: Boolean = false,
     onMenuDismiss: () -> Unit = {},
+    menuFocusable: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     /**
@@ -190,6 +194,7 @@ fun PinnedItem(
                     onMenuDismiss()
                 }
             },
+            focusable = menuFocusable,
             actions = buildPinnedItemActions(item)
         )
     }
@@ -210,8 +215,7 @@ private fun PinnedItemContent(item: HomeItem) {
     ) {
         Box(
             modifier = Modifier
-                .size(IconSize.appGrid)
-                .clip(CircleShape),
+                .size(IconSize.appGrid),
             contentAlignment = Alignment.Center
         ) {
             PinnedItemIcon(item = item, size = IconSize.appGrid)
@@ -347,13 +351,12 @@ private fun FileIcon(
 
     Box(
         modifier = modifier
-            .size(size)
-            .clip(CircleShape),
+            .size(size),
         contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier.size(size),
-            shape = CircleShape,
+            shape = RectangleShape,
             color = iconData.backgroundColor.copy(alpha = 0.2f)
         ) {
             Box(

@@ -199,7 +199,8 @@ fun AppSearchDialog(
                      */
                     SearchResultsList(
                         results = uiState.results,
-                        activeProviderConfig = uiState.activeProviderConfig
+                        activeProviderConfig = uiState.activeProviderConfig,
+                        onExternalAppDragStart = onDismiss
                     )
                 }
             }

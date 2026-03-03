@@ -684,7 +684,6 @@ class FilterAppsUseCase {
 app/src/main/java/com/milki/launcher/
 ├── MainActivity.kt                    # Entry point, handles actions
 ├── LauncherApplication.kt             # App class, DI container init
-├── AppIconFetcher.kt                  # Coil icon loader
 │
 ├── di/
 │   └── AppModule.kt                 # Koin DI module definition
@@ -694,8 +693,7 @@ app/src/main/java/com/milki/launcher/
 │   │   ├── AppInfo.kt                 # App data model
 │   │   ├── Contact.kt                 # Contact data model
 │   │   ├── SearchResult.kt            # Search result sealed class
-│   │   ├── SearchProviderConfig.kt    # Provider display config
-│   │   └── AppIconRequest.kt          # Icon loading request
+│   │   └── SearchProviderConfig.kt    # Provider display config
 │   │
 │   ├── repository/
 │   │   ├── AppRepository.kt           # App data interface
@@ -708,6 +706,8 @@ app/src/main/java/com/milki/launcher/
 │       └── FilterAppsUseCase.kt       # App filtering logic
 │
 ├── data/                              # Implementation
+│   ├── icon/
+│   │   └── AppIconMemoryCache.kt      # Launcher app icon in-memory cache
 │   ├── repository/
 │   │   ├── AppRepositoryImpl.kt       # App data implementation
 │   │   └── ContactsRepositoryImpl.kt  # Contacts implementation

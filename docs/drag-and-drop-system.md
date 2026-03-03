@@ -1,404 +1,264 @@
 # Drag and Drop System
 
-This document describes the architecture, components, and usage of the drag and drop system used for the home screen grid in the launcher.
+This document describes the current reusable drag-and-drop system used by the launcher.
 
-## Overview
+## Why this redesign was needed
 
-The drag and drop system enables users to:
-- Long-press and drag icons to new positions
-- Swap items by dropping on occupied cells
-- Receive visual feedback during drag operations
-- Get haptic feedback for gesture confirmation
+The previous implementation mixed three responsibilities inside `DraggablePinnedItemsGrid`:
 
-## Architecture
+1. Gesture lifecycle (`tap`, `long press`, `drag start`, `drag update`, `drag end`)
+2. Drag state machine (active item, offset, drop target)
+3. Grid math (clamping offsets, resolving target cells)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DraggablePinnedItemsGrid                      │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  UI Component Layer                                         │ │
-│  │  - Renders items at grid positions                          │ │
-│  │  - Applies visual effects during drag                       │ │
-│  │  - Handles haptic feedback                                  │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                              │                                   │
-│                              ▼                                   │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │  GridConfig          - Configuration data class             │ │
-│  │  DragState           - Immutable state representation       │ │
-│  │  DragController      - State management and logic           │ │
-│  │  GridCalculator      - Coordinate conversion utilities      │ │
-│  │  DragGestureDetector - Reusable gesture detection           │ │
-│  │  DragVisualEffects   - Animation and visual feedback        │ │
-│  │  DropTarget          - Interface for drop handling          │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       Data Layer                                 │
-│  HomeRepository.updateItemPosition() - Handles swap logic       │
-│  HomeViewModel.moveItemToPosition() - ViewModel API             │
-└─────────────────────────────────────────────────────────────────┘
-```
+That made the code hard to reuse in other launcher surfaces and difficult to evolve safely.
 
-## Components
+The new design extracts these concerns into dedicated reusable primitives under:
 
-### 1. GridConfig
+- `app/src/main/java/com/milki/launcher/ui/components/dragdrop/`
 
-Centralized configuration for the grid layout and drag behavior.
+## Current architecture
 
-**File:** `ui/components/grid/GridConfig.kt`
-
-```kotlin
-data class GridConfig(
-    val columns: Int = 4,
-    val extraRows: Int = 4,
-    val dragThresholdPx: Float = 20f,
-    val dragScale: Float = 1.15f,
-    val dragAlpha: Float = 0.6f,
-    // ... more properties
-)
+```text
+UI Surface (example: DraggablePinnedItemsGrid)
+        |
+        | uses
+        v
+AppDragDropModifiers.appDragDropGestures(...)
+        |
+        | dispatches pointer events
+        v
+AppDragDropController<T>
+        |
+        | uses layout metrics for all math
+        v
+AppDragDropLayoutMetrics
+        |
+        | resolves movement result
+        v
+AppDragDropResult<T>
+        |
+        | move/pin intent
+        v
+HomeViewModel (single mutation coordinator)
+        |
+        | serialized repository writes
+        v
+HomeRepository
 ```
 
-**Purpose:**
-- Define grid dimensions (columns, rows)
-- Configure gesture thresholds
-- Set visual effect parameters
-
-**Benefits:**
-- Change configuration in one place
-- Easy to create variants (tablet, accessibility)
-- Testable configuration
-
-### 2. DragState
-
-Immutable sealed class representing drag operation state.
-
-**File:** `ui/components/grid/DragState.kt`
-
-```kotlin
-sealed class DragState {
-    data object Idle : DragState()
-    data class Dragging(...) : DragState()
-    data class PendingDrop(...) : DragState()
-}
-```
-
-**Purpose:**
-- Type-safe state representation
-- Exhaustive state handling (compiler enforced)
-- Clean state machine
-
-**State Transitions:**
-```
-Idle -> Dragging -> PendingDrop -> Idle
-         │
-         └──────> Idle (cancelled)
-```
-
-### 3. DragController
-
-Stateful controller managing drag operations.
-
-**File:** `ui/components/grid/DragController.kt`
-
-```kotlin
-class DragController(
-    val config: GridConfig,
-    val calculator: GridCalculator
-) {
-    var state: DragState by mutableStateOf(DragState.Idle)
-    
-    fun startDrag(item: HomeItem, startPosition: GridPosition)
-    fun updateDrag(delta: Offset)
-    fun endDrag(): DropResult
-    fun cancelDrag()
-}
-```
-
-**Purpose:**
-- Encapsulate drag logic
-- Coordinate with DropTarget
-- Provide clean API for UI
-
-**Usage:**
-```kotlin
-val controller = rememberDragController(config, calculator)
-
-// In gesture handler
-controller.startDrag(item, position)
-controller.updateDrag(delta)
-val result = controller.endDrag()
-```
-
-### 4. GridCalculator
-
-Stateless utility for coordinate conversions.
-
-**File:** `ui/components/grid/GridCalculator.kt`
-
-```kotlin
-data class GridCalculator(
-    val cellWidthPx: Float,
-    val cellHeightPx: Float,
-    val columns: Int,
-    val rows: Int
-) {
-    fun pixelToCell(pixelPosition: Offset): GridPosition
-    fun cellToPixel(position: GridPosition): Offset
-    fun calculateTargetPosition(startPosition: GridPosition, offset: Offset): GridPosition
-    fun isValidPosition(position: GridPosition): Boolean
-}
-```
-
-**Purpose:**
-- Convert between pixel and grid coordinates
-- Validate positions
-- Calculate drop targets
-
-### 5. DragGestureDetector
-
-Reusable gesture detection for drag operations.
-
-**File:** `ui/components/grid/DragGestureDetector.kt`
-
-```kotlin
-suspend fun PointerInputScope.detectDragOrTapGesture(
-    dragThreshold: Float = 20f,
-    onTap: () -> Unit,
-    onLongPress: (Offset) -> Unit,
-    onDragStart: () -> Unit,
-    onDrag: (change, dragAmount) -> Unit,
-    onDragEnd: () -> Unit,
-    onDragCancel: () -> Unit
-)
-```
-
-**Purpose:**
-- Distinguish tap vs long-press vs drag
-- Handle gesture lifecycle
-- Provide extension for Modifier
-
-**Gesture Flow:**
-```
-Touch Down
-    │
-    ├── Released before long-press → TAP
-    │
-    └── Long-press detected → Show Menu
-            │
-            ├── Released without movement → Menu stays
-            │
-            └── Movement beyond threshold → DRAG
-                    │
-                    ├── Continue moving → UPDATE DRAG
-                    ├── Released → END DRAG
-                    └── Cancelled → CANCEL DRAG
-```
-
-### 6. DragVisualEffects
-
-Composable functions for drag animations.
-
-**File:** `ui/components/grid/DragVisualEffects.kt`
-
-```kotlin
-@Composable
-fun animateDragVisuals(
-    isDragging: Boolean,
-    config: GridConfig
-): DragVisualValues
-
-fun Modifier.dragVisualEffects(values: DragVisualValues): Modifier
-fun Modifier.previewVisualEffects(config: GridConfig): Modifier
-```
-
-**Purpose:**
-- Animate scale/alpha during drag
-- Provide preview effects
-- Define animation specs
-
-### 7. DropTarget
-
-Interface for components that can receive dropped items.
-
-**File:** `ui/components/grid/DropTarget.kt`
-
-```kotlin
-interface DropTarget {
-    fun canDrop(item: HomeItem, position: GridPosition): Boolean
-    fun previewDrop(item: HomeItem, position: GridPosition)
-    fun onDrop(item: HomeItem, position: GridPosition): DropResult
-    fun onDragCancelled()
-}
-
-sealed class DropResult {
-    data class Success(...) : DropResult()
-    data class Swap(...) : DropResult()
-    data class Rejected(...) : DropResult()
-    data object Cancelled : DropResult()
-}
-```
-
-**Purpose:**
-- Abstract drop handling
-- Enable multiple drop targets (grid, dock, folder)
-- Provide result feedback
-
-## Bugs Fixed
-
-### 1. PointerInput Key Instability
-**Issue:** Using `items` list as key restarted gesture detector on every position update.
-
-**Fix:** Changed to use `item.id` which is stable and unique.
-
-```kotlin
-// Before
-.pointerInput(item, items, columns, ...)
-
-// After
-.detectDragGesture(key = item.id, ...)
-```
-
-### 2. Preview Position Calculation
-**Issue:** Redundant calculation `- half + half` was confusing dead code.
-
-**Fix:** Simplified to direct positioning.
-
-```kotlin
-// Before
-x = previewX.roundToInt() - (cellWidthPx / 2).roundToInt() + cellWidthPx.roundToInt() / 2
-
-// After
-x = previewX.roundToInt()
-```
-
-### 3. Race Condition in Drag End/Cancel
-**Issue:** `onDragEnd` and `onDragCancel` could conflict during concurrent calls.
-
-**Fix:** Added `isDragEnding` flag to prevent race.
-
-```kotlin
-var isDragEnding by remember { mutableStateOf(false) }
-
-onDragEnd = {
-    isDragEnding = true
-    // ... handle drop
-    isDragEnding = false
-}
-
-onDragCancel = {
-    if (!isDragEnding) {
-        // ... handle cancel
-    }
-}
-```
-
-### 4. Exception Swallowing
-**Issue:** All exceptions caught silently, making debugging impossible.
-
-**Fix:** Added logging before catching.
-
-```kotlin
-} catch (e: Exception) {
-    android.util.Log.w("DragGestureDetector", "Gesture cancelled: ${e.message}")
-    // ... handle
-}
-```
-
-## Configuration
-
-### Default Configuration
-```kotlin
-GridConfig.Default // 4 columns, standard thresholds
-```
-
-### Tablet Configuration
-```kotlin
-GridConfig.Tablet // 6 columns, larger thresholds
-```
-
-### Accessibility Configuration
-```kotlin
-GridConfig.Accessibility // 3 columns, larger touch targets
-```
-
-### Custom Configuration
-```kotlin
-val customConfig = GridConfig(
-    columns = 5,
-    dragThresholdPx = 30f,
-    dragScale = 1.2f
-)
-```
-
-## Extending the System
-
-### Adding a New Drop Target (e.g., Dock)
-
-```kotlin
-class DockDropTarget(
-    private val onDrop: (HomeItem, Int) -> Unit
-) : DropTarget {
-    override fun canDrop(item: HomeItem, position: GridPosition): Boolean {
-        return position.row == 0 // Only allow drops in row 0
-    }
-    
-    override fun onDrop(item: HomeItem, position: GridPosition): DropResult {
-        onDrop(item, position.column)
-        return DropResult.Success(position)
-    }
-}
-```
-
-### Adding Multi-Page Support
-
-1. Create `PageDropTarget` implementing `DropTarget`
-2. Use `DragController` with page-aware calculator
-3. Handle page transitions during drag preview
-
-## Testing
-
-### Unit Testing GridCalculator
-```kotlin
-@Test
-fun testPixelToCellConversion() {
-    val calculator = GridCalculator(cellWidthPx = 100f, cellHeightPx = 100f)
-    
-    val position = calculator.pixelToCell(Offset(250f, 150f))
-    
-    assertEquals(GridPosition(row = 1, column = 2), position)
-}
-```
-
-### Unit Testing DragState
-```kotlin
-@Test
-fun testDragStateTransitions() {
-    val item = HomeItem.PinnedApp(...)
-    val startPos = GridPosition(0, 0)
-    
-    var state: DragState = DragState.Idle
-    assertEquals(null, state.draggedItem)
-    
-    state = DragState.startDrag(item, startPos)
-    assertTrue(state is DragState.Dragging)
-    assertEquals(item, state.draggedItem)
-}
-```
-
-## Performance Considerations
-
-1. **State Stability:** Use `remember` for calculators and controllers
-2. **Key Stability:** Only use stable values as `pointerInput` keys
-3. **Animation:** Use `Animatable` for smooth 60fps animations
-4. **Recomposition:** `DragVisualValues` is a data class for stability
-
-## Future Improvements
-
-1. **Swap Animation:** Add smooth animation when items swap positions
-2. **Multi-Touch Guard:** Better handling of simultaneous touches
-3. **Drag to Remove:** Add drop zone for uninstalling/unpinning
-4. **Folder Support:** Allow dropping items into folders
-5. **Cross-Page Drag:** Enable dragging items between pages
+## Core components
+
+### 1) `AppDragDropLayoutMetrics`
+
+**File:** `ui/components/dragdrop/AppDragDropContract.kt`
+
+Purpose:
+
+- Stores runtime grid geometry (`cellWidthPx`, `cellHeightPx`, `columns`, `rows`)
+- Converts cells to pixels
+- Resolves target cells from drag offsets
+- Clamps drag offsets so drag preview always remains inside valid bounds
+
+Important methods:
+
+- `clamp(position: GridPosition): GridPosition`
+- `cellToPixel(position: GridPosition): Offset`
+- `calculateTarget(startPosition, offset): GridPosition`
+- `clampOffset(startPosition, rawOffset): Offset`
+
+### 2) `AppDragDropController<T>`
+
+**File:** `ui/components/dragdrop/AppDragDropContract.kt`
+
+Purpose:
+
+- Owns drag lifecycle and state machine
+- Works with any item type (`T`) so it is not home-grid specific
+- Produces semantic drag results without touching persistence
+
+Lifecycle:
+
+1. `startDrag(item, itemId, startPosition)`
+2. `updateDrag(delta, metrics)` repeated while moving
+3. `endDrag(metrics)` or `cancelDrag()`
+
+State exposed:
+
+- `session: AppDragDropSession<T>?`
+- `targetPosition: GridPosition?`
+
+Helper methods:
+
+- `isDraggingItem(itemId)`
+- `resolveBasePosition(itemId, currentPosition)`
+
+### 3) `AppDragDropResult<T>`
+
+**File:** `ui/components/dragdrop/AppDragDropContract.kt`
+
+Result types:
+
+- `Moved`: drag ended in a new cell
+- `Unchanged`: drag ended on original cell
+- `Cancelled`: no active drag or cancelled interaction
+
+This keeps the controller purely UI-interaction oriented. Data-layer updates are still performed by callers.
+
+### 4) `appDragDropGestures(...)`
+
+**File:** `ui/components/dragdrop/AppDragDropModifiers.kt`
+
+Purpose:
+
+- Shared modifier that wires pointer input to drag callbacks
+- Wraps existing low-level detector (`detectDragGesture`) so surfaces only define behavior callbacks
+
+Input:
+
+- stable `key` (typically `id + row + column`)
+- `dragThresholdPx`
+- `AppDragDropGestureCallbacks`
+
+## Home screen integration
+
+The home grid (`DraggablePinnedItemsGrid`) now:
+
+1. Creates `dragController` via `rememberAppDragDropController<HomeItem>(config)`
+2. Builds `AppDragDropLayoutMetrics` from `BoxWithConstraints`
+3. Uses `appDragDropGestures(...)` per item
+4. On `Moved` result, emits `onItemMove(itemId, to)`
+
+### External app drops from search dialog
+
+The home grid also acts as a platform drag-and-drop target for app payloads.
+
+- Search app icons use `appExternalDragSource(appInfo)`.
+- Home grid uses `appExternalDropTarget { appInfo, event -> ... }`.
+- External hover positions are converted via `AppDragDropLayoutMetrics.pixelToCell(...)`.
+- `LauncherScreen` forwards the resolved app + cell to `onAppDroppedToHome`.
+
+Implementation details for reliability:
+
+- External drag starts from the activity decor view (not the dialog local view).
+        This prevents drag cancellation when search dialog is dismissed after drag start.
+- The drag shadow is icon-only, using a custom `DragShadowBuilder`, so the user
+        sees the app icon ghost instead of a full dialog snapshot.
+- Home grid renders a live external drag hover highlight that tracks
+        `ACTION_DRAG_LOCATION` events and shows the current target cell.
+
+This path allows dragging an app result from the search dialog and dropping it
+directly into a target home grid cell.
+
+### External drop reliability rules (current behavior)
+
+The external drop pipeline now uses stricter rules to make drop placement and
+highlight feedback stable across devices:
+
+1. **Payload-gated activation**
+         - The external drop overlay only activates when the drag payload resolves to
+                 a valid launcher `AppInfo` payload.
+         - Payload resolution prefers same-process `localState` first, then falls back
+                 to ClipData JSON decoding.
+         - This prevents unrelated system drags from triggering home-grid highlights.
+
+2. **Stable drag host selection**
+         - External app drags are started from Activity decor view when available,
+                 with safe fallbacks to root/local host view.
+         - This reduces cross-window instability when search dialog is dismissed right
+                 after drag begins.
+         - Drag start uses `View.DRAG_FLAG_GLOBAL` (with local fallback), so the
+                 drag can cross from dialog window to the home-screen window.
+
+3. **Recomposition-safe drag listener**
+         - The `AppExternalDropTargetOverlay` creates its `OnDragListener` exactly
+                 once and stores the cached payload (`activeDragAppInfo`) in a Compose
+                 `mutableStateOf` that survives recomposition.
+         - Callback lambdas are accessed through `rememberUpdatedState`, so the
+                 listener always calls the latest callback version without being recreated.
+         - This prevents the bug where `ACTION_DRAG_STARTED` is only sent once, and
+                 listener recreation would lose the cached payload, making all subsequent
+                 `DRAG_LOCATION` and `DROP` events fail silently.
+
+4. **Hover-first drop target resolution**
+         - Final drop cell prefers the **last hovered target cell** collected from
+                 `ACTION_DRAG_LOCATION`.
+         - `ACTION_DROP` coordinates are only used as fallback when no hover sample
+                 exists (very quick drop).
+         - This guarantees final pin placement matches what users saw highlighted.
+
+5. **Visual parity with internal drag**
+         - External target highlight now uses the same item-shaped visual language as
+                 internal drag highlight (showing the dragged app icon style when payload is
+                 available).
+         - The highlight cell also shows a shadow, a background glow tinted with the
+                 theme primary color, and a subtle border — making the target cell clearly
+                 visible even on busy wallpapers.
+
+Visual behavior remains launcher-like:
+
+- Long-press shows menu immediately (non-focusable popup during gesture)
+- If finger lifts without movement: menu becomes focusable and interactive
+- If finger moves past threshold: menu closes, drag starts
+- Drop target highlight follows resolved cell
+- Preview item follows finger
+- Haptic feedback is triggered at long press, drag activation, and confirmed drop
+
+### Non-focusable popup pattern for long-press + drag coexistence
+
+The `DropdownMenu` creates a popup window. When the popup is focusable (default),
+Android routes touch events to the popup — which prevents the underlying gesture
+detector from receiving movement events needed for drag detection.
+
+To allow both long-press menus AND drag-after-long-press:
+
+1. On `onLongPress`: show the menu with `focusable = false` (popup is visible but
+   doesn't steal touches).
+2. On `onLongPressRelease` (finger lifts without drag): switch to `focusable = true`
+   so menu items become tappable.
+3. On `onDragStart` (finger moves past threshold): close the menu and start drag.
+
+This pattern is used by `AppGridItem`, `AppListItem`, and `DraggablePinnedItemsGrid`.
+The `ItemActionMenu` component supports this via its `focusable` parameter.
+
+
+## Reuse recipe for other launcher surfaces
+
+To add drag-drop to a new surface:
+
+1. Provide your own item type `T` with stable item ID and position
+2. Create `val controller = rememberAppDragDropController<T>(config)`
+3. Compute `AppDragDropLayoutMetrics` from your measured layout
+4. Attach `Modifier.appDragDropGestures(...)` to draggable nodes
+5. Persist only when result is `AppDragDropResult.Moved`
+
+This ensures the same drag rules and behavior across launcher surfaces.
+
+## Notes about persistence
+
+The controller does not write repository data. This is intentional:
+
+- UI interaction and persistence are decoupled
+- `HomeViewModel` is now the single home-mutation coordinator for move, external drop, pin, and unpin writes
+- All home writes are serialized through one mutation pipeline to avoid ordering races
+- Occupied target cells are now rejected (no swap behavior)
+- External app drop persistence uses one atomic repository operation (`pinOrMoveItemToPosition`) to avoid two-phase placement flicker
+
+## Legacy cleanup
+
+The old grid drag abstractions under `ui/components/grid/` (`DragController`,
+`DragState`, `DropTarget`) were removed from the active codebase after the
+`ui/components/dragdrop/` system became the canonical implementation.
+
+This reduces dual-system drift and prevents accidental reintroduction of legacy
+state flows that bypass current reliability guarantees.
+
+## Future extension points
+
+The new core is designed to support:
+
+- Dock drag-drop
+- Folder drag-drop
+- Cross-surface drag dispatch (surface-level drop routing)
+- External payload drop adapters (for app/file payloads)
+
+When adding those features, reuse the same controller and metrics types to keep behavior consistent.

@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.home.HomeUiState
@@ -86,6 +87,7 @@ import com.milki.launcher.util.launchAppShortcut
  * @param onPinnedItemClick Called when a pinned item is clicked
  * @param onPinnedItemLongPress Called when a pinned item is long-pressed (for menu)
  * @param onPinnedItemMove Called when a pinned item is dragged to a new position
+ * @param onAppDroppedToHome Reserved callback for external app drop payloads
  */
 @Composable
 fun LauncherScreen(
@@ -95,7 +97,8 @@ fun LauncherScreen(
     onDismissSearch: () -> Unit,
     onPinnedItemClick: (HomeItem) -> Unit,
     onPinnedItemLongPress: (HomeItem) -> Unit,
-    onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit
+    onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
+    onAppDroppedToHome: (AppInfo, GridPosition) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
 
@@ -110,6 +113,10 @@ fun LauncherScreen(
             onItemClick = onPinnedItemClick,
             onItemLongPress = onPinnedItemLongPress,
             onItemMove = onPinnedItemMove,
+            onAppDroppedToHome = { appInfo, position ->
+                onAppDroppedToHome(appInfo, position)
+                onDismissSearch()
+            },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(Spacing.mediumLarge)

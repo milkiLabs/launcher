@@ -292,29 +292,6 @@ fun FileDocumentSearchResultItem(...) {
 
 **Status:** The `when` expression is cheap and `Icons` are singletons, so this is acceptable. The `ImageVector` objects are pre-allocated.
 
----
-
-### 8.2 Heavy Computation During Composition
-
-**Severity: MEDIUM**  
-**File:** `app/src/main/java/com/milki/launcher/presentation/search/SearchViewModel.kt:277-341`
-
-**Issue:**
-The `performSearch()` function performs URL detection and app filtering, but this is correctly offloaded to `Dispatchers.Default`.
-
-**Status:** Correctly implemented. The heavy work runs on a background dispatcher.
-
----
-
-## 9. Network Performance
-
-### 9.1 No Offline Caching for Web Search
-
-**Severity: LOW**  
-**Note:** The launcher doesn't perform network requests directly - it opens URLs in the browser. No caching is needed at the app level.
-
----
-
 ## 10. Action Items Summary
 
 ### Immediate (High Priority)
@@ -331,8 +308,6 @@ The `performSearch()` function performs URL detection and app filtering, but thi
 4. Store activity name in `PinnedApp` to avoid `getLaunchIntentForPackage()` calls
 
 ### Long Term (Low Priority)
-
-1. Configure custom Coil ImageLoader with optimized memory cache
 2. Consider using `stringSetPreferencesKey` for recent contacts storage
 3. Add explicit `flowOn(Dispatchers.IO)` to repository Flows for clarity
 
