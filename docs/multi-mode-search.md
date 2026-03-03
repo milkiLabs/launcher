@@ -526,6 +526,22 @@ For files specifically:
 - **Back button**: Closes search dialog
 - **Clear button (X)**: Clears current search text
 
+### Input Focus & Keyboard Behavior
+
+The search dialog now uses an **event-driven focus strategy** instead of a fixed delay.
+
+How it works:
+
+1. The dialog observes `LocalWindowInfo.isWindowFocused`
+2. When the dialog window becomes focused, it waits one Compose frame
+3. Then it requests focus for the search text field and asks the software keyboard to show
+
+Why this approach is better than `delay(...)`:
+
+- Uses real window focus state instead of guessed timing
+- More reliable across different devices and OEM Android variants
+- Eliminates arbitrary wait values that can be too short or too long
+
 ### Empty States
 
 - **Empty search**: Shows "No recent apps" + shows prefix shortcuts hint

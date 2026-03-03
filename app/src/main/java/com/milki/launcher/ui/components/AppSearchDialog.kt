@@ -35,11 +35,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import kotlinx.coroutines.delay
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.milki.launcher.domain.model.*
@@ -84,6 +84,26 @@ fun AppSearchDialog(
      * better user experience by immediately showing the keyboard.
      */
     val focusRequester = remember { FocusRequester() }
+
+    /**
+     * Software keyboard controller lets us explicitly ask Android to show
+     * the IME after the text field receives focus.
+     *
+     * This is not strictly required for all devices, but helps improve
+     * consistency across OEM keyboard implementations.
+     */
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    /**
+     * Window focus information for the current Compose window.
+     *
+     * Dialogs are rendered in a separate window. The key reliability issue is:
+     * requesting text-field focus BEFORE this dialog window actually has focus
+     * can be ignored by the platform.
+     *
+     * By reacting to window focus state, we remove brittle timing assumptions.
+     */
+    val windowInfo = LocalWindowInfo.current
 
     /**
      * BackHandler intercepts the system back button.
@@ -187,21 +207,23 @@ fun AppSearchDialog(
     }
 
     /**
-     * LaunchedEffect runs when the dialog is first composed.
-     * 
-     * WHY WE NEED A DELAY:
-     * Dialogs in Compose are rendered in a separate window. When LaunchedEffect
-     * runs immediately upon composition, the new Dialog window hasn't actually
-     * received focus from the Android OS yet. If we ask the TextField to focus
-     * before its parent window is focused, the system simply ignores the request.
-     * 
-     * The delay gives the OS time to focus the dialog window before we request
-     * focus on the text field. 50ms is a reasonable compromise - long enough
-     * to work reliably on most devices, but short enough that users won't notice.
+     * Request focus only after the dialog window actually becomes focused.
+     *
+     * WHY THIS IS BETTER THAN delay(...):
+     * - Event-driven: tied to real window-focus state, not guessed timing
+     * - More reliable across slow/fast devices and OEM variants
+     * - Avoids unnecessary waiting when focus is ready immediately
+     *
+     * WHY withFrameNanos:
+     * Even after window focus changes to true, waiting one frame ensures
+     * the TextField node is fully attached/measured before requesting focus.
      */
-    LaunchedEffect(Unit) {
-        delay(50)
-        focusRequester.requestFocus()
+    LaunchedEffect(windowInfo.isWindowFocused) {
+        if (windowInfo.isWindowFocused) {
+            withFrameNanos { /* wait one composition frame */ }
+            focusRequester.requestFocus()
+            keyboardController?.show()
+        }
     }
 }
 
