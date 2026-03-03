@@ -39,10 +39,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
@@ -102,6 +105,15 @@ fun AppSearchDialog(
      * consistency across OEM keyboard implementations.
      */
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    /**
+     * Host Android View for fallback IME control.
+     *
+     * In some split-screen/device combinations, Compose's keyboard controller
+     * can report success but the IME still doesn't appear. Using the view's
+     * WindowInsetsController as an additional path improves reliability.
+     */
+    val hostView = LocalView.current
 
     /**
      * Window focus information for the current Compose window.
@@ -243,6 +255,26 @@ fun AppSearchDialog(
 
             focusRequester.requestFocus()
             keyboardController?.show()
+            ViewCompat.getWindowInsetsController(hostView)
+                ?.show(WindowInsetsCompat.Type.ime())
+        }
+    }
+
+    /**
+     * After focus is acquired, request IME again for split-screen reliability.
+     *
+     * RATIONALE:
+     * Some devices grant TextField focus first, then need one or more additional
+     * frames before IME show requests are honored in multi-window mode.
+     */
+    LaunchedEffect(windowInfo.isWindowFocused, isTextFieldFocused) {
+        if (!windowInfo.isWindowFocused || !isTextFieldFocused) return@LaunchedEffect
+
+        repeat(3) {
+            withFrameNanos { /* wait for next frame */ }
+            keyboardController?.show()
+            ViewCompat.getWindowInsetsController(hostView)
+                ?.show(WindowInsetsCompat.Type.ime())
         }
     }
 }
