@@ -94,6 +94,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
+        android:resizeableActivity="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.Launcher">
         
@@ -112,7 +113,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait"
+          android:resizeableActivity="true"
             android:theme="@style/Theme.Launcher">
             
             <!--

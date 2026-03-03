@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -84,6 +85,14 @@ fun AppSearchDialog(
      * better user experience by immediately showing the keyboard.
      */
     val focusRequester = remember { FocusRequester() }
+
+    /**
+     * Tracks whether the search text field currently owns focus.
+     *
+     * This signal lets us avoid blind repeated focus requests and stop retrying
+     * as soon as focus is actually acquired.
+     */
+    var isTextFieldFocused by remember { mutableStateOf(false) }
 
     /**
      * Software keyboard controller lets us explicitly ask Android to show
@@ -156,6 +165,9 @@ fun AppSearchDialog(
                     searchQuery = uiState.query,
                     onSearchQueryChange = onQueryChange,
                     focusRequester = focusRequester,
+                    onTextFieldFocusChanged = { focused ->
+                        isTextFieldFocused = focused
+                    },
                     activeProviderConfig = uiState.activeProviderConfig,
                     placeholderText = uiState.placeholderText,
                     onLaunchFirstResult = {
@@ -207,20 +219,28 @@ fun AppSearchDialog(
     }
 
     /**
-     * Request focus only after the dialog window actually becomes focused.
+     * Robust auto-focus logic for normal mode and split-screen/multi-window.
      *
-     * WHY THIS IS BETTER THAN delay(...):
-     * - Event-driven: tied to real window-focus state, not guessed timing
-     * - More reliable across slow/fast devices and OEM variants
-     * - Avoids unnecessary waiting when focus is ready immediately
+     * WHY RETRY BY FRAME (NOT BY TIME DELAY):
+     * In multi-window, focus handoff between activity window, dialog window,
+     * and IME can require more than one frame. A single request can be missed.
      *
-     * WHY withFrameNanos:
-     * Even after window focus changes to true, waiting one frame ensures
-     * the TextField node is fully attached/measured before requesting focus.
+     * We retry a few frames while all conditions are valid:
+     * - dialog window is focused
+     * - text field is not yet focused
+     *
+     * This avoids arbitrary millisecond delays and adapts to device speed.
      */
-    LaunchedEffect(windowInfo.isWindowFocused) {
-        if (windowInfo.isWindowFocused) {
-            withFrameNanos { /* wait one composition frame */ }
+    LaunchedEffect(windowInfo.isWindowFocused, isTextFieldFocused) {
+        if (!windowInfo.isWindowFocused || isTextFieldFocused) return@LaunchedEffect
+
+        repeat(5) {
+            withFrameNanos { /* wait for next frame */ }
+
+            if (!windowInfo.isWindowFocused || isTextFieldFocused) {
+                return@LaunchedEffect
+            }
+
             focusRequester.requestFocus()
             keyboardController?.show()
         }
@@ -256,6 +276,7 @@ private fun SearchTextFieldWithIndicator(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     focusRequester: FocusRequester,
+    onTextFieldFocusChanged: (Boolean) -> Unit,
     activeProviderConfig: SearchProviderConfig?,
     placeholderText: String,
     onLaunchFirstResult: () -> Unit,
@@ -287,7 +308,10 @@ private fun SearchTextFieldWithIndicator(
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.mediumLarge)
                 .padding(top = Spacing.mediumLarge)
-                .focusRequester(focusRequester),
+                .focusRequester(focusRequester)
+                .onFocusChanged { focusState ->
+                    onTextFieldFocusChanged(focusState.isFocused)
+                },
             placeholder = { Text(placeholderText) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
