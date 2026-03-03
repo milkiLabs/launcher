@@ -145,6 +145,9 @@ Implementation details for reliability:
         sees the app icon ghost instead of a full dialog snapshot.
 - Home grid renders a live external drag hover highlight that tracks
         `ACTION_DRAG_LOCATION` events and shows the current target cell.
+- External platform listener state machine is centralized in
+        `DefaultExternalAppDragDropCoordinator` so target surfaces no longer own
+        payload decoding or listener lifecycle details.
 
 This path allows dragging an app result from the search dialog and dropping it
 directly into a target home grid cell.
@@ -169,15 +172,12 @@ highlight feedback stable across devices:
          - Drag start uses `View.DRAG_FLAG_GLOBAL` (with local fallback), so the
                  drag can cross from dialog window to the home-screen window.
 
-3. **Recomposition-safe drag listener**
-         - The `AppExternalDropTargetOverlay` creates its `OnDragListener` exactly
-                 once and stores the cached payload (`activeDragAppInfo`) in a Compose
-                 `mutableStateOf` that survives recomposition.
-         - Callback lambdas are accessed through `rememberUpdatedState`, so the
-                 listener always calls the latest callback version without being recreated.
-         - This prevents the bug where `ACTION_DRAG_STARTED` is only sent once, and
-                 listener recreation would lose the cached payload, making all subsequent
-                 `DRAG_LOCATION` and `DROP` events fail silently.
+3. **Centralized listener lifecycle**
+         - `DefaultExternalAppDragDropCoordinator` owns drag session state.
+         - `AppExternalDropTargetOverlay` is now a thin adapter that forwards
+                 callbacks using `rememberUpdatedState`.
+         - This removes duplicated listener logic from surfaces and keeps behavior
+                 consistent across all current/future drop targets.
 
 4. **Hover-first drop target resolution**
          - Final drop cell prefers the **last hovered target cell** collected from

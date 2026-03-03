@@ -7,6 +7,9 @@ This document focuses on the reusable API exposed in `ui/components/dragdrop`.
 - `app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropContract.kt`
 - `app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropModifiers.kt`
 - `app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt`
+- `app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragPayloadCodec.kt`
+- `app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragCoordinateMapper.kt`
+- `app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalAppDragDropCoordinator.kt`
 
 ## Quick start
 
@@ -139,30 +142,25 @@ app payloads from search UI surfaces into the home grid.
 
 `AppExternalDropTargetOverlay` callbacks expose payload-aware lifecycle:
 
-- `onDragStarted(appInfo)` is invoked only for valid launcher app payloads.
-- `onDragMoved(localOffset, appInfo)` emits hover updates for target highlight.
+- `onDragStarted()` is invoked when a likely launcher app drag session starts.
+- `onDragMoved(localOffset, appInfo?)` emits hover updates; payload may be null until lazy decode resolves.
 - `onAppDropped(appInfo, localOffset)` emits the payload and final drop event.
 - `onDragEnded()` signals end of active payload drag lifecycle.
 
-This contract allows home surfaces to render payload-specific highlights while
-keeping payload parsing inside the drag/drop bridge.
+This contract allows target surfaces to render highlights immediately while
+keeping payload parsing and drag listener lifecycle inside the reusable coordinator.
 
 ### Recomposition safety (critical)
 
-The `OnDragListener` inside `AppExternalDropTargetOverlay` must remain stable
-across recompositions. Android sends `ACTION_DRAG_STARTED` exactly once per drag
-session. If the listener is recreated mid-drag (e.g. because parent state changed
-and callback lambdas were new instances), the new listener never sees
-`ACTION_DRAG_STARTED`, so its cached payload is null and all subsequent
-`ACTION_DRAG_LOCATION` / `ACTION_DROP` events silently fail.
+`DefaultExternalAppDragDropCoordinator` is the single source of truth for
+platform drag listener lifecycle and payload session state. This prevents
+surface-specific drift and repeated listener bugs.
 
-The implementation avoids this by:
+The Compose overlay adapter avoids stale callback references by:
 
 1. **`rememberUpdatedState`** for every callback — the listener closure always
    calls the latest version without needing new `remember` keys.
-2. **`remember { mutableStateOf(...) }`** for `activeDragAppInfo` — the cached
-   payload survives parent recompositions.
-3. **Keyless `remember { }`** for the listener itself — it is created exactly once.
+2. **Keyless `remember { }`** for coordinator/listener instances — they are created once.
 
 ### Placement strategy for robust UX
 

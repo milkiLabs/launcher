@@ -8,6 +8,16 @@ Replace the current multi-path external drag/drop behavior with one small reusab
 2. Easy to reuse on any launcher surface (home grid, dock, folders, future pages).
 3. Strictly split between platform bridge logic and UI rendering logic.
 
+## Current status (implemented)
+
+This simplification has been implemented with the following modules:
+
+- [app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragPayloadCodec.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragPayloadCodec.kt)
+- [app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragCoordinateMapper.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragCoordinateMapper.kt)
+- [app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalAppDragDropCoordinator.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalAppDragDropCoordinator.kt)
+
+`AppExternalDropTargetOverlay` in [app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt) now acts as a thin adapter over the coordinator.
+
 ---
 
 ## Core simplification idea
