@@ -128,14 +128,16 @@ The home grid (`DraggablePinnedItemsGrid`) now:
 3. Uses `appDragDropGestures(...)` per item
 4. On `Moved` result, emits `onItemMove(itemId, to)`
 
-### External app drops from search dialog
+### External payload drops from search dialog
 
-The home grid also acts as a platform drag-and-drop target for app payloads.
+The home grid also acts as a platform drag-and-drop target for launcher payloads.
 
-- Search app icons use `appExternalDragSource(appInfo)`.
-- Home grid uses `appExternalDropTarget { appInfo, event -> ... }`.
+- Search app rows start drag via `startExternalAppDrag(...)`.
+- Contact rows (`c` prefix) start drag via `startExternalContactDrag(...)`.
+- File rows (`f` prefix) start drag via `startExternalFileDrag(...)`.
+- Home grid uses `AppExternalDropTargetOverlay(...)`.
 - External hover positions are converted via `AppDragDropLayoutMetrics.pixelToCell(...)`.
-- `LauncherScreen` forwards the resolved app + cell to `onAppDroppedToHome`.
+- `LauncherScreen` forwards the resolved `HomeItem` + cell to `onItemDroppedToHome`.
 
 Implementation details for reliability:
 
@@ -149,8 +151,8 @@ Implementation details for reliability:
         `DefaultExternalAppDragDropCoordinator` so target surfaces no longer own
         payload decoding or listener lifecycle details.
 
-This path allows dragging an app result from the search dialog and dropping it
-directly into a target home grid cell.
+This path allows dragging app/file/contact results from the search dialog and
+dropping them directly into a target home grid cell.
 
 ### External drop reliability rules (current behavior)
 
@@ -159,13 +161,13 @@ highlight feedback stable across devices:
 
 1. **Payload-gated activation**
          - The external drop overlay only activates when the drag payload resolves to
-                 a valid launcher `AppInfo` payload.
+                 a valid launcher payload (`App`, `File`, or `Contact`).
          - Payload resolution prefers same-process `localState` first, then falls back
                  to ClipData JSON decoding.
          - This prevents unrelated system drags from triggering home-grid highlights.
 
 2. **Stable drag host selection**
-         - External app drags are started from Activity decor view when available,
+         - External payload drags are started from Activity decor view when available,
                  with safe fallbacks to root/local host view.
          - This reduces cross-window instability when search dialog is dismissed right
                  after drag begins.
@@ -188,8 +190,7 @@ highlight feedback stable across devices:
 
 5. **Visual parity with internal drag**
          - External target highlight now uses the same item-shaped visual language as
-                 internal drag highlight (showing the dragged app icon style when payload is
-                 available).
+                 internal drag highlight (showing item-style preview when payload is available).
          - The highlight cell also shows a shadow, a background glow tinted with the
                  theme primary color, and a subtle border — making the target cell clearly
                  visible even on busy wallpapers.
@@ -241,7 +242,18 @@ The controller does not write repository data. This is intentional:
 - `HomeViewModel` is now the single home-mutation coordinator for move, external drop, pin, and unpin writes
 - All home writes are serialized through one mutation pipeline to avoid ordering races
 - Occupied target cells are now rejected (no swap behavior)
-- External app drop persistence uses one atomic repository operation (`pinOrMoveItemToPosition`) to avoid two-phase placement flicker
+- External payload drop persistence uses one atomic repository operation (`pinOrMoveItemToPosition`) to avoid two-phase placement flicker
+
+## Home item mapping for external drops
+
+The drop target adapter maps external payloads into persisted `HomeItem` types:
+
+- `ExternalDragItem.App` -> `HomeItem.PinnedApp`
+- `ExternalDragItem.File` -> `HomeItem.PinnedFile`
+- `ExternalDragItem.Contact` -> `HomeItem.PinnedContact`
+
+This keeps the platform drag pipeline generic while preserving the existing home
+repository mutation semantics.
 
 ## Legacy cleanup
 
@@ -259,6 +271,6 @@ The new core is designed to support:
 - Dock drag-drop
 - Folder drag-drop
 - Cross-surface drag dispatch (surface-level drop routing)
-- External payload drop adapters (for app/file payloads)
+- External payload drop adapters (for app/file/contact payloads)
 
 When adding those features, reuse the same controller and metrics types to keep behavior consistent.

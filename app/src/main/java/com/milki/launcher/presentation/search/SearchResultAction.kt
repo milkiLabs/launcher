@@ -109,6 +109,13 @@ sealed class SearchResultAction {
      * @property file The file to pin
      */
     data class PinFile(val file: FileDocument) : SearchResultAction()
+
+    /**
+     * User wants to pin a contact to the home screen.
+     *
+     * @property contact The contact to pin
+     */
+    data class PinContact(val contact: Contact) : SearchResultAction()
     
     /**
      * User wants to remove an item from the home screen.
@@ -161,6 +168,7 @@ fun SearchResultAction.shouldCloseSearch(): Boolean = when (this) {
     is SearchResultAction.OpenUrlInBrowser -> true
     is SearchResultAction.PinApp -> false
     is SearchResultAction.PinFile -> false
+    is SearchResultAction.PinContact -> false
     is SearchResultAction.UnpinItem -> false
     is SearchResultAction.OpenAppInfo -> false
     is SearchResultAction.RequestPermission -> false

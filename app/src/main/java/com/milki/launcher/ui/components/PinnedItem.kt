@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material.icons.outlined.PictureAsPdf
@@ -287,6 +288,7 @@ private fun getItemLabel(item: HomeItem): String {
     return when (item) {
         is HomeItem.PinnedApp -> item.label
         is HomeItem.PinnedFile -> item.name
+        is HomeItem.PinnedContact -> item.displayName
         is HomeItem.AppShortcut -> item.shortLabel
     }
 }
@@ -320,12 +322,48 @@ private fun PinnedItemIcon(
                 modifier = modifier
             )
         }
+        is HomeItem.PinnedContact -> {
+            ContactIcon(
+                size = size,
+                modifier = modifier
+            )
+        }
         is HomeItem.AppShortcut -> {
             ShortcutIcon(
                 shortcut = item,
                 size = size,
                 modifier = modifier
             )
+        }
+    }
+}
+
+/**
+ * Displays a generic contact icon for pinned contacts.
+ */
+@Composable
+private fun ContactIcon(
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(size),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier.size(size),
+            shape = RoundedCornerShape(CornerRadius.medium),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(IconSize.appList)
+                )
+            }
         }
     }
 }

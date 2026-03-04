@@ -1,174 +1,129 @@
-# External Drag & Drop Simplification Plan
+# External Drag & Drop Simplification (Implemented)
 
 ## Goal
 
-Replace the current multi-path external drag/drop behavior with one small reusable abstraction that is:
+Use one reusable external drag/drop architecture that is:
 
 1. Easy to reason about.
-2. Easy to reuse on any launcher surface (home grid, dock, folders, future pages).
+2. Easy to reuse across launcher surfaces.
 3. Strictly split between platform bridge logic and UI rendering logic.
 
-## Current status (implemented)
+The implementation now supports three payload families through the same pipeline:
 
-This simplification has been implemented with the following modules:
+- App payloads
+- File payloads
+- Contact payloads
+
+## Current module layout
 
 - [app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragPayloadCodec.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragPayloadCodec.kt)
 - [app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragCoordinateMapper.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragCoordinateMapper.kt)
 - [app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalAppDragDropCoordinator.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalAppDragDropCoordinator.kt)
+- [app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt)
 
-`AppExternalDropTargetOverlay` in [app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt) now acts as a thin adapter over the coordinator.
+`AppExternalDropTargetOverlay(...)` is a thin Compose adapter over the coordinator.
 
----
-
-## Core simplification idea
-
-Use a **single coordinator contract** with only 3 responsibilities:
-
-- **Start drag** from any source item.
-- **Track drag location** over any target surface.
-- **Commit drop** with one resolved target cell.
-
-Everything else (highlight drawing, policy checks like occupied-cell rejection) stays outside the coordinator.
-
----
-
-## Proposed minimal API
+## Implemented coordinator contract
 
 ```kotlin
 interface ExternalAppDragDropCoordinator {
-    fun startDrag(hostView: View, appInfo: AppInfo, shadowSize: Dp): Boolean
-
-    fun attachTarget(
-        targetView: View,
-        callbacks: TargetCallbacks
-    )
-
-    fun detachTarget(targetView: View)
+    fun createListener(callbacks: TargetCallbacks): View.OnDragListener
 
     interface TargetCallbacks {
         fun onStarted()
-        fun onMoved(localOffset: Offset)
-        fun onDropped(appInfo: AppInfo, localOffset: Offset): Boolean
+        fun onMoved(localOffset: Offset, item: ExternalDragItem?)
+        fun onDropped(item: ExternalDragItem, localOffset: Offset): Boolean
         fun onEnded(result: Boolean)
     }
 }
 ```
 
-### Why this is simpler
+### Why this is simple
 
-- Target callbacks carry only what the target surface needs.
-- App payload decode happens in one place, one way.
-- No surface-level awareness of drag host fallback strategy.
-- Reusable by any composable that can host an Android `View` overlay.
+- Target surfaces receive only what they need.
+- Drag listener lifecycle is centralized in one place.
+- Payload decode logic is centralized in one codec.
+- Surface code stays focused on visual state and offset-to-cell mapping.
 
----
+## Implemented payload contract
 
-## Strict internal rules (coordinator implementation)
-
-1. **Accept drag at started if likely app payload** (do not reject too early).
-2. **Decode payload lazily once**, cache it for the session.
-3. **Normalize coordinates once** with one utility function.
-4. **Always emit started/ended callbacks** when this target accepted the drag session.
-5. **Never own business policy** (occupied cell, clamping policy, pin/move policy) — only bridge events.
-
-This keeps the coordinator small and avoids feature creep.
-
----
-
-## Surface integration pattern (home grid and future surfaces)
-
-Each target surface does exactly this:
-
-1. Keep tiny local UI state:
-   - `isExternalDragActive`
-   - `hoverCell`
-2. On `onMoved(localOffset)`:
-   - convert pixel -> cell via local metrics.
-   - update `hoverCell`.
-3. On `onDropped(appInfo, localOffset)`:
-   - resolve final cell (prefer hover cell, else localOffset conversion).
-   - call ViewModel callback.
-4. On `onEnded(...)`:
-   - clear local drag state.
-
-No payload decoding, no host fallback logic, no drag listener lifecycle complexity in each surface.
-
----
-
-## File structure to reduce cognitive load
-
-### Keep
-
-- [app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropContract.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropContract.kt)
-- [app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropModifiers.kt](../app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropModifiers.kt)
-
-### Split current external bridge into 3 small files
-
-1. `ExternalDragPayloadCodec.kt`
-   - ClipData creation + decode + likely-payload check.
-2. `ExternalDragCoordinateMapper.kt`
-   - local/window/screen normalization utility.
-3. `ExternalAppDragDropCoordinator.kt`
-   - startDrag + target listener lifecycle + callback dispatch.
-
-Then keep a tiny Compose adapter:
-
-4. `ExternalDropTargetOverlay.kt`
-   - wraps AndroidView and wires coordinator attach/detach.
-
-This is dramatically easier to scan and test than one long multipurpose file.
-
----
-
-## What to remove from target surfaces
-
-After migration, surfaces should not contain:
-
-- payload parsing logic.
-- drag started acceptance heuristics.
-- coordinate-system fallback heuristics.
-- listener lifecycle details.
-
-Surfaces only convert offsets to cells and render highlights.
-
----
-
-## Reusable policy layer (optional but clean)
-
-Define one tiny policy interface for placement behaviors:
+`ExternalDragPayloadCodec` defines a sealed payload model:
 
 ```kotlin
-interface ExternalDropPlacementPolicy {
-    fun resolveDropCell(hoverCell: GridPosition?, dropOffset: Offset, metrics: AppDragDropLayoutMetrics): GridPosition
+sealed class ExternalDragItem {
+    data class App(val appInfo: AppInfo)
+    data class File(val fileDocument: FileDocument)
+    data class Contact(val contact: Contact)
 }
 ```
 
-Implement once for the current behavior:
+Codec responsibilities:
 
-- prefer hover cell
-- fallback to drop offset
-- clamp in metrics
+- Encode payloads into `ClipData`
+- Detect likely launcher payload drags in `ACTION_DRAG_STARTED`
+- Decode from `localState` first, then ClipData JSON
+- Support legacy app-only clip labels for compatibility
 
-Any future surface can reuse this policy unchanged.
+## Implemented start-drag API
 
----
+`AppExternalDragDrop.kt` provides source helpers:
 
-## Migration steps (safe + incremental)
+- `startExternalAppDrag(...)`
+- `startExternalFileDrag(...)`
+- `startExternalContactDrag(...)`
 
-1. Extract codec + coordinate mapper from current external file.
-2. Introduce coordinator with same behavior.
-3. Migrate [app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt](../app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt) to the coordinator callbacks.
-4. Verify no behavior regression with existing logs.
-5. Remove now-redundant logic from old external file.
-6. Keep only concise debug logs behind one tag in coordinator.
+All source helpers share the same host fallback strategy:
 
----
+1. Activity decor view (preferred)
+2. Root view
+3. Source host view
+
+All source helpers attempt global drag first, then local fallback.
+
+## Surface integration pattern
+
+Each target surface should do only this:
+
+1. Track local external drag UI state (`isExternalDragActive`, `hoverCell`, `previewItem`).
+2. Convert `localOffset` to cell via local `AppDragDropLayoutMetrics`.
+3. Resolve final drop position (prefer hover cell, fallback to drop offset).
+4. Map `ExternalDragItem` to the surface item model (`HomeItem`, etc.).
+5. Forward to ViewModel/repository mutation callback.
+
+No surface-level payload parsing should be added.
+
+## Home grid mapping (implemented)
+
+`DraggablePinnedItemsGrid` maps external payloads to persisted home items:
+
+- `ExternalDragItem.App` -> `HomeItem.PinnedApp`
+- `ExternalDragItem.File` -> `HomeItem.PinnedFile`
+- `ExternalDragItem.Contact` -> `HomeItem.PinnedContact`
+
+This keeps one generic drag bridge while preserving home persistence semantics.
+
+## Prefix result integration (implemented)
+
+Search result rows now start external drags using the same pipeline:
+
+- App results -> `startExternalAppDrag(...)`
+- File results (`f` prefix) -> `startExternalFileDrag(...)`
+- Contact results (`c` prefix) -> `startExternalContactDrag(...)`
+
+All three drop through the same home overlay and callback path.
+
+## Invariants kept by design
+
+1. Accept likely launcher drags early and decode payload lazily.
+2. Use one coordinate normalization implementation.
+3. Keep drag listener lifecycle centralized.
+4. Keep business policy (occupied cell rejection, persistence rules) outside the coordinator.
+5. Keep source-host fallback logic centralized in start-drag helpers.
 
 ## Resulting mental model
 
-- **Controller (`AppDragDropController`)** = internal in-surface drag.
-- **Coordinator (`ExternalAppDragDropCoordinator`)** = platform cross-surface drag bridge.
-- **Surface (`DraggablePinnedItemsGrid`)** = rendering + offset->cell + callback to ViewModel.
-- **ViewModel (`HomeViewModel`)** = placement persistence and business policy.
-
-Each layer does one thing, and the same coordinator can be reused anywhere in the app.
+- `AppDragDropController` = internal in-surface dragging.
+- `ExternalAppDragDropCoordinator` = platform external drag bridge.
+- `ExternalDragPayloadCodec` = payload transport contract.
+- Surface layer = visual state + cell mapping + callback forwarding.
+- `HomeViewModel` = write policy + serialized persistence.

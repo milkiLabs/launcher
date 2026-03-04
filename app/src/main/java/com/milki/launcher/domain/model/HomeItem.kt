@@ -12,7 +12,8 @@
  * ITEM TYPES:
  * 1. PinnedApp - Regular installed app
  * 2. PinnedFile - File (PDF, image, etc.) for quick opening
- * 3. AppShortcut - System shortcut from another app (e.g., WhatsApp chat)
+ * 3. PinnedContact - Contact shortcut for quick dial/open
+ * 4. AppShortcut - System shortcut from another app (e.g., WhatsApp chat)
  *
  * SERIALIZATION:
  * Uses kotlinx.serialization with polymorphic serialization for the sealed class.
@@ -165,6 +166,54 @@ sealed class HomeItem {
                     name = file.name,
                     mimeType = file.mimeType,
                     size = file.size,
+                    position = GridPosition.DEFAULT
+                )
+            }
+        }
+    }
+
+    /**
+     * A pinned contact for quick access from the home grid.
+     *
+     * @property id Unique identifier: "contact:{contactId}:{lookupKey}"
+     * @property contactId Stable-ish contact database ID
+     * @property lookupKey Contact lookup key for resilient identification
+     * @property displayName Contact display label
+     * @property primaryPhone Primary phone number used for quick dial/open actions
+     * @property photoUri Optional photo URI string for future avatar rendering
+     * @property position Grid position (row, column) on the home screen
+     */
+    @Serializable
+    data class PinnedContact(
+        override val id: String,
+        val contactId: Long,
+        val lookupKey: String,
+        val displayName: String,
+        val primaryPhone: String?,
+        val photoUri: String?,
+        override val position: GridPosition = GridPosition.DEFAULT
+    ) : HomeItem() {
+
+        /**
+         * Creates a copy of this contact with a new grid position.
+         */
+        override fun withPosition(newPosition: GridPosition): PinnedContact {
+            return copy(position = newPosition)
+        }
+
+        companion object {
+            /**
+             * Creates a PinnedContact from a Contact domain model.
+             */
+            fun fromContact(contact: Contact): PinnedContact {
+                val contactKey = if (contact.lookupKey.isNotBlank()) contact.lookupKey else contact.id.toString()
+                return PinnedContact(
+                    id = "contact:${contact.id}:$contactKey",
+                    contactId = contact.id,
+                    lookupKey = contact.lookupKey,
+                    displayName = contact.displayName,
+                    primaryPhone = contact.phoneNumbers.firstOrNull(),
+                    photoUri = contact.photoUri,
                     position = GridPosition.DEFAULT
                 )
             }

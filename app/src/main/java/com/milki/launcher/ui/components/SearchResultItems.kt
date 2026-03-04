@@ -56,10 +56,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.presentation.search.SearchResultAction
+import com.milki.launcher.ui.components.dragdrop.AppDragDropGestureCallbacks
+import com.milki.launcher.ui.components.dragdrop.appDragDropGestures
+import com.milki.launcher.ui.components.dragdrop.startExternalContactDrag
+import com.milki.launcher.ui.components.dragdrop.startExternalFileDrag
+import com.milki.launcher.ui.components.grid.GridConfig
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -295,8 +300,11 @@ fun ContactSearchResultItem(
     result: ContactSearchResult,
     accentColor: Color?,
     onClick: () -> Unit,
-    onDialClick: (() -> Unit)? = null
+    onDialClick: (() -> Unit)? = null,
+    onExternalDragStarted: () -> Unit = {}
 ) {
+    val hostView = LocalView.current
+
     /**
      * Get the first phone number to display as supporting text.
      * Contacts may have multiple numbers; we show the primary one.
@@ -360,14 +368,41 @@ fun ContactSearchResultItem(
     /**
      * Use the SearchResultListItem wrapper with contact specific values.
      */
-    SearchResultListItem(
-        headlineText = result.contact.displayName,
-        supportingText = primaryPhone,
-        leadingIcon = Icons.Default.Person,
-        accentColor = accentColor,
-        trailingContent = trailingContent,
-        onClick = onClick
-    )
+    Box(
+        modifier = Modifier.appDragDropGestures(
+            key = "contact:${result.contact.id}:${result.contact.lookupKey}",
+            dragThresholdPx = GridConfig.Default.dragThresholdPx,
+            callbacks = AppDragDropGestureCallbacks(
+                onTap = onClick,
+                onLongPress = {},
+                onLongPressRelease = {},
+                onDragStart = {
+                    val dragStarted = startExternalContactDrag(
+                        hostView = hostView,
+                        contact = result.contact
+                    )
+
+                    if (dragStarted) {
+                        hostView.post {
+                            onExternalDragStarted()
+                        }
+                    }
+                },
+                onDrag = { change, _ -> change.consume() },
+                onDragEnd = {},
+                onDragCancel = {}
+            )
+        )
+    ) {
+        SearchResultListItem(
+            headlineText = result.contact.displayName,
+            supportingText = primaryPhone,
+            leadingIcon = Icons.Default.Person,
+            accentColor = accentColor,
+            trailingContent = trailingContent,
+            onClick = null
+        )
+    }
 }
 
 /**
@@ -477,10 +512,13 @@ fun PermissionRequestItem(
 fun FileDocumentSearchResultItem(
     result: FileDocumentSearchResult,
     accentColor: Color?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onExternalDragStarted: () -> Unit = {}
 ) {
     val file = result.file
+    val hostView = LocalView.current
     var showMenu by remember { mutableStateOf(false) }
+    var isGestureActive by remember { mutableStateOf(false) }
 
     val fileIcon = when {
         file.isPdf() -> Icons.Outlined.PictureAsPdf
@@ -502,19 +540,54 @@ fun FileDocumentSearchResultItem(
         }
     }.takeIf { it.isNotEmpty() }
 
-    Box {
+    Box(
+        modifier = Modifier.appDragDropGestures(
+            key = "file:${file.id}:${file.uri}",
+            dragThresholdPx = GridConfig.Default.dragThresholdPx,
+            callbacks = AppDragDropGestureCallbacks(
+                onTap = onClick,
+                onLongPress = {
+                    showMenu = true
+                    isGestureActive = true
+                },
+                onLongPressRelease = {
+                    isGestureActive = false
+                },
+                onDragStart = {
+                    showMenu = false
+                    isGestureActive = false
+
+                    val dragStarted = startExternalFileDrag(
+                        hostView = hostView,
+                        fileDocument = file
+                    )
+
+                    if (dragStarted) {
+                        hostView.post {
+                            onExternalDragStarted()
+                        }
+                    }
+                },
+                onDrag = { change, _ -> change.consume() },
+                onDragEnd = {},
+                onDragCancel = {
+                    isGestureActive = false
+                }
+            )
+        )
+    ) {
         SearchResultListItem(
             headlineText = file.name,
             supportingText = supportingText,
             leadingIcon = fileIcon,
             accentColor = accentColor,
-            onClick = onClick,
-            onLongClick = { showMenu = true }
+            onClick = null
         )
 
         ItemActionMenu(
             expanded = showMenu,
-            onDismiss = { showMenu = false },
+            onDismiss = { showMenu = false; isGestureActive = false },
+            focusable = !isGestureActive,
             actions = listOf(
                 createPinAction(
                     isPinned = false,

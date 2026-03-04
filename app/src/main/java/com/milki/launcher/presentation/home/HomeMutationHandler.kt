@@ -1,6 +1,7 @@
 package com.milki.launcher.presentation.home
 
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 
 /**
@@ -24,6 +25,11 @@ interface HomeMutationHandler {
      * Pins a file shortcut to home using the unified home mutation pipeline.
      */
     fun pinFile(file: FileDocument)
+
+    /**
+     * Pins a contact shortcut to home using the unified home mutation pipeline.
+     */
+    fun pinContact(contact: Contact)
 
     /**
      * Removes a pinned item from home using the unified home mutation pipeline.

@@ -8,6 +8,7 @@
  * All pinning/unpinning actions are handled by ActionExecutor via SearchResultAction:
  * - SearchResultAction.PinApp: Pins an app to the home screen
  * - SearchResultAction.PinFile: Pins a file to the home screen
+ * - SearchResultAction.PinContact: Pins a contact to the home screen
  * - SearchResultAction.UnpinItem: Removes an item from the home screen
  *
  * This ViewModel now acts as the single home mutation coordinator.
@@ -25,6 +26,7 @@ package com.milki.launcher.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
@@ -193,12 +195,23 @@ class HomeViewModel(
      * @param dropPosition The target grid position where user released the drag
      */
     fun pinOrMoveAppToPosition(appInfo: AppInfo, dropPosition: GridPosition) {
+        pinOrMoveHomeItemToPosition(
+            item = HomeItem.PinnedApp.fromAppInfo(appInfo),
+            dropPosition = dropPosition
+        )
+    }
+
+    /**
+     * Pins or moves any supported home item to the exact target position.
+     *
+     * This method is used by external drag/drop for app, file, and contact payloads.
+     */
+    fun pinOrMoveHomeItemToPosition(item: HomeItem, dropPosition: GridPosition) {
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Target position is occupied"
         ) {
-            val pinnedApp = HomeItem.PinnedApp.fromAppInfo(appInfo)
             val wasApplied = homeRepository.pinOrMoveItemToPosition(
-                item = pinnedApp,
+                item = item,
                 targetPosition = dropPosition
             )
 
@@ -238,6 +251,24 @@ class HomeViewModel(
             }
 
             homeRepository.addPinnedItem(pinnedFile)
+            true
+        }
+    }
+
+    /**
+     * Pin a contact shortcut through the same serialized mutation path.
+     */
+    override fun pinContact(contact: Contact) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Failed to pin contact"
+        ) {
+            val pinnedContact = HomeItem.PinnedContact.fromContact(contact)
+            val existingItem = homeRepository.pinnedItems.first().firstOrNull { it.id == pinnedContact.id }
+            if (existingItem != null) {
+                return@launchSerializedHomeMutation true
+            }
+
+            homeRepository.addPinnedItem(pinnedContact)
             true
         }
     }

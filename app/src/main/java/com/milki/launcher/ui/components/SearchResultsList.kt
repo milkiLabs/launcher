@@ -267,6 +267,7 @@ private fun MixedResultsList(
                         result = result,
                         accentColor = activeProviderConfig?.color,
                         onClick = { actionHandler(SearchResultAction.Tap(result)) },
+                        onExternalDragStarted = onExternalAppDragStart,
                         onDialClick = {
                             val phone = result.contact.phoneNumbers.firstOrNull()
                             if (phone != null) {
@@ -279,7 +280,8 @@ private fun MixedResultsList(
                     FileDocumentSearchResultItem(
                         result = result,
                         accentColor = activeProviderConfig?.color,
-                        onClick = { actionHandler(SearchResultAction.Tap(result)) }
+                        onClick = { actionHandler(SearchResultAction.Tap(result)) },
+                        onExternalDragStarted = onExternalAppDragStart
                     )
                 }
                 is PermissionRequestResult -> {

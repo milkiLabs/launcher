@@ -94,6 +94,7 @@ class ActionExecutor(
             is SearchResultAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
             is SearchResultAction.PinApp -> handlePinApp(action)
             is SearchResultAction.PinFile -> handlePinFile(action)
+            is SearchResultAction.PinContact -> handlePinContact(action)
             is SearchResultAction.UnpinItem -> handleUnpinItem(action)
             is SearchResultAction.OpenAppInfo -> handleOpenAppInfo(action)
             is SearchResultAction.RequestPermission -> handleRequestPermission(action)
@@ -252,6 +253,11 @@ class ActionExecutor(
     private fun handlePinFile(action: SearchResultAction.PinFile) {
         homeMutationHandler.pinFile(action.file)
         Toast.makeText(context, "${action.file.name} pinned to home", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun handlePinContact(action: SearchResultAction.PinContact) {
+        homeMutationHandler.pinContact(action.contact)
+        Toast.makeText(context, "${action.contact.displayName} pinned to home", Toast.LENGTH_SHORT).show()
     }
 
     private fun handleUnpinItem(action: SearchResultAction.UnpinItem) {

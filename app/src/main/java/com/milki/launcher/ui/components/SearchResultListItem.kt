@@ -101,7 +101,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 fun SearchResultListItem(
     headlineText: String,
     leadingIcon: ImageVector,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     supportingText: String? = null,
     accentColor: Color? = null,
@@ -110,13 +110,19 @@ fun SearchResultListItem(
 ) {
     val iconColor = accentColor ?: MaterialTheme.colorScheme.primary
 
-    val clickModifier = if (onLongClick != null) {
-        modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        )
-    } else {
-        modifier.clickable { onClick() }
+    val clickModifier = when {
+        onLongClick != null -> {
+            modifier.combinedClickable(
+                onClick = { onClick?.invoke() },
+                onLongClick = onLongClick
+            )
+        }
+        onClick != null -> {
+            modifier.clickable { onClick() }
+        }
+        else -> {
+            modifier
+        }
     }
 
     ListItem(

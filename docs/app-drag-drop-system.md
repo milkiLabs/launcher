@@ -106,7 +106,7 @@ For the home surface, persistence is coordinated by `HomeViewModel` as a single
 serialized mutation gateway for:
 
 - internal drag moves,
-- external app drops,
+- external payload drops (app/file/contact),
 - pin from action menus,
 - unpin from action menus.
 
@@ -125,26 +125,31 @@ Home grid icons and search app items now both wire gestures through
 `appDragDropGestures(...)` with the same long-press + drag callback pattern.
 This keeps interaction behavior aligned across launcher surfaces.
 
-## External app payload bridge
+## External payload bridge
 
 `AppExternalDragDrop.kt` provides the platform drag-and-drop bridge for moving
-app payloads from search UI surfaces into the home grid.
+launcher payloads from search UI surfaces into the home grid.
 
-- `startExternalAppDrag(...)` starts platform drag transfer using JSON clip payload.
-- `startExternalAppDrag(...)` uses global drag flags (with fallback) so drags can
-    move from dialog windows onto launcher home surfaces.
+- `startExternalAppDrag(...)` starts app drags.
+- `startExternalFileDrag(...)` starts file drags.
+- `startExternalContactDrag(...)` starts contact drags.
+- All three share the same host fallback strategy (`decorView` -> `rootView` -> source view)
+    and global-flag-first drag start behavior.
 - `AppExternalDropTargetOverlay(...)` handles external drag lifecycle on home surfaces.
-- Payload contract is intentionally minimal: `name`, `packageName`, `activityName`.
-- Payload decoding prefers `DragEvent.localState` (same-process) and falls back to
-    ClipData JSON decoding for robustness across devices.
+- Payload contract is a sealed type in `ExternalDragPayloadCodec.ExternalDragItem`:
+    - `App`
+    - `File`
+    - `Contact`
+- Payload decoding prefers `DragEvent.localState` (same-process), then falls back to
+    ClipData JSON decoding.
 
 ### External drop callback contract
 
 `AppExternalDropTargetOverlay` callbacks expose payload-aware lifecycle:
 
-- `onDragStarted()` is invoked when a likely launcher app drag session starts.
-- `onDragMoved(localOffset, appInfo?)` emits hover updates; payload may be null until lazy decode resolves.
-- `onAppDropped(appInfo, localOffset)` emits the payload and final drop event.
+- `onDragStarted()` is invoked when a likely launcher payload drag session starts.
+- `onDragMoved(localOffset, item?)` emits hover updates; payload may be null until lazy decode resolves.
+- `onItemDropped(item, localOffset)` emits the final payload and drop event.
 - `onDragEnded()` signals end of active payload drag lifecycle.
 
 This contract allows target surfaces to render highlights immediately while
@@ -167,10 +172,24 @@ The Compose overlay adapter avoids stale callback references by:
 For dialog-to-home external drags, prefer this target selection order:
 
 1. last hovered target cell from `onDragMoved`
-2. fallback: convert `onAppDropped` local offset to cell
+2. fallback: convert `onItemDropped` local offset to cell
 
 Using hovered target as primary source keeps final pin position aligned with the
 highlight users saw before they released the drag.
+
+## Prefix integration (`f`, `c`)
+
+Search result rows now reuse the same external drag pipeline:
+
+- Contact results (`c` prefix) start drags via `startExternalContactDrag(...)`.
+- File results (`f` prefix) start drags via `startExternalFileDrag(...)`.
+- App results continue to use `startExternalAppDrag(...)`.
+
+All three payloads drop through the same home overlay and are mapped to `HomeItem`:
+
+- app payload -> `HomeItem.PinnedApp`
+- file payload -> `HomeItem.PinnedFile`
+- contact payload -> `HomeItem.PinnedContact`
 
 This keeps cross-surface drag robust while avoiding non-serializable fields.
 

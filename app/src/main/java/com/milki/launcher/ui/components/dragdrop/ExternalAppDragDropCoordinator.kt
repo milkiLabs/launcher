@@ -4,7 +4,7 @@ import android.view.DragEvent
 import android.view.View
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.Offset
-import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 
 /**
  * ExternalAppDragDropCoordinator.kt - Reusable platform drag/drop bridge coordinator.
@@ -21,8 +21,8 @@ interface ExternalAppDragDropCoordinator {
      */
     interface TargetCallbacks {
         fun onStarted()
-        fun onMoved(localOffset: Offset, appInfo: AppInfo?)
-        fun onDropped(appInfo: AppInfo, localOffset: Offset): Boolean
+        fun onMoved(localOffset: Offset, item: ExternalDragItem?)
+        fun onDropped(item: ExternalDragItem, localOffset: Offset): Boolean
         fun onEnded(result: Boolean)
     }
 
@@ -39,14 +39,14 @@ interface ExternalAppDragDropCoordinator {
 class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
 
     override fun createListener(callbacks: ExternalAppDragDropCoordinator.TargetCallbacks): View.OnDragListener {
-        var activeDragAppInfo: AppInfo? = null
+        var activeDragItem: ExternalDragItem? = null
         var hasActiveSession = false
 
         return View.OnDragListener { dragTargetView, event ->
             when (event.action) {
                 DragEvent.ACTION_DRAG_STARTED -> {
-                    if (!ExternalDragPayloadCodec.isLikelyAppPayload(event)) {
-                        activeDragAppInfo = null
+                    if (!ExternalDragPayloadCodec.isLikelyLauncherPayload(event)) {
+                        activeDragItem = null
                         hasActiveSession = false
                         return@OnDragListener false
                     }
@@ -54,18 +54,18 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                     hasActiveSession = true
                     callbacks.onStarted()
 
-                    activeDragAppInfo = ExternalDragPayloadCodec.decodeAppInfo(event)
+                    activeDragItem = ExternalDragPayloadCodec.decodeDragItem(event)
                     true
                 }
 
                 DragEvent.ACTION_DRAG_LOCATION -> {
                     if (!hasActiveSession) return@OnDragListener false
 
-                    val dragAppInfo = activeDragAppInfo
-                        ?: ExternalDragPayloadCodec.decodeAppInfo(event)
+                    val dragItem = activeDragItem
+                        ?: ExternalDragPayloadCodec.decodeDragItem(event)
 
-                    if (dragAppInfo != null && activeDragAppInfo == null) {
-                        activeDragAppInfo = dragAppInfo
+                    if (dragItem != null && activeDragItem == null) {
+                        activeDragItem = dragItem
                     }
 
                     val localOffset = ExternalDragCoordinateMapper.toLocalOffset(
@@ -73,15 +73,15 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                         event = event
                     )
 
-                    callbacks.onMoved(localOffset, dragAppInfo)
+                    callbacks.onMoved(localOffset, dragItem)
                     true
                 }
 
                 DragEvent.ACTION_DROP -> {
                     if (!hasActiveSession) return@OnDragListener false
 
-                    val appInfo = activeDragAppInfo
-                        ?: ExternalDragPayloadCodec.decodeAppInfo(event)
+                    val item = activeDragItem
+                        ?: ExternalDragPayloadCodec.decodeDragItem(event)
                         ?: return@OnDragListener false
 
                     val localOffset = ExternalDragCoordinateMapper.toLocalOffset(
@@ -89,7 +89,7 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                         event = event
                     )
 
-                    callbacks.onDropped(appInfo, localOffset)
+                    callbacks.onDropped(item, localOffset)
                 }
 
                 DragEvent.ACTION_DRAG_ENDED -> {
@@ -99,7 +99,7 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                         callbacks.onEnded(eventResult)
                     }
 
-                    activeDragAppInfo = null
+                    activeDragItem = null
                     hasActiveSession = false
                     true
                 }

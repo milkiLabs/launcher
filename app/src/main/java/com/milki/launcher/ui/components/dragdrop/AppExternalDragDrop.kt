@@ -32,11 +32,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.Dp
+import androidx.core.content.ContextCompat
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.Contact
+import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.data.icon.AppIconMemoryCache
+import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.theme.IconSize
 
 typealias AppExternalDragDropPayload = ExternalDragPayloadCodec
+
+/**
+ * Generic alias for the shared external drag payload item type.
+ */
+typealias ExternalDragDropItem = ExternalDragItem
 
 /**
  * Starts an external app drag operation using a stable host view.
@@ -89,7 +98,7 @@ fun startExternalAppDrag(
     val density = dragHostView.context.resources.displayMetrics.density
     val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
 
-    val clipData = AppExternalDragDropPayload.createClipData(appInfo)
+    val clipData = AppExternalDragDropPayload.createClipData(ExternalDragItem.App(appInfo))
     val dragShadowBuilder = AppIconDragShadowBuilder(
         iconDrawable = iconDrawable,
         shadowSizePx = shadowSizePx
@@ -121,6 +130,105 @@ fun startExternalAppDrag(
         "AppExternalDragDrop",
         "Failed to start external drag for ${appInfo.packageName}/${appInfo.activityName}"
     )
+    return false
+}
+
+/**
+ * Starts an external file drag operation.
+ *
+ * File rows do not have package-based icons, so we use the host view shadow.
+ */
+fun startExternalFileDrag(
+    hostView: View,
+    fileDocument: FileDocument
+): Boolean {
+    val density = hostView.context.resources.displayMetrics.density
+    val shadowSizePx = (IconSize.appList.value * density).toInt().coerceAtLeast(1)
+    val clipData = AppExternalDragDropPayload.createClipData(ExternalDragItem.File(fileDocument))
+    val fileDrawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_agenda)
+    val dragShadowBuilder = if (fileDrawable != null) {
+        AppIconDragShadowBuilder(
+            iconDrawable = fileDrawable,
+            shadowSizePx = shadowSizePx
+        )
+    } else {
+        View.DragShadowBuilder(hostView)
+    }
+    return startExternalDragWithFallbackHosts(
+        hostView = hostView,
+        clipData = clipData,
+        localState = ExternalDragItem.File(fileDocument),
+        dragShadowBuilder = dragShadowBuilder,
+        failureLogLabel = "file:${fileDocument.name}"
+    )
+}
+
+/**
+ * Starts an external contact drag operation.
+ *
+ * Contact rows also use the host view drag shadow for a lightweight, generic
+ * implementation that works across all prefix result rows.
+ */
+fun startExternalContactDrag(
+    hostView: View,
+    contact: Contact
+): Boolean {
+    val density = hostView.context.resources.displayMetrics.density
+    val shadowSizePx = (IconSize.appList.value * density).toInt().coerceAtLeast(1)
+    val clipData = AppExternalDragDropPayload.createClipData(ExternalDragItem.Contact(contact))
+    val contactDrawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_myplaces)
+    val dragShadowBuilder = if (contactDrawable != null) {
+        AppIconDragShadowBuilder(
+            iconDrawable = contactDrawable,
+            shadowSizePx = shadowSizePx
+        )
+    } else {
+        View.DragShadowBuilder(hostView)
+    }
+    return startExternalDragWithFallbackHosts(
+        hostView = hostView,
+        clipData = clipData,
+        localState = ExternalDragItem.Contact(contact),
+        dragShadowBuilder = dragShadowBuilder,
+        failureLogLabel = "contact:${contact.id}/${contact.displayName}"
+    )
+}
+
+/**
+ * Shared host-selection and drag start logic for all external payload types.
+ */
+private fun startExternalDragWithFallbackHosts(
+    hostView: View,
+    clipData: android.content.ClipData,
+    localState: Any,
+    dragShadowBuilder: View.DragShadowBuilder,
+    failureLogLabel: String
+): Boolean {
+    val activityDecorView = hostView.context.findActivity()?.window?.decorView
+    val rootView = hostView.rootView
+
+    val candidateHosts = buildList {
+        if (activityDecorView != null) add(activityDecorView)
+        if (rootView !== activityDecorView) add(rootView)
+        if (hostView !== activityDecorView && hostView !== rootView) add(hostView)
+    }.filter { candidate -> candidate.isAttachedToWindow }
+
+    val primaryFlags = View.DRAG_FLAG_GLOBAL
+    val fallbackFlags = 0
+
+    for (candidate in candidateHosts) {
+        if (candidate.startDragAndDrop(clipData, dragShadowBuilder, localState, primaryFlags)) {
+            return true
+        }
+    }
+
+    for (candidate in candidateHosts) {
+        if (candidate.startDragAndDrop(clipData, dragShadowBuilder, localState, fallbackFlags)) {
+            return true
+        }
+    }
+
+    Log.w("AppExternalDragDrop", "Failed to start external drag for $failureLogLabel")
     return false
 }
 
@@ -166,13 +274,13 @@ private class AppIconDragShadowBuilder(
 @Composable
 @SuppressLint("ClickableViewAccessibility")
 fun AppExternalDropTargetOverlay(
-    onAppDropped: (appInfo: AppInfo, localOffset: Offset) -> Boolean,
+    onItemDropped: (item: ExternalDragDropItem, localOffset: Offset) -> Boolean,
     onDragStarted: (() -> Unit)? = null,
-    onDragMoved: ((localOffset: Offset, appInfo: AppInfo?) -> Unit)? = null,
+    onDragMoved: ((localOffset: Offset, item: ExternalDragDropItem?) -> Unit)? = null,
     onDragEnded: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val currentOnAppDroppedState = rememberUpdatedState(onAppDropped)
+    val currentOnItemDroppedState = rememberUpdatedState(onItemDropped)
     val currentOnDragStartedState = rememberUpdatedState(onDragStarted)
     val currentOnDragMovedState = rememberUpdatedState(onDragMoved)
     val currentOnDragEndedState = rememberUpdatedState(onDragEnded)
@@ -185,12 +293,12 @@ fun AppExternalDropTargetOverlay(
                     currentOnDragStartedState.value?.invoke()
                 }
 
-                override fun onMoved(localOffset: Offset, appInfo: AppInfo?) {
-                    currentOnDragMovedState.value?.invoke(localOffset, appInfo)
+                override fun onMoved(localOffset: Offset, item: ExternalDragDropItem?) {
+                    currentOnDragMovedState.value?.invoke(localOffset, item)
                 }
 
-                override fun onDropped(appInfo: AppInfo, localOffset: Offset): Boolean {
-                    return currentOnAppDroppedState.value(appInfo, localOffset)
+                override fun onDropped(item: ExternalDragDropItem, localOffset: Offset): Boolean {
+                    return currentOnItemDroppedState.value(item, localOffset)
                 }
 
                 override fun onEnded(result: Boolean) {

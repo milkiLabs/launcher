@@ -2,33 +2,87 @@ package com.milki.launcher.ui.components.dragdrop
 
 import android.content.ClipData
 import android.content.ClipDescription
+import android.net.Uri
 import android.view.DragEvent
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.Contact
+import com.milki.launcher.domain.model.FileDocument
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * ExternalDragPayloadCodec.kt - Single-purpose codec for launcher app drag payloads.
+ * ExternalDragPayloadCodec.kt - Shared codec for launcher external drag payloads.
  *
  * WHY THIS FILE EXISTS:
- * External app drag/drop uses Android platform DragEvent payload transport.
+ * External drag/drop uses Android platform DragEvent payload transport.
  * Keeping all encode/decode/gating logic in one place makes behavior predictable,
  * reusable, and easy to test.
  */
 object ExternalDragPayloadCodec {
 
     /**
-     * Label used for launcher app payloads in ClipData.
+     * Unified label used for launcher drag payloads in ClipData.
      */
-    const val APP_DRAG_CLIP_LABEL: String = "launcher_app_drag_payload"
+    const val DRAG_CLIP_LABEL: String = "launcher_drag_payload"
+
+    /**
+     * Legacy label kept for backward compatibility with older drag sessions.
+     *
+     * This ensures we can still decode events that were started by older
+     * launcher code paths while we migrate to the unified payload contract.
+     */
+    const val LEGACY_APP_DRAG_CLIP_LABEL: String = "launcher_app_drag_payload"
+
+    /**
+     * Type-safe representation of all externally draggable launcher entities.
+     *
+     * This allows one drag/drop pipeline to carry app, file, and contact data.
+     */
+    sealed class ExternalDragItem {
+        data class App(val appInfo: AppInfo) : ExternalDragItem()
+        data class File(val fileDocument: FileDocument) : ExternalDragItem()
+        data class Contact(val contact: com.milki.launcher.domain.model.Contact) : ExternalDragItem()
+    }
 
     @Serializable
-    private data class AppDragPayload(
-        val name: String,
-        val packageName: String,
-        val activityName: String
-    )
+    private sealed class ExternalPayloadDto {
+        abstract val type: String
+
+        @Serializable
+        data class AppPayload(
+            override val type: String = "app",
+            val name: String,
+            val packageName: String,
+            val activityName: String
+        ) : ExternalPayloadDto()
+
+        @Serializable
+        data class FilePayload(
+            override val type: String = "file",
+            val id: Long,
+            val name: String,
+            val mimeType: String,
+            val size: Long,
+            val dateModified: Long,
+            val uri: String,
+            val folderPath: String
+        ) : ExternalPayloadDto()
+
+        @Serializable
+        data class ContactPayload(
+            override val type: String = "contact",
+            val id: Long,
+            val displayName: String,
+            val phoneNumbers: List<String>,
+            val emails: List<String>,
+            val photoUri: String?,
+            val lookupKey: String
+        ) : ExternalPayloadDto()
+    }
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -36,32 +90,75 @@ object ExternalDragPayloadCodec {
     }
 
     /**
-     * Creates ClipData for platform drag transfer.
+     * Creates ClipData for platform drag transfer from any supported drag item.
      */
-    fun createClipData(appInfo: AppInfo): ClipData {
-        val payload = AppDragPayload(
-            name = appInfo.name,
-            packageName = appInfo.packageName,
-            activityName = appInfo.activityName
-        )
+    fun createClipData(item: ExternalDragItem): ClipData {
+        val payloadText = when (item) {
+            is ExternalDragItem.App -> {
+                json.encodeToString(
+                    ExternalPayloadDto.AppPayload(
+                        name = item.appInfo.name,
+                        packageName = item.appInfo.packageName,
+                        activityName = item.appInfo.activityName
+                    )
+                )
+            }
 
-        val serializedPayload = json.encodeToString(payload)
-        return ClipData.newPlainText(APP_DRAG_CLIP_LABEL, serializedPayload)
+            is ExternalDragItem.File -> {
+                val file = item.fileDocument
+                json.encodeToString(
+                    ExternalPayloadDto.FilePayload(
+                        id = file.id,
+                        name = file.name,
+                        mimeType = file.mimeType,
+                        size = file.size,
+                        dateModified = file.dateModified,
+                        uri = file.uri.toString(),
+                        folderPath = file.folderPath
+                    )
+                )
+            }
+
+            is ExternalDragItem.Contact -> {
+                val contact = item.contact
+                json.encodeToString(
+                    ExternalPayloadDto.ContactPayload(
+                        id = contact.id,
+                        displayName = contact.displayName,
+                        phoneNumbers = contact.phoneNumbers,
+                        emails = contact.emails,
+                        photoUri = contact.photoUri,
+                        lookupKey = contact.lookupKey
+                    )
+                )
+            }
+        }
+
+        return ClipData.newPlainText(DRAG_CLIP_LABEL, payloadText)
     }
 
     /**
-     * Returns true when this drag event is likely a launcher app payload.
+     * Convenience overload retained for app-only call sites.
+     */
+    fun createClipData(appInfo: AppInfo): ClipData = createClipData(ExternalDragItem.App(appInfo))
+
+    /**
+     * Returns true when this drag event is likely a launcher payload.
      *
      * This is intentionally tolerant for ACTION_DRAG_STARTED to avoid rejecting
      * valid cross-window drags too early on OEM variants.
      */
-    fun isLikelyAppPayload(dragEvent: DragEvent): Boolean {
+    fun isLikelyLauncherPayload(dragEvent: DragEvent): Boolean {
         val description = dragEvent.clipDescription
         if (description == null) {
-            return dragEvent.localState is AppInfo
+            return dragEvent.localState is ExternalDragItem ||
+                dragEvent.localState is AppInfo ||
+                dragEvent.localState is FileDocument ||
+                dragEvent.localState is Contact
         }
 
-        if (description.label?.toString() == APP_DRAG_CLIP_LABEL) {
+        val label = description.label?.toString()
+        if (label == DRAG_CLIP_LABEL || label == LEGACY_APP_DRAG_CLIP_LABEL) {
             return true
         }
 
@@ -69,16 +166,32 @@ object ExternalDragPayloadCodec {
     }
 
     /**
-     * Decodes AppInfo from localState or ClipData JSON payload.
+     * App-only compatibility helper.
      */
-    fun decodeAppInfo(dragEvent: DragEvent): AppInfo? {
-        val localStateAppInfo = dragEvent.localState as? AppInfo
-        if (localStateAppInfo != null) {
-            return localStateAppInfo.copy(launchIntent = null)
+    fun isLikelyAppPayload(dragEvent: DragEvent): Boolean = isLikelyLauncherPayload(dragEvent)
+
+    /**
+     * Decodes any supported drag payload from localState or ClipData JSON.
+     */
+    fun decodeDragItem(dragEvent: DragEvent): ExternalDragItem? {
+        val localStateItem = when (val localState = dragEvent.localState) {
+            is ExternalDragItem -> localState
+            is AppInfo -> ExternalDragItem.App(localState.copy(launchIntent = null))
+            is FileDocument -> ExternalDragItem.File(localState)
+            is Contact -> ExternalDragItem.Contact(localState)
+            else -> null
+        }
+
+        if (localStateItem != null) {
+            return localStateItem
         }
 
         val descriptionLabel = dragEvent.clipDescription?.label?.toString()
-        if (descriptionLabel != null && descriptionLabel != APP_DRAG_CLIP_LABEL) {
+        if (
+            descriptionLabel != null &&
+            descriptionLabel != DRAG_CLIP_LABEL &&
+            descriptionLabel != LEGACY_APP_DRAG_CLIP_LABEL
+        ) {
             return null
         }
 
@@ -87,14 +200,73 @@ object ExternalDragPayloadCodec {
 
         val rawText = clipData.getItemAt(0).text?.toString() ?: return null
 
+        if (descriptionLabel == LEGACY_APP_DRAG_CLIP_LABEL) {
+            return runCatching {
+                val payload = json.decodeFromString(ExternalPayloadDto.AppPayload.serializer(), rawText)
+                ExternalDragItem.App(
+                    AppInfo(
+                        name = payload.name,
+                        packageName = payload.packageName,
+                        activityName = payload.activityName,
+                        launchIntent = null
+                    )
+                )
+            }.getOrNull()
+        }
+
         return runCatching {
-            val payload = json.decodeFromString(AppDragPayload.serializer(), rawText)
-            AppInfo(
-                name = payload.name,
-                packageName = payload.packageName,
-                activityName = payload.activityName,
-                launchIntent = null
-            )
+            val dto = json.parseToJsonElement(rawText).jsonObject
+            when (dto["type"]?.jsonPrimitive?.contentOrNull) {
+                "app" -> {
+                    val payload = json.decodeFromString(ExternalPayloadDto.AppPayload.serializer(), rawText)
+                    ExternalDragItem.App(
+                        AppInfo(
+                            name = payload.name,
+                            packageName = payload.packageName,
+                            activityName = payload.activityName,
+                            launchIntent = null
+                        )
+                    )
+                }
+
+                "file" -> {
+                    val payload = json.decodeFromString(ExternalPayloadDto.FilePayload.serializer(), rawText)
+                    ExternalDragItem.File(
+                        FileDocument(
+                            id = payload.id,
+                            name = payload.name,
+                            mimeType = payload.mimeType,
+                            size = payload.size,
+                            dateModified = payload.dateModified,
+                            uri = Uri.parse(payload.uri),
+                            folderPath = payload.folderPath
+                        )
+                    )
+                }
+
+                "contact" -> {
+                    val payload = json.decodeFromString(ExternalPayloadDto.ContactPayload.serializer(), rawText)
+                    ExternalDragItem.Contact(
+                        Contact(
+                            id = payload.id,
+                            displayName = payload.displayName,
+                            phoneNumbers = payload.phoneNumbers,
+                            emails = payload.emails,
+                            photoUri = payload.photoUri,
+                            lookupKey = payload.lookupKey
+                        )
+                    )
+                }
+
+                else -> null
+            }
         }.getOrNull()
+    }
+
+    /**
+     * App-only compatibility decode helper.
+     */
+    fun decodeAppInfo(dragEvent: DragEvent): AppInfo? {
+        return (decodeDragItem(dragEvent) as? ExternalDragItem.App)?.appInfo
     }
 }

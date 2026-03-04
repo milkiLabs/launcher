@@ -142,15 +142,15 @@ class MainActivity : ComponentActivity() {
                              */
                             homeViewModel.moveItemToPosition(itemId, newPosition)
                         },
-                        onAppDroppedToHome = { appInfo, position ->
+                        onItemDroppedToHome = { item, position ->
                             /**
-                             * User dropped an app payload onto the home grid.
+                             * User dropped an external payload onto the home grid.
                              *
                              * Behavior is centralized in HomeViewModel:
-                             * - If app is not pinned yet: pin it first, then place at drop cell.
-                             * - If app is already pinned: move existing icon to drop cell.
+                             * - If item is not pinned yet: pin it first, then place at drop cell.
+                             * - If item is already pinned: move existing icon to drop cell.
                              */
-                            homeViewModel.pinOrMoveAppToPosition(appInfo, position)
+                            homeViewModel.pinOrMoveHomeItemToPosition(item, position)
                         }
                     )
                 }

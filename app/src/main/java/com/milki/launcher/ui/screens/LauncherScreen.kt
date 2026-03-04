@@ -48,7 +48,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.home.HomeUiState
@@ -87,7 +86,7 @@ import com.milki.launcher.util.launchAppShortcut
  * @param onPinnedItemClick Called when a pinned item is clicked
  * @param onPinnedItemLongPress Called when a pinned item is long-pressed (for menu)
  * @param onPinnedItemMove Called when a pinned item is dragged to a new position
- * @param onAppDroppedToHome Reserved callback for external app drop payloads
+ * @param onItemDroppedToHome Callback for external drag payload drops (app/file/contact)
  */
 @Composable
 fun LauncherScreen(
@@ -98,7 +97,7 @@ fun LauncherScreen(
     onPinnedItemClick: (HomeItem) -> Unit,
     onPinnedItemLongPress: (HomeItem) -> Unit,
     onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    onAppDroppedToHome: (AppInfo, GridPosition) -> Unit = { _, _ -> }
+    onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
 
@@ -113,8 +112,8 @@ fun LauncherScreen(
             onItemClick = onPinnedItemClick,
             onItemLongPress = onPinnedItemLongPress,
             onItemMove = onPinnedItemMove,
-            onAppDroppedToHome = { appInfo, position ->
-                onAppDroppedToHome(appInfo, position)
+            onItemDroppedToHome = { item, position ->
+                onItemDroppedToHome(item, position)
                 onDismissSearch()
             },
             modifier = Modifier
@@ -145,6 +144,7 @@ fun openPinnedItem(item: HomeItem, context: Context) {
     when (item) {
         is HomeItem.PinnedApp -> openPinnedApp(item, context)
         is HomeItem.PinnedFile -> openPinnedFile(item, context)
+        is HomeItem.PinnedContact -> openPinnedContact(item, context)
         is HomeItem.AppShortcut -> openAppShortcut(item, context)
     }
 }
@@ -164,6 +164,28 @@ private fun openPinnedApp(item: HomeItem.PinnedApp, context: Context) {
 private fun openPinnedFile(item: HomeItem.PinnedFile, context: Context) {
     val uri = Uri.parse(item.uri)
     openFile(context, uri, item.mimeType, item.name)
+}
+
+/**
+ * Opens a pinned contact using the dialer with the contact's primary number.
+ */
+private fun openPinnedContact(item: HomeItem.PinnedContact, context: Context) {
+    val phoneNumber = item.primaryPhone
+    if (phoneNumber.isNullOrBlank()) {
+        Toast.makeText(context, "No phone number for ${item.displayName}", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+        data = Uri.parse("tel:$phoneNumber")
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    try {
+        context.startActivity(dialIntent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
+    }
 }
 
 /**

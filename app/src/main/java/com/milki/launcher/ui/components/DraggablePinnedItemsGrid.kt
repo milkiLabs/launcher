@@ -51,6 +51,8 @@ import com.milki.launcher.ui.components.dragdrop.AppDragDropGestureCallbacks
 import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.components.dragdrop.AppDragDropResult
 import com.milki.launcher.ui.components.dragdrop.AppExternalDropTargetOverlay
+import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
+import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.components.dragdrop.appDragDropGestures
 import com.milki.launcher.ui.components.dragdrop.rememberAppDragDropController
 import com.milki.launcher.ui.components.grid.GridConfig
@@ -67,7 +69,7 @@ import kotlin.math.roundToInt
  * @param onItemClick Called when user taps an item.
  * @param onItemLongPress Called when user long-presses without dragging.
  * @param onItemMove Called when user drops an item into a new cell.
- * @param onAppDroppedToHome Called when an external app payload is dropped into the grid.
+ * @param onItemDroppedToHome Called when an external drag payload is dropped into the grid.
  * @param modifier Optional modifier for parent layout.
  */
 @Composable
@@ -77,7 +79,7 @@ fun DraggablePinnedItemsGrid(
     onItemClick: (HomeItem) -> Unit,
     onItemLongPress: (HomeItem) -> Unit,
     onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    onAppDroppedToHome: (appInfo: com.milki.launcher.domain.model.AppInfo, position: GridPosition) -> Unit = { _, _ -> },
+    onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -95,7 +97,7 @@ fun DraggablePinnedItemsGrid(
     var isMenuGestureActive by remember { mutableStateOf(false) }
     var externalDragTargetPosition by remember { mutableStateOf<GridPosition?>(null) }
     var isExternalDragActive by remember { mutableStateOf(false) }
-    var externalDragAppInfo by remember { mutableStateOf<com.milki.launcher.domain.model.AppInfo?>(null) }
+    var externalDragItem by remember { mutableStateOf<ExternalDragDropItem?>(null) }
 
     /**
      * Stable synthetic home item used only for target highlight visuals.
@@ -105,9 +107,9 @@ fun DraggablePinnedItemsGrid(
      * Reusing it keeps external-drop highlight behavior consistent with
      * internal drag preview/highlight without introducing duplicate UI code.
      */
-    val externalDragPreviewItem by remember(externalDragAppInfo) {
+    val externalDragPreviewItem by remember(externalDragItem) {
         derivedStateOf {
-            externalDragAppInfo?.let(HomeItem.PinnedApp::fromAppInfo)
+            externalDragItem?.toPreviewHomeItem()
         }
     }
 
@@ -371,20 +373,20 @@ fun DraggablePinnedItemsGrid(
             onDragStarted = {
                 isExternalDragActive = true
                 externalDragTargetPosition = null
-                externalDragAppInfo = null
+                externalDragItem = null
             },
-            onDragMoved = { localOffset, appInfo ->
+            onDragMoved = { localOffset, item ->
                 externalDragTargetPosition = layoutMetrics.pixelToCell(localOffset)
-                if (appInfo != null) {
-                    externalDragAppInfo = appInfo
+                if (item != null) {
+                    externalDragItem = item
                 }
             },
             onDragEnded = {
                 isExternalDragActive = false
                 externalDragTargetPosition = null
-                externalDragAppInfo = null
+                externalDragItem = null
             },
-            onAppDropped = { appInfo, localOffset ->
+            onItemDropped = { item, localOffset ->
                 /**
                  * IMPORTANT DROP-TARGET RULE:
                  * Prefer the last hovered target position when available.
@@ -406,8 +408,9 @@ fun DraggablePinnedItemsGrid(
                 }
 
                 externalDragTargetPosition = dropPosition
-                externalDragAppInfo = appInfo
-                onAppDroppedToHome(appInfo, dropPosition)
+                externalDragItem = item
+                val homeItem = item.toPreviewHomeItem() ?: return@AppExternalDropTargetOverlay false
+                onItemDroppedToHome(homeItem, dropPosition)
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                 true
             },
@@ -416,5 +419,16 @@ fun DraggablePinnedItemsGrid(
                 .zIndex(config.previewZIndex + 1f)
         )
         }
+    }
+}
+
+/**
+ * Maps an external drag payload to the equivalent HomeItem preview/persisted model.
+ */
+private fun ExternalDragDropItem.toPreviewHomeItem(): HomeItem? {
+    return when (this) {
+        is ExternalDragItem.App -> HomeItem.PinnedApp.fromAppInfo(appInfo)
+        is ExternalDragItem.File -> HomeItem.PinnedFile.fromFileDocument(fileDocument)
+        is ExternalDragItem.Contact -> HomeItem.PinnedContact.fromContact(contact)
     }
 }
