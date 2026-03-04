@@ -396,6 +396,364 @@ class HomeRepositoryImpl(
     }
 
     // ========================================================================
+    // FOLDER OPERATIONS
+    // ========================================================================
+
+    /**
+     * Creates a new folder from two existing home screen items.
+     *
+     * ATOMIC OPERATION:
+     * In a single DataStore edit:
+     * 1. Both items are removed from the top-level list.
+     * 2. A new FolderItem is inserted at [atPosition].
+     *
+     * NESTING GUARD:
+     * If either item is itself a FolderItem, the method returns null without
+     * any writes. We do not allow folders inside folders.
+     *
+     * @param item1 The dragged item
+     * @param item2 The item that was dropped onto
+     * @param atPosition The grid cell where the folder should appear
+     * @return The created FolderItem, or null if nesting was detected.
+     */
+    override suspend fun createFolder(
+        item1: HomeItem,
+        item2: HomeItem,
+        atPosition: GridPosition
+    ): HomeItem.FolderItem? {
+        // Nesting guard: neither item may itself be a FolderItem.
+        if (item1 is HomeItem.FolderItem || item2 is HomeItem.FolderItem) {
+            return null
+        }
+
+        // Build the new folder using the factory method on FolderItem.
+        val newFolder = HomeItem.FolderItem.create(item1, item2, atPosition)
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            // Remove both source items from the top-level list.
+            // We use removeAll with id comparison to be safe if positions shifted.
+            currentItems.removeAll { it.id == item1.id || it.id == item2.id }
+
+            // Add the new folder at the requested position.
+            currentItems.add(newFolder)
+
+            serializeItems(currentItems, preferences)
+        }
+
+        return newFolder
+    }
+
+    /**
+     * Adds an item to a folder's children list.
+     *
+     * - Removes the item from the top-level home screen list (if it is there).
+     * - Appends or inserts it into the folder's children.
+     * - Rejects FolderItem children (no nesting).
+     * - Rejects duplicate children (by id).
+     */
+    override suspend fun addItemToFolder(
+        folderId: String,
+        item: HomeItem,
+        targetIndex: Int?
+    ): Boolean {
+        // Nesting guard: we never put a folder inside a folder.
+        if (item is HomeItem.FolderItem) return false
+
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            // Find the target folder in the top-level list.
+            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
+            if (folderIndex == -1) {
+                // Folder not found — nothing to do.
+                return@edit
+            }
+
+            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
+
+            // Guard: item is already a child of this folder.
+            if (folder.children.any { it.id == item.id }) {
+                wasApplied = false
+                return@edit
+            }
+
+            // Remove the item from the top-level list if it appears there.
+            // (When dragging a home-screen icon onto a folder, the icon is
+            //  at the top level and must be removed before being added to the folder.)
+            currentItems.removeAll { it.id == item.id }
+
+            // Re-find folder index after the removal above (index may have shifted).
+            val updatedFolderIndex = currentItems.indexOfFirst { it.id == folderId }
+            if (updatedFolderIndex == -1) return@edit
+            val updatedFolder = currentItems[updatedFolderIndex] as HomeItem.FolderItem
+
+            // Build the updated children list.
+            val updatedChildren = updatedFolder.children.toMutableList()
+            val insertAt = targetIndex?.coerceIn(0, updatedChildren.size) ?: updatedChildren.size
+
+            // Always store children with DEFAULT position so they don't carry stale
+            // home-screen grid coordinates into the folder-internal grid.
+            updatedChildren.add(insertAt, item.withPosition(GridPosition.DEFAULT))
+
+            // Replace the folder in the top-level list with the updated version.
+            currentItems[updatedFolderIndex] = updatedFolder.copy(children = updatedChildren)
+
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
+    /**
+     * Removes an item from a folder and applies the cleanup policy.
+     *
+     * CLEANUP POLICY:
+     * - 0 children → folder deleted
+     * - 1 child    → folder deleted; child promoted to folder's home screen position
+     * - 2+ children → folder updated with smaller children list
+     *
+     * Returns the updated folder if it still exists, null if it was deleted.
+     */
+    override suspend fun removeItemFromFolder(
+        folderId: String,
+        itemId: String
+    ): HomeItem.FolderItem? {
+        var resultFolder: HomeItem.FolderItem? = null
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
+            if (folderIndex == -1) return@edit
+
+            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
+
+            // Build the new children list without the removed item.
+            val updatedChildren = folder.children.filterNot { it.id == itemId }
+
+            when (updatedChildren.size) {
+                0 -> {
+                    // Folder is now empty — delete it entirely from the home screen.
+                    currentItems.removeAt(folderIndex)
+                    resultFolder = null
+                }
+                1 -> {
+                    // Only one child left — promote it to the folder's grid position.
+                    // The folder is deleted and the single remaining child takes its spot.
+                    val promotedChild = updatedChildren.first().withPosition(folder.position)
+                    currentItems.removeAt(folderIndex)
+                    currentItems.add(promotedChild)
+                    resultFolder = null
+                }
+                else -> {
+                    // Two or more children remain — just update the folder.
+                    val updatedFolder = folder.copy(children = updatedChildren)
+                    currentItems[folderIndex] = updatedFolder
+                    resultFolder = updatedFolder
+                }
+            }
+
+            serializeItems(currentItems, preferences)
+        }
+
+        return resultFolder
+    }
+
+    /**
+     * Replaces a folder's children list with a new ordered list.
+     *
+     * Used for internal folder reordering via drag-and-drop inside the popup.
+     */
+    override suspend fun reorderFolderItems(
+        folderId: String,
+        newChildren: List<HomeItem>
+    ): Boolean {
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
+            if (folderIndex == -1) return@edit
+
+            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
+
+            // Replace children. Ensure no FolderItems sneak in (safety guard).
+            val safeChildren = newChildren
+                .filterNot { it is HomeItem.FolderItem }
+                // Ensure children positions are reset to DEFAULT so the folder-internal
+                // grid doesn't get confused by stale home-screen coordinates.
+                .map { it.withPosition(GridPosition.DEFAULT) }
+
+            currentItems[folderIndex] = folder.copy(children = safeChildren)
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
+    /**
+     * Merges all children of [sourceFolderId] into [targetFolderId], then deletes the source.
+     *
+     * Duplicate children (same id already in target) are skipped.
+     */
+    override suspend fun mergeFolders(
+        sourceFolderId: String,
+        targetFolderId: String
+    ): Boolean {
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val sourceIndex = currentItems.indexOfFirst { it.id == sourceFolderId }
+            val targetIndex = currentItems.indexOfFirst { it.id == targetFolderId }
+
+            if (sourceIndex == -1 || targetIndex == -1) return@edit
+
+            val sourceFolder = currentItems[sourceIndex] as? HomeItem.FolderItem ?: return@edit
+            val targetFolder = currentItems[targetIndex] as? HomeItem.FolderItem ?: return@edit
+
+            // Build the merged children list: target's children first, then unique source children.
+            val targetChildIds = targetFolder.children.map { it.id }.toSet()
+            val newChildrenFromSource = sourceFolder.children
+                .filterNot { it.id in targetChildIds }    // skip duplicates
+                .filterNot { it is HomeItem.FolderItem }   // safety check (no nesting)
+                .map { it.withPosition(GridPosition.DEFAULT) }
+
+            val mergedChildren = targetFolder.children + newChildrenFromSource
+
+            // Update the target folder with the merged children.
+            val updatedTarget = targetFolder.copy(children = mergedChildren)
+
+            // Remove the source folder from the list.
+            currentItems.removeAll { it.id == sourceFolderId }
+
+            // Update the target in its (potentially shifted) position.
+            val newTargetIndex = currentItems.indexOfFirst { it.id == targetFolderId }
+            if (newTargetIndex == -1) return@edit
+            currentItems[newTargetIndex] = updatedTarget
+
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
+    /**
+     * Renames a folder.
+     *
+     * The name is trimmed; if blank after trimming, it falls back to "Folder".
+     */
+    override suspend fun renameFolder(
+        folderId: String,
+        newName: String
+    ): Boolean {
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
+            if (folderIndex == -1) return@edit
+
+            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
+
+            // Use the user-supplied name if non-blank, otherwise default back to "Folder".
+            val safeName = newName.trim().ifBlank { "Folder" }
+            currentItems[folderIndex] = folder.copy(name = safeName)
+
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
+    /**
+     * Extracts an item from a folder and places it on the home screen grid.
+     *
+     * This is the "drag-out" operation: the user dragged a folder icon outside
+     * the folder popup and released it on the home screen.
+     *
+     * STEPS (atomic):
+     * 1. Find the folder and the item inside it.
+     * 2. Check that [targetPosition] is not occupied by another item.
+     * 3. Remove the item from the folder's children.
+     * 4. Apply folder cleanup policy (delete/unwrap if ≤1 child left).
+     * 5. Add the item to the home screen at [targetPosition].
+     *
+     * Returns false if:
+     * - The folder or item was not found.
+     * - [targetPosition] is occupied by a different item (not the folder).
+     */
+    override suspend fun extractItemFromFolder(
+        folderId: String,
+        itemId: String,
+        targetPosition: GridPosition
+    ): Boolean {
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            // Find the folder.
+            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
+            if (folderIndex == -1) return@edit
+
+            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
+
+            // Find the item inside the folder.
+            val childItem = folder.children.find { it.id == itemId } ?: return@edit
+
+            // Occupancy check: the target must be empty or occupied by the folder itself.
+            val targetOccupant = currentItems.find {
+                it.id != folderId && it.position == targetPosition
+            }
+            if (targetOccupant != null) {
+                // Target is occupied by something else — reject the operation.
+                return@edit
+            }
+
+            // Build the updated children list without the extracted item.
+            val remainingChildren = folder.children.filterNot { it.id == itemId }
+
+            when (remainingChildren.size) {
+                0 -> {
+                    // Folder becomes empty — delete it.
+                    currentItems.removeAt(folderIndex)
+                }
+                1 -> {
+                    // Only one child left — promote it to the folder's position
+                    // and delete the folder.
+                    val promotedChild = remainingChildren.first().withPosition(folder.position)
+                    currentItems.removeAt(folderIndex)
+                    currentItems.add(promotedChild)
+                }
+                else -> {
+                    // Folder still has multiple children — just update it.
+                    currentItems[folderIndex] = folder.copy(children = remainingChildren)
+                }
+            }
+
+            // Place the extracted item at the target position.
+            currentItems.add(childItem.withPosition(targetPosition))
+
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
+    // ========================================================================
     // SERIALIZATION HELPERS
     // ========================================================================
 

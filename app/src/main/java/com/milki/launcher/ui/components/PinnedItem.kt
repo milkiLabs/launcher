@@ -204,9 +204,24 @@ fun PinnedItem(
 /**
  * The content of a pinned item - icon and label.
  * Extracted to a separate composable to avoid code duplication.
+ *
+ * FOLDER DISPATCH:
+ * FolderItem uses a completely different visual structure ([FolderIcon]) compared
+ * to the standard single-icon + label layout. We delegate to [FolderIcon] early
+ * and return so the standard Column below is never built for folders.
  */
 @Composable
 private fun PinnedItemContent(item: HomeItem) {
+    // ── Folder short-circuit ──────────────────────────────────────────────────
+    // FolderItem has its own layout with a 2×2 mini-icon preview grid.
+    // Delegate directly to FolderIcon and return early to skip the standard
+    // single-icon + label column below.
+    if (item is HomeItem.FolderItem) {
+        FolderIcon(folder = item)
+        return
+    }
+
+    // ── Standard single-icon layout ───────────────────────────────────────────
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -260,7 +275,8 @@ private fun buildPinnedItemActions(item: HomeItem): List<MenuAction> {
      * The unpin action removes the item from the home screen.
      * We use the createUnpinAction() helper for consistency.
      *
-     * This action is available for all item types (apps, files, shortcuts).
+     * This action is available for all item types (apps, files, shortcuts, folders).
+     * For folders, "unpin" removes the entire folder AND all its children.
      */
     actions.add(createUnpinAction(item.id))
 
@@ -278,6 +294,9 @@ private fun buildPinnedItemActions(item: HomeItem): List<MenuAction> {
         actions.add(createAppInfoAction(item.packageName))
     }
 
+    // FolderItem does NOT get any extra actions beyond unpin.
+    // Rename is handled inline by tapping the title inside the FolderPopupDialog.
+
     return actions
 }
 
@@ -290,6 +309,8 @@ private fun getItemLabel(item: HomeItem): String {
         is HomeItem.PinnedFile -> item.name
         is HomeItem.PinnedContact -> item.displayName
         is HomeItem.AppShortcut -> item.shortLabel
+        // Folder name is set by the user (defaults to "Folder").
+        is HomeItem.FolderItem -> item.name
     }
 }
 
@@ -332,6 +353,16 @@ private fun PinnedItemIcon(
             ShortcutIcon(
                 shortcut = item,
                 size = size,
+                modifier = modifier
+            )
+        }
+        is HomeItem.FolderItem -> {
+            // PinnedItemIcon should never be called for FolderItem because
+            // PinnedItemContent short-circuits to FolderIcon before reaching
+            // this function. This branch exists solely to make the when
+            // expression exhaustive and avoid a compile error.
+            FolderIcon(
+                folder = item,
                 modifier = modifier
             )
         }

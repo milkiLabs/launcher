@@ -43,14 +43,22 @@ import kotlinx.coroutines.sync.withLock
 /**
  * UI State for the home screen.
  *
- * @property pinnedItems List of items currently pinned to the home screen
+ * @property pinnedItems List of items currently pinned to the home screen.
+ *                       This includes both standalone icons AND folder icons.
  * @property isLoading Whether the initial load is in progress
+ * @property isUpdatingPositions Whether any position-update operation is in flight
+ * @property lastMoveErrorMessage Optional error message from the last failed move operation
+ * @property openFolderItem The FolderItem whose popup is currently displayed, or null if
+ *                          no folder is open. This is derived from [pinnedItems]: whenever
+ *                          the folder data changes (e.g. an item is dragged in/out), the
+ *                          popup automatically reflects the latest children.
  */
 data class HomeUiState(
     val pinnedItems: List<HomeItem> = emptyList(),
     val isLoading: Boolean = true,
     val isUpdatingPositions: Boolean = false,
-    val lastMoveErrorMessage: String? = null
+    val lastMoveErrorMessage: String? = null,
+    val openFolderItem: HomeItem.FolderItem? = null
 )
 
 /**
@@ -96,6 +104,18 @@ class HomeViewModel(
     private val positionUpdateMutex = Mutex()
 
     /**
+     * The ID of the folder whose popup dialog is currently open, or null when
+     * no folder is open.
+     *
+     * WHY STORE THE ID INSTEAD OF THE FULL ITEM:
+     * The folder's children can change while the popup is open (e.g. the user
+     * drags another item into the folder). Storing just the ID and deriving
+     * [HomeUiState.openFolderItem] from [pinnedItems] ensures the popup always
+     * displays the latest state without a separate emit.
+     */
+    private val openFolderIdFlow = MutableStateFlow<String?>(null)
+
+    /**
      * Execute a home-layout mutation through one serialized coordinator path.
      *
      * WHY THIS HELPER EXISTS:
@@ -133,19 +153,32 @@ class HomeViewModel(
      * 1) Repository pinned items
      * 2) Position update in-flight count
      * 3) Last position update error message
+     * 4) Currently open folder ID (null = no folder open)
      *
      * This keeps UI rendering deterministic and avoids imperative state mutation.
+     *
+     * WHY openFolderItem IS DERIVED HERE:
+     * When the user drags items into or out of a folder while the folder popup is
+     * open, the repository emits a new [pinnedItems] list. By finding the open
+     * folder by ID inside this combine, the popup automatically reflects the change
+     * without needing a separate state update call.
      */
     val uiState = combine(
         homeRepository.pinnedItems,
         pendingPositionUpdateCount,
-        lastMoveErrorMessage
-    ) { items, pendingUpdates, moveErrorMessage ->
+        lastMoveErrorMessage,
+        openFolderIdFlow
+    ) { items, pendingUpdates, moveErrorMessage, openFolderId ->
         HomeUiState(
             pinnedItems = items,
             isLoading = false,
             isUpdatingPositions = pendingUpdates > 0,
-            lastMoveErrorMessage = moveErrorMessage
+            lastMoveErrorMessage = moveErrorMessage,
+            // Derive the open folder from the latest pinnedItems so the popup
+            // always reflects current folder content (especially after drag operations).
+            openFolderItem = if (openFolderId != null) {
+                items.firstOrNull { it.id == openFolderId } as? HomeItem.FolderItem
+            } else null
         )
     }
         .stateIn(
@@ -283,5 +316,201 @@ class HomeViewModel(
      */
     fun clearMoveError() {
         lastMoveErrorMessage.value = null
+    }
+
+    // ========================================================================
+    // FOLDER UI STATE — open / close
+    // ========================================================================
+
+    /**
+     * Opens the folder popup for the folder with the given [folderId].
+     *
+     * This sets [openFolderIdFlow] so that the [uiState] combine derives
+     * the [HomeUiState.openFolderItem] and the UI shows the popup.
+     *
+     * The actual content shown in the popup always comes from the latest
+     * [pinnedItems] emission, so it is always up-to-date.
+     *
+     * @param folderId The [HomeItem.FolderItem.id] whose popup should open.
+     */
+    fun openFolder(folderId: String) {
+        openFolderIdFlow.value = folderId
+    }
+
+    /**
+     * Closes the folder popup by clearing the open folder ID.
+     *
+     * After this call, [HomeUiState.openFolderItem] becomes null and
+     * the FolderPopupDialog will be hidden.
+     */
+    fun closeFolder() {
+        openFolderIdFlow.value = null
+    }
+
+    // ========================================================================
+    // FOLDER MUTATIONS — write operations through serialized path
+    // ========================================================================
+
+    /**
+     * Creates a new folder from two existing home screen items.
+     *
+     * Called when the user drags one home screen icon onto another.
+     * Both items are removed from the home grid and placed inside the new folder.
+     *
+     * After the folder is created, it opens automatically so the user can see
+     * the result immediately.
+     *
+     * @param item1 The dragged item
+     * @param item2 The item that was dropped onto
+     * @param atPosition The home screen cell where the new folder will appear
+     */
+    fun createFolder(item1: HomeItem, item2: HomeItem, atPosition: GridPosition) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not create folder"
+        ) {
+            val folder = homeRepository.createFolder(item1, item2, atPosition)
+            if (folder != null) {
+                // Automatically open the folder so the user sees it was created.
+                openFolderIdFlow.value = folder.id
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    /**
+     * Adds a home screen item into a folder.
+     *
+     * Called when:
+     * - The user drags a non-folder home item onto a folder icon on the home screen.
+     * - The user drops an item from the search dialog onto a folder cell.
+     *
+     * @param folderId The [HomeItem.FolderItem.id] to add the item into
+     * @param item The item to place inside the folder
+     */
+    fun addItemToFolder(folderId: String, item: HomeItem) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not add item to folder"
+        ) {
+            homeRepository.addItemToFolder(folderId = folderId, item = item)
+        }
+    }
+
+    /**
+     * Removes an item from inside a folder.
+     *
+     * Called when the user long-presses an item inside the folder popup and
+     * selects "Remove from folder".
+     *
+     * Applies the cleanup policy:
+     * - If the folder ends up empty → folder is deleted, popup closes.
+     * - If one item remains → folder unwrapped, popup closes.
+     * - Otherwise → popup stays open with updated children.
+     *
+     * @param folderId The folder containing the item
+     * @param itemId The id of the item to remove
+     */
+    fun removeItemFromFolder(folderId: String, itemId: String) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not remove item from folder"
+        ) {
+            val remaining = homeRepository.removeItemFromFolder(folderId, itemId)
+            // Close the popup if the folder was deleted (remaining == null).
+            if (remaining == null) {
+                openFolderIdFlow.value = null
+            }
+            true
+        }
+    }
+
+    /**
+     * Reorders the children inside a folder (internal drag-and-drop).
+     *
+     * Called after the user drags an icon to a new position inside the folder popup.
+     *
+     * @param folderId The folder whose children should be reordered.
+     * @param newChildren The complete children list in the new display order.
+     */
+    fun reorderFolderItems(folderId: String, newChildren: List<HomeItem>) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not reorder folder items"
+        ) {
+            homeRepository.reorderFolderItems(folderId, newChildren)
+        }
+    }
+
+    /**
+     * Merges two folders together.
+     *
+     * Called when the user drags one folder icon onto another.
+     * The source folder is deleted; its children are appended to the target.
+     *
+     * @param sourceFolderId The folder being dragged (will be deleted)
+     * @param targetFolderId The folder being dropped onto (will receive merged children)
+     */
+    fun mergeFolders(sourceFolderId: String, targetFolderId: String) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not merge folders"
+        ) {
+            homeRepository.mergeFolders(sourceFolderId, targetFolderId)
+        }
+    }
+
+    /**
+     * Renames a folder.
+     *
+     * Called when the user finishes editing the folder title text field in the popup.
+     *
+     * @param folderId The folder to rename
+     * @param newName The new name (blank names are defaulted to "Folder" by the repository)
+     */
+    fun renameFolder(folderId: String, newName: String) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not rename folder"
+        ) {
+            homeRepository.renameFolder(folderId, newName)
+        }
+    }
+
+    /**
+     * Extracts an item from inside a folder and places it on the home screen.
+     *
+     * This is the "drag-out" operation: the user dragged an icon out of the folder
+     * popup and released it on the home screen grid.
+     *
+     * - Applies cleanup policy: folder is deleted/unwrapped if ≤1 child remains.
+     * - If the target cell is occupied by another item, the operation is rejected.
+     * - If the folder is deleted by cleanup, the popup is closed automatically.
+     *
+     * @param folderId The source folder
+     * @param itemId The item being dragged out
+     * @param targetPosition The home screen cell where the item should land
+     */
+    fun extractItemFromFolder(folderId: String, itemId: String, targetPosition: GridPosition) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Target position is occupied"
+        ) {
+            val applied = homeRepository.extractItemFromFolder(folderId, itemId, targetPosition)
+            if (applied) {
+                // Check whether the folder was deleted (cleanup policy fired).
+                // If the open folder ID no longer appears in pinnedItems after the write,
+                // close the popup. We probe the current state synchronously here.
+                // (The combine will also reflect this change, but closing eagerly avoids
+                //  a brief flash of the popup with no items.)
+                val currentFolderId = openFolderIdFlow.value
+                if (currentFolderId == folderId) {
+                    // Try to find the folder in the freshly-written list.
+                    // We use a best-effort approach: if openFolderItem becomes null
+                    // in the next uiState emission, the popup closes via the combine.
+                    // We don't need to explicitly close here because the combine will
+                    // produce openFolderItem=null once the folder disappears from pinnedItems.
+                    // However, clearing the ID eagerly avoids the 1-frame popup-wink.
+                    // We can't read pinnedItems synchronously here (it's a Flow), so we
+                    // rely on the combine. Hence: no action needed here, the combine handles it.
+                }
+            }
+            applied
+        }
     }
 }
