@@ -46,23 +46,33 @@ class SettingsViewModel(
     // ========================================================================
 
     fun setMaxSearchResults(value: Int) {
-        updateSetting { it.copy(maxSearchResults = value.coerceIn(3, 20)) }
+        viewModelScope.launch {
+            settingsRepository.setMaxSearchResults(value.coerceIn(3, 20))
+        }
     }
 
     fun setAutoFocusKeyboard(value: Boolean) {
-        updateSetting { it.copy(autoFocusKeyboard = value) }
+        viewModelScope.launch {
+            settingsRepository.setAutoFocusKeyboard(value)
+        }
     }
 
     fun setShowRecentApps(value: Boolean) {
-        updateSetting { it.copy(showRecentApps = value) }
+        viewModelScope.launch {
+            settingsRepository.setShowRecentApps(value)
+        }
     }
 
     fun setMaxRecentApps(value: Int) {
-        updateSetting { it.copy(maxRecentApps = value.coerceIn(1, 10)) }
+        viewModelScope.launch {
+            settingsRepository.setMaxRecentApps(value.coerceIn(1, 10))
+        }
     }
 
     fun setCloseSearchOnLaunch(value: Boolean) {
-        updateSetting { it.copy(closeSearchOnLaunch = value) }
+        viewModelScope.launch {
+            settingsRepository.setCloseSearchOnLaunch(value)
+        }
     }
 
     // ========================================================================
@@ -70,15 +80,21 @@ class SettingsViewModel(
     // ========================================================================
 
     fun setSearchResultLayout(layout: SearchResultLayout) {
-        updateSetting { it.copy(searchResultLayout = layout) }
+        viewModelScope.launch {
+            settingsRepository.setSearchResultLayout(layout)
+        }
     }
 
     fun setShowHomescreenHint(value: Boolean) {
-        updateSetting { it.copy(showHomescreenHint = value) }
+        viewModelScope.launch {
+            settingsRepository.setShowHomescreenHint(value)
+        }
     }
 
     fun setShowAppIcons(value: Boolean) {
-        updateSetting { it.copy(showAppIcons = value) }
+        viewModelScope.launch {
+            settingsRepository.setShowAppIcons(value)
+        }
     }
 
     // ========================================================================
@@ -86,15 +102,21 @@ class SettingsViewModel(
     // ========================================================================
 
     fun setHomeTapAction(action: HomeTapAction) {
-        updateSetting { it.copy(homeTapAction = action) }
+        viewModelScope.launch {
+            settingsRepository.setHomeTapAction(action)
+        }
     }
 
     fun setSwipeUpAction(action: SwipeUpAction) {
-        updateSetting { it.copy(swipeUpAction = action) }
+        viewModelScope.launch {
+            settingsRepository.setSwipeUpAction(action)
+        }
     }
 
     fun setHomeButtonClearsQuery(value: Boolean) {
-        updateSetting { it.copy(homeButtonClearsQuery = value) }
+        viewModelScope.launch {
+            settingsRepository.setHomeButtonClearsQuery(value)
+        }
     }
 
     // ========================================================================
@@ -102,23 +124,33 @@ class SettingsViewModel(
     // ========================================================================
 
     fun setDefaultSearchEngine(engine: SearchEngine) {
-        updateSetting { it.copy(defaultSearchEngine = engine) }
+        viewModelScope.launch {
+            settingsRepository.setDefaultSearchEngine(engine)
+        }
     }
 
     fun setWebSearchEnabled(value: Boolean) {
-        updateSetting { it.copy(webSearchEnabled = value) }
+        viewModelScope.launch {
+            settingsRepository.setWebSearchEnabled(value)
+        }
     }
 
     fun setContactsSearchEnabled(value: Boolean) {
-        updateSetting { it.copy(contactsSearchEnabled = value) }
+        viewModelScope.launch {
+            settingsRepository.setContactsSearchEnabled(value)
+        }
     }
 
     fun setYoutubeSearchEnabled(value: Boolean) {
-        updateSetting { it.copy(youtubeSearchEnabled = value) }
+        viewModelScope.launch {
+            settingsRepository.setYoutubeSearchEnabled(value)
+        }
     }
 
     fun setFilesSearchEnabled(value: Boolean) {
-        updateSetting { it.copy(filesSearchEnabled = value) }
+        viewModelScope.launch {
+            settingsRepository.setFilesSearchEnabled(value)
+        }
     }
 
     // ========================================================================
@@ -135,15 +167,8 @@ class SettingsViewModel(
      * @param prefixes List of prefixes to set for this provider
      */
     fun setProviderPrefixes(providerId: String, prefixes: List<String>) {
-        updateSetting { settings ->
-            val newConfigurations = settings.prefixConfigurations.toMutableMap()
-            if (prefixes.isNotEmpty()) {
-                newConfigurations[providerId] = PrefixConfig(prefixes)
-            } else {
-                // If no prefixes, remove the configuration (will use default)
-                newConfigurations.remove(providerId)
-            }
-            settings.copy(prefixConfigurations = newConfigurations)
+        viewModelScope.launch {
+            settingsRepository.setProviderPrefixes(providerId, prefixes)
         }
     }
 
@@ -157,18 +182,12 @@ class SettingsViewModel(
      * @param prefix The prefix to add
      */
     fun addProviderPrefix(providerId: String, prefix: String) {
-        updateSetting { settings ->
-            val currentPrefixes = settings.prefixConfigurations[providerId]?.prefixes
-                ?: listOf(getDefaultPrefix(providerId))
-
-            // Don't add duplicate prefixes
-            if (prefix in currentPrefixes) {
-                return@updateSetting settings
-            }
-
-            val newConfigurations = settings.prefixConfigurations.toMutableMap()
-            newConfigurations[providerId] = PrefixConfig(currentPrefixes + prefix)
-            settings.copy(prefixConfigurations = newConfigurations)
+        viewModelScope.launch {
+            settingsRepository.addProviderPrefix(
+                providerId = providerId,
+                prefix = prefix,
+                defaultPrefix = getDefaultPrefix(providerId)
+            )
         }
     }
 
@@ -181,20 +200,8 @@ class SettingsViewModel(
      * @param prefix The prefix to remove
      */
     fun removeProviderPrefix(providerId: String, prefix: String) {
-        updateSetting { settings ->
-            val currentPrefixes = settings.prefixConfigurations[providerId]?.prefixes
-                ?: return@updateSetting settings
-
-            val newPrefixes = currentPrefixes - prefix
-
-            val newConfigurations = settings.prefixConfigurations.toMutableMap()
-            if (newPrefixes.isNotEmpty()) {
-                newConfigurations[providerId] = PrefixConfig(newPrefixes)
-            } else {
-                // Remove configuration to fall back to default
-                newConfigurations.remove(providerId)
-            }
-            settings.copy(prefixConfigurations = newConfigurations)
+        viewModelScope.launch {
+            settingsRepository.removeProviderPrefix(providerId, prefix)
         }
     }
 
@@ -206,10 +213,8 @@ class SettingsViewModel(
      * @param providerId The provider ID to reset
      */
     fun resetProviderPrefixes(providerId: String) {
-        updateSetting { settings ->
-            val newConfigurations = settings.prefixConfigurations.toMutableMap()
-            newConfigurations.remove(providerId)
-            settings.copy(prefixConfigurations = newConfigurations)
+        viewModelScope.launch {
+            settingsRepository.resetProviderPrefixes(providerId)
         }
     }
 
@@ -219,7 +224,9 @@ class SettingsViewModel(
      * This removes all custom prefix configurations.
      */
     fun resetAllPrefixConfigurations() {
-        updateSetting { it.copy(prefixConfigurations = emptyMap()) }
+        viewModelScope.launch {
+            settingsRepository.resetAllPrefixConfigurations()
+        }
     }
 
     /**
@@ -245,14 +252,8 @@ class SettingsViewModel(
     // ========================================================================
 
     fun toggleHiddenApp(packageName: String) {
-        updateSetting { settings ->
-            val newHiddenApps = settings.hiddenApps.toMutableSet()
-            if (packageName in newHiddenApps) {
-                newHiddenApps.remove(packageName)
-            } else {
-                newHiddenApps.add(packageName)
-            }
-            settings.copy(hiddenApps = newHiddenApps)
+        viewModelScope.launch {
+            settingsRepository.toggleHiddenApp(packageName)
         }
     }
 
@@ -266,13 +267,4 @@ class SettingsViewModel(
         }
     }
 
-    // ========================================================================
-    // HELPER
-    // ========================================================================
-
-    private fun updateSetting(transform: (LauncherSettings) -> LauncherSettings) {
-        viewModelScope.launch {
-            settingsRepository.updateSettings(transform)
-        }
-    }
 }

@@ -147,7 +147,243 @@ class SettingsRepositoryImpl(
         context.settingsDataStore.edit { preferences ->
             val currentSettings = mapPreferencesToSettings(preferences)
             val newSettings = transform(currentSettings)
-            writeSettingsToPreferences(newSettings, preferences)
+
+            // PERFORMANCE OPTIMIZATION:
+            // Instead of always writing every key (full snapshot write), we now
+            // write only keys whose values actually changed. This reduces write
+            // overhead during frequent settings edits.
+            writeSettingsDiffToPreferences(
+                currentSettings = currentSettings,
+                newSettings = newSettings,
+                preferences = preferences
+            )
+        }
+    }
+
+    /**
+     * Targeted key-only update for max search results.
+     */
+    override suspend fun setMaxSearchResults(value: Int) {
+        writeIntSetting(Keys.MAX_SEARCH_RESULTS, value)
+    }
+
+    /**
+     * Targeted key-only update for auto-focus keyboard setting.
+     */
+    override suspend fun setAutoFocusKeyboard(value: Boolean) {
+        writeBooleanSetting(Keys.AUTO_FOCUS_KEYBOARD, value)
+    }
+
+    /**
+     * Targeted key-only update for show recent apps setting.
+     */
+    override suspend fun setShowRecentApps(value: Boolean) {
+        writeBooleanSetting(Keys.SHOW_RECENT_APPS, value)
+    }
+
+    /**
+     * Targeted key-only update for max recent apps setting.
+     */
+    override suspend fun setMaxRecentApps(value: Int) {
+        writeIntSetting(Keys.MAX_RECENT_APPS, value)
+    }
+
+    /**
+     * Targeted key-only update for close search on launch setting.
+     */
+    override suspend fun setCloseSearchOnLaunch(value: Boolean) {
+        writeBooleanSetting(Keys.CLOSE_SEARCH_ON_LAUNCH, value)
+    }
+
+    /**
+     * Targeted key-only update for search result layout enum.
+     */
+    override suspend fun setSearchResultLayout(layout: SearchResultLayout) {
+        writeStringSetting(Keys.SEARCH_RESULT_LAYOUT, layout.name)
+    }
+
+    /**
+     * Targeted key-only update for homescreen hint visibility setting.
+     */
+    override suspend fun setShowHomescreenHint(value: Boolean) {
+        writeBooleanSetting(Keys.SHOW_HOMESCREEN_HINT, value)
+    }
+
+    /**
+     * Targeted key-only update for app icons visibility setting.
+     */
+    override suspend fun setShowAppIcons(value: Boolean) {
+        writeBooleanSetting(Keys.SHOW_APP_ICONS, value)
+    }
+
+    /**
+     * Targeted key-only update for home tap action enum.
+     */
+    override suspend fun setHomeTapAction(action: HomeTapAction) {
+        writeStringSetting(Keys.HOME_TAP_ACTION, action.name)
+    }
+
+    /**
+     * Targeted key-only update for swipe-up action enum.
+     */
+    override suspend fun setSwipeUpAction(action: SwipeUpAction) {
+        writeStringSetting(Keys.SWIPE_UP_ACTION, action.name)
+    }
+
+    /**
+     * Targeted key-only update for home button clears query setting.
+     */
+    override suspend fun setHomeButtonClearsQuery(value: Boolean) {
+        writeBooleanSetting(Keys.HOME_BUTTON_CLEARS_QUERY, value)
+    }
+
+    /**
+     * Targeted key-only update for default search engine enum.
+     */
+    override suspend fun setDefaultSearchEngine(engine: SearchEngine) {
+        writeStringSetting(Keys.DEFAULT_SEARCH_ENGINE, engine.name)
+    }
+
+    /**
+     * Targeted key-only update for web provider enabled setting.
+     */
+    override suspend fun setWebSearchEnabled(value: Boolean) {
+        writeBooleanSetting(Keys.WEB_SEARCH_ENABLED, value)
+    }
+
+    /**
+     * Targeted key-only update for contacts provider enabled setting.
+     */
+    override suspend fun setContactsSearchEnabled(value: Boolean) {
+        writeBooleanSetting(Keys.CONTACTS_SEARCH_ENABLED, value)
+    }
+
+    /**
+     * Targeted key-only update for YouTube provider enabled setting.
+     */
+    override suspend fun setYoutubeSearchEnabled(value: Boolean) {
+        writeBooleanSetting(Keys.YOUTUBE_SEARCH_ENABLED, value)
+    }
+
+    /**
+     * Targeted key-only update for files provider enabled setting.
+     */
+    override suspend fun setFilesSearchEnabled(value: Boolean) {
+        writeBooleanSetting(Keys.FILES_SEARCH_ENABLED, value)
+    }
+
+    // ========================================================================
+    // TARGETED HOT-PATH UPDATES
+    // ========================================================================
+
+    /**
+     * Targeted provider-prefix update.
+     *
+     * This method updates only the single prefix configuration key in DataStore.
+     * It intentionally avoids full LauncherSettings read/write remapping.
+     */
+    override suspend fun setProviderPrefixes(providerId: String, prefixes: List<String>) {
+        context.settingsDataStore.edit { preferences ->
+            val currentConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS])
+            val updatedConfigurations = currentConfigurations.toMutableMap()
+
+            if (prefixes.isNotEmpty()) {
+                updatedConfigurations[providerId] = PrefixConfig(prefixes)
+            } else {
+                updatedConfigurations.remove(providerId)
+            }
+
+            writePrefixConfigurations(updatedConfigurations, preferences)
+        }
+    }
+
+    /**
+     * Add one prefix with duplicate prevention and fallback-default behavior.
+     */
+    override suspend fun addProviderPrefix(providerId: String, prefix: String, defaultPrefix: String) {
+        context.settingsDataStore.edit { preferences ->
+            val currentConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS])
+            val currentPrefixes = currentConfigurations[providerId]?.prefixes ?: listOf(defaultPrefix)
+
+            if (prefix in currentPrefixes) {
+                return@edit
+            }
+
+            val updatedConfigurations = currentConfigurations.toMutableMap()
+            updatedConfigurations[providerId] = PrefixConfig(currentPrefixes + prefix)
+            writePrefixConfigurations(updatedConfigurations, preferences)
+        }
+    }
+
+    /**
+     * Remove one prefix from one provider entry.
+     */
+    override suspend fun removeProviderPrefix(providerId: String, prefix: String) {
+        context.settingsDataStore.edit { preferences ->
+            val currentConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS])
+            val currentPrefixes = currentConfigurations[providerId]?.prefixes ?: return@edit
+
+            val updatedPrefixes = currentPrefixes - prefix
+            val updatedConfigurations = currentConfigurations.toMutableMap()
+
+            if (updatedPrefixes.isNotEmpty()) {
+                updatedConfigurations[providerId] = PrefixConfig(updatedPrefixes)
+            } else {
+                updatedConfigurations.remove(providerId)
+            }
+
+            writePrefixConfigurations(updatedConfigurations, preferences)
+        }
+    }
+
+    /**
+     * Remove custom prefix config for a single provider.
+     */
+    override suspend fun resetProviderPrefixes(providerId: String) {
+        context.settingsDataStore.edit { preferences ->
+            val currentConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS])
+            if (providerId !in currentConfigurations) {
+                return@edit
+            }
+
+            val updatedConfigurations = currentConfigurations.toMutableMap()
+            updatedConfigurations.remove(providerId)
+            writePrefixConfigurations(updatedConfigurations, preferences)
+        }
+    }
+
+    /**
+     * Remove all custom prefix config values.
+     */
+    override suspend fun resetAllPrefixConfigurations() {
+        context.settingsDataStore.edit { preferences ->
+            preferences.remove(Keys.PREFIX_CONFIGURATIONS)
+        }
+    }
+
+    /**
+     * Replace full prefix configuration map in one targeted write.
+     */
+    override suspend fun setAllPrefixConfigurations(configurations: ProviderPrefixConfiguration) {
+        context.settingsDataStore.edit { preferences ->
+            writePrefixConfigurations(configurations, preferences)
+        }
+    }
+
+    /**
+     * Toggle hidden-app package inside the hidden apps set.
+     */
+    override suspend fun toggleHiddenApp(packageName: String) {
+        context.settingsDataStore.edit { preferences ->
+            val currentHiddenApps = (preferences[Keys.HIDDEN_APPS] ?: emptySet()).toMutableSet()
+
+            if (packageName in currentHiddenApps) {
+                currentHiddenApps.remove(packageName)
+            } else {
+                currentHiddenApps.add(packageName)
+            }
+
+            preferences[Keys.HIDDEN_APPS] = currentHiddenApps
         }
     }
 
@@ -206,41 +442,134 @@ class SettingsRepositoryImpl(
     }
 
     /**
-     * Write LauncherSettings data class to DataStore Preferences.
+     * Writes only changed setting keys.
+     *
+     * WHY THIS EXISTS:
+     * `updateSettings` is intentionally generic and keeps existing call sites intact,
+     * but generic transforms often changed one or two fields while rewriting every
+     * key. This helper reduces write churn by comparing old/new values first.
      */
-    private fun writeSettingsToPreferences(
-        settings: LauncherSettings,
+    private fun writeSettingsDiffToPreferences(
+        currentSettings: LauncherSettings,
+        newSettings: LauncherSettings,
         preferences: MutablePreferences
     ) {
-        // Search Behavior
-        preferences[Keys.MAX_SEARCH_RESULTS] = settings.maxSearchResults
-        preferences[Keys.AUTO_FOCUS_KEYBOARD] = settings.autoFocusKeyboard
-        preferences[Keys.SHOW_RECENT_APPS] = settings.showRecentApps
-        preferences[Keys.MAX_RECENT_APPS] = settings.maxRecentApps
-        preferences[Keys.CLOSE_SEARCH_ON_LAUNCH] = settings.closeSearchOnLaunch
+        if (currentSettings.maxSearchResults != newSettings.maxSearchResults) {
+            preferences[Keys.MAX_SEARCH_RESULTS] = newSettings.maxSearchResults
+        }
+        if (currentSettings.autoFocusKeyboard != newSettings.autoFocusKeyboard) {
+            preferences[Keys.AUTO_FOCUS_KEYBOARD] = newSettings.autoFocusKeyboard
+        }
+        if (currentSettings.showRecentApps != newSettings.showRecentApps) {
+            preferences[Keys.SHOW_RECENT_APPS] = newSettings.showRecentApps
+        }
+        if (currentSettings.maxRecentApps != newSettings.maxRecentApps) {
+            preferences[Keys.MAX_RECENT_APPS] = newSettings.maxRecentApps
+        }
+        if (currentSettings.closeSearchOnLaunch != newSettings.closeSearchOnLaunch) {
+            preferences[Keys.CLOSE_SEARCH_ON_LAUNCH] = newSettings.closeSearchOnLaunch
+        }
 
-        // Appearance
-        preferences[Keys.SEARCH_RESULT_LAYOUT] = settings.searchResultLayout.name
-        preferences[Keys.SHOW_HOMESCREEN_HINT] = settings.showHomescreenHint
-        preferences[Keys.SHOW_APP_ICONS] = settings.showAppIcons
+        if (currentSettings.searchResultLayout != newSettings.searchResultLayout) {
+            preferences[Keys.SEARCH_RESULT_LAYOUT] = newSettings.searchResultLayout.name
+        }
+        if (currentSettings.showHomescreenHint != newSettings.showHomescreenHint) {
+            preferences[Keys.SHOW_HOMESCREEN_HINT] = newSettings.showHomescreenHint
+        }
+        if (currentSettings.showAppIcons != newSettings.showAppIcons) {
+            preferences[Keys.SHOW_APP_ICONS] = newSettings.showAppIcons
+        }
 
-        // Home Screen
-        preferences[Keys.HOME_TAP_ACTION] = settings.homeTapAction.name
-        preferences[Keys.SWIPE_UP_ACTION] = settings.swipeUpAction.name
-        preferences[Keys.HOME_BUTTON_CLEARS_QUERY] = settings.homeButtonClearsQuery
+        if (currentSettings.homeTapAction != newSettings.homeTapAction) {
+            preferences[Keys.HOME_TAP_ACTION] = newSettings.homeTapAction.name
+        }
+        if (currentSettings.swipeUpAction != newSettings.swipeUpAction) {
+            preferences[Keys.SWIPE_UP_ACTION] = newSettings.swipeUpAction.name
+        }
+        if (currentSettings.homeButtonClearsQuery != newSettings.homeButtonClearsQuery) {
+            preferences[Keys.HOME_BUTTON_CLEARS_QUERY] = newSettings.homeButtonClearsQuery
+        }
 
-        // Search Providers
-        preferences[Keys.DEFAULT_SEARCH_ENGINE] = settings.defaultSearchEngine.name
-        preferences[Keys.WEB_SEARCH_ENABLED] = settings.webSearchEnabled
-        preferences[Keys.CONTACTS_SEARCH_ENABLED] = settings.contactsSearchEnabled
-        preferences[Keys.YOUTUBE_SEARCH_ENABLED] = settings.youtubeSearchEnabled
-        preferences[Keys.FILES_SEARCH_ENABLED] = settings.filesSearchEnabled
+        if (currentSettings.defaultSearchEngine != newSettings.defaultSearchEngine) {
+            preferences[Keys.DEFAULT_SEARCH_ENGINE] = newSettings.defaultSearchEngine.name
+        }
+        if (currentSettings.webSearchEnabled != newSettings.webSearchEnabled) {
+            preferences[Keys.WEB_SEARCH_ENABLED] = newSettings.webSearchEnabled
+        }
+        if (currentSettings.contactsSearchEnabled != newSettings.contactsSearchEnabled) {
+            preferences[Keys.CONTACTS_SEARCH_ENABLED] = newSettings.contactsSearchEnabled
+        }
+        if (currentSettings.youtubeSearchEnabled != newSettings.youtubeSearchEnabled) {
+            preferences[Keys.YOUTUBE_SEARCH_ENABLED] = newSettings.youtubeSearchEnabled
+        }
+        if (currentSettings.filesSearchEnabled != newSettings.filesSearchEnabled) {
+            preferences[Keys.FILES_SEARCH_ENABLED] = newSettings.filesSearchEnabled
+        }
 
-        // Prefix Configuration
-        preferences[Keys.PREFIX_CONFIGURATIONS] = serializePrefixConfigurations(settings.prefixConfigurations)
+        if (currentSettings.prefixConfigurations != newSettings.prefixConfigurations) {
+            writePrefixConfigurations(newSettings.prefixConfigurations, preferences)
+        }
 
-        // Hidden Apps
-        preferences[Keys.HIDDEN_APPS] = settings.hiddenApps
+        if (currentSettings.hiddenApps != newSettings.hiddenApps) {
+            preferences[Keys.HIDDEN_APPS] = newSettings.hiddenApps
+        }
+    }
+
+    /**
+     * Writes prefix configuration key with empty-state compaction.
+     *
+     * Compaction behavior:
+     * - Empty map -> remove key completely
+     * - Non-empty map -> write serialized JSON string
+     */
+    private fun writePrefixConfigurations(
+        configurations: ProviderPrefixConfiguration,
+        preferences: MutablePreferences
+    ) {
+        if (configurations.isEmpty()) {
+            preferences.remove(Keys.PREFIX_CONFIGURATIONS)
+            return
+        }
+
+        preferences[Keys.PREFIX_CONFIGURATIONS] = serializePrefixConfigurations(configurations)
+    }
+
+    /**
+     * Shared helper for writing one Boolean preference key.
+     *
+     * This helper keeps targeted-write methods concise and easy to audit.
+     */
+    private suspend fun writeBooleanSetting(
+        key: Preferences.Key<Boolean>,
+        value: Boolean
+    ) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[key] = value
+        }
+    }
+
+    /**
+     * Shared helper for writing one Int preference key.
+     */
+    private suspend fun writeIntSetting(
+        key: Preferences.Key<Int>,
+        value: Int
+    ) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[key] = value
+        }
+    }
+
+    /**
+     * Shared helper for writing one String preference key.
+     */
+    private suspend fun writeStringSetting(
+        key: Preferences.Key<String>,
+        value: String
+    ) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[key] = value
+        }
     }
 
     // ========================================================================

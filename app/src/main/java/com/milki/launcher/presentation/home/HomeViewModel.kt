@@ -34,7 +34,6 @@ import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -168,13 +167,13 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Target position is occupied or item no longer exists"
         ) {
-            val currentItems = homeRepository.pinnedItems.first()
-            val currentItem = currentItems.firstOrNull { it.id == itemId } ?: return@launchSerializedHomeMutation false
-
-            if (currentItem.position == newPosition) {
-                return@launchSerializedHomeMutation true
-            }
-
+            // PERFORMANCE OPTIMIZATION:
+            // We intentionally avoid pre-reading pinnedItems from Flow here.
+            // Repository moveItemToPositionIfEmpty already validates:
+            // - item exists
+            // - destination occupancy
+            // - no-op when destination is unchanged
+            // This prevents duplicate deserialize cycles during drag operations.
             homeRepository.moveItemToPositionIfEmpty(itemId, newPosition)
         }
     }
@@ -227,11 +226,9 @@ class HomeViewModel(
             fallbackErrorMessage = "Failed to pin app"
         ) {
             val pinnedApp = HomeItem.PinnedApp.fromAppInfo(appInfo)
-            val existingItem = homeRepository.pinnedItems.first().firstOrNull { it.id == pinnedApp.id }
-            if (existingItem != null) {
-                return@launchSerializedHomeMutation true
-            }
-
+            // PERFORMANCE OPTIMIZATION:
+            // Skip pre-read duplicate check here. Repository addPinnedItem already
+            // performs duplicate detection inside one edit transaction.
             homeRepository.addPinnedItem(pinnedApp)
             true
         }
@@ -245,11 +242,8 @@ class HomeViewModel(
             fallbackErrorMessage = "Failed to pin file"
         ) {
             val pinnedFile = HomeItem.PinnedFile.fromFileDocument(file)
-            val existingItem = homeRepository.pinnedItems.first().firstOrNull { it.id == pinnedFile.id }
-            if (existingItem != null) {
-                return@launchSerializedHomeMutation true
-            }
-
+            // PERFORMANCE OPTIMIZATION:
+            // Repository-level duplicate protection makes pre-read unnecessary.
             homeRepository.addPinnedItem(pinnedFile)
             true
         }
@@ -263,11 +257,8 @@ class HomeViewModel(
             fallbackErrorMessage = "Failed to pin contact"
         ) {
             val pinnedContact = HomeItem.PinnedContact.fromContact(contact)
-            val existingItem = homeRepository.pinnedItems.first().firstOrNull { it.id == pinnedContact.id }
-            if (existingItem != null) {
-                return@launchSerializedHomeMutation true
-            }
-
+            // PERFORMANCE OPTIMIZATION:
+            // Repository-level duplicate protection makes pre-read unnecessary.
             homeRepository.addPinnedItem(pinnedContact)
             true
         }

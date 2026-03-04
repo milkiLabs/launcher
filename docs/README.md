@@ -9,6 +9,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | **[Architecture.md](Architecture.md)** | Complete architecture guide (Clean Architecture + MVVM) |
 | **[multi-mode-search.md](multi-mode-search.md)** | Multi-mode search feature documentation |
 | **[app-icon-memory-cache.md](app-icon-memory-cache.md)** | Launcher-optimized app icon caching and rendering flow |
+| **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** | Reducing DataStore read/write churn in settings/home hot paths |
 | **[LauncherApplication.md](LauncherApplication.md)** | Application class and Koin startup configuration |
 | **[Theme.md](Theme.md)** | Material Design 3 theming explained |
 | **[BuildConfiguration.md](BuildConfiguration.md)** | Gradle build files explained |
@@ -224,6 +225,7 @@ This project is extensively documented for educational purposes. Each major comp
 
 ### Technical Components
 - **[app-icon-memory-cache.md](app-icon-memory-cache.md)** - How launcher icon caching and rendering works
+- **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** - How hot-path repository writes were optimized
 - **[LauncherApplication.md](LauncherApplication.md)** - Application class and startup initialization
 - **[Theme.md](Theme.md)** - Material Design 3 theming explained
 

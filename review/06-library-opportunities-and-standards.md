@@ -1,20 +1,5 @@
 # Library Opportunities & Engineering Standards
 
-## Library opportunities (high-value)
-
-## 1) JSON serialization consistency (**P1**)
-### Current
-- `HomeRepositoryImpl` uses kotlinx.serialization.
-- `SettingsRepositoryImpl` uses `JSONObject/JSONArray` manually.
-
-### Opportunity
-- Standardize on kotlinx.serialization for settings prefix configuration too.
-
-### Benefits
-- Type safety, less parsing boilerplate, easier schema evolution.
-
----
-
 ## 2) URL/domain matching correctness (**P2**)
 ### Current
 - Custom resolver + heuristics for browser detection.
@@ -25,19 +10,7 @@
 ### Benefits
 - Fewer subtle URL parsing bugs and better maintainability.
 
----
 
-## 3) Logging/telemetry abstraction (**P2**)
-### Current
-- Mixed direct `Log.*` and silent catches.
-
-### Opportunity
-- Add a lightweight logging facade (`Timber` or project logger wrapper).
-
-### Benefits
-- Consistent structured logs, easy filtering, and better failure diagnosis.
-
----
 
 ## 4) Permission orchestration helper (**P2**)
 ### Current
@@ -75,18 +48,3 @@
 ## E) Error handling standard (**P1/P2 standard**)
 - Avoid `catch (Exception)` unless rethrow/log strategy is explicit.
 - Define typed error categories and user-facing fallback behavior.
-
-## F) New feature checklist
-- UX copy is settings-aware.
-- RTL icon policy validated.
-- Settings change has observable runtime behavior.
-- No placeholder actions in production menus.
-
----
-
-## Suggested implementation order
-1. Enforce runtime settings contract on search/home behavior.
-2. Move UI types out of domain contracts.
-3. Standardize prefix JSON handling with kotlinx.serialization.
-4. Apply token-only UI cleanup and icon mirroring pass.
-5. Add logger abstraction + typed error handling conventions.

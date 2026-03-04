@@ -70,11 +70,11 @@ This prevents accidental triggering while typing app names.
 ```
 User changes prefix in Settings UI
         ↓
-SettingsViewModel.addProviderPrefix()
+SettingsViewModel.addProviderPrefix() (targeted repository call)
         ↓
-LauncherSettings.prefixConfigurations updated
+SettingsRepository.addProviderPrefix(providerId, prefix, defaultPrefix)
         ↓
-SettingsRepositoryImpl persists to DataStore (JSON format)
+SettingsRepositoryImpl updates only PREFIX_CONFIGURATIONS key (JSON format)
         ↓
 SearchViewModel observes settings changes
         ↓
@@ -144,20 +144,22 @@ Provider IDs are stable identifiers used as keys in the configuration map:
 ```kotlin
 // In SettingsViewModel
 fun addProviderPrefix(providerId: String, prefix: String) {
-    updateSetting { settings ->
-        val currentPrefixes = settings.prefixConfigurations[providerId]?.prefixes
-            ?: listOf(getDefaultPrefix(providerId))
-        
-        if (prefix !in currentPrefixes) {
-            val newConfigurations = settings.prefixConfigurations.toMutableMap()
-            newConfigurations[providerId] = PrefixConfig(currentPrefixes + prefix)
-            settings.copy(prefixConfigurations = newConfigurations)
-        } else {
-            settings
-        }
+    viewModelScope.launch {
+        settingsRepository.addProviderPrefix(
+            providerId = providerId,
+            prefix = prefix,
+            defaultPrefix = getDefaultPrefix(providerId)
+        )
     }
 }
 ```
+
+### Performance Note (Hot Path)
+
+Prefix add/remove/reset actions are now handled by targeted repository methods that
+edit only the `PREFIX_CONFIGURATIONS` DataStore key. This avoids repeatedly mapping
+the full `LauncherSettings` model and rewriting unrelated settings keys during
+prefix configuration sessions.
 
 ### Query Parsing
 
