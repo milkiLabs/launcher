@@ -61,35 +61,7 @@ fun startExternalAppDrag(
     appInfo: AppInfo,
     dragShadowSize: Dp = IconSize.appList
 ): Boolean {
-    /**
-     * Choose a drag host view that outlives transient UI surfaces.
-     *
-     * IMPORTANT CONTEXT:
-     * Search results may live inside a Dialog window. If we start platform drag
-     * from a short-lived dialog root and then dismiss that dialog immediately,
-     * some OEM implementations can cancel/unstabilize the drag stream.
-     *
-     * Using Activity decor view when available gives us the most stable host.
-     * Fallback order keeps behavior safe even if no Activity can be resolved.
-     */
-    val activityDecorView = hostView.context.findActivity()?.window?.decorView
-    val rootView = hostView.rootView
-
-    /**
-     * Candidate hosts ordered by reliability preference.
-     *
-     * WHY MULTIPLE HOSTS:
-     * Some devices reject startDragAndDrop() from specific view roots depending
-     * on current gesture ownership/window routing. Trying multiple attached
-     * hosts avoids hard failure while preserving our preferred decor-root path.
-     */
-    val candidateHosts = buildList {
-        if (activityDecorView != null) add(activityDecorView)
-        if (rootView !== activityDecorView) add(rootView)
-        if (hostView !== activityDecorView && hostView !== rootView) add(hostView)
-    }.filter { candidate -> candidate.isAttachedToWindow }
-
-    val dragHostView = candidateHosts.firstOrNull() ?: hostView
+    val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
     val packageManager = hostView.context.packageManager
     val iconDrawable = AppIconMemoryCache.getOrLoad(
         packageName = appInfo.packageName,
@@ -104,33 +76,13 @@ fun startExternalAppDrag(
         shadowSizePx = shadowSizePx
     )
 
-    /**
-     * First attempt uses DRAG_FLAG_GLOBAL so drag can cross from search dialog
-     * window to the home-screen host window.
-     *
-     * Fallback attempt uses local flags in case a specific OEM rejects global
-     * drag start from a given host view despite being attached.
-     */
-    val primaryFlags = View.DRAG_FLAG_GLOBAL
-    val fallbackFlags = 0
-
-    for (candidate in candidateHosts) {
-        if (candidate.startDragAndDrop(clipData, dragShadowBuilder, appInfo, primaryFlags)) {
-            return true
-        }
-    }
-
-    for (candidate in candidateHosts) {
-        if (candidate.startDragAndDrop(clipData, dragShadowBuilder, appInfo, fallbackFlags)) {
-            return true
-        }
-    }
-
-    Log.w(
-        "AppExternalDragDrop",
-        "Failed to start external drag for ${appInfo.packageName}/${appInfo.activityName}"
+    return startExternalDragWithFallbackHosts(
+        hostView = hostView,
+        clipData = clipData,
+        localState = ExternalDragItem.App(appInfo),
+        dragShadowBuilder = dragShadowBuilder,
+        failureLogLabel = "app:${appInfo.packageName}/${appInfo.activityName}"
     )
-    return false
 }
 
 /**
@@ -204,14 +156,7 @@ private fun startExternalDragWithFallbackHosts(
     dragShadowBuilder: View.DragShadowBuilder,
     failureLogLabel: String
 ): Boolean {
-    val activityDecorView = hostView.context.findActivity()?.window?.decorView
-    val rootView = hostView.rootView
-
-    val candidateHosts = buildList {
-        if (activityDecorView != null) add(activityDecorView)
-        if (rootView !== activityDecorView) add(rootView)
-        if (hostView !== activityDecorView && hostView !== rootView) add(hostView)
-    }.filter { candidate -> candidate.isAttachedToWindow }
+    val candidateHosts = resolveExternalDragHostCandidates(hostView)
 
     val primaryFlags = View.DRAG_FLAG_GLOBAL
     val fallbackFlags = 0
@@ -230,6 +175,27 @@ private fun startExternalDragWithFallbackHosts(
 
     Log.w("AppExternalDragDrop", "Failed to start external drag for $failureLogLabel")
     return false
+}
+
+/**
+ * Resolves candidate drag host views using one canonical ordering strategy.
+ *
+ * ORDERING POLICY:
+ * 1) Activity decor view (most stable across dialog/window transitions)
+ * 2) Root view
+ * 3) Original source host view
+ *
+ * Only attached views are returned.
+ */
+private fun resolveExternalDragHostCandidates(hostView: View): List<View> {
+    val activityDecorView = hostView.context.findActivity()?.window?.decorView
+    val rootView = hostView.rootView
+
+    return buildList {
+        if (activityDecorView != null) add(activityDecorView)
+        if (rootView !== activityDecorView) add(rootView)
+        if (hostView !== activityDecorView && hostView !== rootView) add(hostView)
+    }.filter { candidate -> candidate.isAttachedToWindow }
 }
 
 /**
