@@ -96,6 +96,34 @@ Prefix configurations are stored in DataStore as a JSON string:
 }
 ```
 
+### Serialization Implementation Details
+
+Prefix configuration serialization is implemented in `SettingsRepositoryImpl` using
+`kotlinx.serialization` (`Json.encodeToString` / `Json.decodeFromString`).
+
+Important implementation details:
+
+1. **Unified serializer stack**
+     - Home item persistence and settings prefix persistence now both use
+         `kotlinx.serialization`.
+     - This removes mixed JSON handling approaches inside repositories.
+
+2. **Storage shape compatibility preserved**
+     - The persisted JSON shape remains `Map<String, List<String>>` to avoid
+         breaking already stored user data.
+     - Example remains:
+         - `"web": ["s", "ج"]`
+         - not `"web": { "prefixes": [...] }`
+
+3. **Safe fallback behavior**
+     - If stored JSON is malformed, repository parsing returns `emptyMap()`.
+     - Default provider prefixes are then applied by existing business logic,
+         so the launcher continues to work without a crash.
+
+4. **Forward-compatibility parsing**
+     - Repository JSON parsing uses `ignoreUnknownKeys = true` so extra fields
+         introduced by future schema evolution do not break reads.
+
 ## Provider IDs
 
 Provider IDs are stable identifiers used as keys in the configuration map:

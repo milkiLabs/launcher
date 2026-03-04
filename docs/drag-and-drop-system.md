@@ -112,12 +112,14 @@ Purpose:
 
 - Canonical shared modifier that wires pointer input to drag callbacks
 - Surfaces define behavior directly using tap / long-press / drag lifecycle callbacks
+- Cancellation and pointer-state failures are handled with structured logging for observability
 
 Input:
 
 - stable `key` (typically `id + row + column`)
 - `dragThreshold`
 - lifecycle callbacks (`onTap`, `onLongPress`, `onDragStart`, `onDrag`, `onDragEnd`, `onDragCancel`)
+- this is the single supported public callback style for gesture wiring
 
 ## Home screen integration
 

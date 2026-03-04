@@ -27,9 +27,26 @@ import com.milki.launcher.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import java.io.IOException
-import org.json.JSONObject
-import org.json.JSONArray
+
+/**
+ * Serialized representation used for persisting provider prefixes.
+ *
+ * IMPORTANT COMPATIBILITY NOTE:
+ * The persisted JSON format intentionally remains:
+ * {
+ *   "web": ["s", "ج"],
+ *   "files": ["f", "م"]
+ * }
+ *
+ * We keep this as Map<String, List<String>> to preserve backward compatibility
+ * with already stored values while still using kotlinx.serialization for all
+ * encoding/decoding work.
+ */
+private typealias SerializedPrefixConfiguration = Map<String, List<String>>
 
 /**
  * DataStore instance for settings, scoped to the application context.
@@ -50,6 +67,23 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 class SettingsRepositoryImpl(
     private val context: Context
 ) : SettingsRepository {
+
+    /**
+     * Shared Json instance for settings serialization/deserialization.
+     *
+     * CONFIGURATION CHOICES:
+     * - ignoreUnknownKeys = true:
+     *   Allows forward compatibility if a future version adds extra fields.
+     * - encodeDefaults = true:
+     *   Keeps output deterministic when defaultable values are introduced later.
+     *
+     * We keep this instance private to the repository because it is tightly
+     * coupled to the repository's storage schema and migration behavior.
+     */
+    private val settingsJson: Json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     // ========================================================================
     // PREFERENCE KEYS
@@ -226,11 +260,11 @@ class SettingsRepositoryImpl(
      * }
      * ```
      *
-     * This format was chosen because:
-     * - It's human-readable and easy to debug
-     * - It handles the list of prefixes naturally
-     * - It's more compact than XML
-     * - Android has built-in JSONObject/JSONArray support
+    * This format was chosen because:
+    * - It's human-readable and easy to debug
+    * - It handles the list of prefixes naturally
+    * - It's compact and easy to evolve
+    * - It is now parsed by kotlinx.serialization for consistency with home item persistence
      *
      * @param json The JSON string to parse, or null
      * @return Map of provider ID to PrefixConfig, or empty map if parsing fails
@@ -240,33 +274,18 @@ class SettingsRepositoryImpl(
             return emptyMap()
         }
 
-        return try {
-            val jsonObject = JSONObject(json)
-            val result = mutableMapOf<String, PrefixConfig>()
+        return runCatching {
+            val serializedConfiguration: SerializedPrefixConfiguration =
+                settingsJson.decodeFromString(json)
 
-            // Iterate through all keys in the JSON object
-            val keys = jsonObject.keys()
-            while (keys.hasNext()) {
-                val providerId = keys.next()
-                val prefixesArray = jsonObject.getJSONArray(providerId)
-
-                // Convert JSONArray to List<String>
-                val prefixes = mutableListOf<String>()
-                for (i in 0 until prefixesArray.length()) {
-                    prefixes.add(prefixesArray.getString(i))
-                }
-
-                // Only add if there's at least one prefix
-                if (prefixes.isNotEmpty()) {
-                    result[providerId] = PrefixConfig(prefixes)
-                }
-            }
-
-            result
-        } catch (e: Exception) {
-            // If parsing fails for any reason, return empty map
-            // This could happen if the JSON is malformed or if the data type is wrong
-            // Returning empty map is safe - it means default prefixes will be used
+            // Maintain existing behavior: only keep providers with at least one prefix.
+            // This prevents storing no-op entries like "web": [] in the active model.
+            serializedConfiguration
+                .filterValues { it.isNotEmpty() }
+                .mapValues { (_, prefixes) -> PrefixConfig(prefixes) }
+        }.getOrElse {
+            // If parsing fails for any reason, return empty map.
+            // Returning empty map is safe because default provider prefixes are applied.
             emptyMap()
         }
     }
@@ -282,17 +301,11 @@ class SettingsRepositoryImpl(
             return "{}"
         }
 
-        val jsonObject = JSONObject()
+        // Convert domain model to serialized schema while preserving the existing
+        // on-disk JSON structure (providerId -> array of prefixes).
+        val serializedConfiguration: SerializedPrefixConfiguration =
+            config.mapValues { (_, prefixConfig) -> prefixConfig.prefixes }
 
-        for ((providerId, prefixConfig) in config) {
-            // Create a JSONArray from the prefixes list
-            val prefixesArray = JSONArray()
-            for (prefix in prefixConfig.prefixes) {
-                prefixesArray.put(prefix)
-            }
-            jsonObject.put(providerId, prefixesArray)
-        }
-
-        return jsonObject.toString()
+        return settingsJson.encodeToString(serializedConfiguration)
     }
 }

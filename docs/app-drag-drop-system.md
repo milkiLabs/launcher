@@ -90,6 +90,7 @@ Use this on any draggable composable node.
 
 - requires stable `key`
 - supports direct callbacks for tap / long-press / drag lifecycle
+- this is the only public gesture callback style (no parallel config/interface wrappers)
 
 ## Behavior guarantees
 
@@ -97,6 +98,7 @@ Use this on any draggable composable node.
 - Target resolution is always clamped to valid grid bounds
 - Movement result is explicit and easy to branch on
 - Controller remains independent from repository/data-layer writes
+- Gesture detector handles cancellation and known pointer state failures with structured key-value logs for diagnosis
 
 ## Home persistence policy (current)
 

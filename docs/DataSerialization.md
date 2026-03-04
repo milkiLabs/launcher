@@ -182,9 +182,43 @@ Each line is a complete, parseable JSON object. This format:
 - Allows easy addition/removal of items
 - Handles special characters in values correctly
 
+## Settings Prefix Configuration Serialization
+
+In addition to home items, settings prefix configuration is also serialized via
+`kotlinx.serialization`.
+
+### Why this matters
+
+- **Consistency**: Both repositories now use one JSON stack (`kotlinx.serialization`)
+- **Type safety**: Decoding is strongly typed (`Map<String, List<String>>`)
+- **Maintainability**: Removes manual `JSONObject`/`JSONArray` parsing paths
+
+### Stored JSON shape
+
+Prefix configuration remains persisted as a map of provider IDs to prefix arrays:
+
+```json
+{
+    "web": ["s", "ج"],
+    "files": ["f", "م", "find"],
+    "contacts": ["c"],
+    "youtube": ["y", "yt"]
+}
+```
+
+This shape is intentionally preserved for backward compatibility with existing
+stored settings data.
+
+### Error handling behavior
+
+If decode fails (for example, malformed JSON), the repository falls back to an
+empty prefix map. Existing default-prefix logic then applies built-in defaults,
+so app behavior remains functional and crash-safe.
+
 ## Related Files
 
 - `domain/model/HomeItem.kt` - Serializable data models
 - `domain/model/GridPosition.kt` - Position model
 - `data/repository/HomeRepositoryImpl.kt` - Serialization usage
+- `data/repository/SettingsRepositoryImpl.kt` - Prefix configuration serialization usage
 - `gradle/libs.versions.toml` - Version configuration
