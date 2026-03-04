@@ -33,6 +33,9 @@ import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.home.HomeViewModel
+import com.milki.launcher.presentation.main.HomeButtonPolicy
+import com.milki.launcher.presentation.main.PermissionRequestCoordinator
+import com.milki.launcher.presentation.main.SearchSessionController
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
@@ -90,6 +93,21 @@ class MainActivity : ComponentActivity() {
     private lateinit var actionExecutor: ActionExecutor
 
     /**
+     * Coordinator that wires permission request flow between ActionExecutor and PermissionHandler.
+     */
+    private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
+
+    /**
+     * Stateless policy used to decide what a home-button press should do.
+     */
+    private val homeButtonPolicy = HomeButtonPolicy()
+
+    /**
+     * Controller that applies search/menu state transitions chosen by policy.
+     */
+    private lateinit var searchSessionController: SearchSessionController
+
+    /**
      * Tracks whether we were already on the homescreen before onPause.
      * Used to determine behavior when home button is pressed.
      */
@@ -110,6 +128,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        searchSessionController = SearchSessionController(searchViewModel)
         initializeHandlers()
         initializeBackButtonBehavior()
 
@@ -226,37 +245,14 @@ class MainActivity : ComponentActivity() {
         
         // Initialize action executor
         actionExecutor = ActionExecutor(this, contactsRepository, homeViewModel, lifecycleScope)
-        
-        // Set up permission request callback
-        actionExecutor.onRequestPermission = { permission ->
-            when (permission) {
-                android.Manifest.permission.READ_CONTACTS -> {
-                    permissionHandler.requestContactsPermission()
-                }
-                android.Manifest.permission.CALL_PHONE -> {
-                    permissionHandler.requestCallPermission()
-                }
-                android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE -> {
-                    permissionHandler.requestFilesPermission()
-                }
-            }
-        }
-        
-        // Set up search close callback
-        actionExecutor.onCloseSearch = {
-            searchViewModel.hideSearch()
-        }
-        
-        // Set up recent app save callback
-        actionExecutor.onSaveRecentApp = { componentName ->
-            searchViewModel.saveRecentApp(componentName)
-        }
-        
-        // Set up permission result callback
-        permissionHandler.onCallPermissionResult = { granted ->
-            actionExecutor.onPermissionResult(granted)
-        }
+
+        // Initialize and bind permission orchestration.
+        permissionRequestCoordinator = PermissionRequestCoordinator(
+            permissionHandler = permissionHandler,
+            actionExecutor = actionExecutor,
+            searchViewModel = searchViewModel
+        )
+        permissionRequestCoordinator.bind()
     }
 
     // ========================================================================
@@ -289,49 +285,20 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
 
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
-            if (!wasAlreadyOnHomescreen) {
-                handleHomePressedAfterReturningToLauncher()
-            } else {
-                handleHomePressedWhileAlreadyOnLauncher()
-            }
-        }
-    }
+            val uiState = searchViewModel.uiState.value
+            val decision = homeButtonPolicy.resolve(
+                HomeButtonPolicy.InputState(
+                    isAlreadyOnHomescreen = wasAlreadyOnHomescreen,
+                    isHomescreenMenuOpen = isHomescreenMenuOpen,
+                    isSearchVisible = uiState.isSearchVisible,
+                    hasSearchQuery = uiState.query.isNotEmpty()
+                )
+            )
 
-    /**
-     * Handles home-button behavior when launcher is brought to foreground
-     * from another app/task.
-     *
-     * UX RULE:
-     * - Always reset transient overlays/search state.
-     */
-    private fun handleHomePressedAfterReturningToLauncher() {
-        closeHomescreenMenu()
-        searchViewModel.hideSearch()
-    }
-
-    /**
-     * Handles home-button behavior when user is already on launcher.
-     *
-     * PRIORITY ORDER (explicit and deterministic):
-     * 1. If homescreen long-press menu is open -> close it and consume this press.
-     * 2. If search is hidden -> open search.
-     * 3. If search is visible and query is non-empty -> clear query.
-     * 4. If search is visible and query is empty -> hide search.
-     *
-     * This ordering prevents focus conflicts by ensuring overlay UI is dismissed
-     * before search dialog transitions are attempted.
-     */
-    private fun handleHomePressedWhileAlreadyOnLauncher() {
-        if (isHomescreenMenuOpen) {
-            closeHomescreenMenu()
-            return
-        }
-
-        val uiState = searchViewModel.uiState.value
-        when {
-            !uiState.isSearchVisible -> searchViewModel.showSearch()
-            uiState.query.isNotEmpty() -> searchViewModel.clearQuery()
-            else -> searchViewModel.hideSearch()
+            searchSessionController.applyHomeButtonDecision(
+                decision = decision,
+                closeHomescreenMenu = ::closeHomescreenMenu
+            )
         }
     }
 

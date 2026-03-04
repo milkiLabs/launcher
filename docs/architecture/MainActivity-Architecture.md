@@ -4,16 +4,19 @@ This document explains the architecture of MainActivity and its handler classes.
 
 ## Overview
 
-MainActivity has been refactored from a ~500 line monolithic class into a lean orchestrator that delegates to specialized handlers. This follows the **Single Responsibility Principle** - each class has one clear purpose.
+MainActivity is now a lean host that delegates behavior policy and cross-component wiring to dedicated classes. This follows the **Single Responsibility Principle** and reduces Activity-level business logic.
 
 ## File Structure
 
 ```
 app/src/main/java/com/milki/launcher/
-├── MainActivity.kt          (~200 lines) - Lifecycle, UI composition, home button handling
-└── handlers/
-    ├── PermissionHandler.kt (~230 lines) - All permission requests and state
-    └── ActionHandler.kt     (~200 lines) - All search action execution
+├── MainActivity.kt                 - Lifecycle host + Compose composition
+├── handlers/
+│   └── PermissionHandler.kt        - Permission launchers + state updates
+└── presentation/main/
+    ├── HomeButtonPolicy.kt         - Pure home-button decision logic
+    ├── SearchSessionController.kt  - Applies search/menu transitions
+    └── PermissionRequestCoordinator.kt - Wires ActionExecutor <-> PermissionHandler
 ```
 
 ## Class Responsibilities
@@ -23,13 +26,13 @@ app/src/main/java/com/milki/launcher/
 **What it does:**
 - UI composition (setting up Compose content)
 - Lifecycle management (onCreate, onResume, onStop)
-- Home button detection and search toggling
-- Delegating to handlers
+- Home intent detection and delegation to policy/controller
+- Delegating permission callback wiring to coordinator
 
 **What it does NOT do:**
-- Permission requests (delegated to PermissionHandler)
-- Action execution (delegated to ActionHandler)
-- Business logic (in ViewModel)
+- Home-button decision logic (delegated to HomeButtonPolicy)
+- Search/menu transition logic (delegated to SearchSessionController)
+- Permission callback orchestration (delegated to PermissionRequestCoordinator)
 
 ### PermissionHandler
 
@@ -45,53 +48,88 @@ app/src/main/java/com/milki/launcher/
 - Easier to test independently
 - Settings can affect permission requirements
 
-### ActionHandler
+### HomeButtonPolicy
 
 **What it does:**
-- Launch apps
-- Open URLs and web searches
-- Open YouTube searches (with app preference)
-- Make phone calls
-- Open files
+- Accepts simple input state and resolves one home-button decision.
+- Keeps behavior deterministic with explicit priority ordering.
 
 **Why separate it?**
-- Action execution will be customizable via settings
-- Browser choice, YouTube preference, etc. can be injected
-- Easier to test independently
-- Could be extended for custom actions
+- Pure Kotlin logic can be tested without Android runtime.
+- Prevents policy drift across Activity methods.
 
-## Data Flow
+### SearchSessionController
+
+**What it does:**
+- Applies decisions from HomeButtonPolicy.
+- Executes search/menu transitions (open search, clear query, hide search, close menu).
+
+**Why separate it?**
+- Centralizes transition side effects.
+- Keeps MainActivity from directly mutating search/menu state in multiple places.
+
+### PermissionRequestCoordinator
+
+**What it does:**
+- Wires `ActionExecutor` callbacks to `PermissionHandler` request APIs.
+- Wires permission result callback back to `ActionExecutor`.
+- Wires action side effects that touch `SearchViewModel` (close search, save recent app).
+
+**Why separate it?**
+- Removes callback orchestration noise from Activity.
+- Keeps inter-object wiring in one explicit place.
+
+## Data Flow (Home Button)
 
 ```
-User Action
+Home Intent (ACTION_MAIN + CATEGORY_HOME)
     │
     ▼
 ┌─────────────────┐
-│  LauncherScreen │  (Compose UI)
+│  MainActivity   │ collects current UI/menu state
 └────────┬────────┘
-         │ onResultClick()
+         │ InputState
          ▼
 ┌─────────────────┐
-│ SearchViewModel │  (State + Business Logic)
+│ HomeButtonPolicy│ resolves Decision
 └────────┬────────┘
-         │ emit SearchAction
+         │ Decision
          ▼
-┌─────────────────┐
-│  MainActivity   │  (Orchestrator)
-└────────┬────────┘
-         │ dispatch
-         ▼
-┌─────────────────────────────────────┐
-│ PermissionHandler │ ActionHandler   │  (Execution)
-└─────────────────────────────────────┘
+┌───────────────────────┐
+│ SearchSessionController│ applies transition
+└────────┬──────────────┘
          │
          ▼
-    System/App (Intent)
+ SearchViewModel + menu-state callback
+```
+
+## Data Flow (Permission Request Wiring)
+
+```
+Search UI action
+    │
+    ▼
+ActionExecutor.onRequestPermission(permission)
+    │
+    ▼
+PermissionRequestCoordinator
+    │
+    ├──> PermissionHandler.requestContactsPermission()
+    ├──> PermissionHandler.requestCallPermission()
+    └──> PermissionHandler.requestFilesPermission()
+
+Permission result
+    │
+    ▼
+PermissionHandler.onCallPermissionResult(granted)
+    │
+    ▼
+PermissionRequestCoordinator -> ActionExecutor.onPermissionResult(granted)
 ```
 
 ## Home Button Detection
 
-The home button detection uses lifecycle state tracking, not intent flags:
+The launcher still uses lifecycle state tracking for detecting whether user is already on homescreen:
 
 1. `onStop()` sets `wasAlreadyOnHomescreen = false` (user left home screen)
 2. User presses home → `onNewIntent()` fires BEFORE `onResume()`
@@ -106,51 +144,31 @@ That flag has the opposite meaning of what you'd expect:
 - Set when activity is brought to front from **background** (returning from app)
 - NOT set when activity is already in foreground (pressing home while on home)
 
-## Future Extensibility (Settings Integration)
+## Why This Is Cleaner
 
-### ActionHandler Customization
-
-```kotlin
-// Future: Inject settings repository
-class ActionHandler(
-    private val context: Context,
-    private val searchViewModel: SearchViewModel,
-    private val settingsRepository: SettingsRepository  // NEW
-) {
-    private fun openUrlInBrowser(url: String) {
-        val browserPackage = settingsRepository.getPreferredBrowser()
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        if (browserPackage != null) {
-            intent.`package` = browserPackage
-        }
-        context.startActivity(intent)
-    }
-}
-```
-
-### Customizable Settings (Planned)
-
-- **Browser preference**: Chrome, Firefox, Brave, custom package
-- **YouTube preference**: Official app, ReVanced, browser fallback
-- **Search engine**: Google, DuckDuckGo, Bing, custom URL
-- **File handling**: Default app or always show chooser
+- MainActivity is now an orchestrator, not a policy engine.
+- Home-button behavior is pure/testable.
+- Transition side effects are centralized in one controller.
+- Permission callback wiring is explicit and isolated.
 
 ## Testing Strategy
 
-Each handler can be unit tested independently:
+These classes can be tested independently with small unit tests:
 
 ```kotlin
-// Example: Test ActionHandler
+// Example: test pure policy
 @Test
-fun `handleLaunchApp starts activity and saves recent`() {
-    val mockContext = mockk<Context>(relaxed = true)
-    val mockViewModel = mockk<SearchViewModel>(relaxed = true)
-    val handler = ActionHandler(mockContext, mockViewModel)
-    
-    val appInfo = AppInfo(packageName = "com.example", launchIntent = Intent())
-    handler.handle(SearchAction.LaunchApp(appInfo))
-    
-    verify { mockContext.startActivity(any()) }
-    verify { mockViewModel.saveRecentApp("com.example") }
+fun `home press closes menu before opening search`() {
+    val policy = HomeButtonPolicy()
+    val decision = policy.resolve(
+        HomeButtonPolicy.InputState(
+            isAlreadyOnHomescreen = true,
+            isHomescreenMenuOpen = true,
+            isSearchVisible = false,
+            hasSearchQuery = false
+        )
+    )
+
+    assertEquals(HomeButtonPolicy.Decision.CLOSE_MENU, decision)
 }
 ```
