@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.milki.launcher.domain.model.*
+import com.milki.launcher.domain.search.ClipboardSuggestion
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
@@ -226,10 +227,18 @@ fun AppSearchDialog(
                  * the dialog, below recent apps/results, as requested.
                  */
                 if (uiState.shouldShowClipboardSuggestion) {
-                    val clipboardSuggestion = uiState.clipboardSuggestion
-                    if (clipboardSuggestion != null) {
+                    val suggestionToShow = if (uiState.activeProviderConfig == null && uiState.query.isNotBlank()) {
+                        ClipboardSuggestion.SearchText(
+                            queryText = uiState.query,
+                            rawText = uiState.query
+                        )
+                    } else {
+                        uiState.clipboardSuggestion
+                    }
+
+                    if (suggestionToShow != null) {
                         ClipboardSuggestionBottomChip(
-                            suggestion = clipboardSuggestion,
+                            suggestion = suggestionToShow,
                             onSearchWithDefaultEngine = { queryText ->
                                 val encodedQuery = Uri.encode(queryText)
                                 actionHandler(

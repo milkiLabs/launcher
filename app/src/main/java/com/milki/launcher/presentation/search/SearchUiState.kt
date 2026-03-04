@@ -78,12 +78,15 @@ data class SearchUiState(
      *
      * UX RULES:
      * - Show only while dialog is visible
-     * - Show only when query is blank (before typing)
      * - Show only in default app-search mode (no provider prefix)
-     * - Show only when we actually have a suggestion
+     * - Show when either:
+     *   1) query is non-blank (offer quick web search in default mode), or
+     *   2) query is blank and we have a clipboard suggestion
      */
     val shouldShowClipboardSuggestion: Boolean
-        get() = isSearchVisible && query.isBlank() && activeProviderConfig == null && clipboardSuggestion != null
+        get() = isSearchVisible &&
+            activeProviderConfig == null &&
+            (query.isNotBlank() || clipboardSuggestion != null)
 
     /**
      * Placeholder text for the search field.

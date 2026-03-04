@@ -81,11 +81,14 @@ When the search dialog opens in default app-search mode, the launcher performs a
 The chip is shown only when all conditions are true:
 
 1. Search dialog is visible
-2. Query text is empty (`""`)
+2. Default app-search mode is active (no provider prefix)
 3. No provider prefix mode is active (default app search)
-4. Clipboard contains non-empty text that can be interpreted
+4. And either:
+    - Query text is non-empty (shows quick web-search action for current query), or
+    - Query text is empty and clipboard contains non-empty interpretable text
 
-As soon as the user types in the query box, the chip disappears.
+While the user types in default mode, the chip persists and becomes a quick
+"Search on Google" action for the typed query.
 
 #### Clipboard detection scope
 
