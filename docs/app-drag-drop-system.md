@@ -5,7 +5,7 @@ This document focuses on the reusable API exposed in `ui/components/dragdrop`.
 ## Files
 
 - `app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropContract.kt`
-- `app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppDragDropModifiers.kt`
+- `app/src/main/java/com/milki/launcher/ui/components/grid/DragGestureDetector.kt`
 - `app/src/main/java/com/milki/launcher/ui/components/dragdrop/AppExternalDragDrop.kt`
 - `app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragPayloadCodec.kt`
 - `app/src/main/java/com/milki/launcher/ui/components/dragdrop/ExternalDragCoordinateMapper.kt`
@@ -23,26 +23,24 @@ val metrics = AppDragDropLayoutMetrics(
     rows = rows
 )
 
-Modifier.appDragDropGestures(
+Modifier.detectDragGesture(
     key = "${item.id}-${item.position.row}-${item.position.column}",
-    dragThresholdPx = config.dragThresholdPx,
-    callbacks = AppDragDropGestureCallbacks(
-        onTap = { ... },
-        onLongPress = { ... },
-        onDragStart = { controller.startDrag(item, item.id, item.position) },
-        onDrag = { change, dragAmount ->
-            change.consume()
-            controller.updateDrag(dragAmount, metrics)
-        },
-        onDragEnd = {
-            when (val result = controller.endDrag(metrics)) {
-                is AppDragDropResult.Moved -> persistMove(result.itemId, result.to)
-                is AppDragDropResult.Unchanged -> Unit
-                AppDragDropResult.Cancelled -> Unit
-            }
-        },
-        onDragCancel = { controller.cancelDrag() }
-    )
+    dragThreshold = config.dragThresholdPx,
+    onTap = { ... },
+    onLongPress = { ... },
+    onDragStart = { controller.startDrag(item, item.id, item.position) },
+    onDrag = { change, dragAmount ->
+        change.consume()
+        controller.updateDrag(dragAmount, metrics)
+    },
+    onDragEnd = {
+        when (val result = controller.endDrag(metrics)) {
+            is AppDragDropResult.Moved -> persistMove(result.itemId, result.to)
+            is AppDragDropResult.Unchanged -> Unit
+            AppDragDropResult.Cancelled -> Unit
+        }
+    },
+    onDragCancel = { controller.cancelDrag() }
 )
 ```
 
@@ -86,12 +84,12 @@ Helper methods:
 - `Unchanged` means user dropped into same cell
 - `Cancelled` means no-op
 
-### `appDragDropGestures(...)`
+### `detectDragGesture(...)`
 
 Use this on any draggable composable node.
 
 - requires stable `key`
-- supports unified callbacks via `AppDragDropGestureCallbacks`
+- supports direct callbacks for tap / long-press / drag lifecycle
 
 ## Behavior guarantees
 
@@ -122,7 +120,7 @@ This eliminates race windows caused by split write paths and avoids transient
 ## Pattern consistency
 
 Home grid icons and search app items now both wire gestures through
-`appDragDropGestures(...)` with the same long-press + drag callback pattern.
+`detectDragGesture(...)` with the same long-press + drag callback pattern.
 This keeps interaction behavior aligned across launcher surfaces.
 
 ## External payload bridge
@@ -198,6 +196,6 @@ This keeps cross-surface drag robust while avoiding non-serializable fields.
 1. Keep drag-drop state changes inside controller methods only.
 2. Keep cell/offset math inside `AppDragDropLayoutMetrics`.
 3. Keep repository writes outside the controller (usually ViewModel callbacks).
-4. Keep gesture setup in `appDragDropGestures` for consistency across surfaces.
+4. Keep gesture setup in `detectDragGesture` for consistency across surfaces.
 
 Following these rules keeps drag-and-drop predictable and reusable across the launcher.

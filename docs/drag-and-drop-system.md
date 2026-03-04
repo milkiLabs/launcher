@@ -23,7 +23,7 @@ UI Surface (example: DraggablePinnedItemsGrid)
         |
         | uses
         v
-AppDragDropModifiers.appDragDropGestures(...)
+DragGestureDetector.detectDragGesture(...)
         |
         | dispatches pointer events
         v
@@ -104,20 +104,20 @@ Result types:
 
 This keeps the controller purely UI-interaction oriented. Data-layer updates are still performed by callers.
 
-### 4) `appDragDropGestures(...)`
+### 4) `detectDragGesture(...)`
 
-**File:** `ui/components/dragdrop/AppDragDropModifiers.kt`
+**File:** `ui/components/grid/DragGestureDetector.kt`
 
 Purpose:
 
-- Shared modifier that wires pointer input to drag callbacks
-- Wraps existing low-level detector (`detectDragGesture`) so surfaces only define behavior callbacks
+- Canonical shared modifier that wires pointer input to drag callbacks
+- Surfaces define behavior directly using tap / long-press / drag lifecycle callbacks
 
 Input:
 
 - stable `key` (typically `id + row + column`)
-- `dragThresholdPx`
-- `AppDragDropGestureCallbacks`
+- `dragThreshold`
+- lifecycle callbacks (`onTap`, `onLongPress`, `onDragStart`, `onDrag`, `onDragEnd`, `onDragCancel`)
 
 ## Home screen integration
 
@@ -125,7 +125,7 @@ The home grid (`DraggablePinnedItemsGrid`) now:
 
 1. Creates `dragController` via `rememberAppDragDropController<HomeItem>(config)`
 2. Builds `AppDragDropLayoutMetrics` from `BoxWithConstraints`
-3. Uses `appDragDropGestures(...)` per item
+3. Uses `detectDragGesture(...)` per item
 4. On `Moved` result, emits `onItemMove(itemId, to)`
 
 ### External payload drops from search dialog
@@ -229,7 +229,7 @@ To add drag-drop to a new surface:
 1. Provide your own item type `T` with stable item ID and position
 2. Create `val controller = rememberAppDragDropController<T>(config)`
 3. Compute `AppDragDropLayoutMetrics` from your measured layout
-4. Attach `Modifier.appDragDropGestures(...)` to draggable nodes
+4. Attach `Modifier.detectDragGesture(...)` to draggable nodes
 5. Persist only when result is `AppDragDropResult.Moved`
 
 This ensures the same drag rules and behavior across launcher surfaces.

@@ -5,7 +5,7 @@
  * state handling to the reusable controller in ui/components/dragdrop.
  *
  * WHY THIS VERSION IS MORE REUSABLE:
- * 1) Gesture wiring is delegated to appDragDropGestures().
+ * 1) Gesture wiring is delegated to detectDragGesture().
  * 2) Drag lifecycle (start/update/end/cancel) lives in AppDragDropController.
  * 3) Grid math (clamp, target resolution, offset bounds) lives in metrics data.
  *
@@ -49,16 +49,15 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.pointerInput
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.dragdrop.AppDragDropGestureCallbacks
 import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.components.dragdrop.AppDragDropResult
 import com.milki.launcher.ui.components.dragdrop.AppExternalDropTargetOverlay
 import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
 import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
-import com.milki.launcher.ui.components.dragdrop.appDragDropGestures
 import com.milki.launcher.ui.components.dragdrop.rememberAppDragDropController
 import com.milki.launcher.ui.components.grid.GridConfig
 import com.milki.launcher.ui.components.grid.animateDragVisuals
+import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
@@ -196,59 +195,57 @@ fun DraggablePinnedItemsGrid(
                             scaleY = visuals.scale
                             alpha = visuals.alpha
                         }
-                        .appDragDropGestures(
+                        .detectDragGesture(
                             key = "${item.id}-${item.position.row}-${item.position.column}",
-                            dragThresholdPx = config.dragThresholdPx,
-                            callbacks = AppDragDropGestureCallbacks(
-                                onTap = {
-                                    if (dragController.session == null) {
-                                        onItemClick(item)
-                                    }
-                                },
-                                onLongPress = {
-                                    if (dragController.session == null) {
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        menuShownForItemId = item.id
-                                        isMenuGestureActive = true
-                                        onItemLongPress(item)
-                                    }
-                                },
-                                onLongPressRelease = {
-                                    /**
-                                     * Finger lifted after long-press without dragging.
-                                     * Switch the menu popup to focusable so items become
-                                     * tappable.
-                                     */
-                                    isMenuGestureActive = false
-                                },
-                                onDragStart = {
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                                    menuShownForItemId = null
-                                    isMenuGestureActive = false
-                                    dragController.startDrag(
-                                        item = item,
-                                        itemId = item.id,
-                                        startPosition = item.position
-                                    )
-                                },
-                                onDrag = { change, dragAmount ->
-                                    if (dragController.isDraggingItem(item.id)) {
-                                        change.consume()
-                                        dragController.updateDrag(dragAmount, layoutMetrics)
-                                    }
-                                },
-                                onDragEnd = {
-                                    val result = dragController.endDrag(layoutMetrics)
-                                    if (result is AppDragDropResult.Moved && result.itemId == item.id) {
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                        onItemMove(result.itemId, result.to)
-                                    }
-                                },
-                                onDragCancel = {
-                                    dragController.cancelDrag()
-                                    isMenuGestureActive = false
+                            dragThreshold = config.dragThresholdPx,
+                            onTap = {
+                                if (dragController.session == null) {
+                                    onItemClick(item)
                                 }
-                            )
+                            },
+                            onLongPress = {
+                                if (dragController.session == null) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    menuShownForItemId = item.id
+                                    isMenuGestureActive = true
+                                    onItemLongPress(item)
+                                }
+                            },
+                            onLongPressRelease = {
+                                /**
+                                 * Finger lifted after long-press without dragging.
+                                 * Switch the menu popup to focusable so items become
+                                 * tappable.
+                                 */
+                                isMenuGestureActive = false
+                            },
+                            onDragStart = {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                menuShownForItemId = null
+                                isMenuGestureActive = false
+                                dragController.startDrag(
+                                    item = item,
+                                    itemId = item.id,
+                                    startPosition = item.position
+                                )
+                            },
+                            onDrag = { change, dragAmount ->
+                                if (dragController.isDraggingItem(item.id)) {
+                                    change.consume()
+                                    dragController.updateDrag(dragAmount, layoutMetrics)
+                                }
+                            },
+                            onDragEnd = {
+                                val result = dragController.endDrag(layoutMetrics)
+                                if (result is AppDragDropResult.Moved && result.itemId == item.id) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                    onItemMove(result.itemId, result.to)
+                                }
+                            },
+                            onDragCancel = {
+                                dragController.cancelDrag()
+                                isMenuGestureActive = false
+                            }
                         )
                 ) {
                     PinnedItem(

@@ -60,11 +60,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.presentation.search.SearchResultAction
-import com.milki.launcher.ui.components.dragdrop.AppDragDropGestureCallbacks
-import com.milki.launcher.ui.components.dragdrop.appDragDropGestures
 import com.milki.launcher.ui.components.dragdrop.startExternalContactDrag
 import com.milki.launcher.ui.components.dragdrop.startExternalFileDrag
 import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -369,29 +368,27 @@ fun ContactSearchResultItem(
      * Use the SearchResultListItem wrapper with contact specific values.
      */
     Box(
-        modifier = Modifier.appDragDropGestures(
+        modifier = Modifier.detectDragGesture(
             key = "contact:${result.contact.id}:${result.contact.lookupKey}",
-            dragThresholdPx = GridConfig.Default.dragThresholdPx,
-            callbacks = AppDragDropGestureCallbacks(
-                onTap = onClick,
-                onLongPress = {},
-                onLongPressRelease = {},
-                onDragStart = {
-                    val dragStarted = startExternalContactDrag(
-                        hostView = hostView,
-                        contact = result.contact
-                    )
+            dragThreshold = GridConfig.Default.dragThresholdPx,
+            onTap = onClick,
+            onLongPress = {},
+            onLongPressRelease = {},
+            onDragStart = {
+                val dragStarted = startExternalContactDrag(
+                    hostView = hostView,
+                    contact = result.contact
+                )
 
-                    if (dragStarted) {
-                        hostView.post {
-                            onExternalDragStarted()
-                        }
+                if (dragStarted) {
+                    hostView.post {
+                        onExternalDragStarted()
                     }
-                },
-                onDrag = { change, _ -> change.consume() },
-                onDragEnd = {},
-                onDragCancel = {}
-            )
+                }
+            },
+            onDrag = { change, _ -> change.consume() },
+            onDragEnd = {},
+            onDragCancel = {}
         )
     ) {
         SearchResultListItem(
@@ -541,39 +538,37 @@ fun FileDocumentSearchResultItem(
     }.takeIf { it.isNotEmpty() }
 
     Box(
-        modifier = Modifier.appDragDropGestures(
+        modifier = Modifier.detectDragGesture(
             key = "file:${file.id}:${file.uri}",
-            dragThresholdPx = GridConfig.Default.dragThresholdPx,
-            callbacks = AppDragDropGestureCallbacks(
-                onTap = onClick,
-                onLongPress = {
-                    showMenu = true
-                    isGestureActive = true
-                },
-                onLongPressRelease = {
-                    isGestureActive = false
-                },
-                onDragStart = {
-                    showMenu = false
-                    isGestureActive = false
+            dragThreshold = GridConfig.Default.dragThresholdPx,
+            onTap = onClick,
+            onLongPress = {
+                showMenu = true
+                isGestureActive = true
+            },
+            onLongPressRelease = {
+                isGestureActive = false
+            },
+            onDragStart = {
+                showMenu = false
+                isGestureActive = false
 
-                    val dragStarted = startExternalFileDrag(
-                        hostView = hostView,
-                        fileDocument = file
-                    )
+                val dragStarted = startExternalFileDrag(
+                    hostView = hostView,
+                    fileDocument = file
+                )
 
-                    if (dragStarted) {
-                        hostView.post {
-                            onExternalDragStarted()
-                        }
+                if (dragStarted) {
+                    hostView.post {
+                        onExternalDragStarted()
                     }
-                },
-                onDrag = { change, _ -> change.consume() },
-                onDragEnd = {},
-                onDragCancel = {
-                    isGestureActive = false
                 }
-            )
+            },
+            onDrag = { change, _ -> change.consume() },
+            onDragEnd = {},
+            onDragCancel = {
+                isGestureActive = false
+            }
         )
     ) {
         SearchResultListItem(

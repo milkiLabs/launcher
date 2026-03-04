@@ -108,8 +108,15 @@ class MainActivity : ComponentActivity() {
     private lateinit var searchSessionController: SearchSessionController
 
     /**
-     * Tracks whether we were already on the homescreen before onPause.
-     * Used to determine behavior when home button is pressed.
+        * Tracks whether launcher is currently considered the active homescreen surface.
+        *
+        * Lifecycle semantics:
+        * - Set to true in onResume() when launcher enters foreground.
+        * - Set to false in onStop() when launcher leaves foreground.
+        *
+        * This flag feeds HomeButtonPolicy so repeated home-button presses while already
+        * on launcher can trigger search/menu behavior, while first return to launcher
+        * resets transient UI instead.
      */
     private var wasAlreadyOnHomescreen = false
 
@@ -278,8 +285,9 @@ class MainActivity : ComponentActivity() {
      * - Another app launches an Intent targeting this Activity
      *
      * HOME BUTTON BEHAVIOR:
-     * - If not already on homescreen: Hide search
-     * - If already on homescreen with search open: Toggle search state
+    * - Input state is captured (homescreen/menu/search/query).
+    * - HomeButtonPolicy resolves one deterministic decision.
+    * - SearchSessionController applies the resulting transition.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)

@@ -34,9 +34,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.search.SearchResultAction
-import com.milki.launcher.ui.components.dragdrop.AppDragDropGestureCallbacks
-import com.milki.launcher.ui.components.dragdrop.appDragDropGestures
 import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.components.dragdrop.startExternalAppDrag
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -93,49 +92,47 @@ fun AppGridItem(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .appDragDropGestures(
+                .detectDragGesture(
                     key = "${appInfo.packageName}/${appInfo.activityName}",
-                    dragThresholdPx = GridConfig.Default.dragThresholdPx,
-                    callbacks = AppDragDropGestureCallbacks(
-                        onTap = onClick,
-                        onLongPress = {
-                            showMenu = true
-                            isGestureActive = true
-                        },
-                        onLongPressRelease = {
-                            /**
-                             * Finger lifted after long-press without dragging.
-                             * Switch menu to focusable so menu items become tappable.
-                             */
-                            isGestureActive = false
-                        },
-                        onDragStart = {
-                            /**
-                             * Close the menu before starting the external drag.
-                             * The menu must close first so the popup window doesn't
-                             * interfere with the platform drag shadow.
-                             */
-                            showMenu = false
-                            isGestureActive = false
+                    dragThreshold = GridConfig.Default.dragThresholdPx,
+                    onTap = onClick,
+                    onLongPress = {
+                        showMenu = true
+                        isGestureActive = true
+                    },
+                    onLongPressRelease = {
+                        /**
+                         * Finger lifted after long-press without dragging.
+                         * Switch menu to focusable so menu items become tappable.
+                         */
+                        isGestureActive = false
+                    },
+                    onDragStart = {
+                        /**
+                         * Close the menu before starting the external drag.
+                         * The menu must close first so the popup window doesn't
+                         * interfere with the platform drag shadow.
+                         */
+                        showMenu = false
+                        isGestureActive = false
 
-                            val dragStarted = startExternalAppDrag(
-                                hostView = hostView,
-                                appInfo = appInfo,
-                                dragShadowSize = IconSize.appGrid
-                            )
+                        val dragStarted = startExternalAppDrag(
+                            hostView = hostView,
+                            appInfo = appInfo,
+                            dragShadowSize = IconSize.appGrid
+                        )
 
-                            if (dragStarted) {
-                                hostView.post {
-                                    onExternalDragStarted()
-                                }
+                        if (dragStarted) {
+                            hostView.post {
+                                onExternalDragStarted()
                             }
-                        },
-                        onDrag = { change, _ -> change.consume() },
-                        onDragEnd = {},
-                        onDragCancel = {
-                            isGestureActive = false
                         }
-                    )
+                    },
+                    onDrag = { change, _ -> change.consume() },
+                    onDragEnd = {},
+                    onDragCancel = {
+                        isGestureActive = false
+                    }
                 ),
             color = Color.Transparent,
             shape = RoundedCornerShape(CornerRadius.medium)
