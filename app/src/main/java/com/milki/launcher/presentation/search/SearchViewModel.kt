@@ -261,7 +261,12 @@ class SearchViewModel(
                 }
             }
             .onEach { derivedState ->
-                _uiState.value = derivedState
+                // IMPORTANT: Always use the LIVE searchQuery value, not the
+                // snapshot captured in the flow's inputs. The snapshot may be
+                // stale if the user typed additional characters while a slow
+                // search (files, contacts) was still running. Using the live
+                // value ensures the TextField is never reverted to old text.
+                _uiState.value = derivedState.copy(query = searchQuery.value)
             }
             .launchIn(viewModelScope)
     }
@@ -320,10 +325,34 @@ class SearchViewModel(
      * Update the search query.
      * Triggers a new search automatically through the reactive pipeline.
      *
+     * IMMEDIATE UI UPDATE:
+     * We update _uiState.query immediately (synchronously on the Main thread)
+     * so the OutlinedTextField sees the correct value on the very next
+     * Compose frame. Without this, there is a race condition:
+     *
+     *   1. User types a character → onValueChange fires with "f so"
+     *   2. searchQuery StateFlow emits "f so"
+     *   3. The reactive pipeline (combine → flatMapLatest) starts processing
+     *   4. BUT the previous search may complete and emit a readyState with
+     *      the OLD query ("f s") before the pipeline cancels the old flow
+     *   5. _uiState.query is overwritten with "f s"
+     *   6. Compose recomposes the TextField with value="f s", REVERTING the
+     *      user's keystroke — the "o" disappears and the cursor jumps
+     *
+     * By updating _uiState.query immediately here, step 6 never happens
+     * because the TextField always sees the latest typed value.
+     *
+     * This primarily affects slow providers (file search via MediaStore,
+     * contact search via ContentResolver). In-memory app search is too
+     * fast for the race to be noticeable.
+     *
      * @param newQuery The new query text
      */
     fun onQueryChange(newQuery: String) {
         searchQuery.value = newQuery
+        // Immediately reflect the typed text in the UI state so the
+        // TextField is never reverted to a stale query by a completing search.
+        _uiState.update { it.copy(query = newQuery) }
     }
 
     /**

@@ -510,6 +510,40 @@ private fun performWikipediaSearch(query: String) {
    - App filtering logic runs
    - App results displayed
 
+### Query Synchronization &amp; TextField Race Condition
+
+The search dialog uses a **controlled `OutlinedTextField`** whose `value` is driven by
+`uiState.query`. The reactive pipeline (`combine` → `flatMapLatest`) captures the query
+as part of a `SearchInputs` snapshot. When a slow provider (files, contacts) completes,
+its emitted UI state carries the query from the snapshot, which may be stale if the user
+typed additional characters while the search was running.
+
+**The race condition (before fix):**
+
+1. User has typed `"f s"` → pipeline starts file search
+2. User types `"o"` → TextField internally shows `"f so"`, `onValueChange` fires
+3. The old file search completes → emits `readyState(query = "f s")` → `_uiState.query = "f s"`
+4. Compose recomposes the TextField with `value = "f s"`, **reverting the "o"**
+5. Cursor jumps, letters disappear — the input feels broken
+
+**How this is fixed:**
+
+- **`onQueryChange`** immediately updates `_uiState.query` via `_uiState.update { it.copy(query = newQuery) }`.
+  This ensures the next Compose frame always sees the latest typed text, even before the pipeline
+  produces its next emission.
+
+- **`onEach` pipeline terminal** always writes `derivedState.copy(query = searchQuery.value)` instead
+  of the snapshot query. This prevents a completing search from overwriting the query with stale text.
+
+**Which providers are affected in practice:**
+
+| Provider | Risk | Why |
+|----------|------|-----|
+| Files (`f`) | High | MediaStore queries can take hundreds of milliseconds |
+| Contacts (`c`) | Medium | ContentResolver queries are moderately slow |
+| Apps (no prefix) | None | In-memory filtering completes in under a millisecond |
+| Web/YouTube (`s`/`y`) | None | These providers return immediately (just build a URL) |
+
 For contacts specifically: 5. Contacts provider checks `hasContactsPermission` 6. If not granted → returns `PermissionRequestResult` 7. If granted → queries `ContactsRepository` 8. Returns `ContactSearchResult` for each match
 
 For files specifically:
