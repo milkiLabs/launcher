@@ -1,17 +1,3 @@
-# Performance & Reliability Audit
-
-## 1) Repeated DataStore serialization/deserialization in hot paths (**P1/P2**)
-### Evidence
-- Home and settings repositories repeatedly map preferences to full models and write full snapshots.
-
-### Risk
-- Unnecessary CPU churn on frequent updates (drag reorder, settings edits).
-
-### Suggestion
-- Keep current DataStore approach but reduce full-model remap frequency in critical operations.
-- Introduce targeted update helpers where safe.
-
----
 
 ## 2) Contacts lookup still performs nested queries in batch path (**P1**)
 ### Evidence
@@ -73,15 +59,3 @@
 ### Fix
 - Distinguish permission denial, query failure, and provider crash.
 - Surface recoverable diagnostics in debug mode and structured logs.
-
----
-
-## 7) Dependency freshness risk (**P2**)
-### Evidence
-- Compose BOM pinned to 2024 stream while current date is 2026.
-
-### Impact
-- Missed bugfixes/perf/security patches.
-
-### Fix
-- Perform controlled dependency refresh with compatibility matrix and regression pass.

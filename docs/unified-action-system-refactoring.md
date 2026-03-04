@@ -69,7 +69,9 @@ Now, actions are handled through:
 | `LauncherScreen.kt` | Removed callback parameters |
 | `AppSearchDialog.kt` | Uses LocalSearchActionHandler |
 | `SearchResultsList.kt` | Uses LocalSearchActionHandler |
-| `PermissionHandler.kt` | Added hasPermission(), onCallPermissionResult callback |
+| `PermissionHandler.kt` | Added hasPermission(), unified onPermissionResult callback |
+| `PermissionRequestCoordinator.kt` | Delegates permission sequencing to PermissionOrchestrator |
+| `PermissionOrchestrator.kt` | New pure reducer + runtime wrapper for permission state machine |
 
 ### Files to Remove (Deprecated)
 
@@ -104,13 +106,24 @@ sealed class SearchResultAction {
 3. If granted: execute immediately
 4. If not granted:
    a. Store pending action
-   b. Request permission via callback
-   c. MainActivity calls PermissionHandler.requestCallPermission()
+    b. Emit onRequestPermission(CALL_PHONE)
+    c. PermissionRequestCoordinator forwards request to PermissionOrchestrator
+    d. Orchestrator emits RequestPermission effect
+    e. Coordinator calls PermissionHandler.requestCallPermission()
 5. Permission result:
-   a. PermissionHandler callback fires
-   b. MainActivity calls ActionExecutor.onPermissionResult()
+    a. PermissionHandler emits onPermissionResult(permission, granted)
+    b. Coordinator forwards to PermissionOrchestrator.onResult(...)
+    c. Orchestrator emits DeliverResult effect
+    d. Coordinator calls ActionExecutor.onPermissionResult()
    c. If granted, execute pending action
 ```
+
+### Edge-Case Policy (Now Explicit)
+
+- Duplicate active permission requests are ignored.
+- One additional request can be queued while another is active.
+- Out-of-order/stale permission results are ignored safely.
+- Orchestration behavior is now deterministic and directly unit-testable via reducer inputs/outputs.
 
 ## Usage Example
 

@@ -5,13 +5,10 @@
  * It handles permission checking and returns either file results or a permission 
  * request placeholder.
  * 
- * SEARCHES ALL FILES:
- * - Documents (PDF, Word, Excel, etc.)
- * - Ebooks (EPUB, MOBI)
- * - Archives (ZIP, RAR)
- * - APKs, code files, and any other files
- * 
- * Images and videos are excluded from results.
+ * SEARCH STRATEGY:
+ * - Document-first results only (PDF, Office docs, text docs, archives, APKs, etc.)
+ * - Hidden/temp/cache/media/noise artifacts are excluded in repository filtering
+ * - Non-document artifacts are intentionally omitted to keep launcher search clean
  * 
  * PERMISSION REQUIREMENTS:
  * - Android 10 and below: READ_EXTERNAL_STORAGE (runtime permission)
@@ -41,7 +38,7 @@ class FilesSearchProvider(
         providerId = ProviderId.FILES,
         prefix = "f",
         name = "Files",
-        description = "Search all files on device",
+        description = "Search documents on device",
         color = androidx.compose.ui.graphics.Color(0xFFFF9800),
         icon = Icons.AutoMirrored.Filled.InsertDriveFile
     )

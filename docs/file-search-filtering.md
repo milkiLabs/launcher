@@ -2,6 +2,14 @@
 
 This document explains how file search results are filtered to provide clean, useful results without "noise" files.
 
+The current strategy is **document-first**:
+
+1. Normalize MIME metadata using Android system MIME lookup + curated fallback.
+2. Apply explicit exclusion rules (hidden/temp/cache/media/small files).
+3. Require files to match a supported document type allowlist.
+
+This three-step model is intentionally stricter than the previous "exclude-only" approach.
+
 ## The Problem
 
 When searching files on an Android device, the MediaStore database contains many files that users typically don't want to see:
@@ -16,11 +24,23 @@ When searching files on an Android device, the MediaStore database contains many
 - **Empty files**: 0-byte placeholder files
 - **Media files**: Images, videos, audio (not "documents")
 
-Without filtering, search results become cluttered with these files, making it harder to find actual user documents.
+Without strict filtering, search results become cluttered with these files, making it harder to find actual user documents.
 
-## The Solution: FileFilterConfig
+Real-world examples that should not pollute launcher search:
 
-`FileFilterConfig` is a centralized configuration object that defines all filtering rules in one place.
+- Hidden artifacts like `.crypto`
+- Style/source assets like `.css`
+- Temporary or partial downloader leftovers
+
+## The Solution: `FileFilterConfig` + MIME Normalization
+
+`FileFilterConfig` is the centralized filtering policy object. File metadata is normalized before policy checks.
+
+MIME normalization source of truth:
+
+- `MimeTypeMap` (Android system registry) as primary resolver
+- Small internal fallback map for common document formats
+- Final fallback: `application/octet-stream`
 
 ### Location
 ```
@@ -32,12 +52,18 @@ app/src/main/java/com/milki/launcher/domain/model/FileFilterConfig.kt
 The config checks multiple criteria for each file:
 
 ```
-File Found → Check Prefix → Check Extension → Check Path → Check MIME → Check Size → INCLUDE
-                ↓ excluded      ↓ excluded       ↓ excluded    ↓ excluded   ↓ excluded
-            HIDDEN FILE    TEMP FILE       CACHE DIR    MEDIA FILE   TOO SMALL
+File Found → Normalize MIME → Check Prefix → Check Extension Exclusions → Check Path Exclusions
+                                                                                                     ↓ excluded                  ↓ excluded
+                                                                                             TEMP/NOISE FILE               CACHE/SYSTEM PATH
+
+                    → Check MIME Exclusions (media) → Check Minimum Size → Check Supported Document Allowlist → INCLUDE
+                                                 ↓ excluded               ↓ excluded                         ↓ excluded
+                                             MEDIA FILE                TOO SMALL                      UNSUPPORTED TYPE
 ```
 
 If ANY check fails, the file is excluded from results.
+
+Only files that survive exclusions **and** match supported document type policy are included.
 
 ## Filtering Rules
 
@@ -92,12 +118,29 @@ Small files are typically:
 - System marker files
 - Small configuration files
 
+### 6. Supported Document Allowlist (Document-First Gate)
+
+After exclusions, files must match at least one supported type signal:
+
+- MIME matches a known document MIME (exact value)
+- MIME starts with known office-family prefixes
+- Extension is in launcher-supported document extensions
+
+This final gate is what prevents new unknown artifacts from leaking into results.
+
+Examples:
+
+- `report.pdf` → included
+- `book.epub` → included
+- `.crypto` → excluded (hidden prefix + unsupported)
+- `styles.css` → excluded (unsupported extension/MIME for launcher document search)
+
 ## Usage in Code
 
 ### Basic Usage
 
 ```kotlin
-// Check if a file should be included
+// Check if a file should be included in launcher search
 if (FileFilterConfig.shouldIncludeFile(
     fileName = "document.pdf",
     mimeType = "application/pdf",
@@ -111,19 +154,9 @@ if (FileFilterConfig.shouldIncludeFile(
 ### Individual Checks
 
 ```kotlin
-// Check just the extension
-if (FileFilterConfig.hasExcludedExtension("tmp")) {
-    // Skip .tmp files
-}
-
-// Check the path for excluded directories
-if (FileFilterConfig.pathContainsExcludedDirectory("/storage/cache/file.pdf")) {
-    // Skip files in cache directories
-}
-
-// Check if MIME type is media
-if (FileFilterConfig.hasExcludedMimeType("image/jpeg")) {
-    // Skip media files
+// Check if file matches document allowlist policy
+if (!FileFilterConfig.matchesSupportedDocumentType("styles.css", "text/css")) {
+    // CSS is not part of launcher document-first search surface
 }
 ```
 
@@ -132,13 +165,13 @@ if (FileFilterConfig.hasExcludedMimeType("image/jpeg")) {
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    FilesRepositoryImpl                       │
-│  (Queries MediaStore, uses FileFilterConfig for filtering)  │
+│  (Queries MediaStore, normalizes MIME, then filters)        │
 └─────────────────────────────┬───────────────────────────────┘
                               │ uses
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      FileFilterConfig                        │
-│  (Centralized, immutable, pure-function filtering rules)    │
+│  (Centralized, immutable, pure-function filtering policy)   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -154,27 +187,25 @@ if (FileFilterConfig.hasExcludedMimeType("image/jpeg")) {
 
 To change filtering behavior, edit `FileFilterConfig.kt`:
 
-### Add a New Excluded Extension
+### Add a New Supported Extension
 
 ```kotlin
-private val EXCLUDED_EXTENSIONS = setOf(
-    "tmp", "temp", "cache",
-    // Add your extension here:
-    "xyz",
-    // ...
+private val ALLOWED_EXTENSIONS = setOf(
+    "pdf", "docx", "xlsx",
+    // Add your supported extension here:
+    "abc"
 )
 ```
 
-### Remove an Exclusion
+### Add an Excluded Extension
 
-To allow `.log` files (maybe you're a developer searching for logs):
+If a noisy type appears repeatedly, add it to `EXCLUDED_EXTENSIONS`.
 
 ```kotlin
 private val EXCLUDED_EXTENSIONS = setOf(
-    "tmp", "temp", "cache",
-    // "log" - removed to allow log files
-    "bak", "backup",
-    // ...
+    "tmp", "cache", "log",
+    // Add explicit blocklist entries here:
+    "noiseext"
 )
 ```
 
@@ -193,6 +224,7 @@ const val MIN_FILE_SIZE_BYTES: Long = 10240L
 | File | Purpose |
 |------|---------|
 | `FileFilterConfig.kt` | Filtering rules configuration |
+| `MimeTypeUtil.kt` | MIME normalization and fallback resolution |
 | `FilesRepository.kt` | Interface defining file access |
 | `FilesRepositoryImpl.kt` | Implementation using MediaStore |
 | `FilesSearchProvider.kt` | Search provider for "f" prefix |
@@ -242,6 +274,16 @@ Benefits of pure functions:
 - Easy to test (no mocking needed)
 - Thread-safe (no shared state)
 - Predictable behavior
+
+### Why Document-First Beats Exclude-Only
+
+Exclude-only filtering eventually leaks new junk types because unknown files are not automatically blocked.
+
+Document-first filtering is safer for launcher UX because it makes inclusion explicit:
+
+- New file types are excluded until intentionally allowed.
+- Search results remain stable and relevant.
+- Noise regressions are reduced when OEMs/apps emit unusual metadata.
 
 ### Why `companion object`?
 

@@ -1,184 +1,100 @@
-/**
- * MimeTypeUtil.kt - Utility class for MIME type operations
- *
- * This file provides centralized MIME type definitions and helper functions
- * for working with file types throughout the app.
- *
- * WHY THIS FILE EXISTS:
- * Previously, MIME type strings were duplicated across multiple files:
- * - MainActivity.kt had a when block mapping extensions to MIME types
- * - FileDocument.kt had MIME strings in each type-checking function
- * This centralizes all MIME type knowledge in one place.
- *
- * USAGE:
- * ```kotlin
- * // Get MIME type from file extension
- * val mimeType = MimeTypeUtil.getMimeTypeFromExtension("pdf")
- * // Returns: "application/pdf"
- *
- * // Check if a file is a PDF
- * val isPdf = MimeTypeUtil.isPdf("application/pdf", "document.pdf")
- * // Returns: true
- * ```
- */
-
 package com.milki.launcher.util
 
+import android.webkit.MimeTypeMap
+
 /**
- * Utility object for MIME type operations.
+ * Central MIME utilities for the launcher.
  *
- * This object contains:
- * 1. MIME type constants for all supported file types
- * 2. Extension-to-MIME type mappings
- * 3. Helper functions for type checking
+ * DESIGN GOAL:
+ * - Use Android's system-maintained MIME database (`MimeTypeMap`) as the primary source of truth.
+ * - Keep only a small curated fallback table for edge cases where platform lookups can be blank
+ *   or inconsistent across devices.
  *
- * All MIME type strings are defined as constants to avoid typos
- * and provide autocomplete support in the IDE.
+ * WHY THIS APPROACH:
+ * - Manual full MIME tables drift over time and are expensive to maintain.
+ * - System lookups get updates with Android/WebKit improvements.
+ * - A small fallback map still protects common document formats when lookups fail.
  */
 object MimeTypeUtil {
+    const val MIME_BINARY_FALLBACK = "application/octet-stream"
 
-    // ========================================================================
-    // MIME TYPE CONSTANTS
-    // ========================================================================
-
-    /**
-     * MIME type for PDF documents.
-     * Standard MIME type as defined by Adobe.
-     */
-    const val MIME_PDF = "application/pdf"
-
-    /**
-     * MIME type for EPUB ebooks.
-     * Standard MIME type for electronic publication format.
-     */
-    const val MIME_EPUB = "application/epub+zip"
+    private const val MIME_PDF = "application/pdf"
+    private const val MIME_EPUB = "application/epub+zip"
+    private const val MIME_WORD_DOC = "application/msword"
+    private const val MIME_WORD_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    private const val MIME_EXCEL_XLS = "application/vnd.ms-excel"
+    private const val MIME_EXCEL_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    private const val MIME_POWERPOINT_PPT = "application/vnd.ms-powerpoint"
+    private const val MIME_POWERPOINT_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    private const val MIME_ZIP = "application/zip"
+    private const val MIME_APK = "application/vnd.android.package-archive"
 
     /**
-     * MIME type for Microsoft Word documents (.doc).
-     * Legacy Word format.
-     */
-    const val MIME_WORD_DOC = "application/msword"
-
-    /**
-     * MIME type for Microsoft Word documents (.docx).
-     * Modern Word format (Open XML).
-     */
-    const val MIME_WORD_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-
-    /**
-     * MIME type for Microsoft Excel spreadsheets (.xls).
-     * Legacy Excel format.
-     */
-    const val MIME_EXCEL_XLS = "application/vnd.ms-excel"
-
-    /**
-     * MIME type for Microsoft Excel spreadsheets (.xlsx).
-     * Modern Excel format (Open XML).
-     */
-    const val MIME_EXCEL_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-    /**
-     * MIME type for Microsoft PowerPoint presentations (.ppt).
-     * Legacy PowerPoint format.
-     */
-    const val MIME_POWERPOINT_PPT = "application/vnd.ms-powerpoint"
-
-    /**
-     * MIME type for Microsoft PowerPoint presentations (.pptx).
-     * Modern PowerPoint format (Open XML).
-     */
-    const val MIME_POWERPOINT_PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-
-    /**
-     * MIME type for plain text files.
-     * Used for .txt, .md, .json, .xml files.
-     */
-    const val MIME_TEXT_PLAIN = "text/plain"
-
-    /**
-     * MIME type for ZIP archives.
-     */
-    const val MIME_ZIP = "application/zip"
-
-    /**
-     * MIME type for Android APK files.
-     */
-    const val MIME_APK = "application/vnd.android.package-archive"
-
-    /**
-     * Wildcard MIME type for unknown files.
-     * Used when we can't determine the file type.
-     * Value is star + slash + star (written as concatenation to avoid comment issues).
-     */
-    const val MIME_UNKNOWN = "*" + "/" + "*"
-
-    // ========================================================================
-    // EXTENSION TO MIME TYPE MAPPINGS
-    // ========================================================================
-
-    /**
-     * Map of file extensions to their MIME types.
+     * Small fallback table for high-value document formats.
      *
-     * This map is used to determine the MIME type of a file
-     * when only the file extension is known.
-     *
-     * Extensions are stored in lowercase without the dot.
+     * We intentionally avoid storing an exhaustive map. The platform owns the full registry;
+     * this table is only used when platform resolution returns null/blank.
      */
-    private val extensionToMimeType: Map<String, String> = mapOf(
-        // Document formats
+    private val fallbackExtensionToMimeType: Map<String, String> = mapOf(
         "pdf" to MIME_PDF,
         "epub" to MIME_EPUB,
-
-        // Microsoft Office - Word
         "doc" to MIME_WORD_DOC,
         "docx" to MIME_WORD_DOCX,
-
-        // Microsoft Office - Excel
         "xls" to MIME_EXCEL_XLS,
         "xlsx" to MIME_EXCEL_XLSX,
-
-        // Microsoft Office - PowerPoint
         "ppt" to MIME_POWERPOINT_PPT,
         "pptx" to MIME_POWERPOINT_PPTX,
-
-        // Text formats
-        "txt" to MIME_TEXT_PLAIN,
-        "md" to MIME_TEXT_PLAIN,
-        "json" to MIME_TEXT_PLAIN,
-        "xml" to MIME_TEXT_PLAIN,
-
-        // Archive formats
+        "txt" to "text/plain",
+        "md" to "text/markdown",
+        "json" to "application/json",
+        "xml" to "application/xml",
         "zip" to MIME_ZIP,
-
-        // Android packages
-        "apk" to MIME_APK
+        "apk" to MIME_APK,
+        "csv" to "text/csv",
+        "rtf" to "application/rtf"
     )
 
-    // ========================================================================
-    // HELPER FUNCTIONS
-    // ========================================================================
-
     /**
-     * Get the MIME type for a given file extension.
+     * Returns best-effort MIME from extension.
      *
-     * This function looks up the extension in the mapping and returns
-     * the corresponding MIME type. If the extension is not recognized,
-     * it returns the wildcard type (star slash star).
-     *
-     * @param extension The file extension without the dot (e.g., "pdf", "docx")
-     * @return The MIME type string, or wildcard type if unknown
-     *
-     * Example:
-     * ```kotlin
-     * val mimeType = MimeTypeUtil.getMimeTypeFromExtension("pdf")
-     * // mimeType = "application/pdf"
-     *
-     * val unknown = MimeTypeUtil.getMimeTypeFromExtension("xyz")
-     * // unknown = wildcard type
-     * ```
+     * Resolution order:
+     * 1) Android `MimeTypeMap`
+     * 2) Internal curated fallback map
+     * 3) `application/octet-stream`
      */
     fun getMimeTypeFromExtension(extension: String): String {
-        return extensionToMimeType[extension.lowercase()] ?: MIME_UNKNOWN
+        val normalizedExtension = extension
+            .trim()
+            .removePrefix(".")
+            .lowercase()
+
+        if (normalizedExtension.isBlank()) {
+            return MIME_BINARY_FALLBACK
+        }
+
+        val systemMimeType = MimeTypeMap
+            .getSingleton()
+            .getMimeTypeFromExtension(normalizedExtension)
+
+        return systemMimeType
+            ?: fallbackExtensionToMimeType[normalizedExtension]
+            ?: MIME_BINARY_FALLBACK
+    }
+
+    /**
+     * Returns best-effort MIME for a specific file name.
+     *
+     * If a MIME value already exists and is not generic, it is preserved.
+     * If the MIME is blank or generic (`application/octet-stream`), resolution is retried from extension.
+     */
+    fun normalizeMimeType(fileName: String, providedMimeType: String): String {
+        val trimmedProvidedMime = providedMimeType.trim()
+        if (trimmedProvidedMime.isNotBlank() && trimmedProvidedMime != MIME_BINARY_FALLBACK) {
+            return trimmedProvidedMime
+        }
+
+        val extension = fileName.substringAfterLast('.', "")
+        return getMimeTypeFromExtension(extension)
     }
 
     /**
@@ -192,7 +108,7 @@ object MimeTypeUtil {
      */
     fun isPdf(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType == MIME_PDF || extension == "pdf"
+        return normalizeMimeType(fileName, mimeType) == MIME_PDF || extension == "pdf"
     }
 
     /**
@@ -206,7 +122,7 @@ object MimeTypeUtil {
      */
     fun isEpub(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType == MIME_EPUB || extension == "epub"
+        return normalizeMimeType(fileName, mimeType) == MIME_EPUB || extension == "epub"
     }
 
     /**
@@ -221,7 +137,8 @@ object MimeTypeUtil {
      */
     fun isWordDocument(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType in listOf(MIME_WORD_DOC, MIME_WORD_DOCX) ||
+        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
+        return normalizedMimeType in listOf(MIME_WORD_DOC, MIME_WORD_DOCX) ||
                 extension in listOf("doc", "docx")
     }
 
@@ -237,7 +154,8 @@ object MimeTypeUtil {
      */
     fun isExcelSpreadsheet(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType in listOf(MIME_EXCEL_XLS, MIME_EXCEL_XLSX) ||
+        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
+        return normalizedMimeType in listOf(MIME_EXCEL_XLS, MIME_EXCEL_XLSX) ||
                 extension in listOf("xls", "xlsx")
     }
 
@@ -253,7 +171,8 @@ object MimeTypeUtil {
      */
     fun isPowerPoint(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType in listOf(MIME_POWERPOINT_PPT, MIME_POWERPOINT_PPTX) ||
+        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
+        return normalizedMimeType in listOf(MIME_POWERPOINT_PPT, MIME_POWERPOINT_PPTX) ||
                 extension in listOf("ppt", "pptx")
     }
 
@@ -270,7 +189,8 @@ object MimeTypeUtil {
      */
     fun isTextFile(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType.startsWith("text/") ||
+        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
+        return normalizedMimeType.startsWith("text/") ||
                 extension in listOf("txt", "rtf", "md", "json", "xml")
     }
 
@@ -283,7 +203,7 @@ object MimeTypeUtil {
      */
     fun isZip(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType == MIME_ZIP || extension == "zip"
+        return normalizeMimeType(fileName, mimeType) == MIME_ZIP || extension == "zip"
     }
 
     /**
@@ -295,6 +215,6 @@ object MimeTypeUtil {
      */
     fun isApk(mimeType: String, fileName: String): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
-        return mimeType == MIME_APK || extension == "apk"
+        return normalizeMimeType(fileName, mimeType) == MIME_APK || extension == "apk"
     }
 }

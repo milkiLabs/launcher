@@ -30,3 +30,22 @@
 - Catch specific exception types where expected.
 - Emit structured logs/events for non-fatal failures.
 - Avoid returning empty results for all failures without surfacing reason.
+
+---
+## 2) Overgrown files and high cognitive load (**P1**)
+### Hotspots
+- `SearchResultItems.kt` (~700+ lines)
+- `SettingsComponents.kt` (~700+ lines)
+- `SearchViewModel.kt` (~650+ lines)
+- `ContactsRepositoryImpl.kt` (~650+ lines)
+
+### Impact
+- Hard to reason about behavior and regressions.
+- Large merge conflicts and fragile refactors.
+
+### Refactor direction
+- Split by feature concern, not by arbitrary size:
+  - Search result UI: one file per result type + common primitives.
+  - Settings UI: cards/inputs/prefix-editor/dialog separated.
+  - Search VM: state holder + pipeline coordinator + settings adapter.
+  - Contacts repo: query layer + mapping layer + recent-contact storage.

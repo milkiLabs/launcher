@@ -15,6 +15,7 @@ app/src/main/java/com/milki/launcher/
 │   └── PermissionHandler.kt        - Permission launchers + state updates
 └── presentation/main/
     ├── HomeButtonPolicy.kt         - Pure home-button decision logic
+    ├── PermissionOrchestrator.kt   - Internal permission state machine + reducer
     ├── SearchSessionController.kt  - Applies search/menu transitions
     └── PermissionRequestCoordinator.kt - Wires ActionExecutor <-> PermissionHandler
 ```
@@ -72,12 +73,26 @@ app/src/main/java/com/milki/launcher/
 
 **What it does:**
 - Wires `ActionExecutor` callbacks to `PermissionHandler` request APIs.
-- Wires permission result callback back to `ActionExecutor`.
+- Delegates request/result sequencing to `PermissionOrchestrator`.
+- Routes completed permission results to interested consumers (`ActionExecutor` for call replay).
 - Wires action side effects that touch `SearchViewModel` (close search, save recent app).
 
 **Why separate it?**
 - Removes callback orchestration noise from Activity.
 - Keeps inter-object wiring in one explicit place.
+
+### PermissionOrchestrator
+
+**What it does:**
+- Implements permission flow as a small state machine.
+- Serializes active requests and keeps at most one queued request.
+- Ignores stale/out-of-order results safely.
+- Emits explicit effects: `RequestPermission` and `DeliverResult`.
+
+**Why separate it?**
+- Makes behavior deterministic and testable in pure Kotlin.
+- Reduces edge-case regressions caused by ad-hoc callback ordering.
+- Enables future extension to more permissions without rewriting coordinator logic.
 
 ## Data Flow (Home Button)
 
@@ -114,17 +129,20 @@ ActionExecutor.onRequestPermission(permission)
     ▼
 PermissionRequestCoordinator
     │
-    ├──> PermissionHandler.requestContactsPermission()
-    ├──> PermissionHandler.requestCallPermission()
-    └──> PermissionHandler.requestFilesPermission()
-
-Permission result
-    │
     ▼
-PermissionHandler.onCallPermissionResult(granted)
+PermissionOrchestrator (state machine)
     │
-    ▼
-PermissionRequestCoordinator -> ActionExecutor.onPermissionResult(granted)
+    ├── emits RequestPermission effect
+    │      ├──> PermissionHandler.requestContactsPermission()
+    │      ├──> PermissionHandler.requestCallPermission()
+    │      └──> PermissionHandler.requestFilesPermission()
+    │
+    └── receives PermissionHandler.onPermissionResult(permission, granted)
+           │
+           ├── emits DeliverResult effect for CALL_PHONE
+           │      └──> ActionExecutor.onPermissionResult(granted)
+           │
+           └── ignores stale/out-of-order results safely
 ```
 
 ## Home Button Detection

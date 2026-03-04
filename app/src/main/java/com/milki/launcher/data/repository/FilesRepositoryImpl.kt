@@ -40,6 +40,7 @@ import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import com.milki.launcher.util.PermissionUtil
+import com.milki.launcher.util.MimeTypeUtil
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileFilterConfig
 import com.milki.launcher.domain.repository.FilesRepository
@@ -221,7 +222,11 @@ class FilesRepositoryImpl(
                         
                         // Extract file metadata from the cursor
                         val name = it.getString(nameColumn) ?: continue
-                        val mimeType = it.getString(mimeTypeColumn) ?: ""
+                        val rawMimeType = it.getString(mimeTypeColumn) ?: ""
+                        val normalizedMimeType = MimeTypeUtil.normalizeMimeType(
+                            fileName = name,
+                            providedMimeType = rawMimeType
+                        )
                         val size = it.getLong(sizeColumn)
                         
                         // DATE_MODIFIED is stored as Unix timestamp in seconds
@@ -240,13 +245,13 @@ class FilesRepositoryImpl(
                             ?: relativePath?.substringAfterLast('/')?.trimEnd('/') 
                             ?: "Storage"
                         
-                        Log.d(TAG, "Found file: $name, mimeType: $mimeType, size: $size")
+                        Log.d(TAG, "Found file: $name, mimeType: $normalizedMimeType, size: $size")
                         
                         // Apply filters using FileFilterConfig
                         // This replaces the old isImageOrVideo() method with comprehensive filtering
                         if (!FileFilterConfig.shouldIncludeFile(
                             fileName = name,
-                            mimeType = mimeType,
+                            mimeType = normalizedMimeType,
                             size = size,
                             relativePath = relativePath ?: ""
                         )) {
@@ -265,7 +270,7 @@ class FilesRepositoryImpl(
                             FileDocument(
                                 id = id,
                                 name = name,
-                                mimeType = mimeType,
+                                mimeType = normalizedMimeType,
                                 size = size,
                                 dateModified = dateModified,
                                 uri = fileUri,
@@ -333,7 +338,11 @@ class FilesRepositoryImpl(
                             if (id in addedFileIds) continue
                             
                             val name = it.getString(nameColumn) ?: continue
-                            val mimeType = it.getString(mimeTypeColumn) ?: ""
+                            val rawMimeType = it.getString(mimeTypeColumn) ?: ""
+                            val normalizedMimeType = MimeTypeUtil.normalizeMimeType(
+                                fileName = name,
+                                providedMimeType = rawMimeType
+                            )
                             val size = it.getLong(sizeColumn)
                             val dateModified = it.getLong(dateModifiedColumn) * 1000
                             
@@ -346,7 +355,7 @@ class FilesRepositoryImpl(
                             // Apply filters using FileFilterConfig
                             if (!FileFilterConfig.shouldIncludeFile(
                                 fileName = name,
-                                mimeType = mimeType,
+                                mimeType = normalizedMimeType,
                                 size = size,
                                 relativePath = relativePath ?: ""
                             )) {
@@ -364,7 +373,7 @@ class FilesRepositoryImpl(
                                 FileDocument(
                                     id = id,
                                     name = name,
-                                    mimeType = mimeType,
+                                    mimeType = normalizedMimeType,
                                     size = size,
                                     dateModified = dateModified,
                                     uri = fileUri,

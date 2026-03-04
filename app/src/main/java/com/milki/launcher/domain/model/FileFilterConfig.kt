@@ -240,6 +240,76 @@ object FileFilterConfig {
         "video/",   // All video types (mp4, webm, mkv, etc.)
         "audio/"    // All audio types (mp3, wav, flac, ogg, etc.)
     )
+
+    // ========================================================================
+    // ALLOWLIST (DOCUMENT-FIRST POLICY)
+    // ========================================================================
+    // IMPORTANT DESIGN DECISION:
+    // We no longer treat file search as "everything except excluded".
+    // Instead we use a document-first allowlist model:
+    // 1) file must NOT match any explicit exclusion rule
+    // 2) file must match at least one supported document MIME family or extension
+    //
+    // Why this is safer:
+    // - "Exclude only" models leak noise as new unknown extensions appear.
+    // - Allowlist models are stricter and predictable for launcher search UX.
+    // - This directly prevents garbage artifacts (for example hidden/meta/css/crypto files)
+    //   from appearing unless we intentionally support them.
+
+    /**
+     * MIME prefixes that represent strongly-typed office/document families.
+     */
+    private val ALLOWED_MIME_PREFIXES = setOf(
+        "application/vnd.openxmlformats-officedocument.",
+        "application/vnd.ms-"
+    )
+
+    /**
+     * Explicit MIME values that are considered searchable document content.
+     *
+     * We intentionally do NOT include generic values like `application/octet-stream`
+     * or broad categories like `text/*` to avoid admitting CSS or unknown artifacts.
+     */
+    private val ALLOWED_EXACT_MIME_TYPES = setOf(
+        "application/pdf",
+        "application/epub+zip",
+        "application/msword",
+        "application/vnd.ms-excel",
+        "application/vnd.ms-powerpoint",
+        "application/zip",
+        "application/x-rar-compressed",
+        "application/x-7z-compressed",
+        "application/gzip",
+        "application/vnd.android.package-archive",
+        "application/json",
+        "application/xml",
+        "application/rtf",
+        "text/plain",
+        "text/markdown",
+        "text/csv",
+        "text/tab-separated-values",
+        "text/xml"
+    )
+
+    /**
+     * Explicit extension allowlist for the launcher's file search surface.
+     *
+     * This list reflects practical, user-facing documents and portable bundles.
+     * Extensions not listed here are excluded by default to keep results clean.
+     */
+    private val ALLOWED_EXTENSIONS = setOf(
+        // Documents & ebooks
+        "pdf", "epub", "txt", "rtf", "md",
+        "doc", "docx", "odt",
+        "xls", "xlsx", "ods", "csv", "tsv",
+        "ppt", "pptx", "odp",
+
+        // Structured text documents
+        "json", "xml", "yaml", "yml", "toml", "ini", "conf",
+
+        // Archives & packages
+        "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "apk"
+    )
     
     // ========================================================================
     // SIZE EXCLUSIONS
@@ -324,9 +394,41 @@ object FileFilterConfig {
         if (size < MIN_FILE_SIZE_BYTES) {
             return false
         }
+
+        // Check 6: File must match supported document policy
+        // This is the core "document-first" gate that prevents random artifacts
+        // from entering results even when they don't match explicit exclusions.
+        if (!matchesSupportedDocumentType(fileName, mimeType)) {
+            return false
+        }
         
         // All checks passed - include this file
         return true
+    }
+
+    /**
+     * Returns true when the file matches launcher-supported document families.
+     *
+     * Matching strategy:
+     * - MIME starts with an allowed prefix OR
+     * - extension is in the explicit allowlist
+     *
+     * The extension check keeps behavior deterministic when MIME metadata is missing
+     * or too generic.
+     */
+    fun matchesSupportedDocumentType(fileName: String, mimeType: String): Boolean {
+        val extension = fileName.substringAfterLast('.', "").lowercase()
+        val normalizedMimeType = mimeType.trim().lowercase()
+
+        val hasAllowedMimePrefix = ALLOWED_MIME_PREFIXES.any { prefix ->
+            normalizedMimeType.startsWith(prefix)
+        }
+
+        val hasAllowedExactMimeType = normalizedMimeType in ALLOWED_EXACT_MIME_TYPES
+
+        val hasAllowedExtension = extension.isNotBlank() && extension in ALLOWED_EXTENSIONS
+
+        return hasAllowedExactMimeType || hasAllowedMimePrefix || hasAllowedExtension
     }
     
     // ========================================================================
