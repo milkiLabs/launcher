@@ -147,6 +147,116 @@ fun startExternalContactDrag(
 }
 
 /**
+ * Starts an external drag for an item being pulled OUT of a folder popup.
+ *
+ * WHY THIS FUNCTION EXISTS:
+ * When the user long-presses an icon inside [FolderPopupDialog] and the pointer
+ * leaves the popup boundary, the dialog cannot hand a Compose-level drag to the
+ * home grid because they live in different Compose surfaces.  Instead the folder
+ * popup calls this function, which starts a platform [android.view.View.startDragAndDrop]
+ * operation, and the [AppExternalDropTargetOverlay] on the home grid receives the
+ * resulting [android.view.DragEvent].
+ *
+ * HOW THE PAYLOAD IS TAGGED:
+ * The item is wrapped in an [ExternalDragItem.FolderChild] that carries both the
+ * source [folderId] and the [item] itself.  This lets the drop handler call
+ * [HomeRepository.extractItemFromFolder] rather than a generic pin/move operation.
+ *
+ * THE DRAG SHADOW:
+ * Each item type gets a small icon-sized shadow via [AppIconDragShadowBuilder]:
+ * - [HomeItem.PinnedApp]     → cached app icon (AppIconMemoryCache) or sym_def_app_icon
+ * - [HomeItem.PinnedFile]    → ic_menu_agenda
+ * - [HomeItem.PinnedContact] → ic_menu_myplaces
+ * - [HomeItem.AppShortcut]   → sym_def_app_icon
+ * - anything else            → ic_menu_add
+ *
+ * IMPORTANT: [View.DragShadowBuilder(hostView)] is intentionally NEVER used here.
+ * [hostView] is [LocalView.current] — the full-screen Compose root.  The default
+ * constructor renders the entire attached view as the shadow, which would show the
+ * whole screen dragging under the finger.
+ *
+ * @param hostView  Any attached view in the same window (e.g. [LocalView.current]).
+ * @param folderId  ID of the folder the item is leaving.
+ * @param item      The [HomeItem] being dragged out.
+ * @return true when the platform drag-and-drop session started successfully.
+ */
+fun startExternalFolderItemDrag(
+    hostView: View,
+    folderId: String,
+    item: com.milki.launcher.domain.model.HomeItem,
+    dragShadowSize: Dp = IconSize.appList
+): Boolean {
+    // ClipData is required by the platform API but we don't actually decode it —
+    // we always read localState first in ExternalDragPayloadCodec.decodeDragItem.
+    // We still provide a minimal plain-text clip so older API levels are happy.
+    val clipData = android.content.ClipData.newPlainText(
+        ExternalDragPayloadCodec.DRAG_CLIP_LABEL,
+        item.id
+    )
+
+    val density = hostView.context.resources.displayMetrics.density
+    val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
+
+    // Choose an appropriate drag shadow drawable based on the item type.
+    //
+    // IMPORTANT: Never use View.DragShadowBuilder(hostView) here.
+    // hostView is LocalView.current — the full-screen Compose root view.
+    // Passing it to the default DragShadowBuilder causes Android to render
+    // the ENTIRE SCREEN as the drag shadow, which is the bug reported for PDF files.
+    //
+    // Instead, always use AppIconDragShadowBuilder with a specific Drawable so the
+    // shadow is a small, item-representative icon.
+    val shadowDrawable: Drawable? = when (item) {
+        is com.milki.launcher.domain.model.HomeItem.PinnedApp -> {
+            // Try the in-memory app icon cache first; fall back to the system default.
+            AppIconMemoryCache.get(item.packageName)
+                ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
+        }
+        is com.milki.launcher.domain.model.HomeItem.PinnedFile -> {
+            // Use the same file icon that startExternalFileDrag uses.
+            ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_agenda)
+        }
+        is com.milki.launcher.domain.model.HomeItem.PinnedContact -> {
+            // Use the same contact icon that startExternalContactDrag uses.
+            ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_myplaces)
+        }
+        is com.milki.launcher.domain.model.HomeItem.AppShortcut -> {
+            // Generic app icon for shortcuts.
+            ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
+        }
+        else -> {
+            // FolderItem (shouldn't be dragged out of itself) and any future types:
+            // use a neutral document icon rather than the full-screen view shadow.
+            ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_add)
+        }
+    }
+
+    val dragShadowBuilder: View.DragShadowBuilder = if (shadowDrawable != null) {
+        AppIconDragShadowBuilder(shadowDrawable, shadowSizePx)
+    } else {
+        // Last-resort fallback: an empty shadow (0×0) so at least no screen content leaks.
+        object : View.DragShadowBuilder() {
+            override fun onProvideShadowMetrics(outShadowSize: android.graphics.Point, outShadowTouchPoint: android.graphics.Point) {
+                outShadowSize.set(shadowSizePx, shadowSizePx)
+                outShadowTouchPoint.set(shadowSizePx / 2, shadowSizePx / 2)
+            }
+            override fun onDrawShadow(canvas: android.graphics.Canvas) { /* intentionally blank */ }
+        }
+    }
+
+    // Wrap the item so the drop handler knows to call extractItemFromFolder.
+    val payload = ExternalDragItem.FolderChild(folderId = folderId, childItem = item)
+
+    return startExternalDragWithFallbackHosts(
+        hostView = hostView,
+        clipData = clipData,
+        localState = payload,
+        dragShadowBuilder = dragShadowBuilder,
+        failureLogLabel = "folder-child:${folderId}/${item.id}"
+    )
+}
+
+/**
  * Shared host-selection and drag start logic for all external payload types.
  */
 private fun startExternalDragWithFallbackHosts(

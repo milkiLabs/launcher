@@ -356,9 +356,8 @@ class HomeViewModel(
      *
      * Called when the user drags one home screen icon onto another.
      * Both items are removed from the home grid and placed inside the new folder.
-     *
-     * After the folder is created, it opens automatically so the user can see
-     * the result immediately.
+     * The folder icon appears at [atPosition] but does NOT open automatically —
+     * the user can tap it to open it.
      *
      * @param item1 The dragged item
      * @param item2 The item that was dropped onto
@@ -369,13 +368,7 @@ class HomeViewModel(
             fallbackErrorMessage = "Could not create folder"
         ) {
             val folder = homeRepository.createFolder(item1, item2, atPosition)
-            if (folder != null) {
-                // Automatically open the folder so the user sees it was created.
-                openFolderIdFlow.value = folder.id
-                true
-            } else {
-                false
-            }
+            folder != null
         }
     }
 
@@ -441,6 +434,128 @@ class HomeViewModel(
     }
 
     /**
+     * Moves an item from one folder directly into another folder.
+     *
+     * Called when the user drags an icon out of a folder popup and drops it
+     * onto a DIFFERENT folder icon on the home grid.
+     *
+     * WHY A DEDICATED METHOD:
+     * Using [extractItemFromFolder] + [addItemToFolder] in sequence is wrong because
+     * [extractItemFromFolder] places the item on the HOME GRID at the drop position
+     * (which is already occupied by the target folder), causing a position collision.
+     * This method keeps the item off the grid entirely — it just moves it between
+     * the two folders' children lists in a single serialized mutation.
+     *
+     * CLEANUP POLICY (applied to the source folder):
+     * - 0 children remaining → source folder deleted
+     * - 1 child remaining   → source folder unwrapped to plain icon
+     * - 2+ children         → source folder updated in place
+     *
+     * @param sourceFolderId The folder the item is coming FROM
+     * @param itemId         The ID of the item being moved
+     * @param item           The actual [HomeItem] to add to the target folder
+     * @param targetFolderId The folder the item is going INTO
+     */
+    fun moveItemBetweenFolders(
+        sourceFolderId: String,
+        itemId: String,
+        item: HomeItem,
+        targetFolderId: String
+    ) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not move item between folders"
+        ) {
+            // Step 1: remove from source folder and apply cleanup policy.
+            // removeItemFromFolder returns null if the folder was deleted (≤1 child left),
+            // or the remaining children list if the folder still exists.
+            homeRepository.removeItemFromFolder(sourceFolderId, itemId)
+
+            // Step 2: add to the target folder.
+            // addItemToFolder removes the item from the flat pinnedItems list (if present)
+            // and appends it to the target folder's children.  Since we only removed it
+            // from the source folder's children list (not the flat list), we pass the item
+            // object directly — the repository will ignore missing flat-list entries.
+            homeRepository.addItemToFolder(folderId = targetFolderId, item = item)
+        }
+    }
+
+    /**
+     * Extracts an item from a folder and creates a NEW folder with it and
+     * an existing non-folder home grid icon at the same cell position.
+     *
+     * This is called when the user drags an icon OUT of a folder popup and
+     * drops it DIRECTLY ONTO another (non-folder) icon on the home grid.
+     * The expected result is the same as dragging two normal icons together:
+     * a brand new folder appears at [atPosition] containing both items.
+     *
+     * HOW IT WORKS — STEP BY STEP:
+     *
+     * Step 1 — Remove [childItem] from its source folder.
+     *   [childItem] lives inside its folder's children list.  It is NOT present
+     *   in the flat [pinnedItems] grid list, because folder children are stored
+     *   separately inside [HomeItem.FolderItem.children].
+     *   After removal, the source folder's cleanup policy is applied:
+     *     - 0 children remaining → the source folder is auto-deleted from the grid.
+     *     - 1 child remaining    → the folder is "unwrapped" to a plain icon.
+     *     - 2+ children          → folder stays, just minus this one item.
+     *
+     * Step 2 — Create a new folder from [childItem] + [occupantItem] at [atPosition].
+     *   [HomeRepository.createFolder] does several things:
+     *     a) Looks for both items in the flat pinnedItems list and removes them.
+     *        For [childItem], this search is a no-op (it was never in the flat list).
+     *        For [occupantItem], it IS in the flat list and gets removed from there.
+     *     b) Creates a new [HomeItem.FolderItem] containing both items.
+     *     c) Places the new folder at [atPosition] in the flat pinnedItems list.
+     *
+     * WHY NOT reuse [extractItemFromFolder] + [createFolder] as separate mutations?
+     *   They are separate DataStore writes, which could cause a race condition and
+     *   a brief UI flash.  [launchSerializedHomeMutation] ensures both writes
+     *   happen back-to-back in the same coroutine, eliminating that risk.
+     *
+     * @param sourceFolderId The folder the [childItem] is being dragged OUT of.
+     * @param childItem      The item being dragged — the folder child.
+     * @param occupantItem   The home grid item being dropped ONTO (not a folder).
+     * @param atPosition     The grid cell where the NEW folder will appear.
+     *                       This is the same position [occupantItem] occupies.
+     */
+    fun extractFolderChildOntoItem(
+        sourceFolderId: String,
+        childItem: HomeItem,
+        occupantItem: HomeItem,
+        atPosition: GridPosition
+    ) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not create folder from drag"
+        ) {
+            // ----------------------------------------------------------------
+            // Step 1: Remove childItem from its source folder.
+            //
+            // removeItemFromFolder returns:
+            //   null  → folder was deleted or unwrapped (cleanup policy applied).
+            //   list  → remaining children, folder still exists.
+            //
+            // Either way we do not need the return value here — we just need
+            // the item to be gone from the source folder before step 2.
+            // ----------------------------------------------------------------
+            homeRepository.removeItemFromFolder(sourceFolderId, childItem.id)
+
+            // ----------------------------------------------------------------
+            // Step 2: Create a new folder containing childItem + occupantItem.
+            //
+            // createFolder will:
+            //   • Try to remove childItem from pinnedItems (no-op, not there).
+            //   • Remove occupantItem from pinnedItems (it IS there).
+            //   • Insert a new FolderItem at atPosition with both items as children.
+            //
+            // We pass childItem first so it appears as the "icon 1" in the folder
+            // (the one the user was dragging), matching the expected visual order.
+            // ----------------------------------------------------------------
+            val folder = homeRepository.createFolder(childItem, occupantItem, atPosition)
+            folder != null
+        }
+    }
+
+    /**
      * Merges two folders together.
      *
      * Called when the user drags one folder icon onto another.
@@ -493,22 +608,17 @@ class HomeViewModel(
         ) {
             val applied = homeRepository.extractItemFromFolder(folderId, itemId, targetPosition)
             if (applied) {
-                // Check whether the folder was deleted (cleanup policy fired).
-                // If the open folder ID no longer appears in pinnedItems after the write,
-                // close the popup. We probe the current state synchronously here.
-                // (The combine will also reflect this change, but closing eagerly avoids
-                //  a brief flash of the popup with no items.)
-                val currentFolderId = openFolderIdFlow.value
-                if (currentFolderId == folderId) {
-                    // Try to find the folder in the freshly-written list.
-                    // We use a best-effort approach: if openFolderItem becomes null
-                    // in the next uiState emission, the popup closes via the combine.
-                    // We don't need to explicitly close here because the combine will
-                    // produce openFolderItem=null once the folder disappears from pinnedItems.
-                    // However, clearing the ID eagerly avoids the 1-frame popup-wink.
-                    // We can't read pinnedItems synchronously here (it's a Flow), so we
-                    // rely on the combine. Hence: no action needed here, the combine handles it.
-                }
+                // Always close the popup when a drag-out succeeds.
+                //
+                // WHY NOT RELY ON THE COMBINE:
+                // The combine sets openFolderItem=null only when the folder is no longer
+                // present in pinnedItems (i.e. cleanup policy deleted/unwrapped it because
+                // ≤1 child remained). If the folder still has 2+ children after the
+                // drag-out, it stays in pinnedItems and the combine never closes the popup.
+                //
+                // The drag-out gesture ends the folder interaction regardless of how many
+                // children remain, so we always dismiss here.
+                openFolderIdFlow.value = null
             }
             applied
         }

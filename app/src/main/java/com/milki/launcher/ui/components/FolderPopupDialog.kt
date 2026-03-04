@@ -28,26 +28,19 @@
  * DRAG-OUT MECHANISM
  * ============================================================================
  *
- * "Drag-out" refers to dragging an icon outside the popup card onto the home grid:
+ * "Drag-out" refers to dragging an icon outside the popup card onto the home grid.
+ * The popup uses Android's platform drag-and-drop ([View.startDragAndDrop]) so the
+ * native OS shadow follows the finger automatically — no manual coordinate forwarding
+ * is needed and no floating preview is rendered in LauncherScreen.
  *
- *   1. User starts dragging an icon inside the popup.
- *   2. As the drag continues and the pointer exits the popup card's screen bounds,
- *      [onItemDraggedOutside] is called with the item and current screen offset.
- *   3. LauncherScreen receives this callback, stores `floatingPreviewItem` +
- *      `floatingPreviewOffset`, and renders a floating preview above the home grid.
- *   4. As the pointer moves, [onItemDragMovedOutside] is called to update the offset.
- *   5. When the pointer is released outside, [onItemDroppedOutside] is called.
- *      LauncherScreen converts the screen offset to a grid cell and calls
- *      `homeViewModel.extractItemFromFolder(...)`.
- *   6. If the drag re-enters the popup (user brought finger back), [onItemDragReturnedInside]
- *      is called and the drag continues as normal internal drag.
- *
- * Why the popup stays MOUNTED during drag-out (alpha=1, not removed):
- *   - Compose gesture handlers are bound to the composable that first received the
- *     pointer-down event. If the popup is removed while the drag is active, the
- *     gesture channel breaks and `onDragEnd` never fires.
- *   - Instead, the popup stays fully rendered but the dragged item is ghost-faded
- *     (alpha = 0.2f) to indicate it has "left" the popup.
+ *   1. User long-presses an icon inside the popup → Compose detectDragGesture starts.
+ *   2. Accumulated drag deltas tracked in [onDragDelta] via [dragOffset].
+ *   3. When the computed pointer position exits [popupWindowRect], the popup calls
+ *      [startExternalFolderItemDrag] with an [ExternalDragItem.FolderChild] payload.
+ *   4. [onClose] is called immediately — the folder popup is dismissed.
+ *   5. The OS animates a shadow icon under the finger until the user releases.
+ *   6. [AppExternalDropTargetOverlay] on the home grid receives ACTION_DROP and
+ *      calls [onFolderItemExtracted] → ViewModel [extractItemFromFolder].
  *
  * ============================================================================
  * COORDINATE SYSTEM
@@ -66,19 +59,43 @@
  * CALLBACKS
  * ============================================================================
  *
+ * ============================================================================
+ * DRAG-OUT (UPDATED MECHANISM)
+ * ============================================================================
+ *
+ * Drag-out now uses Android's platform drag-and-drop ([View.startDragAndDrop])
+ * rather than manual window-coordinate forwarding.  This gives us the native
+ * shadow that follows the finger automatically — no manual floating preview is
+ * needed in [LauncherScreen].
+ *
+ * FLOW:
+ *   1. User starts dragging an icon inside the popup (Compose detectDragGesture).
+ *   2. As the accumulated pointer position exits [popupWindowRect], we call
+ *      [startExternalFolderItemDrag], which starts a platform DnD session with
+ *      an [ExternalDragItem.FolderChild] payload.
+ *   3. We immediately call [onClose] — the popup is dismissed.
+ *   4. The platform shadow follows the finger automatically.
+ *   5. When the user releases over the home grid, [AppExternalDropTargetOverlay]
+ *      receives the DragEvent and calls its [onFolderItemExtracted] → ViewModel
+ *      [extractItemFromFolder].
+ *
+ * Because the popup is closed as soon as the drag-out starts, NONE of the old
+ * "onItemDraggedOutside / onItemDroppedOutside" callbacks are needed anymore.
+ *
+ * ============================================================================
+ * CALLBACKS
+ * ============================================================================
+ *
  * @param folder                    The folder to display. Passed down from the ViewModel's
  *                                  derived [HomeUiState.openFolderItem]. Changes here
  *                                  (e.g. item added by another drag) automatically recompose.
- * @param onClose                   Called when the user taps the scrim or back button.
+ * @param onClose                   Called when the user taps the scrim, back button, OR when
+ *                                  a drag-out starts (the popup is dismissed immediately).
  * @param onRenameFolder            Called when the user confirms a new folder name via
  *                                  the editable title at the top of the popup.
  * @param onItemClick               Called when the user taps an icon to launch it.
  * @param onReorderFolderItems      Called when internal drag-drop changes the children order.
  * @param onRemoveItemFromFolder    Called when the user uses the context menu to remove an icon.
- * @param onItemDraggedOutside      Called once when the drag first exits the popup bounds.
- * @param onItemDragMovedOutside    Called every drag update while the drag is outside bounds.
- * @param onItemDroppedOutside      Called when the drag ends outside the popup bounds.
- * @param onItemDragReturnedInside  Called when the drag re-enters the popup bounds.
  */
 
 package com.milki.launcher.ui.components
@@ -137,11 +154,13 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.dragdrop.startExternalFolderItemDrag
 import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -166,11 +185,7 @@ fun FolderPopupDialog(
     onRenameFolder: (newName: String) -> Unit,
     onItemClick: (HomeItem) -> Unit,
     onReorderFolderItems: (newChildren: List<HomeItem>) -> Unit,
-    onRemoveItemFromFolder: (itemId: String) -> Unit,
-    onItemDraggedOutside: (item: HomeItem, screenOffset: Offset) -> Unit = { _, _ -> },
-    onItemDragMovedOutside: (item: HomeItem, screenOffset: Offset) -> Unit = { _, _ -> },
-    onItemDroppedOutside: (item: HomeItem, screenOffset: Offset) -> Unit = { _, _ -> },
-    onItemDragReturnedInside: () -> Unit = {}
+    onRemoveItemFromFolder: (itemId: String) -> Unit
 ) {
 
     // =========================================================================
@@ -292,6 +307,30 @@ fun FolderPopupDialog(
     var cellSizePx by remember { mutableStateOf(0f) }
 
     val hapticFeedback = LocalHapticFeedback.current
+
+    /**
+     * The Android View that owns our Compose content.  Needed to call
+     * [startExternalFolderItemDrag], which requires a [android.view.View] to
+     * start the platform drag-and-drop session.
+     *
+     * [LocalView.current] always returns the nearest View that hosts the
+     * current Compose hierarchy — safe to capture here and pass to platform APIs.
+     */
+    val hostView = LocalView.current
+
+    /**
+     * Tracks whether we have already started a platform DnD session for the
+     * current drag.  Set to true the moment [startExternalFolderItemDrag] is
+     * called; reset to false in [onDragEnd] / [onDragCancel].
+     *
+     * PURPOSE:
+     * After calling [startExternalFolderItemDrag]+[onClose] the popup may still
+     * be alive for one or two frames while Compose processes the state change.
+     * During that window, the Compose gesture dispatcher might still deliver
+     * [onDragDelta] calls.  The guard prevents us from starting a second
+     * platform drag or calling [onClose] again.
+     */
+    var isPlatformDragActive by remember { mutableStateOf(false) }
 
     // =========================================================================
     // ROOT LAYOUT: Full-screen scrim → centered card
@@ -428,11 +467,17 @@ fun FolderPopupDialog(
                             onDragDelta = { delta ->
                                 dragOffset += delta
 
-                                // ------------------------------------------------
+                                // ----------------------------------------------------------------
                                 // Drag-out detection
-                                // ------------------------------------------------
-                                // Compute the absolute pointer position by adding the
-                                // item's starting window offset to the accumulated drag.
+                                // ----------------------------------------------------------------
+                                // If a platform drag is already active we do nothing here.
+                                // The native shadow already follows the finger; Compose just stops
+                                // delivering meaningful pointer updates at this point anyway.
+                                if (isPlatformDragActive) return@FolderPopupItem
+
+                                // Compute where the pointer is RIGHT NOW in window coordinates.
+                                // dragStartWindowPos is the item top-left captured in onDragStart;
+                                // dragOffset is the accumulated Compose-local delta since then.
                                 val absolutePointerPos = dragStartWindowPos + dragOffset
 
                                 val wasOutside = isDraggingOut
@@ -440,33 +485,66 @@ fun FolderPopupDialog(
 
                                 when {
                                     isNowOutside && !wasOutside -> {
-                                        // Just exited popup bounds for the first time.
+                                        // ---- Pointer just crossed the popup boundary ----
+                                        // 1. Mark dragging-out visually (item goes ghost).
                                         isDraggingOut = true
-                                        dragOutItem?.let { escapedItem ->
-                                            onItemDraggedOutside(escapedItem, absolutePointerPos)
+
+                                        // 2. Hand off to the Android platform drag-and-drop
+                                        //    system.  The native shadow will follow the finger
+                                        //    automatically — no manual coordinate tracking needed.
+                                        val escapedItem = dragOutItem
+                                        if (escapedItem != null) {
+                                            isPlatformDragActive = true
+                                            // Start the platform drag session.  This creates a
+                                            // shadow icon that the OS moves under the user's
+                                            // finger until they release or cancel.
+                                            startExternalFolderItemDrag(
+                                                hostView  = hostView,
+                                                folderId  = folder.id,
+                                                item      = escapedItem
+                                            )
+                                            // Close the popup immediately.  The platform drag
+                                            // session is now independent of this composable;
+                                            // AppExternalDropTargetOverlay on the home grid will
+                                            // receive the drop event.
+                                            onClose()
                                         }
                                     }
                                     isNowOutside && wasOutside -> {
-                                        // Still outside — update parent with latest position.
-                                        dragOutItem?.let { escapedItem ->
-                                            onItemDragMovedOutside(escapedItem, absolutePointerPos)
-                                        }
+                                        // Still outside bounds but no platform drag (shouldn't
+                                        // happen due to the guard above, but leave as no-op).
                                     }
                                     !isNowOutside && wasOutside -> {
-                                        // Re-entered popup bounds.
+                                        // Re-entered popup bounds (only if platform drag never
+                                        // started — user moved back inside very quickly).
                                         isDraggingOut = false
-                                        onItemDragReturnedInside()
                                     }
-                                    // else: still inside, no-op
+                                    // else: still inside, do nothing
                                 }
                             },
                             onDragEnd = {
                                 val currentDraggedItem = localChildren.find { it.id == draggedItemId }
 
-                                if (isDraggingOut && currentDraggedItem != null) {
-                                    // ---- Drag released OUTSIDE popup ----
-                                    val absoluteDropPos = dragStartWindowPos + dragOffset
-                                    onItemDroppedOutside(currentDraggedItem, absoluteDropPos)
+                                if (isPlatformDragActive) {
+                                    // The platform DnD session has already taken over and this
+                                    // popup is closing.  Nothing to do here — the drop is handled
+                                    // by AppExternalDropTargetOverlay on the home grid.
+                                    draggedItemId = null
+                                    dragOffset = Offset.Zero
+                                    isDraggingOut = false
+                                    dragOutItem = null
+                                    isPlatformDragActive = false
+                                    isDraggingInternally = false
+                                } else if (isDraggingOut && currentDraggedItem != null) {
+                                    // Drag released outside but platform DnD was not started
+                                    // (e.g. startDragAndDrop returned false).  Drop is lost —
+                                    // just reset state so the popup returns to normal.
+                                    draggedItemId = null
+                                    dragOffset = Offset.Zero
+                                    isDraggingOut = false
+                                    dragOutItem = null
+                                    isPlatformDragActive = false
+                                    isDraggingInternally = false
                                 } else if (currentDraggedItem != null) {
                                     // ---- Drag released INSIDE popup: reorder ----
                                     val absoluteDropPos = dragStartWindowPos + dragOffset
@@ -496,15 +574,19 @@ fun FolderPopupDialog(
                                 dragOffset = Offset.Zero
                                 isDraggingOut = false
                                 dragOutItem = null
+                                isPlatformDragActive = false
                                 isDraggingInternally = false
                             },
                             onDragCancel = {
+                                // Gesture was cancelled (e.g. another pointer event stole focus).
+                                // Reset all drag state.  The platform drag (if one was started)
+                                // will be cancelled by the OS independently.
                                 draggedItemId = null
                                 dragOffset = Offset.Zero
                                 isDraggingOut = false
                                 dragOutItem = null
+                                isPlatformDragActive = false
                                 isDraggingInternally = false
-                                onItemDragReturnedInside()
                             }
                         )
                     }
@@ -515,8 +597,10 @@ fun FolderPopupDialog(
         // ─── Internal floating drag preview ──────────────────────────────────
         // While dragging INSIDE the popup, a floating PinnedItem ghost follows
         // the user's finger to show where the icon will land.
-        // This is suppressed during drag-out (the parent LauncherScreen shows
-        // its own floating preview in that case).
+        //
+        // NOTE: Once a drag-out starts we call onClose() immediately, so this
+        // preview will never be rendered during a cross-boundary drag.  The
+        // platform DnD shadow handles the visual for that case.
         val draggedItem = localChildren.find { it.id == draggedItemId }
         if (draggedItem != null && draggedItemId != null && !isDraggingOut) {
             // The floating preview is positioned in window coordinates.

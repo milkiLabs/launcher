@@ -43,6 +43,7 @@ import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.ui.screens.LauncherScreen
 import com.milki.launcher.ui.screens.openPinnedItem
 import com.milki.launcher.ui.theme.LauncherTheme
+import com.milki.launcher.domain.model.HomeItem
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -168,7 +169,13 @@ class MainActivity : ComponentActivity() {
                             isHomescreenMenuOpen = isOpen
                         },
                         onPinnedItemClick = { item ->
-                            openPinnedItem(item, context)
+                            // Folder icons open the FolderPopupDialog.
+                            // All other item types are launched directly.
+                            if (item is HomeItem.FolderItem) {
+                                homeViewModel.openFolder(item.id)
+                            } else {
+                                openPinnedItem(item, context)
+                            }
                         },
                         onPinnedItemLongPress = { item ->
                             /**
@@ -194,6 +201,83 @@ class MainActivity : ComponentActivity() {
                              * - If item is already pinned: move existing icon to drop cell.
                              */
                             homeViewModel.pinOrMoveHomeItemToPosition(item, position)
+                        },
+                        // ---- Folder system callbacks ----
+                        // All operations go through HomeViewModel which serializes
+                        // writes via positionUpdateMutex and delegates to HomeRepository.
+                        onCreateFolder = { item1, item2, atPosition ->
+                            // Two non-folder icons were dropped on each other.
+                            // Both icons are removed from the grid and a new FolderItem
+                            // is created at atPosition containing both as children.
+                            homeViewModel.createFolder(item1, item2, atPosition)
+                        },
+                        onAddItemToFolder = { folderId, item ->
+                            // A non-folder icon was dropped onto an existing folder.
+                            // The icon is moved inside the folder's children list.
+                            homeViewModel.addItemToFolder(folderId, item)
+                        },
+                        onMergeFolders = { sourceFolderId, targetFolderId ->
+                            // A folder icon was dropped onto another folder.
+                            // All children of the source folder are appended to the
+                            // target folder, then the source folder is deleted.
+                            homeViewModel.mergeFolders(sourceFolderId, targetFolderId)
+                        },
+                        onFolderClose = {
+                            // User tapped the scrim or pressed back inside the popup.
+                            homeViewModel.closeFolder()
+                        },
+                        onFolderRename = { folderId, newName ->
+                            homeViewModel.renameFolder(folderId, newName)
+                        },
+                        onFolderItemClick = { item ->
+                            // Tap on an icon inside the folder popup — launch it.
+                            // FolderItem cannot appear here because nesting is not
+                            // supported, but the when in openPinnedItem is exhaustive.
+                            openPinnedItem(item, context)
+                        },
+                        onFolderItemRemove = { folderId, itemId ->
+                            // "Remove from folder" context-menu action.
+                            // Cleanup policy fires inside the repo: if ≤1 child remains
+                            // the folder is unwrapped/deleted and the popup closes.
+                            homeViewModel.removeItemFromFolder(folderId, itemId)
+                        },
+                        onFolderItemReorder = { folderId, newChildren ->
+                            // User reordered icons inside the folder popup via drag.
+                            homeViewModel.reorderFolderItems(folderId, newChildren)
+                        },
+                        onExtractItemFromFolder = { folderId, itemId, targetPosition ->
+                            // User dragged an icon out of the folder popup and released
+                            // it over an empty home grid cell. Move the item from the
+                            // folder to the resolved grid cell. Folder cleanup policy applies.
+                            homeViewModel.extractItemFromFolder(folderId, itemId, targetPosition)
+                        },
+                        onMoveFolderItemToFolder = { sourceFolderId, itemId, item, targetFolderId ->
+                            // User dragged an icon from one folder popup and dropped it
+                            // onto a different folder icon. Move between folders without
+                            // placing the item on the grid (avoids position collision).
+                            homeViewModel.moveItemBetweenFolders(
+                                sourceFolderId = sourceFolderId,
+                                itemId = itemId,
+                                item = item,
+                                targetFolderId = targetFolderId
+                            )
+                        },
+                        onFolderChildDroppedOnItem = { sourceFolderId, childItem, occupantItem, atPosition ->
+                            // User dragged a folder child and dropped it directly onto
+                            // a NON-FOLDER home icon.  This should work just like dragging
+                            // two normal grid icons together: the two items are merged into
+                            // a brand new folder at that grid cell.
+                            //
+                            // The ViewModel handles both steps in a single serialized
+                            // mutation:
+                            //   1. Remove childItem from its source folder (cleanup policy applies).
+                            //   2. Create a new folder with childItem + occupantItem at atPosition.
+                            homeViewModel.extractFolderChildOntoItem(
+                                sourceFolderId = sourceFolderId,
+                                childItem = childItem,
+                                occupantItem = occupantItem,
+                                atPosition = atPosition
+                            )
                         }
                     )
                 }

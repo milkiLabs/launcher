@@ -46,6 +46,30 @@ object ExternalDragPayloadCodec {
         data class App(val appInfo: AppInfo) : ExternalDragItem()
         data class File(val fileDocument: FileDocument) : ExternalDragItem()
         data class Contact(val contact: com.milki.launcher.domain.model.Contact) : ExternalDragItem()
+
+        /**
+         * An item being dragged OUT of a folder popup onto the home screen.
+         *
+         * WHY A SEPARATE TYPE:
+         * When the user drags an icon out of the folder popup, the drop handler
+         * needs to know both the item AND which folder it came from so it can
+         * call [HomeRepository.extractItemFromFolder] instead of the regular
+         * pin/move path.
+         *
+         * HOW IT TRAVELS:
+         * Passed entirely via [android.view.DragEvent.localState].  Since the
+         * folder popup and the home grid live in the SAME window (same Activity),
+         * localState is always available and ClipData JSON is never needed for
+         * decoding.  [ExternalDragPayloadCodec.decodeDragItem] returns it
+         * directly because the `is ExternalDragItem` branch fires first.
+         *
+         * @property folderId  The [HomeItem.FolderItem.id] the item is being extracted from.
+         * @property childItem The actual item being dragged out.
+         */
+        data class FolderChild(
+            val folderId: String,
+            val childItem: com.milki.launcher.domain.model.HomeItem
+        ) : ExternalDragItem()
     }
 
     @Serializable
@@ -131,6 +155,14 @@ object ExternalDragPayloadCodec {
                         lookupKey = contact.lookupKey
                     )
                 )
+            }
+
+            is ExternalDragItem.FolderChild -> {
+                // FolderChild is decoded entirely from localState (the object is passed
+                // directly and read back in decodeDragItem before any JSON parsing).
+                // ClipData requires a non-empty text, so we use the child item's id as
+                // a minimal stable identifier; the actual payload is never decoded from it.
+                item.childItem.id
             }
         }
 

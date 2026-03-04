@@ -54,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -68,8 +69,10 @@ import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.home.HomeUiState
 import com.milki.launcher.presentation.search.SearchUiState
+import androidx.compose.runtime.mutableStateOf
 import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
+import com.milki.launcher.ui.components.FolderPopupDialog
 import com.milki.launcher.ui.theme.Spacing
 import com.milki.launcher.util.openFile
 import com.milki.launcher.util.launchPinnedApp
@@ -117,7 +120,49 @@ fun LauncherScreen(
     onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> },
     onOpenSettings: () -> Unit = {},
     isHomescreenMenuOpen: Boolean = false,
-    onHomescreenMenuOpenChange: (Boolean) -> Unit = {}
+    onHomescreenMenuOpenChange: (Boolean) -> Unit = {},
+    // ---- Folder lifecycle callbacks ----
+    /** Called when a non-folder icon is dropped onto another non-folder icon. */
+    onCreateFolder: (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _ -> },
+    /** Called when a non-folder icon is dropped onto an existing folder icon. */
+    onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
+    /** Called when a folder icon is dropped onto another folder icon. */
+    onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit = { _, _ -> },
+    /** Called when the user taps the scrim or back-navigates from the folder popup. */
+    onFolderClose: () -> Unit = {},
+    /** Called when the user edits the folder title inside the popup and confirms. */
+    onFolderRename: (folderId: String, newName: String) -> Unit = { _, _ -> },
+    /** Called when the user taps an icon inside the folder popup to launch it. */
+    onFolderItemClick: (HomeItem) -> Unit = {},
+    /** Called from the context menu inside the folder popup to remove the item. */
+    onFolderItemRemove: (folderId: String, itemId: String) -> Unit = { _, _ -> },
+    /** Called after the user reorders items via drag inside the folder popup. */
+    onFolderItemReorder: (folderId: String, newChildren: List<HomeItem>) -> Unit = { _, _ -> },
+    /**
+     * Called when the user finishes dragging an item OUT of the folder popup
+     * and releases it over an empty home grid cell.
+     */
+    onExtractItemFromFolder: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
+    /**
+     * Called when the user drags an item from one folder popup and drops it
+     * onto a DIFFERENT folder icon on the home grid.
+     */
+    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, item: HomeItem, targetFolderId: String) -> Unit = { _, _, _, _ -> },
+    /**
+     * Called when the user drags a folder child icon and drops it onto a NON-FOLDER
+     * home grid icon.  The two icons should be merged into a brand new folder.
+     *
+     * This mirrors the existing drag-two-grid-icons-together behaviour; the only
+     * difference is that the dragged item starts inside a folder rather than the
+     * flat home grid.
+     *
+     * Parameters:
+     *   sourceFolderId – the folder the child came from.
+     *   childItem      – the item that was dragged (the folder child).
+     *   occupantItem   – the existing grid icon it was dropped onto.
+     *   atPosition     – the grid cell where the new folder should appear.
+     */
+    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> }
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -161,6 +206,14 @@ fun LauncherScreen(
                 onItemDroppedToHome(item, position)
                 onDismissSearch()
             },
+            // ---- Folder operation callbacks -----
+            // Routed from DraggablePinnedItemsGrid's occupancy-check logic in onDragEnd.
+            onCreateFolder = onCreateFolder,
+            onAddItemToFolder = onAddItemToFolder,
+            onMergeFolders = onMergeFolders,
+            onFolderItemExtracted = onExtractItemFromFolder,
+            onMoveFolderItemToFolder = onMoveFolderItemToFolder,
+            onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(Spacing.mediumLarge)
@@ -191,6 +244,35 @@ fun LauncherScreen(
                 }
             )
         }
+
+        // ─── Folder popup dialog ──────────────────────────────────────────────────
+        // Displayed as a full-screen overlay (with its own scrim) on top of the
+        // home grid when the user taps a folder icon.
+        //
+        // The dialog renders INSIDE the root Box so it sits above all home-grid
+        // content (items, drop highlights, homescreen menu dropdown).
+        //
+        // It is keyed on [folder.id] so Compose recreates the composable fresh
+        // when a different folder is opened (avoids stale local state from the
+        // previously open folder leaking into the new one).
+        homeUiState.openFolderItem?.let { folder ->
+            key(folder.id) {
+                FolderPopupDialog(
+                    folder = folder,
+                    onClose = onFolderClose,
+                    onRenameFolder = { newName ->
+                        onFolderRename(folder.id, newName)
+                    },
+                    onItemClick = onFolderItemClick,
+                    onReorderFolderItems = { newChildren ->
+                        onFolderItemReorder(folder.id, newChildren)
+                    },
+                    onRemoveItemFromFolder = { itemId ->
+                        onFolderItemRemove(folder.id, itemId)
+                    }
+                )
+            }
+        }
     }
 
     if (searchUiState.isSearchVisible) {
@@ -216,6 +298,11 @@ fun openPinnedItem(item: HomeItem, context: Context) {
         is HomeItem.PinnedFile -> openPinnedFile(item, context)
         is HomeItem.PinnedContact -> openPinnedContact(item, context)
         is HomeItem.AppShortcut -> openAppShortcut(item, context)
+        // FolderItem taps are intercepted in MainActivity's onPinnedItemClick
+        // BEFORE reaching this function (checked as HomeItem.FolderItem and
+        // routed to homeViewModel.openFolder). This branch is here solely to
+        // make the when expression exhaustive and avoid a compile error.
+        is HomeItem.FolderItem -> { /* handled upstream; no-op here */ }
     }
 }
 

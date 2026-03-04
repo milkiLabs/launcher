@@ -91,6 +91,23 @@ import kotlin.math.roundToInt
  *                        Both items should be removed from the home grid and placed into a new folder.
  * @param onAddItemToFolder Called when a non-folder is dropped onto a FolderItem.
  * @param onMergeFolders Called when a FolderItem is dropped onto another FolderItem.
+ * @param onFolderItemExtracted Called when a [ExternalDragItem.FolderChild] is dropped onto an
+ *                               EMPTY (or non-folder) cell on the home grid.  The caller should
+ *                               call [HomeRepository.extractItemFromFolder].
+ *                               Parameters: folderId, childItemId, targetGridPosition.
+ * @param onMoveFolderItemToFolder Called when a [ExternalDragItem.FolderChild] is dropped onto a
+ *                                  DIFFERENT folder on the home grid.  The caller should call
+ *                                  [HomeViewModel.moveItemBetweenFolders] — NOT extractItemFromFolder
+ *                                  — to avoid placing the item on the grid at an occupied position.
+ *                                  Parameters: sourceFolderId, childItemId, childItem, targetFolderId.
+ * @param onFolderChildDroppedOnItem Called when a [ExternalDragItem.FolderChild] is dropped onto a
+ *                                   NON-FOLDER home grid item (i.e., the drop cell is occupied by a
+ *                                   regular icon, not a folder).  Just like dragging two normal
+ *                                   icons together, the two items should be combined into a NEW
+ *                                   folder at that position.  The source folder's cleanup policy
+ *                                   is applied: if it becomes empty it is deleted; if only one
+ *                                   child remains the folder is unwrapped.
+ *                                   Parameters: sourceFolderId, childItem, occupantItem, atPosition.
  * @param modifier Optional modifier for parent layout.
  */
 @Composable
@@ -105,6 +122,19 @@ fun DraggablePinnedItemsGrid(
     onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit = { _, _, _ -> },
     onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
     onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit = { _, _ -> },
+    onFolderItemExtracted: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
+    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, item: HomeItem, targetFolderId: String) -> Unit = { _, _, _, _ -> },
+    /**
+     * Called when the user drags a folder child and drops it onto a NON-FOLDER icon in the grid.
+     * The two items should be merged into a brand new folder at [atPosition].
+     *
+     * Parameters:
+     *   sourceFolderId – the folder the child was dragged out of.
+     *   childItem      – the item that was dragged (the folder child).
+     *   occupantItem   – the existing grid icon that was dropped onto.
+     *   atPosition     – the grid cell where the new folder should appear (same as occupantItem's position).
+     */
+    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -573,7 +603,79 @@ fun DraggablePinnedItemsGrid(
 
                 externalDragTargetPosition = dropPosition
                 externalDragItem = item
-                val homeItem = item.toPreviewHomeItem() ?: return@AppExternalDropTargetOverlay false
+                val homeItem = item.toPreviewHomeItem()
+
+                // ----------------------------------------------------------------
+                // FOLDER-CHILD DROP: item dragged out of a folder popup
+                // ----------------------------------------------------------------
+                // FolderChild payloads require special routing depending on what
+                // occupies the drop cell.  Handle this BEFORE the toPreviewHomeItem
+                // null-check so we can route even when toPreviewHomeItem would
+                // return the raw childItem.
+                if (item is ExternalDragItem.FolderChild) {
+                    val occupantAtDrop = items.find { it.position == dropPosition }
+
+                    when {
+                        occupantAtDrop is HomeItem.FolderItem
+                                && occupantAtDrop.id == item.folderId -> {
+                            // ---- Dropped back onto the SAME folder it came from ----
+                            // The item is still inside the folder (extraction only happens
+                            // on successful drop to a different location).  Ignore this
+                            // drop entirely so no duplicate or out-of-place icon appears.
+                            // Return true to mark the event as consumed.
+                            return@AppExternalDropTargetOverlay true
+                        }
+                        occupantAtDrop is HomeItem.FolderItem -> {
+                            // ---- Dropped onto a DIFFERENT folder ----
+                            // Use the dedicated move-between-folders path (NOT extract+add)
+                            // because extractItemFromFolder would try to place the item on
+                            // the grid at dropPosition, which is already occupied by the
+                            // target folder, causing a position collision / duplication.
+                            // moveItemBetweenFolders removes from source and adds to target
+                            // entirely within folder children lists — never touches the grid.
+                            onMoveFolderItemToFolder(
+                                item.folderId,
+                                item.childItem.id,
+                                item.childItem,
+                                occupantAtDrop.id
+                            )
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                            return@AppExternalDropTargetOverlay true
+                        }
+                        else -> {
+                            if (occupantAtDrop != null) {
+                                // ---- Dropped onto a NON-FOLDER occupied cell ----
+                                // The user dragged a folder child and released it directly
+                                // on top of another home icon that is NOT a folder.
+                                //
+                                // Desired behaviour (same as dragging two normal grid icons
+                                // together): combine the two items into a brand new folder
+                                // that appears at the drop position.
+                                //
+                                // [onFolderChildDroppedOnItem] is responsible for:
+                                //   1. Removing childItem from its source folder
+                                //      (with cleanup policy — delete/unwrap if needed).
+                                //   2. Creating a new folder at dropPosition that contains
+                                //      both childItem and occupantItem.
+                                onFolderChildDroppedOnItem(
+                                    item.folderId,    // source folder the child came from
+                                    item.childItem,   // the dragged item (folder child)
+                                    occupantAtDrop,   // the existing grid icon that was dropped on
+                                    dropPosition      // cell where the new folder should appear
+                                )
+                            } else {
+                                // ---- Dropped onto an EMPTY cell ----
+                                // Standard extract: remove the child from its folder and place
+                                // it as a standalone icon at the empty dropPosition.
+                                onFolderItemExtracted(item.folderId, item.childItem.id, dropPosition)
+                            }
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                            return@AppExternalDropTargetOverlay true
+                        }
+                    }
+                }
+
+                if (homeItem == null) return@AppExternalDropTargetOverlay false
 
                 // Check if the target cell is occupied by a FolderItem.
                 // If so, add the dropped item into the folder instead of pinning it.
@@ -598,11 +700,17 @@ fun DraggablePinnedItemsGrid(
 
 /**
  * Maps an external drag payload to the equivalent HomeItem preview/persisted model.
+ *
+ * [ExternalDragItem.FolderChild] carries the raw [HomeItem] inside it, so we
+ * return [ExternalDragItem.FolderChild.childItem] directly.  This makes the
+ * external-drag visual highlight for a folder-child drag show the correct icon
+ * while it hovers over the home grid.
  */
 private fun ExternalDragDropItem.toPreviewHomeItem(): HomeItem? {
     return when (this) {
-        is ExternalDragItem.App -> HomeItem.PinnedApp.fromAppInfo(appInfo)
-        is ExternalDragItem.File -> HomeItem.PinnedFile.fromFileDocument(fileDocument)
+        is ExternalDragItem.App     -> HomeItem.PinnedApp.fromAppInfo(appInfo)
+        is ExternalDragItem.File    -> HomeItem.PinnedFile.fromFileDocument(fileDocument)
         is ExternalDragItem.Contact -> HomeItem.PinnedContact.fromContact(contact)
+        is ExternalDragItem.FolderChild -> childItem
     }
 }
