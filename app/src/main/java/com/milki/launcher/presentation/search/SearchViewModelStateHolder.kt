@@ -2,6 +2,7 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
+import com.milki.launcher.domain.search.ClipboardSuggestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,6 +32,7 @@ internal class SearchViewModelStateHolder(
 
     val searchOutput = MutableStateFlow(SearchPipelineOutput())
     val prefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
+    val clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
 
     val backgroundState: StateFlow<SearchBackgroundState> = combine(
         installedApps,
@@ -49,8 +51,9 @@ internal class SearchViewModelStateHolder(
     val uiState: StateFlow<SearchUiState> = combine(
         query,
         isSearchVisible,
-        searchOutput
-    ) { currentQuery, visible, output ->
+        searchOutput,
+        clipboardSuggestion
+    ) { currentQuery, visible, output, suggestion ->
         if (!visible) {
             SearchUiState(isSearchVisible = false)
         } else {
@@ -59,7 +62,8 @@ internal class SearchViewModelStateHolder(
                 isSearchVisible = true,
                 results = output.results,
                 activeProviderConfig = output.activeProviderConfig,
-                isLoading = output.isLoading
+                isLoading = output.isLoading,
+                clipboardSuggestion = suggestion
             )
         }
     }.stateIn(scope, SharingStarted.Eagerly, SearchUiState())

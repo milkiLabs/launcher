@@ -61,6 +61,7 @@ import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
+import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.presentation.home.HomeViewModel
@@ -261,6 +262,22 @@ val appModule = module {
         UrlHandlerResolver(get())
     }
 
+    /**
+     * ClipboardSuggestionResolver - Reads clipboard once and maps content to one suggested action.
+     *
+     * SINGLETON: Yes - stateless between calls and depends only on context + UrlHandlerResolver.
+     *
+     * DEPENDENCIES:
+     * - Android Context (clipboard service access)
+     * - UrlHandlerResolver (URL deep-link resolution)
+     */
+    single {
+        ClipboardSuggestionResolver(
+            context = get(),
+            urlHandlerResolver = get()
+        )
+    }
+
     // ========================================================================
     // VIEWMODELS - MANAGED BY KOIN
     // ========================================================================
@@ -292,7 +309,8 @@ val appModule = module {
             settingsRepository = get(),
             providerRegistry = get(),
             filterAppsUseCase = get(),
-            urlHandlerResolver = get()
+            urlHandlerResolver = get(),
+            clipboardSuggestionResolver = get()
         )
     }
 

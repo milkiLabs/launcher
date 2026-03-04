@@ -92,6 +92,9 @@ class ActionExecutor(
             is SearchResultAction.Tap -> handleTap(action)
             is SearchResultAction.DialContact -> handleDialContact(action)
             is SearchResultAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
+            is SearchResultAction.OpenDialer -> handleOpenDialer(action)
+            is SearchResultAction.ComposeEmail -> handleComposeEmail(action)
+            is SearchResultAction.OpenMapLocation -> handleOpenMapLocation(action)
             is SearchResultAction.PinApp -> handlePinApp(action)
             is SearchResultAction.PinFile -> handlePinFile(action)
             is SearchResultAction.PinContact -> handlePinContact(action)
@@ -285,6 +288,58 @@ class ActionExecutor(
 
     private fun handleOpenUrlInBrowser(action: SearchResultAction.OpenUrlInBrowser) {
         openUrlInBrowser(action.url)
+    }
+
+    // ========================================================================
+    // CLIPBOARD SUGGESTION ACTION HANDLERS
+    // ========================================================================
+
+    /**
+     * Opens the dialer with the number pre-filled.
+     */
+    private fun handleOpenDialer(action: SearchResultAction.OpenDialer) {
+        val intent = Intent(Intent.ACTION_DIAL).apply {
+            data = Uri.parse("tel:${action.phoneNumber}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Opens email compose screen with recipient pre-filled.
+     */
+    private fun handleComposeEmail(action: SearchResultAction.ComposeEmail) {
+        val intent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:${Uri.encode(action.emailAddress)}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Opens map apps for a location query.
+     */
+    private fun handleOpenMapLocation(action: SearchResultAction.OpenMapLocation) {
+        val geoIntent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse("geo:0,0?q=${Uri.encode(action.locationQuery)}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            context.startActivity(geoIntent)
+        } catch (e: Exception) {
+            openUrlInBrowser("https://www.google.com/maps/search/?api=1&query=${Uri.encode(action.locationQuery)}")
+        }
     }
 
     // ========================================================================

@@ -29,6 +29,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
   - `s `: Web search (opens browser)
   - `c `: Contacts search (requires permission)
   - `y `: YouTube search
+    - Clipboard smart suggestion: one bottom chip on search open (URL/app, browser fallback, phone, email, maps, or text search)
   
 - **Smart Layout**: 
   - Grid layout for apps (2×4 = 8 apps visible)
@@ -132,6 +133,18 @@ When a provider is active:
 - **Colored bar** appears at the top (blue=web, green=contacts, red=YouTube)
 - **Provider icon** shows in the search field
 - **Placeholder text** changes (e.g., "Search the web...")
+
+### Clipboard Smart Suggestion
+
+When search opens with an empty query, the launcher reads clipboard text once and may show one action chip at the bottom of the dialog:
+
+- `Open in <App>` or `Open in browser` for URLs
+- `Call <number>` for phone numbers
+- `Email <address>` for email addresses
+- `Open in maps` for location text
+- `Search text` for generic text
+
+The chip is shown only in default app-search mode and disappears once the user starts typing.
 
 ### Permission Handling
 

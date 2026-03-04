@@ -11,6 +11,13 @@ When a user types a URL into the search bar, the launcher:
 3. Shows the user which app will open the URL (e.g., "Open in YouTube" for youtube.com URLs)
 4. Provides browser as a fallback option
 
+The same URL handling stack is also reused by the clipboard smart suggestion feature:
+
+- On search dialog open, clipboard text is read once
+- If clipboard content looks like a URL/domain, the launcher resolves handler app exactly like typed URL flow
+- The UI shows a bottom chip (`From clipboard`) with the resolved action
+- Tapping the chip launches handler app or browser fallback
+
 ## Architecture
 
 ```
@@ -178,6 +185,21 @@ private fun detectUrl(query: String): UrlSearchResult? {
 }
 ```
 
+### 4.1 ClipboardSuggestionResolver (One-shot URL Classification)
+
+Location: `domain/search/ClipboardSuggestionResolver.kt`
+
+This resolver reuses `UrlValidator` + `UrlHandlerResolver` to interpret clipboard text.
+
+Behavior details:
+
+1. Read clipboard text once when search opens
+2. Run URL validation with the same normalization rules (`https://` auto-prefix)
+3. Resolve deep-link handler app through PackageManager
+4. Return a typed clipboard suggestion (`OpenUrl`) used by bottom chip UI
+
+Important: this resolver does **not** subscribe to clipboard change events.
+
 ### 5. SearchAction Updates
 
 Location: `presentation/search/SearchAction.kt`
@@ -251,6 +273,16 @@ For Android 11+ (API 30+), you must declare which URL schemes you want to query:
 Without this declaration, `PackageManager.queryIntentActivities()` would return an empty list on Android 11+.
 
 ## Example Scenarios
+
+### Scenario 0: Clipboard URL on Search Open
+
+Clipboard contains: `youtube.com/watch?v=dQw4w9WgXcQ`
+
+1. User opens search dialog
+2. Clipboard snapshot is read once
+3. URL is normalized and deep-link handler is resolved
+4. Bottom chip appears: `From clipboard` + `Open in YouTube`
+5. User taps chip → YouTube app opens (or browser fallback)
 
 ### Scenario 1: YouTube URL
 

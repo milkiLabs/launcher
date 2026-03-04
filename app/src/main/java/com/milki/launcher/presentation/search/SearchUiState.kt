@@ -28,6 +28,7 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.search.ClipboardSuggestion
 
 /**
  * Complete UI state for the search screen.
@@ -41,6 +42,7 @@ import com.milki.launcher.domain.model.SearchResult
  * - results: What to display in the results area
  * - activeProviderConfig: Which provider mode is active (provider visuals are mapped in UI)
  * - isLoading: Whether to show the loading bar
+ * - clipboardSuggestion: One smart action suggestion derived from clipboard text
  *
  * WHAT'S NOT IN HERE (ViewModel-internal):
  * - installedApps, recentApps: Used internally by the search pipeline to compute
@@ -54,13 +56,15 @@ import com.milki.launcher.domain.model.SearchResult
  * @property results Current search results to display
  * @property activeProviderConfig Configuration of the active provider (null for app search)
  * @property isLoading Whether a search is in progress
+ * @property clipboardSuggestion Optional single clipboard-driven suggestion
  */
 data class SearchUiState(
     val query: String = "",
     val isSearchVisible: Boolean = false,
     val results: List<SearchResult> = emptyList(),
     val activeProviderConfig: SearchProviderConfig? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val clipboardSuggestion: ClipboardSuggestion? = null
 ) {
     /**
      * Whether results are available to display.
@@ -68,6 +72,18 @@ data class SearchUiState(
      */
     val hasResults: Boolean
         get() = results.isNotEmpty()
+
+    /**
+     * Controls clipboard chip visibility.
+     *
+     * UX RULES:
+     * - Show only while dialog is visible
+     * - Show only when query is blank (before typing)
+     * - Show only in default app-search mode (no provider prefix)
+     * - Show only when we actually have a suggestion
+     */
+    val shouldShowClipboardSuggestion: Boolean
+        get() = isSearchVisible && query.isBlank() && activeProviderConfig == null && clipboardSuggestion != null
 
     /**
      * Placeholder text for the search field.

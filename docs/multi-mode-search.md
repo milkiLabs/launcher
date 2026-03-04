@@ -65,6 +65,54 @@ When you open the search dialog without typing:
 - Helps you quickly access apps you use frequently
 - No typing required for common apps
 
+### Clipboard Smart Suggestion (Bottom Chip)
+
+When the search dialog opens in default app-search mode, the launcher performs a **single clipboard snapshot read** and can show one smart action chip.
+
+#### UX Placement
+
+- The clipboard chip is rendered as the **last element in the dialog**
+- It appears **below recent apps / results**
+- It is labeled with a small caption: `From clipboard`
+- The chip itself shows the best action to take (for example: `Open in YouTube`, `Open in browser`, `Call +123...`, `Open in maps`, `Search text`)
+
+#### When the chip appears
+
+The chip is shown only when all conditions are true:
+
+1. Search dialog is visible
+2. Query text is empty (`""`)
+3. No provider prefix mode is active (default app search)
+4. Clipboard contains non-empty text that can be interpreted
+
+As soon as the user types in the query box, the chip disappears.
+
+#### Clipboard detection scope
+
+- Detection runs **once per search dialog open**
+- There is **no live clipboard change listener** while the dialog remains open
+- Re-opening search performs a fresh clipboard snapshot
+
+This keeps behavior predictable and avoids noisy UI updates.
+
+#### Supported clipboard content (priority order)
+
+The launcher picks exactly one suggestion using this priority:
+
+1. URL / domain text
+2. Phone number
+3. Email address
+4. Map-like location text (address/coordinates/geo links)
+5. Plain text (fallback)
+
+#### Tap behavior by type
+
+- **URL**: Uses existing URL resolver. If a deep-link-capable app is available, opens in that app; otherwise opens browser.
+- **Phone**: Opens dialer with number pre-filled (`ACTION_DIAL`).
+- **Email**: Opens email compose app (`ACTION_SENDTO` + `mailto:`).
+- **Map location**: Opens maps using geo query intent, with browser fallback.
+- **Plain text**: Opens web search immediately using the default engine (Google).
+
 ### Recent Apps Refresh Reliability
 
 The search system uses a **layered state architecture** where background data (installed apps, recent apps, permissions) is grouped into a `BackgroundState` StateFlow. This feeds into the search pipeline, so when any background data changes, search results are recomputed automatically.

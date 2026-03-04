@@ -27,6 +27,7 @@
 
 package com.milki.launcher.ui.components
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -189,26 +190,68 @@ fun AppSearchDialog(
                 }
 
                 /**
-                 * Show either the empty state or results list.
-                 * The decision is based on whether results are empty.
+                 * Main results region takes remaining vertical space.
+                 *
+                 * We intentionally keep this as a weighted block so we can place the
+                 * clipboard suggestion chip as the LAST element in the dialog, below
+                 * recent apps/results.
                  */
-                if (uiState.results.isEmpty()) {
-                    EmptyState(
-                        searchQuery = uiState.query,
-                        activeProvider = uiState.activeProviderConfig,
-                        prefixHint = uiState.prefixHint
-                    )
-                } else {
-                    /**
-                     * SearchResultsList handles the display of results.
-                     * It automatically chooses between grid and list layouts.
-                     * Actions are handled via LocalSearchActionHandler.
-                     */
-                    SearchResultsList(
-                        results = uiState.results,
-                        activeProviderConfig = uiState.activeProviderConfig,
-                        onExternalAppDragStart = onDismiss
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    if (uiState.results.isEmpty()) {
+                        EmptyState(
+                            searchQuery = uiState.query,
+                            activeProvider = uiState.activeProviderConfig,
+                            prefixHint = uiState.prefixHint
+                        )
+                    } else {
+                        /**
+                         * SearchResultsList handles the display of results.
+                         * It automatically chooses between grid and list layouts.
+                         * Actions are handled via LocalSearchActionHandler.
+                         */
+                        SearchResultsList(
+                            results = uiState.results,
+                            activeProviderConfig = uiState.activeProviderConfig,
+                            onExternalAppDragStart = onDismiss
+                        )
+                    }
+                }
+
+                /**
+                 * Clipboard suggestion chip is intentionally placed at the bottom of
+                 * the dialog, below recent apps/results, as requested.
+                 */
+                if (uiState.shouldShowClipboardSuggestion) {
+                    val clipboardSuggestion = uiState.clipboardSuggestion
+                    if (clipboardSuggestion != null) {
+                        ClipboardSuggestionBottomChip(
+                            suggestion = clipboardSuggestion,
+                            onSearchWithDefaultEngine = { queryText ->
+                                val encodedQuery = Uri.encode(queryText)
+                                actionHandler(
+                                    SearchResultAction.OpenUrlInBrowser(
+                                        url = "https://www.google.com/search?q=$encodedQuery"
+                                    )
+                                )
+                            },
+                            onOpenUrl = { urlResult ->
+                                actionHandler(SearchResultAction.Tap(urlResult))
+                            },
+                            onOpenDialer = { phoneNumber ->
+                                actionHandler(SearchResultAction.OpenDialer(phoneNumber))
+                            },
+                            onComposeEmail = { emailAddress ->
+                                actionHandler(SearchResultAction.ComposeEmail(emailAddress))
+                            },
+                            onOpenMapLocation = { locationQuery ->
+                                actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
+                            }
+                        )
+                    }
                 }
             }
         }

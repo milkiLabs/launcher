@@ -48,6 +48,7 @@ import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
@@ -79,6 +80,7 @@ import kotlinx.coroutines.launch
  * @property providerRegistry Registry of search providers
  * @property filterAppsUseCase Use case for filtering apps
  * @property urlHandlerResolver Resolver for URL handler apps
+ * @property clipboardSuggestionResolver Resolver that classifies clipboard text into one smart action suggestion
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
@@ -86,7 +88,8 @@ class SearchViewModel(
     private val settingsRepository: SettingsRepository,
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
-    private val urlHandlerResolver: UrlHandlerResolver
+    private val urlHandlerResolver: UrlHandlerResolver,
+    private val clipboardSuggestionResolver: ClipboardSuggestionResolver
 ) : ViewModel() {
     private val stateHolder = SearchViewModelStateHolder(viewModelScope)
 
@@ -166,6 +169,7 @@ class SearchViewModel(
      */
     fun showSearch() {
         stateHolder.isSearchVisible.value = true
+        stateHolder.clipboardSuggestion.value = clipboardSuggestionResolver.resolveFromClipboard()
     }
 
     /**
@@ -179,6 +183,7 @@ class SearchViewModel(
     fun hideSearch() {
         stateHolder.isSearchVisible.value = false
         stateHolder.query.value = ""
+        stateHolder.clipboardSuggestion.value = null
     }
 
     /**
