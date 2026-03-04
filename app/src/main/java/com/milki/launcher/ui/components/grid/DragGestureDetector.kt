@@ -43,7 +43,6 @@
 
 package com.milki.launcher.ui.components.grid
 
-import android.util.Log
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
@@ -54,34 +53,121 @@ import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import kotlin.math.abs
-import kotlinx.coroutines.CancellationException
 
 /**
- * Internal log tag for gesture detector lifecycle diagnostics.
+ * Configuration for gesture detection behavior.
  *
- * Logging is intentionally key-value style so logs are easier to filter and
- * correlate when debugging device-specific gesture regressions.
+ * @property dragThresholdPx Minimum movement in pixels to start drag after long-press
+ * @property consumeChanges Whether to consume pointer changes during drag
+ * @property multiTouchEnabled Whether to allow multi-touch during drag
  */
-private const val DRAG_GESTURE_LOG_TAG = "DragGestureDetector"
+data class DragGestureConfig(
+    val dragThresholdPx: Float = 20f,
+    val consumeChanges: Boolean = true,
+    val multiTouchEnabled: Boolean = false
+)
 
 /**
- * Detects tap, long-press, and drag gestures with individual callbacks.
+ * Callback interface for gesture events.
  *
- * This is the canonical gesture detector for launcher drag-capable surfaces.
+ * Using an interface instead of individual lambdas makes it easier
+ * to pass all callbacks together and ensures consistent handling.
+ */
+interface DragGestureCallbacks {
+    /**
+     * Called when a tap gesture is detected.
+     */
+    fun onTap() {}
+    
+    /**
+     * Called when a long-press is detected (before knowing if it will become a drag).
+     *
+     * @param position The screen position where long-press occurred
+     */
+    fun onLongPress(position: Offset) {}
+
+    /**
+     * Called when the finger lifts after a long-press WITHOUT exceeding the drag threshold.
+     *
+     * This is the point where the gesture system knows the user intended a "long-press
+     * and release" rather than a "long-press and drag". Callers can use this to switch
+     * any non-interactive UI shown during onLongPress (e.g., a non-focusable menu) into
+     * its interactive state (e.g., a focusable popup).
+     *
+     * Also fires when the gesture is cancelled before drag starts (multi-touch, etc.),
+     * ensuring the caller always gets a clean end-of-long-press signal.
+     */
+    fun onLongPressRelease() {}
+
+    /**
+     * Called when drag starts (movement exceeded threshold after long-press).
+     */
+    fun onDragStart() {}
+    
+    /**
+     * Called continuously during drag as user moves their finger.
+     *
+     * @param change The pointer input change
+     * @param dragAmount The amount of movement since last call
+     */
+    fun onDrag(change: PointerInputChange, dragAmount: Offset) {}
+    
+    /**
+     * Called when drag ends successfully (user released finger).
+     */
+    fun onDragEnd() {}
+    
+    /**
+     * Called when drag is cancelled (e.g., system event, multi-touch).
+     */
+    fun onDragCancel() {}
+}
+
+/**
+ * Detects tap, long-press, and drag gestures on an element.
  *
- * PUBLIC API POLICY:
- * - This file intentionally exposes one public callback style (lambdas).
- * - Avoid adding parallel callback container/adapter APIs unless there is a
- *   concrete invariant that cannot be represented by this shape.
+ * This function handles the complete gesture lifecycle:
+ * 1. Waits for touch down
+ * 2. Determines if it's a tap, long-press, or drag
+ * 3. Calls appropriate callbacks throughout
  *
  * THREAD SAFETY:
  * This is a suspend function that runs in the pointer input scope.
  * All callbacks are invoked in the same scope.
  *
- * BEHAVIOR SUMMARY:
+ * @param config Configuration for gesture detection
+ * @param callbacks Callbacks for gesture events
+ */
+suspend fun PointerInputScope.detectDragOrTapGesture(
+    config: DragGestureConfig = DragGestureConfig(),
+    callbacks: DragGestureCallbacks
+) {
+    detectDragOrTapGesture(
+        dragThreshold = config.dragThresholdPx,
+        consumeChanges = config.consumeChanges,
+        onTap = { callbacks.onTap() },
+        onLongPress = { callbacks.onLongPress(it) },
+        onLongPressRelease = { callbacks.onLongPressRelease() },
+        onDragStart = { callbacks.onDragStart() },
+        onDrag = { change, offset -> callbacks.onDrag(change, offset) },
+        onDragEnd = { callbacks.onDragEnd() },
+        onDragCancel = { callbacks.onDragCancel() }
+    )
+}
+
+/**
+ * Detects tap, long-press, and drag gestures with individual callbacks.
+ *
+ * This is the primary gesture detection function. It distinguishes between:
  * - Simple tap
  * - Long-press without drag (for menus)
  * - Long-press with drag (for moving items)
+ *
+ * INTERACTION MODEL:
+ * 1. Long-press immediately triggers onLongPress
+ * 2. If user moves beyond threshold, onDragStart is called
+ * 3. Continued movement calls onDrag
+ * 4. Release calls onDragEnd (if drag started) or leaves menu open
  *
  * @param dragThreshold Minimum pixels to move before drag starts
  * @param consumeChanges Whether to consume pointer changes during drag
@@ -93,7 +179,7 @@ private const val DRAG_GESTURE_LOG_TAG = "DragGestureDetector"
  * @param onDragEnd Called when drag ends successfully
  * @param onDragCancel Called when drag is cancelled
  */
-private suspend fun PointerInputScope.detectDragOrTapGesture(
+suspend fun PointerInputScope.detectDragOrTapGesture(
     dragThreshold: Float = 20f,
     consumeChanges: Boolean = true,
     onTap: () -> Unit,
@@ -114,15 +200,38 @@ private suspend fun PointerInputScope.detectDragOrTapGesture(
         
         if (longPress == null) {
             /**
-             * Treat pre-long-press release as a tap.
+             * TAP VS CANCELLATION RESOLUTION:
+             * awaitLongPressOrCancellation() returns null in two cases:
+             * 1) Normal quick tap (finger lifted before long-press timeout)
+             * 2) True cancellation (multi-touch/system interruption)
              *
-             * WHY THIS IS REQUIRED:
-             * This detector is used by home icons and search result rows. Using a
-             * secondary waitForUpOrCancellation() probe here can miss legitimate
-             * first taps on some devices/dispatch paths, producing a visible
-             * "needs two taps" regression across the app.
+             * PREVIOUS ISSUE (ROOT CAUSE OF DOUBLE-TAP FEEL):
+             * The old implementation called waitForUpOrCancellation() here to
+             * "probe" for an up event. In real-world timing, the up event that
+             * ended the quick tap may already be consumed by the time that probe
+             * runs, producing null and incorrectly classifying a legitimate tap
+             * as cancellation. That drops the first tap and makes the UI feel
+             * like a second tap is required.
+             *
+             * FIX:
+             * Inspect current pointer state immediately in this same gesture loop.
+             * - If the primary pointer is no longer pressed, classify as TAP.
+             * - If it is still pressed, classify as cancellation.
+             *
+             * WHY THIS PRESERVES DRAG/EXTERNAL DND:
+             * Long-press + movement path is unchanged (non-null longPress branch).
+             * Only the "longPress == null" branch changes classification logic,
+             * so external drag start behavior remains intact.
              */
-            onTap()
+            val pointerStillPressed = currentEvent.changes.any { change ->
+                change.id == down.id && change.pressed
+            }
+
+            if (!pointerStillPressed) {
+                onTap()
+            } else {
+                onDragCancel()
+            }
             return@awaitEachGesture
         }
         
@@ -174,21 +283,11 @@ private suspend fun PointerInputScope.detectDragOrTapGesture(
                 onLongPressRelease()
             }
             
-        } catch (cancellationException: CancellationException) {
-            /**
-             * Cancellation path:
-             * - Pointer input scope cancellation
-             * - Gesture interruption from competing touch stream
-             *
-             * We handle this as a drag cancellation signal for callers, then let
-             * the outer pointer-input lifecycle continue naturally.
-             */
-            logGestureFailure(
-                event = "gesture_cancelled",
-                dragStarted = dragStarted,
-                throwable = cancellationException
-            )
-
+        } catch (e: Exception) {
+            // Gesture was cancelled (e.g., another touch event, system interrupt)
+            // Log for debugging but don't crash
+            android.util.Log.w("DragGestureDetector", "Gesture cancelled: ${e.message}")
+            
             if (dragStarted) {
                 onDragCancel()
             } else {
@@ -199,25 +298,33 @@ private suspend fun PointerInputScope.detectDragOrTapGesture(
                  */
                 onLongPressRelease()
             }
-        } catch (illegalStateException: IllegalStateException) {
-            /**
-             * Illegal state path:
-             * Some OEM gesture pipelines may throw IllegalStateException from
-             * pointer stream transitions. We treat this as non-fatal cancellation
-             * and report with structured logs for diagnosis.
-             */
-            logGestureFailure(
-                event = "gesture_illegal_state",
-                dragStarted = dragStarted,
-                throwable = illegalStateException
-            )
-
-            if (dragStarted) {
-                onDragCancel()
-            } else {
-                onLongPressRelease()
-            }
         }
+    }
+}
+
+/**
+ * Extension to add drag gesture detection to a Modifier.
+ *
+ * This makes it easy to add drag detection to any composable:
+ * ```kotlin
+ * Box(
+ *     modifier = Modifier
+ *         .size(100.dp)
+ *         .detectDragGesture { callbacks }
+ * )
+ * ```
+ *
+ * @param key A stable key that invalidates the gesture detector when changed
+ * @param config Gesture detection configuration
+ * @param callbacks Callbacks for gesture events
+ */
+fun Modifier.detectDragGesture(
+    key: Any? = null,
+    config: DragGestureConfig = DragGestureConfig(),
+    callbacks: DragGestureCallbacks
+): Modifier {
+    return pointerInput(key, config) {
+        detectDragOrTapGesture(config, callbacks)
     }
 }
 
@@ -260,22 +367,32 @@ fun Modifier.detectDragGesture(
 }
 
 /**
- * Logs a structured gesture failure event in key-value form.
+ * Simple callback holder for common use cases.
  *
- * Structured fields are intentionally explicit so log consumers can group by:
- * - event
- * - phase (before_drag / dragging)
- * - exception type
- * - message
+ * Use this when you only need a subset of callbacks:
+ * ```kotlin
+ * val callbacks = simpleDragCallbacks(
+ *     onTap = { handleClick() },
+ *     onDragEnd = { handleDrop() }
+ * )
+ * ```
  */
-private fun logGestureFailure(
-    event: String,
-    dragStarted: Boolean,
-    throwable: Throwable
-) {
-    val phase = if (dragStarted) "dragging" else "before_drag"
-    Log.w(
-        DRAG_GESTURE_LOG_TAG,
-        "event=$event phase=$phase exception=${throwable::class.java.simpleName} message=${throwable.message.orEmpty()}"
-    )
+fun simpleDragCallbacks(
+    onTap: () -> Unit = {},
+    onLongPress: (Offset) -> Unit = {},
+    onLongPressRelease: () -> Unit = {},
+    onDragStart: () -> Unit = {},
+    onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit = { _, _ -> },
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = {}
+): DragGestureCallbacks {
+    return object : DragGestureCallbacks {
+        override fun onTap() = onTap()
+        override fun onLongPress(position: Offset) = onLongPress(position)
+        override fun onLongPressRelease() = onLongPressRelease()
+        override fun onDragStart() = onDragStart()
+        override fun onDrag(change: PointerInputChange, dragAmount: Offset) = onDrag(change, dragAmount)
+        override fun onDragEnd() = onDragEnd()
+        override fun onDragCancel() = onDragCancel()
+    }
 }

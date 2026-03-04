@@ -193,6 +193,25 @@ All three payloads drop through the same home overlay and are mapped to `HomeIte
 
 This keeps cross-surface drag robust while avoiding non-serializable fields.
 
+### Scroll vs tap arbitration in search rows
+
+For file and contact search rows, tap/open and long-press drag are both routed
+through `detectDragGesture(...)`, with explicit arbitration in the detector:
+
+- Quick release before long-press timeout -> tap/open action.
+- Cancellation before timeout (for example, vertical list scroll) -> no tap.
+- Finger still down at timeout -> long-press path, then drag can start.
+
+This keeps external drag/drop behavior intact (`startExternalFileDrag(...)` /
+`startExternalContactDrag(...)`) while preventing scroll gestures from opening
+rows accidentally.
+
+In short:
+
+- **Tap** opens item.
+- **Scroll** scrolls list.
+- **Long-press then move** starts external drag.
+
 ## Implementation notes for contributors
 
 1. Keep drag-drop state changes inside controller methods only.

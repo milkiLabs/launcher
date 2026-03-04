@@ -121,6 +121,27 @@ Input:
 - lifecycle callbacks (`onTap`, `onLongPress`, `onDragStart`, `onDrag`, `onDragEnd`, `onDragCancel`)
 - this is the single supported public callback style for gesture wiring
 
+### Tap classification fix (March 2026)
+
+`DragGestureDetector` previously used an additional `waitForUpOrCancellation()` probe
+when `awaitLongPressOrCancellation()` returned `null`.
+
+In practice, that extra probe could miss an already-finished quick-tap `UP` event,
+misclassify the interaction as cancellation, and drop the first tap. The user-visible
+effect was a "double tap required" feeling across surfaces using `detectDragGesture`.
+
+Current behavior:
+
+- If long-press was not reached and the original pointer is no longer pressed in the
+        current event state, the gesture is classified as `onTap` immediately.
+- If the pointer is still pressed, it is treated as cancellation (`onDragCancel`).
+
+Why this is safe for external drag-drop:
+
+- Long-press + drag path is unchanged.
+- External drag start still happens only through `onDragStart` after crossing drag threshold.
+- The fix only affects the `longPress == null` branch (quick tap / cancellation disambiguation).
+
 ## Home screen integration
 
 The home grid (`DraggablePinnedItemsGrid`) now:

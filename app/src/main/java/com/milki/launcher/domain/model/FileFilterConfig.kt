@@ -268,7 +268,8 @@ object FileFilterConfig {
      * Explicit MIME values that are considered searchable document content.
      *
      * We intentionally do NOT include generic values like `application/octet-stream`
-     * or broad categories like `text/*` to avoid admitting CSS or unknown artifacts.
+        * or broad wildcard categories (for example, all text subtypes) to avoid
+        * admitting CSS or unknown artifacts.
      */
     private val ALLOWED_EXACT_MIME_TYPES = setOf(
         "application/pdf",
