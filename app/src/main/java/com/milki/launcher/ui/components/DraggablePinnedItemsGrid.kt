@@ -677,15 +677,29 @@ fun DraggablePinnedItemsGrid(
 
                 if (homeItem == null) return@AppExternalDropTargetOverlay false
 
-                // Check if the target cell is occupied by a FolderItem.
-                // If so, add the dropped item into the folder instead of pinning it.
+                // Check if the target cell is occupied.
                 val occupantAtDrop = items.find { it.position == dropPosition }
-                if (occupantAtDrop is HomeItem.FolderItem) {
-                    // External drop onto a folder → add item to the folder.
-                    onAddItemToFolder(occupantAtDrop.id, homeItem)
-                } else {
-                    // Normal empty-cell or unrecognised occupant → use standard pin logic.
-                    onItemDroppedToHome(homeItem, dropPosition)
+                when {
+                    occupantAtDrop is HomeItem.FolderItem -> {
+                        // Dropped onto an existing folder → add item into the folder.
+                        onAddItemToFolder(occupantAtDrop.id, homeItem)
+                    }
+                    occupantAtDrop != null -> {
+                        // ---- Dropped onto a NON-FOLDER occupied cell ----
+                        // The search-dialog item is being dropped directly on top of an
+                        // existing home icon.  This should behave exactly the same as
+                        // dragging two home icons together: combine them into a new folder
+                        // at that grid cell.
+                        //
+                        // [onCreateFolder] removes both items from the flat pinnedItems
+                        // list and creates a new FolderItem containing them both at
+                        // [dropPosition].
+                        onCreateFolder(homeItem, occupantAtDrop, dropPosition)
+                    }
+                    else -> {
+                        // Empty cell → standard pin / move logic.
+                        onItemDroppedToHome(homeItem, dropPosition)
+                    }
                 }
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                 true

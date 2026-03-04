@@ -460,6 +460,9 @@ fun FolderPopupDialog(
                                 dragOffset = Offset.Zero
                                 dragStartWindowPos = itemWindowOffsets[item.id] ?: Offset.Zero
                                 isDraggingOut = false
+                                // Dismiss any open context menu as soon as drag threshold is
+                                // exceeded — mirrors the same behaviour on the home grid.
+                                menuShownForItemId = null
                                 hapticFeedback.performHapticFeedback(
                                     HapticFeedbackType.GestureThresholdActivate
                                 )

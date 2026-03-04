@@ -245,6 +245,15 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
+            // If the item lives inside a folder (not on the flat home-screen grid),
+            // remove it from that folder BEFORE placing it on the grid.  Without this
+            // step the item would appear both inside its folder AND on the grid.
+            //
+            // The folder cleanup policy is applied: if the folder becomes empty it is
+            // deleted; if only one child remains the folder is unwrapped to a plain icon.
+            evictItemFromFolderIfPresent(currentItems, item.id)
+
+            // Re-evaluate indices AFTER the eviction — the list may have changed.
             val existingItemIndex = currentItems.indexOfFirst { it.id == item.id }
             val targetOccupantIndex = currentItems.indexOfFirst {
                 it.id != item.id && it.position == targetPosition
@@ -481,10 +490,17 @@ class HomeRepositoryImpl(
                 return@edit
             }
 
-            // Remove the item from the top-level list if it appears there.
+            // Remove the item from the top-level flat list if it appears there.
             // (When dragging a home-screen icon onto a folder, the icon is
             //  at the top level and must be removed before being added to the folder.)
             currentItems.removeAll { it.id == item.id }
+
+            // Also remove the item from any OTHER folder it may already be in.
+            // Without this, an icon that lives inside folder A could be dragged (from
+            // the search dialog) into folder B and appear in both — a duplication bug.
+            // The same cleanup policy that governs individual item removal applies here:
+            // empty folder → deleted; single-child folder → unwrapped.
+            evictItemFromFolderIfPresent(currentItems, item.id)
 
             // Re-find folder index after the removal above (index may have shifted).
             val updatedFolderIndex = currentItems.indexOfFirst { it.id == folderId }
@@ -818,6 +834,76 @@ class HomeRepositoryImpl(
      * @param items The list of items to serialize
      * @param preferences The mutable preferences to write to
      */
+    // ========================================================================
+    // PRIVATE HELPER — folder eviction
+    // ========================================================================
+
+    /**
+     * Removes the item with [itemId] from whichever [HomeItem.FolderItem] it
+     * currently lives in, applying the standard folder cleanup policy.
+     *
+     * This helper operates directly on the already-deserialized [items] list
+     * (a [MutableList] obtained inside a DataStore [edit] block).  It must be
+     * called BEFORE any index-based look-ups on [items], because the list may
+     * change size.
+     *
+     * WHY THIS EXISTS:
+     * Items in the data model can live in exactly ONE place:
+     *   (a) the flat home-screen [pinnedItems] list, or
+     *   (b) inside a [HomeItem.FolderItem]'s children list.
+     *
+     * When an item is added to a new location — either directly onto the grid
+     * via [pinOrMoveItemToPosition], or into a folder via [addItemToFolder] —
+     * we must first evict it from wherever it currently is.  The existing flat-
+     * list removal (`removeAll { it.id == item.id }`) already handles case (a);
+     * this helper handles case (b).
+     *
+     * CLEANUP POLICY (identical to [removeItemFromFolder]):
+     *   - 0 children remain after removal → folder deleted from [items].
+     *   - 1 child  remains after removal → folder deleted; sole remaining child
+     *     is promoted to the folder's home-screen grid position.
+     *   - 2+ children remain             → folder updated in place.
+     *
+     * If [itemId] is not a child of any folder, this function is a no-op.
+     *
+     * @param items  The mutable flat home-items list (modified in-place).
+     * @param itemId The ID of the child item to evict.
+     */
+    private fun evictItemFromFolderIfPresent(items: MutableList<HomeItem>, itemId: String) {
+        // Find the index of the folder that contains this item as a child.
+        // An item can only live in one folder at a time, so we stop at the first match.
+        val folderIndex = items.indexOfFirst { candidate ->
+            candidate is HomeItem.FolderItem &&
+                candidate.children.any { child -> child.id == itemId }
+        }
+
+        // Item is not inside any folder — nothing to do.
+        if (folderIndex == -1) return
+
+        val folder = items[folderIndex] as HomeItem.FolderItem
+
+        // Build the updated children list with the target item removed.
+        val updatedChildren = folder.children.filterNot { it.id == itemId }
+
+        when (updatedChildren.size) {
+            0 -> {
+                // No children left — delete the folder from the home screen.
+                items.removeAt(folderIndex)
+            }
+            1 -> {
+                // Only one child left — "unwrap" the folder:
+                // delete the folder and promote its last child to the folder's position.
+                val promotedChild = updatedChildren.first().withPosition(folder.position)
+                items.removeAt(folderIndex)
+                items.add(promotedChild)
+            }
+            else -> {
+                // Two or more children remain — keep the folder, just update children.
+                items[folderIndex] = folder.copy(children = updatedChildren)
+            }
+        }
+    }
+
     private fun serializeItems(items: List<HomeItem>, preferences: MutablePreferences) {
         val itemsString = items
             .joinToString("\n") { item ->
