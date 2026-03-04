@@ -67,7 +67,7 @@ When you open the search dialog without typing:
 
 ### Recent Apps Refresh Reliability
 
-The search system now uses a **derived-state pipeline** where results are computed from source flows (query, dialog visibility, installed apps, recent apps, permissions, and prefix configuration).
+The search system uses a **layered state architecture** where background data (installed apps, recent apps, permissions) is grouped into a `BackgroundState` StateFlow. This feeds into the search pipeline, so when any background data changes, search results are recomputed automatically.
 
 Why this matters:
 
@@ -77,9 +77,9 @@ Why this matters:
 
 Current behavior:
 
-1. Opening search changes visibility input, which recomputes results for the current query
-2. If recent apps update while search is visible and query is blank, combined inputs emit and results recompute immediately
-3. If installed apps, permissions, or prefix configuration change, results are recomputed from the latest snapshot
+1. Opening search changes `_isSearchVisible`, which triggers the search pipeline to run for the current query
+2. If recent apps update while search is visible and query is blank, `_backgroundState` emits a new value, the pipeline re-runs, and results update immediately
+3. If installed apps, permissions, or prefix configuration change, the pipeline re-runs from the latest snapshot
 
 This removes the stale-empty-state scenario where the first open could show no recent apps until the user manually retriggered search.
 
@@ -510,44 +510,65 @@ private fun performWikipediaSearch(query: String) {
    - App filtering logic runs
    - App results displayed
 
-### Query Synchronization &amp; TextField Race Condition
+### State Management Architecture (Separated Query & Results)
 
-The search dialog uses a **controlled `OutlinedTextField`** whose `value` is driven by
-`uiState.query`. The reactive pipeline (`combine` → `flatMapLatest`) captures the query
-as part of a `SearchInputs` snapshot. When a slow provider (files, contacts) completes,
-its emitted UI state carries the query from the snapshot, which may be stale if the user
-typed additional characters while the search was running.
+The ViewModel uses a **layered state architecture** that separates query text from search results.
+This eliminates the TextField race condition by design rather than with patches.
 
-**The race condition (before fix):**
+**The 4 layers:**
 
-1. User has typed `"f s"` → pipeline starts file search
-2. User types `"o"` → TextField internally shows `"f so"`, `onValueChange` fires
-3. The old file search completes → emits `readyState(query = "f s")` → `_uiState.query = "f s"`
-4. Compose recomposes the TextField with `value = "f s"`, **reverting the "o"**
-5. Cursor jumps, letters disappear — the input feels broken
+```
+LAYER 1 — Input State (synchronous, user-driven)
+├── _query              ← Updated immediately on every keystroke
+├── _isSearchVisible    ← Dialog open/closed
+├── _hasContactsPermission
+└── _hasFilesPermission
 
-**How this is fixed:**
+LAYER 2 — Background Data (async, changes infrequently)
+├── _installedApps      ← Loaded once at startup
+└── _recentApps         ← Observed from repository
+    └── Combined into → _backgroundState (single StateFlow)
 
-- **`onQueryChange`** immediately updates `_uiState.query` via `_uiState.update { it.copy(query = newQuery) }`.
-  This ensures the next Compose frame always sees the latest typed text, even before the pipeline
-  produces its next emission.
+LAYER 3 — Search Pipeline Output (async, may be slow)
+└── _searchOutput       ← Contains results + providerConfig + loading
+    (Does NOT contain query text!)
 
-- **`onEach` pipeline terminal** always writes `derivedState.copy(query = searchQuery.value)` instead
-  of the snapshot query. This prevents a completing search from overwriting the query with stale text.
+LAYER 4 — Final UI State (combines all layers for Compose)
+└── uiState = combine(_query, _isSearchVisible, _searchOutput)
+```
 
-**Which providers are affected in practice:**
+**Why query is never stale:**
 
-| Provider | Risk | Why |
-|----------|------|-----|
-| Files (`f`) | High | MediaStore queries can take hundreds of milliseconds |
-| Contacts (`c`) | Medium | ContentResolver queries are moderately slow |
-| Apps (no prefix) | None | In-memory filtering completes in under a millisecond |
-| Web/YouTube (`s`/`y`) | None | These providers return immediately (just build a URL) |
+The search pipeline takes `_query` as INPUT and produces `_searchOutput` as OUTPUT.
+The final `uiState.query` always comes directly from `_query` via the Layer 4 combine,
+NOT from the pipeline output. So a slow file search completing with old results cannot
+overwrite what the user typed — the race condition is impossible by construction.
 
-For contacts specifically: 5. Contacts provider checks `hasContactsPermission` 6. If not granted → returns `PermissionRequestResult` 7. If granted → queries `ContactsRepository` 8. Returns `ContactSearchResult` for each match
+**How results stay visible during loading:**
+
+When a new search starts, the pipeline does:
+```kotlin
+_searchOutput.update { it.copy(isLoading = true, activeProviderConfig = newConfig) }
+```
+This keeps the previous results visible while setting the loading flag. The user sees
+the loading indicator appear, but results remain on screen until replaced by the new ones.
+This eliminates the results-flicker that the old architecture had (which set `results = emptyList()`
+during loading).
+
+**How provider mode updates instantly:**
+
+The pipeline parses the query prefix BEFORE starting the slow search. It immediately
+updates `_searchOutput` with the new `activeProviderConfig`, so the indicator bar color
+changes instantly even for slow providers (files, contacts).
+
+For contacts specifically:
+1. Contacts provider checks permission internally
+2. If not granted → returns `PermissionRequestResult`
+3. If granted → queries `ContactsRepository`
+4. Returns `ContactSearchResult` for each match
 
 For files specifically:
-1. Files provider checks `hasFilesPermission`:
+1. Files provider checks `hasFilesPermission` internally:
    - Android 11+: Checks `Environment.isExternalStorageManager()`
    - Android 10 and below: Checks `READ_EXTERNAL_STORAGE` permission
 2. If not granted → returns `PermissionRequestResult`

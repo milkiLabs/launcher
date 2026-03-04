@@ -7,6 +7,13 @@
  * - Easy testing (compare state snapshots)
  * - Clear documentation of what the UI needs
  *
+ * DESIGN PRINCIPLE - ONLY UI-RELEVANT FIELDS:
+ * This class contains ONLY fields that the UI composables actually read.
+ * Internal ViewModel data (installed apps list, recent apps list, permission
+ * flags) are intentionally excluded — those are implementation details of
+ * the search pipeline, not rendering state. Keeping them out of SearchUiState
+ * means the UI doesn't recompose when those internal values change.
+ *
  * STATE VS EVENT:
  * - State: Current values that the UI displays (query, results, etc.)
  * - Events: One-time occurrences that trigger actions (SearchResultAction)
@@ -19,7 +26,6 @@
 
 package com.milki.launcher.presentation.search
 
-import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 
@@ -27,55 +33,52 @@ import com.milki.launcher.domain.model.SearchResult
  * Complete UI state for the search screen.
  *
  * This is a single source of truth for everything the search UI needs to render.
- * All fields are immutable - state changes create new instances.
+ * All fields are immutable — state changes create new instances.
+ *
+ * WHAT'S IN HERE (UI needs it):
+ * - query: The text shown in the TextField
+ * - isSearchVisible: Whether the dialog is open
+ * - results: What to display in the results area
+ * - activeProviderConfig: Which provider mode is active (drives indicator color/icon)
+ * - isLoading: Whether to show the loading bar
+ *
+ * WHAT'S NOT IN HERE (ViewModel-internal):
+ * - installedApps, recentApps: Used internally by the search pipeline to compute
+ *   results; no composable reads these directly.
+ * - hasContactsPermission, hasFilesPermission: The search providers check permissions
+ *   themselves and return PermissionRequestResult when denied; the UI doesn't need
+ *   raw permission flags.
  *
  * @property query The current search query text
  * @property isSearchVisible Whether the search dialog is visible
  * @property results Current search results to display
  * @property activeProviderConfig Configuration of the active provider (null for app search)
  * @property isLoading Whether a search is in progress
- * @property recentApps Recent apps to show when query is empty
- * @property installedApps All installed apps for filtering
- * @property hasContactsPermission Whether contacts permission is granted
- * @property hasFilesPermission Whether files/storage permission is granted
  */
 data class SearchUiState(
     val query: String = "",
     val isSearchVisible: Boolean = false,
     val results: List<SearchResult> = emptyList(),
     val activeProviderConfig: SearchProviderConfig? = null,
-    val isLoading: Boolean = false,
-    val recentApps: List<AppInfo> = emptyList(),
-    val installedApps: List<AppInfo> = emptyList(),
-    val hasContactsPermission: Boolean = false,
-    val hasFilesPermission: Boolean = false
+    val isLoading: Boolean = false
 ) {
     /**
      * Whether results are available to display.
+     * Used by the UI to decide between showing results or empty state.
      */
     val hasResults: Boolean
         get() = results.isNotEmpty()
 
     /**
-     * Whether the query is empty.
-     */
-    val isQueryEmpty: Boolean
-        get() = query.isBlank()
-
-    /**
-     * The actual search query (without provider prefix).
-     * For UI display purposes.
-     */
-    val displayQuery: String
-        get() = if (activeProviderConfig != null) {
-            query.removePrefix("${activeProviderConfig.prefix} ")
-        } else {
-            query
-        }
-
-    /**
      * Placeholder text for the search field.
-     * Changes based on active provider.
+     * Changes based on active provider so the user knows what mode they're in.
+     *
+     * Examples:
+     * - No provider → "Search apps..."
+     * - "s" prefix → "Search the web..."
+     * - "c" prefix → "Search contacts..."
+     * - "f" prefix → "Search files..."
+     * - "y" prefix → "Search YouTube..."
      */
     val placeholderText: String
         get() = when (activeProviderConfig?.prefix) {
@@ -87,13 +90,8 @@ data class SearchUiState(
         }
 
     /**
-     * Whether the contacts permission prompt should be shown.
-     */
-    val showPermissionPrompt: Boolean
-        get() = activeProviderConfig?.prefix == "c" && !hasContactsPermission
-
-    /**
      * Hint text for available prefixes.
+     * Shown in the empty state to help users discover search modes.
      */
     val prefixHint: String
         get() = "Prefix shortcuts:\ns - Web search\nc - Contacts\nf - Files\ny - YouTube"
