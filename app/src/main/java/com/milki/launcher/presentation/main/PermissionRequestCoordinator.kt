@@ -26,6 +26,20 @@ class PermissionRequestCoordinator(
 ) {
 
     /**
+     * Internal state-machine-backed orchestrator that serializes permission requests
+     * and routes permission results deterministically.
+     *
+     * NOTE:
+     * This is intentionally created inside the coordinator because callback wiring
+     * is this class's responsibility. The orchestrator itself is Android-free and
+     * only depends on these two lambdas.
+     */
+    private val permissionOrchestrator = PermissionOrchestrator(
+        requestPermission = ::requestPermissionFromSystem,
+        deliverPermissionResult = ::deliverPermissionResultToConsumers
+    )
+
+    /**
      * Connects callbacks between ActionExecutor and PermissionHandler.
      *
      * This should be called once during Activity initialization after both
@@ -33,20 +47,7 @@ class PermissionRequestCoordinator(
      */
     fun bind() {
         actionExecutor.onRequestPermission = { permission ->
-            when (permission) {
-                android.Manifest.permission.READ_CONTACTS -> {
-                    permissionHandler.requestContactsPermission()
-                }
-
-                android.Manifest.permission.CALL_PHONE -> {
-                    permissionHandler.requestCallPermission()
-                }
-
-                android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
-                android.Manifest.permission.READ_EXTERNAL_STORAGE -> {
-                    permissionHandler.requestFilesPermission()
-                }
-            }
+            permissionOrchestrator.request(permission)
         }
 
         actionExecutor.onCloseSearch = {
@@ -57,7 +58,47 @@ class PermissionRequestCoordinator(
             searchViewModel.saveRecentApp(componentName)
         }
 
-        permissionHandler.onCallPermissionResult = { granted ->
+        permissionHandler.onPermissionResult = { permission, granted ->
+            permissionOrchestrator.onResult(permission, granted)
+        }
+    }
+
+    /**
+     * Requests the matching Android permission via PermissionHandler.
+     *
+     * This is called by PermissionOrchestrator when its reducer emits
+     * a RequestPermission effect.
+     */
+    private fun requestPermissionFromSystem(permission: String) {
+        when (permission) {
+            android.Manifest.permission.READ_CONTACTS -> {
+                permissionHandler.requestContactsPermission()
+            }
+
+            android.Manifest.permission.CALL_PHONE -> {
+                permissionHandler.requestCallPermission()
+            }
+
+            android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+            android.Manifest.permission.READ_EXTERNAL_STORAGE -> {
+                permissionHandler.requestFilesPermission()
+            }
+        }
+    }
+
+    /**
+     * Delivers completed permission outcomes to the interested consumer.
+     *
+     * CURRENT CONSUMERS:
+     * - CALL_PHONE result is forwarded to ActionExecutor because it can have
+     *   a pending action waiting for this grant.
+     *
+     * NOT FORWARDED (by design):
+     * - READ_CONTACTS and file permissions are already persisted into SearchViewModel
+     *   directly by PermissionHandler. They currently have no pending-action replay path.
+     */
+    private fun deliverPermissionResultToConsumers(permission: String, granted: Boolean) {
+        if (permission == android.Manifest.permission.CALL_PHONE) {
             actionExecutor.onPermissionResult(granted)
         }
     }

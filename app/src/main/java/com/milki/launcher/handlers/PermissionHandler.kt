@@ -97,12 +97,23 @@ class PermissionHandler(
     // ========================================================================
     
     /**
-     * Callback invoked when call permission result is received.
+     * Callback invoked whenever ANY permission result is received by this handler.
      *
-     * This is used by ActionExecutor to execute pending actions after
-     * permission is granted. Set by MainActivity after creating the executor.
+     * WHY GENERIC CALLBACK:
+     * Historically we only exposed a call-permission callback. That made orchestration
+     * logic more fragmented because each permission type had different callback paths.
+     *
+     * This generic callback allows the coordinator/state machine to observe a unified
+     * stream of permission outcomes:
+     * - READ_CONTACTS dialog result
+     * - CALL_PHONE dialog result
+     * - READ_EXTERNAL_STORAGE dialog result (Android 10 and below)
+     * - MANAGE_EXTERNAL_STORAGE effective result after returning from Settings (Android 11+)
+     *
+     * @property permission The permission string associated with this result.
+     * @property granted Whether the permission is currently granted.
      */
-    var onCallPermissionResult: ((Boolean) -> Unit)? = null
+    var onPermissionResult: ((permission: String, granted: Boolean) -> Unit)? = null
 
     // ========================================================================
     // SETUP
@@ -138,6 +149,7 @@ class PermissionHandler(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             searchViewModel.updateContactsPermission(isGranted)
+            onPermissionResult?.invoke(Manifest.permission.READ_CONTACTS, isGranted)
         }
     }
 
@@ -160,8 +172,7 @@ class PermissionHandler(
         callPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            // Notify ActionExecutor to execute pending action if granted
-            onCallPermissionResult?.invoke(isGranted)
+            onPermissionResult?.invoke(Manifest.permission.CALL_PHONE, isGranted)
         }
     }
 
@@ -176,6 +187,7 @@ class PermissionHandler(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             searchViewModel.updateFilesPermission(isGranted)
+            onPermissionResult?.invoke(Manifest.permission.READ_EXTERNAL_STORAGE, isGranted)
         }
     }
 
@@ -194,6 +206,8 @@ class PermissionHandler(
             ActivityResultContracts.StartActivityForResult()
         ) {
             updateFilesPermissionState()
+            val hasPermission = PermissionUtil.hasFilesPermission(activity)
+            onPermissionResult?.invoke(Manifest.permission.MANAGE_EXTERNAL_STORAGE, hasPermission)
         }
     }
 
