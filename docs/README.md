@@ -243,11 +243,10 @@ This project is extensively documented for educational purposes. Each major comp
 // 1. Create the provider
 class RedditSearchProvider : SearchProvider {
     override val config = SearchProviderConfig(
+        providerId = "reddit",
         prefix = "r",
         name = "Reddit",
-        description = "Search Reddit",
-        color = Color(0xFFFF4500),
-        icon = Icons.Default.Forum
+        description = "Search Reddit"
     )
     
     override suspend fun search(query: String): List<SearchResult> {
@@ -267,6 +266,9 @@ is SearchAction.OpenRedditSearch -> {
     val url = "https://reddit.com/search?q=${Uri.encode(action.query)}"
     openUrl(url)
 }
+
+// Provider visuals are mapped in the presentation layer by providerId
+// (icon + themed color), not stored in domain config.
 ```
 
 See **[Architecture.md](Architecture.md)** for more examples.

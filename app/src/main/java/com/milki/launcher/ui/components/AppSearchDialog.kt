@@ -262,12 +262,14 @@ private fun SearchTextFieldWithIndicator(
     onLaunchFirstResult: () -> Unit,
     onClear: () -> Unit
 ) {
+    val providerVisual = rememberSearchProviderVisual(activeProviderConfig?.providerId)
+
     /**
      * Animate the indicator color when the provider changes.
      * This creates a smooth visual transition between search modes.
      */
     val indicatorColor by animateColorAsState(
-        targetValue = activeProviderConfig?.color ?: MaterialTheme.colorScheme.primary,
+        targetValue = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary,
         label = "indicator_color"
     )
 
@@ -296,13 +298,14 @@ private fun SearchTextFieldWithIndicator(
             leadingIcon = {
                 /**
                  * Show the active provider's icon when a special mode is active.
-                 * The icon is tinted with the provider's color for visual consistency.
+                 * Visuals are resolved in the presentation layer using providerId,
+                 * so domain models remain free of Compose-specific fields.
                  */
-                activeProviderConfig?.let { config ->
+                if (activeProviderConfig != null && providerVisual != null) {
                     Icon(
-                        imageVector = config.icon,
-                        contentDescription = config.name,
-                        tint = config.color
+                        imageVector = providerVisual.icon,
+                        contentDescription = activeProviderConfig.name,
+                        tint = providerVisual.accentColor
                     )
                 }
             },
@@ -358,16 +361,16 @@ private fun SearchTextFieldWithIndicator(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = activeProviderConfig.icon,
+                    imageVector = providerVisual?.icon ?: Icons.Default.Search,
                     contentDescription = null,
                     modifier = Modifier.size(IconSize.extraSmall),
-                    tint = activeProviderConfig.color
+                    tint = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.width(Spacing.smallMedium))
                 Text(
                     text = "${activeProviderConfig.name}: ${activeProviderConfig.description}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = activeProviderConfig.color
+                    color = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary
                 )
             }
         } else {

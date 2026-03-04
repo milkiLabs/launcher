@@ -7,7 +7,7 @@
  * ARCHITECTURE OVERVIEW:
  * ┌─────────────────────────────────────────────────────────────┐
  * │                    DOMAIN LAYER                             │
- * │  SearchProviderConfig (data class) - just display config    │
+ * │  SearchProviderConfig (data class) - semantic config only    │
  * │  SearchProvider (interface) - defines search contract       │
  * └─────────────────────────────────────────────────────────────┘
  *                              │
@@ -21,14 +21,12 @@
 
 package com.milki.launcher.domain.model
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-
 /**
- * Configuration for a search provider's visual appearance.
+ * Configuration for a search provider's semantic metadata.
  *
- * This is a pure data class that only contains the properties needed
- * to display the provider in the UI. It does NOT contain any search logic.
+ * This is a pure data class that contains semantic provider information
+ * used by query parsing and provider identification. It does NOT contain
+ * search implementation logic.
  *
  * The search logic is implemented in SearchProvider implementations
  * (see domain/repository/SearchProvider.kt interface).
@@ -41,8 +39,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
  *                   NOTE: This is now the DEFAULT prefix - users can configure different ones.
  * @property name Human-readable name for display (e.g., "Web Search", "Contacts")
  * @property description Short description shown in hints
- * @property color Accent color for visual indicators
- * @property icon Icon representing this search type
+ * IMPORTANT ARCHITECTURE NOTE:
+ * This model intentionally contains ONLY semantic provider metadata.
+ * It must not contain UI framework types (such as Compose Color/ImageVector)
+ * because this class lives in the domain layer.
+ *
+ * Visual representation (icons/colors) is mapped in the presentation layer
+ * using providerId. This keeps domain logic reusable and test-friendly.
  *
  * Example:
  * ```kotlin
@@ -50,9 +53,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
  *     providerId = ProviderId.WEB,
  *     prefix = "s",
  *     name = "Web Search",
- *     description = "Search the web",
- *     color = Color(0xFF4285F4),
- *     icon = Icons.Default.Search
+ *     description = "Search the web"
  * )
  * ```
  */
@@ -60,7 +61,5 @@ data class SearchProviderConfig(
     val providerId: String,
     val prefix: String,
     val name: String,
-    val description: String,
-    val color: Color,
-    val icon: ImageVector
+    val description: String
 )

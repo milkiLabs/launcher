@@ -18,8 +18,6 @@
 
 package com.milki.launcher.data.search
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SearchProvider
@@ -45,9 +43,7 @@ class ContactsSearchProvider(
         providerId = ProviderId.CONTACTS,
         prefix = "c",
         name = "Contacts",
-        description = "Search your contacts",
-        color = androidx.compose.ui.graphics.Color(0xFF34A853), // Contacts Green
-        icon = Icons.Default.Person
+        description = "Search your contacts"
     )
 
     /**

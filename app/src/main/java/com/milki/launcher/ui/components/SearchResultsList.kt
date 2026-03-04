@@ -203,6 +203,9 @@ private fun MixedResultsList(
     actionHandler: (SearchResultAction) -> Unit,
     onExternalAppDragStart: () -> Unit
 ) {
+    val providerVisual = rememberSearchProviderVisual(activeProviderConfig?.providerId)
+    val accentColor = providerVisual?.accentColor
+
     /**
      * LazyListState allows us to control and observe the scroll position
      * of the LazyColumn. We use this to programmatically scroll to the
@@ -251,7 +254,7 @@ private fun MixedResultsList(
                 is WebSearchResult -> {
                     WebSearchResultItem(
                         result = result,
-                        accentColor = activeProviderConfig?.color,
+                        accentColor = accentColor,
                         onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }
@@ -265,7 +268,7 @@ private fun MixedResultsList(
                 is ContactSearchResult -> {
                     ContactSearchResultItem(
                         result = result,
-                        accentColor = activeProviderConfig?.color,
+                        accentColor = accentColor,
                         onClick = { actionHandler(SearchResultAction.Tap(result)) },
                         onExternalDragStarted = onExternalAppDragStart,
                         onDialClick = {
@@ -279,7 +282,7 @@ private fun MixedResultsList(
                 is FileDocumentSearchResult -> {
                     FileDocumentSearchResultItem(
                         result = result,
-                        accentColor = activeProviderConfig?.color,
+                        accentColor = accentColor,
                         onClick = { actionHandler(SearchResultAction.Tap(result)) },
                         onExternalDragStarted = onExternalAppDragStart
                     )
@@ -287,7 +290,7 @@ private fun MixedResultsList(
                 is PermissionRequestResult -> {
                     PermissionRequestItem(
                         result = result,
-                        accentColor = activeProviderConfig?.color,
+                        accentColor = accentColor,
                         onClick = { 
                             actionHandler(SearchResultAction.RequestPermission(
                                 result.permission,
@@ -299,7 +302,7 @@ private fun MixedResultsList(
                 is YouTubeSearchResult -> {
                     YouTubeSearchResultItem(
                         result = result,
-                        accentColor = activeProviderConfig?.color,
+                        accentColor = accentColor,
                         onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }

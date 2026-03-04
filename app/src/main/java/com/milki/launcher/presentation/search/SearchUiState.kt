@@ -39,7 +39,7 @@ import com.milki.launcher.domain.model.SearchResult
  * - query: The text shown in the TextField
  * - isSearchVisible: Whether the dialog is open
  * - results: What to display in the results area
- * - activeProviderConfig: Which provider mode is active (drives indicator color/icon)
+ * - activeProviderConfig: Which provider mode is active (provider visuals are mapped in UI)
  * - isLoading: Whether to show the loading bar
  *
  * WHAT'S NOT IN HERE (ViewModel-internal):

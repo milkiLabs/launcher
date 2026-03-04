@@ -21,11 +21,10 @@
  * ```kotlin
  * class RedditSearchProvider : SearchProvider {
  *     override val config = SearchProviderConfig(
+ *         providerId = "reddit",
  *         prefix = "r",
  *         name = "Reddit",
- *         description = "Search Reddit",
- *         color = Color(0xFFFF4500),
- *         icon = Icons.Default.Forum
+ *         description = "Search Reddit"
  *     )
  *
  *     override suspend fun search(query: String): List<SearchResult> {
@@ -55,8 +54,11 @@ import com.milki.launcher.domain.model.SearchResult
  */
 interface SearchProvider {
     /**
-     * Configuration for this provider's visual appearance.
-     * Contains prefix, name, description, color, and icon.
+    * Configuration for this provider's semantic metadata.
+    *
+    * IMPORTANT:
+    * This is a domain-layer model and intentionally excludes UI-only values
+    * such as icons/colors. Presentation maps providerId to visuals.
      */
     val config: SearchProviderConfig
 

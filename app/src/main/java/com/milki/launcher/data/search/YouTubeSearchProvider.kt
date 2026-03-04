@@ -17,8 +17,6 @@
 
 package com.milki.launcher.data.search
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
@@ -39,9 +37,7 @@ class YouTubeSearchProvider : SearchProvider {
         providerId = ProviderId.YOUTUBE,
         prefix = "y",
         name = "YouTube",
-        description = "Search YouTube videos",
-        color = androidx.compose.ui.graphics.Color(0xFFFF0000), // YouTube Red
-        icon = Icons.Default.PlayArrow
+        description = "Search YouTube videos"
     )
 
     /**

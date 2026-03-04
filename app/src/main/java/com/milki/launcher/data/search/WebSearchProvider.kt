@@ -20,8 +20,6 @@
 package com.milki.launcher.data.search
 
 import android.net.Uri
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.WebSearchResult
@@ -42,9 +40,7 @@ class WebSearchProvider : SearchProvider {
         providerId = ProviderId.WEB,
         prefix = "s",
         name = "Web Search",
-        description = "Search the web",
-        color = androidx.compose.ui.graphics.Color(0xFF4285F4), // Google Blue
-        icon = Icons.Default.Search
+        description = "Search the web"
     )
 
     /**

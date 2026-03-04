@@ -622,6 +622,8 @@ fun EmptyState(
     activeProvider: SearchProviderConfig?,
     prefixHint: String
 ) {
+    val providerVisual = rememberSearchProviderVisual(activeProvider?.providerId)
+
     /**
      * Box centers the entire empty state content.
      * This ensures the message is always visible regardless of
@@ -636,12 +638,11 @@ fun EmptyState(
             modifier = Modifier.padding(Spacing.extraLarge)
         ) {
             /**
-             * Use the active provider's icon if available,
-             * otherwise fall back to the default search icon.
-             * The icon is tinted with the provider's color (or default).
+             * Use the active provider's mapped presentation icon/color if available.
+             * Otherwise fall back to default search visuals.
              */
-            val icon = activeProvider?.icon ?: Icons.Default.Search
-            val tint = activeProvider?.color ?: MaterialTheme.colorScheme.onSurfaceVariant
+            val icon = providerVisual?.icon ?: Icons.Default.Search
+            val tint = providerVisual?.accentColor ?: MaterialTheme.colorScheme.onSurfaceVariant
 
             /**
              * Large icon with reduced opacity creates a subtle,

@@ -292,11 +292,10 @@ class ContactsRepositoryImpl(private val context: Context) : ContactsRepository 
 // WebSearchProvider.kt (prefix "s ")
 class WebSearchProvider : SearchProvider {
     override val config = SearchProviderConfig(
+        providerId = ProviderId.WEB,
         prefix = "s",
         name = "Web Search",
-        description = "Search the web",
-        color = Color(0xFF2196F3), // Blue
-        icon = Icons.Default.Search
+        description = "Search the web"
     )
     
     override suspend fun search(query: String): List<SearchResult> {
@@ -314,11 +313,10 @@ class ContactsSearchProvider(
     private val contactsRepository: ContactsRepository
 ) : SearchProvider {
     override val config = SearchProviderConfig(
+        providerId = ProviderId.CONTACTS,
         prefix = "c",
         name = "Contacts",
-        description = "Search contacts",
-        color = Color(0xFF4CAF50), // Green
-        icon = Icons.Default.Person
+        description = "Search contacts"
     )
     
     override suspend fun search(query: String): List<SearchResult> {
@@ -334,11 +332,10 @@ class ContactsSearchProvider(
 // YouTubeSearchProvider.kt (prefix "y ")
 class YouTubeSearchProvider(private val context: Context) : SearchProvider {
     override val config = SearchProviderConfig(
+        providerId = ProviderId.YOUTUBE,
         prefix = "y",
         name = "YouTube",
-        description = "Search YouTube",
-        color = Color(0xFFFF0000), // Red
-        icon = Icons.Default.PlayArrow
+        description = "Search YouTube"
     )
     
     override suspend fun search(query: String): List<SearchResult> {
@@ -564,11 +561,10 @@ Search providers are pluggable - you can add new ones without modifying existing
 // Step 1: Create provider
 class RedditSearchProvider : SearchProvider {
     override val config = SearchProviderConfig(
+        providerId = "reddit",
         prefix = "r",
         name = "Reddit",
-        description = "Search Reddit",
-        color = Color(0xFFFF4500),
-        icon = Icons.Default.Forum
+        description = "Search Reddit"
     )
     
     override suspend fun search(query: String): List<SearchResult> {
@@ -588,6 +584,8 @@ is SearchAction.OpenRedditSearch -> {
     val url = "https://reddit.com/search?q=${Uri.encode(action.query)}"
     openUrl(url)
 }
+
+// Visuals (icon/accent color) are mapped in presentation by providerId.
 ```
 
 ### 2. Repository Pattern
@@ -693,7 +691,7 @@ app/src/main/java/com/milki/launcher/
 │   │   ├── AppInfo.kt                 # App data model
 │   │   ├── Contact.kt                 # Contact data model
 │   │   ├── SearchResult.kt            # Search result sealed class
-│   │   └── SearchProviderConfig.kt    # Provider display config
+│   │   └── SearchProviderConfig.kt    # Provider semantic config
 │   │
 │   ├── repository/
 │   │   ├── AppRepository.kt           # App data interface
@@ -899,11 +897,10 @@ data class RedditSearchResult(
 // data/search/RedditSearchProvider.kt
 class RedditSearchProvider : SearchProvider {
     override val config = SearchProviderConfig(
+        providerId = "reddit",
         prefix = "r",
         name = "Reddit",
-        description = "Search Reddit",
-        color = Color(0xFFFF4500),
-        icon = Icons.Default.Forum
+        description = "Search Reddit"
     )
     
     override suspend fun search(query: String): List<SearchResult> {
