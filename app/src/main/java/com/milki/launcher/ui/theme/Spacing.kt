@@ -61,6 +61,18 @@ import androidx.compose.ui.unit.dp
  */
 object Spacing {
     /**
+     * 0dp - No spacing
+     * Used for: Explicitly removing spacing/elevation when APIs require a Dp value.
+     */
+    val none: Dp = 0.dp
+
+    /**
+     * 1dp - Hairline spacing
+     * Used for: Thin borders and strokes where 2dp would appear too heavy.
+     */
+    val hairline: Dp = 1.dp
+
+    /**
      * 2dp - Minimal spacing
      * Used for: Indicator bars, subtle dividers
      * Example: The colored bar under the search field

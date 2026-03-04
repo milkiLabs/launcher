@@ -7,6 +7,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | Document | Description |
 |----------|-------------|
 | **[Architecture.md](Architecture.md)** | Complete architecture guide (Clean Architecture + MVVM) |
+| **[search-settings-contacts-modularization.md](search-settings-contacts-modularization.md)** | Detailed walkthrough of the March 2026 file modularization refactor |
 | **[multi-mode-search.md](multi-mode-search.md)** | Multi-mode search feature documentation |
 | **[app-icon-memory-cache.md](app-icon-memory-cache.md)** | Launcher-optimized app icon caching and rendering flow |
 | **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** | Reducing DataStore read/write churn in settings/home hot paths |
@@ -219,6 +220,7 @@ This project is extensively documented for educational purposes. Each major comp
 
 ### Core Architecture
 - **[Architecture.md](Architecture.md)** - Complete architecture guide with diagrams, patterns, and best practices
+- **[search-settings-contacts-modularization.md](search-settings-contacts-modularization.md)** - Search/settings/contacts split-by-concern refactor guide
 
 ### Features
 - **[multi-mode-search.md](multi-mode-search.md)** - Multi-mode search feature with usage examples and extension guide

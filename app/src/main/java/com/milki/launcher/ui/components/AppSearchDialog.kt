@@ -13,7 +13,14 @@
  *
  * RELATED FILES:
  * - SearchResultsList.kt: Contains the list/grid containers for results
- * - SearchResultItems.kt: Contains individual result item composables
+ * - SearchResultListItem.kt: Shared list row for app-like result types
+ * - SearchResultContactItem.kt: Contact result row
+ * - SearchResultFileItem.kt: File result row
+ * - SearchResultPermissionItem.kt: Permission prompt result row
+ * - SearchResultUrlItem.kt: Generic URL result row
+ * - SearchResultWebItem.kt: Web search result row
+ * - SearchResultYouTubeItem.kt: YouTube search result row
+ * - SearchResultsEmptyState.kt: Empty-state UI when no results are available
  * - AppGridItem.kt: Grid item for displaying apps
  * - AppListItem.kt: List item for displaying apps
  */
