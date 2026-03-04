@@ -47,7 +47,6 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.drag
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
@@ -201,21 +200,15 @@ suspend fun PointerInputScope.detectDragOrTapGesture(
         
         if (longPress == null) {
             /**
-             * IMPORTANT CANCELLATION SAFETY:
-             * awaitLongPressOrCancellation() can return null for both:
-             * 1) Legitimate tap release before long-press timeout
-             * 2) Gesture cancellation (multi-touch/system interruption)
+             * Treat pre-long-press release as a tap.
              *
-             * We probe for an actual up event. If present, treat as tap.
-             * If not present, treat as cancellation so we never misfire a tap
-             * during interrupted drag/long-press interactions.
+             * WHY THIS IS REQUIRED:
+             * This detector is used by home icons and search result rows. Using a
+             * secondary waitForUpOrCancellation() probe here can miss legitimate
+             * first taps on some devices/dispatch paths, producing a visible
+             * "needs two taps" regression across the app.
              */
-            val upEvent = waitForUpOrCancellation()
-            if (upEvent != null) {
-                onTap()
-            } else {
-                onDragCancel()
-            }
+            onTap()
             return@awaitEachGesture
         }
         
