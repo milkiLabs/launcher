@@ -18,25 +18,6 @@
 
 ---
 
-
-
----
-
-## 4) Dual drag/gesture abstractions may be overengineered (**P2**)
-### Evidence
-- Generic drag contract + additional modifier wrappers + separate detector layers.
-
-### Impact
-- More abstraction than current app scope needs.
-- Steeper onboarding for contributors.
-
-### Recommendation
-- Keep reusable core, but reduce indirection:
-  - Single canonical gesture API.
-  - Remove duplicate wrappers unless they enforce real invariants.
-
----
-
 ## 5) Excessive broad exception swallowing (**P2**)
 ### Evidence
 - Multiple `catch (Exception)` blocks in core flows and repositories.
