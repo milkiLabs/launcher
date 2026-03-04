@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +46,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.pointer.pointerInput
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.dragdrop.AppDragDropGestureCallbacks
@@ -69,6 +71,8 @@ import kotlin.math.roundToInt
  * @param onItemClick Called when user taps an item.
  * @param onItemLongPress Called when user long-presses without dragging.
  * @param onItemMove Called when user drops an item into a new cell.
+ * @param onEmptyAreaLongPress Called when user long-presses an unoccupied area of the grid.
+ *                              Provides the local touch position so callers can anchor menus.
  * @param onItemDroppedToHome Called when an external drag payload is dropped into the grid.
  * @param modifier Optional modifier for parent layout.
  */
@@ -79,6 +83,7 @@ fun DraggablePinnedItemsGrid(
     onItemClick: (HomeItem) -> Unit,
     onItemLongPress: (HomeItem) -> Unit,
     onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
+    onEmptyAreaLongPress: (Offset) -> Unit = {},
     onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -139,6 +144,22 @@ fun DraggablePinnedItemsGrid(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .pointerInput(items, cellWidthPx, cellHeightPx, config.columns, maxVisibleRows) {
+                    detectTapGestures(
+                        onLongPress = { longPressOffset ->
+                            if (isExternalDragActive) return@detectTapGestures
+                            if (dragController.session != null) return@detectTapGestures
+
+                            val pressedCell = layoutMetrics.pixelToCell(longPressOffset)
+                            val isCellOccupied = items.any { it.position == pressedCell }
+
+                            if (!isCellOccupied) {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onEmptyAreaLongPress(longPressOffset)
+                            }
+                        }
+                    )
+                }
         ) {
         if (items.isEmpty()) {
             Box(

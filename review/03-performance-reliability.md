@@ -1,0 +1,87 @@
+# Performance & Reliability Audit
+
+## 1) Repeated DataStore serialization/deserialization in hot paths (**P1/P2**)
+### Evidence
+- Home and settings repositories repeatedly map preferences to full models and write full snapshots.
+
+### Risk
+- Unnecessary CPU churn on frequent updates (drag reorder, settings edits).
+
+### Suggestion
+- Keep current DataStore approach but reduce full-model remap frequency in critical operations.
+- Introduce targeted update helpers where safe.
+
+---
+
+## 2) Contacts lookup still performs nested queries in batch path (**P1**)
+### Evidence
+- `getContactsByPhoneNumbers` uses an IN query, but still calls `getPhoneNumbersForContact(contactId)` per contact.
+
+### Impact
+- Partial N+1 query behavior remains under larger result sets.
+
+### Fix
+- Return sufficient phone fields in one query and group in-memory.
+
+---
+
+## 3) File search logs excessively in normal path (**P2**)
+### Evidence
+- `FilesRepositoryImpl` emits many debug logs per query/file.
+
+### Impact
+- Potential log overhead and noisy diagnostics in production builds.
+
+### Fix
+- Gate verbose logs by build type or sampling.
+- Keep error logs; reduce per-row debug logs.
+
+---
+
+## 4) `animateScrollToItem(0)` on every results change can feel jumpy (**P2**)
+### Evidence
+- `SearchResultsList` scrolls to top whenever `results` list changes.
+
+### Impact
+- Can interrupt user scanning while typing quickly.
+
+### Fix
+- Only auto-scroll when query changes meaningfully or when mode changes.
+- Prefer `scrollToItem(0)` for non-animated quick reset in rapid updates.
+
+---
+
+## 5) URL/browser resolution cache may stale after app install/uninstall (**P3**)
+### Evidence
+- `UrlHandlerResolver` caches browser package set with no invalidation.
+
+### Impact
+- Minor mismatch until process restart.
+
+### Fix
+- Invalidate cache on package change broadcasts or time-based refresh.
+
+---
+
+## 6) Generic `catch (Exception) -> emptyList()` hides real outages (**P1**)
+### Evidence
+- Search provider execution and repositories use broad fallback.
+
+### Impact
+- Functional bugs appear as "no results" with no telemetry.
+
+### Fix
+- Distinguish permission denial, query failure, and provider crash.
+- Surface recoverable diagnostics in debug mode and structured logs.
+
+---
+
+## 7) Dependency freshness risk (**P2**)
+### Evidence
+- Compose BOM pinned to 2024 stream while current date is 2026.
+
+### Impact
+- Missed bugfixes/perf/security patches.
+
+### Fix
+- Perform controlled dependency refresh with compatibility matrix and regression pass.

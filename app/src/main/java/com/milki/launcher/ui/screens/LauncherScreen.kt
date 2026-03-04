@@ -42,12 +42,28 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.DpOffset
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.home.HomeUiState
@@ -87,6 +103,7 @@ import com.milki.launcher.util.launchAppShortcut
  * @param onPinnedItemLongPress Called when a pinned item is long-pressed (for menu)
  * @param onPinnedItemMove Called when a pinned item is dragged to a new position
  * @param onItemDroppedToHome Callback for external drag payload drops (app/file/contact)
+ * @param onOpenSettings Called when user opens the homescreen long-press menu and selects Settings
  */
 @Composable
 fun LauncherScreen(
@@ -97,9 +114,20 @@ fun LauncherScreen(
     onPinnedItemClick: (HomeItem) -> Unit,
     onPinnedItemLongPress: (HomeItem) -> Unit,
     onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> }
+    onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> },
+    onOpenSettings: () -> Unit = {},
+    isHomescreenMenuOpen: Boolean = false,
+    onHomescreenMenuOpenChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
+
+    LaunchedEffect(searchUiState.isSearchVisible) {
+        if (searchUiState.isSearchVisible) {
+            onHomescreenMenuOpenChange(false)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -107,11 +135,28 @@ fun LauncherScreen(
             .background(Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
+        if (isHomescreenMenuOpen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        onHomescreenMenuOpenChange(false)
+                    }
+            )
+        }
+
         DraggablePinnedItemsGrid(
             items = homeUiState.pinnedItems,
             onItemClick = onPinnedItemClick,
             onItemLongPress = onPinnedItemLongPress,
             onItemMove = onPinnedItemMove,
+            onEmptyAreaLongPress = { touchOffset ->
+                homescreenMenuAnchorPx = touchOffset
+                onHomescreenMenuOpenChange(true)
+            },
             onItemDroppedToHome = { item, position ->
                 onItemDroppedToHome(item, position)
                 onDismissSearch()
@@ -121,6 +166,31 @@ fun LauncherScreen(
                 .padding(Spacing.mediumLarge)
                 .align(Alignment.Center)
         )
+
+        DropdownMenu(
+            expanded = isHomescreenMenuOpen,
+            onDismissRequest = { onHomescreenMenuOpenChange(false) },
+            offset = with(density) {
+                DpOffset(
+                    x = homescreenMenuAnchorPx.x.toDp(),
+                    y = homescreenMenuAnchorPx.y.toDp()
+                )
+            }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Settings") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    onHomescreenMenuOpenChange(false)
+                    onOpenSettings()
+                }
+            )
+        }
     }
 
     if (searchUiState.isSearchVisible) {

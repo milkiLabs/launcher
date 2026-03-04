@@ -25,6 +25,7 @@ Without a properly configured manifest, your app won't work!
 9. [Why This Configuration Makes It a Launcher](#why-this-configuration-makes-it-a-launcher)
 10. [Permissions and Features](#permissions-and-features)
 11. [Common Manifest Issues](#common-manifest-issues)
+12. [Settings Activity Entry Point](#settings-activity-entry-point)
 
 ---
 
@@ -669,6 +670,41 @@ Android Studio: `Build > Analyze APK` → Open APK → `AndroidManifest.xml`
 3. **application Element**: Global app configuration
 4. **activity Element**: Declares Activities
 5. **intent-filter**: Defines how component can be launched
+
+---
+
+## Settings Activity Entry Point
+
+### Current Design (March 2026)
+
+`SettingsActivity` is intentionally **not** launcher-exported with a `MAIN/LAUNCHER` intent filter.
+
+Instead, settings are opened from the launcher's homescreen UX:
+- User long-presses an empty area on the homescreen
+- A dropdown menu appears
+- User taps **Settings**
+- Launcher opens `SettingsActivity` explicitly via intent
+
+### Why This Change Was Made
+
+Previously, `SettingsActivity` had `CATEGORY_LAUNCHER`, which created a second icon entry in app lists. That caused:
+- Launcher app list clutter (duplicate entry point)
+- Confusing mental model (is Settings a separate app?)
+- Discoverability inconsistency (settings accessible both as app and in-app)
+
+The new approach keeps a single launcher entry point and places settings in-context where users expect launcher customization controls.
+
+### Manifest Implications
+
+`SettingsActivity` now:
+- Has no launcher `intent-filter`
+- Is declared as `android:exported="false"`
+
+This means:
+- Other apps cannot launch it directly
+- Only this app can open it through explicit intents
+- Security surface is smaller
+
 6. **HOME + MAIN**: Makes app a launcher
 7. **singleTask**: Prevents multiple launcher instances
 8. **exported="true"**: Required for launcher activities

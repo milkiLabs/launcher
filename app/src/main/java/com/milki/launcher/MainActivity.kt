@@ -25,6 +25,8 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -93,6 +95,14 @@ class MainActivity : ComponentActivity() {
      */
     private var wasAlreadyOnHomescreen = false
 
+    /**
+     * Whether the homescreen empty-area long-press dropdown menu is currently open.
+     *
+     * This is controlled by LauncherScreen and read by onNewIntent() so the
+     * home button can close the menu first before opening search.
+     */
+    private var isHomescreenMenuOpen by mutableStateOf(false)
+
     // ========================================================================
     // LIFECYCLE
     // ========================================================================
@@ -124,6 +134,13 @@ class MainActivity : ComponentActivity() {
                         homeUiState = homeUiState,
                         onQueryChange = { searchViewModel.onQueryChange(it) },
                         onDismissSearch = { searchViewModel.hideSearch() },
+                        onOpenSettings = {
+                            startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                        },
+                        isHomescreenMenuOpen = isHomescreenMenuOpen,
+                        onHomescreenMenuOpenChange = { isOpen ->
+                            isHomescreenMenuOpen = isOpen
+                        },
                         onPinnedItemClick = { item ->
                             openPinnedItem(item, context)
                         },
@@ -273,15 +290,58 @@ class MainActivity : ComponentActivity() {
 
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
             if (!wasAlreadyOnHomescreen) {
-                searchViewModel.hideSearch()
+                handleHomePressedAfterReturningToLauncher()
             } else {
-                val uiState = searchViewModel.uiState.value
-                when {
-                    !uiState.isSearchVisible -> searchViewModel.showSearch()
-                    uiState.query.isNotEmpty() -> searchViewModel.clearQuery()
-                    else -> searchViewModel.hideSearch()
-                }
+                handleHomePressedWhileAlreadyOnLauncher()
             }
         }
+    }
+
+    /**
+     * Handles home-button behavior when launcher is brought to foreground
+     * from another app/task.
+     *
+     * UX RULE:
+     * - Always reset transient overlays/search state.
+     */
+    private fun handleHomePressedAfterReturningToLauncher() {
+        closeHomescreenMenu()
+        searchViewModel.hideSearch()
+    }
+
+    /**
+     * Handles home-button behavior when user is already on launcher.
+     *
+     * PRIORITY ORDER (explicit and deterministic):
+     * 1. If homescreen long-press menu is open -> close it and consume this press.
+     * 2. If search is hidden -> open search.
+     * 3. If search is visible and query is non-empty -> clear query.
+     * 4. If search is visible and query is empty -> hide search.
+     *
+     * This ordering prevents focus conflicts by ensuring overlay UI is dismissed
+     * before search dialog transitions are attempted.
+     */
+    private fun handleHomePressedWhileAlreadyOnLauncher() {
+        if (isHomescreenMenuOpen) {
+            closeHomescreenMenu()
+            return
+        }
+
+        val uiState = searchViewModel.uiState.value
+        when {
+            !uiState.isSearchVisible -> searchViewModel.showSearch()
+            uiState.query.isNotEmpty() -> searchViewModel.clearQuery()
+            else -> searchViewModel.hideSearch()
+        }
+    }
+
+    /**
+     * Closes the homescreen long-press dropdown menu.
+     *
+     * Keeping this as a dedicated helper avoids repeating direct state writes
+     * in multiple intent/interaction paths.
+     */
+    private fun closeHomescreenMenu() {
+        isHomescreenMenuOpen = false
     }
 }

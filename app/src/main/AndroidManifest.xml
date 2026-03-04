@@ -147,17 +147,11 @@
         -->
         <activity
             android:name=".SettingsActivity"
-            android:exported="true"
+          android:exported="false"
             android:label="@string/settings_title"
             android:taskAffinity="com.milki.launcher.settings"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.Launcher">
-            
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+          android:theme="@style/Theme.Launcher" />
     </application>
 
 </manifest>
