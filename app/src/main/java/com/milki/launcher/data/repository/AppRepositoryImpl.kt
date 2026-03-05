@@ -5,9 +5,11 @@
 package com.milki.launcher.data.repository
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.os.Build
@@ -23,11 +25,17 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.data.icon.AppIconMemoryCache
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
@@ -146,7 +154,82 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class AppRepositoryImpl(
     private val application: Application
 ) : AppRepository {
-    
+
+    // ============================================================================
+    // PACKAGE CHANGE OBSERVATION
+    // ============================================================================
+
+    /**
+     * Internal signal that fires whenever a package install, uninstall, update, or
+     * change broadcast is received.
+     *
+     * WHY SharedFlow:
+     * - replay = 0: We don't need late collectors to see old signals — they get
+     *   the current app list from the initial flowOf(Unit) in observeInstalledApps().
+     * - extraBufferCapacity = 1 + DROP_OLDEST: If the previous reload is still
+     *   in-flight when a new broadcast arrives, we keep only the latest signal.
+     *   Combined with mapLatest in observeInstalledApps(), this means rapid
+     *   package changes (e.g. batch updates) naturally coalesce into a single reload.
+     */
+    private val packageChangeSignal = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    init {
+        registerPackageChangeReceiver()
+    }
+
+    /**
+     * Registers a BroadcastReceiver for system package lifecycle events.
+     *
+     * WHICH BROADCASTS ARE MONITORED:
+     * - ACTION_PACKAGE_ADDED:    new app installed
+     * - ACTION_PACKAGE_REMOVED:  app uninstalled
+     * - ACTION_PACKAGE_REPLACED: app updated (new version installed over old)
+     * - ACTION_PACKAGE_CHANGED:  app component state changed (e.g. component disabled)
+     *
+     * All four use the "package" data scheme, which means the Intent's data URI
+     * contains the affected package name (e.g. "package:com.example.app").
+     *
+     * LIFECYCLE:
+     * The receiver is registered on the Application context, so it lives for the
+     * entire process lifetime. Since AppRepositoryImpl is a Koin singleton that
+     * also lives for the entire process, this is intentional and correct — there
+     * is no leak risk.
+     *
+     * API 33+ COMPATIBILITY:
+     * Starting with Android 13 (TIRAMISU), dynamically registered receivers must
+     * declare an export flag. We use RECEIVER_NOT_EXPORTED because package change
+     * broadcasts are protected system broadcasts — only the OS can send them, so
+     * we don't need to accept intents from other apps.
+     */
+    private fun registerPackageChangeReceiver() {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                // Fire-and-forget signal. mapLatest in observeInstalledApps()
+                // ensures only the latest reload completes if signals pile up.
+                packageChangeSignal.tryEmit(Unit)
+            }
+        }
+
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addAction(Intent.ACTION_PACKAGE_CHANGED)
+            // Package broadcasts use the "package" URI scheme.
+            addDataScheme("package")
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            application.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            application.registerReceiver(receiver, filter)
+        }
+    }
+
     // ============================================================================
     // DATASTORE KEY
     // ============================================================================
@@ -192,6 +275,33 @@ class AppRepositoryImpl(
      */
     private val limitedDispatcher = Dispatchers.IO.limitedParallelism(8)
     
+    // ============================================================================
+    // INSTALLED APPS OBSERVATION
+    // ============================================================================
+
+    /**
+     * Returns a reactive Flow of all installed launcher apps.
+     *
+     * HOW IT WORKS:
+     * 1. flowOf(Unit) provides the initial trigger so the first collection
+     *    immediately queries PackageManager and emits the current app list.
+     * 2. packageChangeSignal merges in subsequent triggers whenever a
+     *    PACKAGE_ADDED / REMOVED / REPLACED / CHANGED broadcast arrives.
+     * 3. mapLatest ensures that if a new signal arrives while a previous
+     *    getInstalledApps() call is still in-flight, the old call is cancelled
+     *    and a fresh one starts — so rapid package changes naturally coalesce
+     *    into a single final reload.
+     *
+     * THREADING:
+     * getInstalledApps() already uses withContext(limitedDispatcher) internally,
+     * so this flow is safe to collect from any dispatcher including Main.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeInstalledApps(): Flow<List<AppInfo>> {
+        return merge(flowOf(Unit), packageChangeSignal)
+            .mapLatest { getInstalledApps() }
+    }
+
     // ============================================================================
     // REPOSITORY IMPLEMENTATION
     // ============================================================================

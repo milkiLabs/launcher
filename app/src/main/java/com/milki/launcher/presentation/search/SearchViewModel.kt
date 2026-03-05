@@ -121,6 +121,7 @@ class SearchViewModel(
             existingOutput = stateHolder.searchOutput
         )
         loadInstalledApps()
+        observeInstalledApps()
         observeRecentApps()
         settingsAdapter.bind(
             scope = viewModelScope,
@@ -141,6 +142,31 @@ class SearchViewModel(
     private fun loadInstalledApps() {
         viewModelScope.launch {
             stateHolder.installedApps.value = appRepository.getInstalledApps()
+        }
+    }
+
+    /**
+     * Observes installed apps from the repository's reactive stream.
+     *
+     * HOW THIS WORKS:
+     * After the initial one-shot load above (which populates results as fast as
+     * possible for first render), this flow takes over and keeps the app list
+     * up-to-date whenever packages are installed, uninstalled, or updated.
+     *
+     * WHY BOTH loadInstalledApps() AND observeInstalledApps():
+     * The one-shot load returns results immediately via suspend. The flow's
+     * first emission goes through the same path but may arrive slightly later
+     * due to flow collection setup. Having both means the UI gets data as fast
+     * as possible at startup, and stays reactive afterwards. Because
+     * stateHolder.installedApps is a StateFlow, duplicate identical emissions
+     * are harmless — downstream combine/mapLatest only recomputes when the
+     * value actually changes.
+     */
+    private fun observeInstalledApps() {
+        viewModelScope.launch {
+            appRepository.observeInstalledApps().collect { apps ->
+                stateHolder.installedApps.value = apps
+            }
         }
     }
 

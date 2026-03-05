@@ -46,14 +46,16 @@ enum class AppDrawerSortMode(val displayName: String) {
 /**
  * UI state consumed by the app drawer composable.
  *
+ * NOTE: Only the sorted projection is exposed here — the raw unsorted list is an
+ * internal concern of the ViewModel. This keeps the UI state object lightweight
+ * and avoids duplicating the full app list across state snapshots.
+ *
  * @property isLoading Whether the repository load is still in progress.
- * @property allApps Raw app list from repository (unsorted source of truth).
  * @property sortMode Currently selected sorting mode.
  * @property sortedApps Final list presented by the drawer after sorting.
  */
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
-    val allApps: List<AppInfo> = emptyList(),
     val sortMode: AppDrawerSortMode = AppDrawerSortMode.ALPHABETICAL_ASC,
     val sortedApps: List<AppInfo> = emptyList()
 )
@@ -107,7 +109,6 @@ class AppDrawerViewModel(
 
             AppDrawerUiState(
                 isLoading = loading,
-                allApps = apps,
                 sortMode = mode,
                 sortedApps = sortedApps
             )
@@ -119,47 +120,40 @@ class AppDrawerViewModel(
     )
 
     init {
-        loadInstalledApps()
+        observeInstalledApps()
     }
 
     /**
-     * Reads installed apps once from repository.
+     * Collects installed apps from the repository's reactive stream.
      *
-     * NOTE:
-     * The repository already performs launcher-activity discovery and icon preload,
-     * so this method intentionally stays simple and only moves data into state.
+     * HOW THIS WORKS:
+     * AppRepository.observeInstalledApps() emits the full app list immediately
+     * on first collection, and then re-emits automatically whenever an app is
+     * installed, uninstalled, or updated on the device. This means the drawer
+     * always shows the current set of apps without any manual refresh button.
+     *
+     * The repository handles PackageManager queries and icon preloading
+     * internally, so this method only moves data into state flows.
      */
-    private fun loadInstalledApps() {
+    private fun observeInstalledApps() {
         viewModelScope.launch {
-            isLoading.value = true
-            installedApps.value = appRepository.getInstalledApps()
-            isLoading.value = false
+            appRepository.observeInstalledApps().collect { apps ->
+                installedApps.value = apps
+                isLoading.value = false
+            }
         }
     }
 
     /**
      * Update selected sort mode from the drawer dropdown.
+     *
+     * Re-selecting the currently active mode is ignored to prevent unnecessary
+     * recomposition and sort recomputation.
      */
     fun setSortMode(mode: AppDrawerSortMode) {
         if (sortMode.value == mode) {
             return
         }
         sortMode.value = mode
-    }
-
-    /**
-     * Convenience helper used by the dropdown button to flip alphabetical order.
-     *
-     * Behavior:
-     * - If current mode is A→Z, switch to Z→A.
-     * - If current mode is Z→A, switch to A→Z.
-     * - If current mode is last-updated, switch to A→Z (safe default).
-     */
-    fun toggleAlphabeticalDirection() {
-        sortMode.value = when (sortMode.value) {
-            AppDrawerSortMode.ALPHABETICAL_ASC -> AppDrawerSortMode.ALPHABETICAL_DESC
-            AppDrawerSortMode.ALPHABETICAL_DESC -> AppDrawerSortMode.ALPHABETICAL_ASC
-            AppDrawerSortMode.LAST_UPDATED_DESC -> AppDrawerSortMode.ALPHABETICAL_ASC
-        }
     }
 }

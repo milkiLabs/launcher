@@ -24,7 +24,32 @@ interface AppRepository {
      * @return List of AppInfo objects, sorted alphabetically
      */
     suspend fun getInstalledApps(): List<AppInfo>
-    
+
+    /**
+     * Observe all installed launcher apps as a reactive stream.
+     *
+     * HOW IT WORKS:
+     * - Emits the full sorted list of launcher apps immediately on first collection.
+     * - Automatically re-emits a fresh list whenever a package is installed,
+     *   uninstalled, updated, or changed on the device.
+     *
+     * WHY THIS EXISTS:
+     * A launcher must always reflect the current set of installed apps. Without
+     * this, the app drawer and search results would show stale data after the
+     * user installs or uninstalls something. Both AppDrawerViewModel and
+     * SearchViewModel collect this flow to stay up-to-date without manual
+     * refresh logic.
+     *
+     * IMPLEMENTATION CONTRACT:
+     * - The flow must never complete (it stays active for the lifetime of the
+     *   collecting scope).
+     * - Rapid package changes (e.g. bulk updates) should result in only one
+     *   reload reaching collectors, not one per broadcast.
+     *
+     * @return Flow that emits sorted List<AppInfo> on every package change
+     */
+    fun observeInstalledApps(): Flow<List<AppInfo>>
+
     /**
      * Get recently launched apps as an observable stream.
      * 

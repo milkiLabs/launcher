@@ -28,7 +28,7 @@ The launcher now supports a full-screen app drawer overlay with the following be
 ### Presentation
 
 - `AppDrawerViewModel` (`presentation/drawer/AppDrawerViewModel.kt`)
-  - Loads installed apps from `AppRepository`.
+  - Collects installed apps reactively from `AppRepository.observeInstalledApps()`.
   - Holds selected sort mode.
   - Exposes sorted list via `AppDrawerUiState`.
 
@@ -36,8 +36,11 @@ The launcher now supports a full-screen app drawer overlay with the following be
 
 - `AppDrawerOverlay` (`ui/components/AppDrawerOverlay.kt`)
   - Full-screen drawer composable.
-  - Header with sort dropdown.
-  - `LazyVerticalGrid` (4 columns) of `AppGridItem` tiles.
+  - Header with sort dropdown (checkmark indicates active mode).
+  - `LazyVerticalGrid` with adaptive columns (`GridCells.Adaptive`) that adjusts
+    column count for phones, foldables, and tablets.
+  - Applies `statusBarsPadding()` and `navigationBarsPadding()` so content never
+    renders behind system UI chrome.
 
 - `LauncherScreen`
   - Presents drawer in a full-screen `ModalBottomSheet` (`skipPartiallyExpanded = true`, `sheetMaxWidth = Dp.Unspecified`).
@@ -102,6 +105,27 @@ The drawer ViewModel sorts against this field for “Last update date (Newest fi
 
 - Installed app discovery now deduplicates icon preloads per package when multiple launcher activities exist.
 - Last-update timestamps are cached per package during discovery to avoid repeated `PackageManager.getPackageInfo(...)` calls.
+
+### Reactive app list updates
+
+Both the app drawer and the search dialog automatically reflect package changes
+(installs, uninstalls, updates) without requiring a manual refresh or app restart.
+
+**How it works:**
+
+1. `AppRepositoryImpl` registers a `BroadcastReceiver` on the `Application` context
+   for `ACTION_PACKAGE_ADDED`, `ACTION_PACKAGE_REMOVED`, `ACTION_PACKAGE_REPLACED`,
+   and `ACTION_PACKAGE_CHANGED`.
+2. Each broadcast fires a signal into a `MutableSharedFlow<Unit>` with
+   `DROP_OLDEST` overflow — rapid signals coalesce naturally.
+3. `observeInstalledApps()` merges an initial `flowOf(Unit)` (for first-collection
+   data) with the broadcast signal flow, then uses `mapLatest` to call
+   `getInstalledApps()`. If a new broadcast arrives while a reload is in-flight,
+   the stale reload is cancelled and only the latest one completes.
+4. `AppDrawerViewModel` collects `observeInstalledApps()` to keep the drawer grid
+   current.
+5. `SearchViewModel` collects `observeInstalledApps()` to keep search results
+   current (alongside its existing one-shot `loadInstalledApps()` for fast startup).
 
 ---
 
