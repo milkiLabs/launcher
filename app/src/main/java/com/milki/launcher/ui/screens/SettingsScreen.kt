@@ -85,21 +85,17 @@ fun SettingsScreen(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String,
-        includeInPlainQuerySuggestions: Boolean
+        accentColorHex: String
     ) -> Unit,
     onUpdateSearchSource: (
         sourceId: String,
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String,
-        includeInPlainQuerySuggestions: Boolean
+        accentColorHex: String
     ) -> Unit,
     onDeleteSearchSource: (String) -> Unit,
     onSetSearchSourceEnabled: (String, Boolean) -> Unit,
-    onSetDefaultPlainQuerySource: (String) -> Unit,
-    onSetIncludeInPlainQuerySuggestions: (String, Boolean) -> Unit,
     onAddPrefixToSource: (String, String, (String) -> Unit) -> Unit,
     onRemovePrefixFromSource: (String, String) -> Unit,
     onResetToDefaults: () -> Unit
@@ -299,12 +295,7 @@ fun SettingsScreen(
             settings.searchSources.forEach { source ->
                 SourceSettingItem(
                     source = source,
-                    isDefault = source.isEnabled && source.isDefaultForPlainQueryAction,
                     onToggleEnabled = { enabled -> onSetSearchSourceEnabled(source.id, enabled) },
-                    onToggleIncludeInSuggestions = { include ->
-                        onSetIncludeInPlainQuerySuggestions(source.id, include)
-                    },
-                    onSetAsDefault = { onSetDefaultPlainQuerySource(source.id) },
                     onAddPrefix = { prefix, onResult ->
                         onAddPrefixToSource(source.id, prefix, onResult)
                     },
@@ -404,8 +395,8 @@ fun SettingsScreen(
         SourceEditorDialog(
             initialSource = null,
             onDismiss = { showAddSourceDialog = false },
-            onConfirm = { name, urlTemplate, prefixes, accentColorHex, includeInSuggestions ->
-                onAddSearchSource(name, urlTemplate, prefixes, accentColorHex, includeInSuggestions)
+            onConfirm = { name, urlTemplate, prefixes, accentColorHex ->
+                onAddSearchSource(name, urlTemplate, prefixes, accentColorHex)
                 showAddSourceDialog = false
             }
         )
@@ -415,15 +406,14 @@ fun SettingsScreen(
         SourceEditorDialog(
             initialSource = editingSource,
             onDismiss = { editingSource = null },
-            onConfirm = { name, urlTemplate, prefixes, accentColorHex, includeInSuggestions ->
+            onConfirm = { name, urlTemplate, prefixes, accentColorHex ->
                 val sourceId = editingSource?.id ?: return@SourceEditorDialog
                 onUpdateSearchSource(
                     sourceId,
                     name,
                     urlTemplate,
                     prefixes,
-                    accentColorHex,
-                    includeInSuggestions
+                    accentColorHex
                 )
                 editingSource = null
             }

@@ -32,8 +32,7 @@ internal class SearchViewModelSettingsAdapter(
         scope: CoroutineScope,
         prefixConfigurations: MutableStateFlow<ProviderPrefixConfiguration>,
         searchSources: MutableStateFlow<List<SearchSource>>,
-        providerAccentColorById: MutableStateFlow<Map<String, String>>,
-        defaultPlainQueryUrlTemplate: MutableStateFlow<String>
+        providerAccentColorById: MutableStateFlow<Map<String, String>>
     ) {
         scope.launch {
             settingsRepository.settings
@@ -79,13 +78,6 @@ internal class SearchViewModelSettingsAdapter(
                     prefixConfigurations.value = mergedConfigurations
                     searchSources.value = settings.searchSources
                     providerAccentColorById.value = settings.searchSources.associate { it.id to it.accentColorHex }
-
-                    val defaultSource = settings.searchSources.firstOrNull {
-                        it.isEnabled && it.isDefaultForPlainQueryAction
-                    } ?: settings.searchSources.firstOrNull { it.isEnabled }
-
-                    defaultPlainQueryUrlTemplate.value =
-                        defaultSource?.urlTemplate ?: "https://www.google.com/search?q={query}"
                 }
         }
     }

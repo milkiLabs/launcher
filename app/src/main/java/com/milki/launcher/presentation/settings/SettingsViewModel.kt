@@ -190,8 +190,7 @@ class SettingsViewModel(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String,
-        includeInPlainQuerySuggestions: Boolean
+        accentColorHex: String
     ) {
         viewModelScope.launch {
             settingsRepository.updateSettings { current ->
@@ -200,17 +199,11 @@ class SettingsViewModel(
                     .filter { it.isNotBlank() && !it.contains(" ") }
                     .distinct()
 
-                val shouldBeDefault = current.searchSources.none {
-                    it.isEnabled && it.isDefaultForPlainQueryAction
-                }
-
                 val newSource = SearchSource.create(
                     name = name.trim(),
                     urlTemplate = urlTemplate.trim(),
                     prefixes = normalizedPrefixes,
-                    accentColorHex = accentColorHex,
-                    includeInPlainQuerySuggestions = includeInPlainQuerySuggestions,
-                    isDefaultForPlainQueryAction = shouldBeDefault
+                    accentColorHex = accentColorHex
                 )
 
                 current.copy(searchSources = current.searchSources + newSource)
@@ -226,8 +219,7 @@ class SettingsViewModel(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String,
-        includeInPlainQuerySuggestions: Boolean
+        accentColorHex: String
     ) {
         viewModelScope.launch {
             settingsRepository.updateSettings { current ->
@@ -243,7 +235,6 @@ class SettingsViewModel(
                                 name = name.trim(),
                                 urlTemplate = urlTemplate.trim(),
                                 prefixes = normalizedPrefixes,
-                                includeInPlainQuerySuggestions = includeInPlainQuerySuggestions,
                                 accentColorHex = SearchSource.normalizeHexColor(accentColorHex)
                             )
                         } else {
@@ -261,23 +252,7 @@ class SettingsViewModel(
     fun deleteSearchSource(sourceId: String) {
         viewModelScope.launch {
             settingsRepository.updateSettings { current ->
-                val remaining = current.searchSources.filterNot { it.id == sourceId }
-                val hasDefault = remaining.any { it.isEnabled && it.isDefaultForPlainQueryAction }
-
-                val finalSources = if (hasDefault) {
-                    remaining
-                } else {
-                    val firstEnabledIndex = remaining.indexOfFirst { it.isEnabled }
-                    if (firstEnabledIndex == -1) {
-                        remaining
-                    } else {
-                        remaining.mapIndexed { index, source ->
-                            source.copy(isDefaultForPlainQueryAction = index == firstEnabledIndex)
-                        }
-                    }
-                }
-
-                current.copy(searchSources = finalSources)
+                current.copy(searchSources = current.searchSources.filterNot { it.id == sourceId })
             }
         }
     }
@@ -288,63 +263,13 @@ class SettingsViewModel(
     fun setSearchSourceEnabled(sourceId: String, enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.updateSettings { current ->
-                val updated = current.searchSources.map { source ->
+                current.copy(searchSources = current.searchSources.map { source ->
                     if (source.id == sourceId) {
                         source.copy(isEnabled = enabled)
                     } else {
                         source
                     }
-                }
-
-                val hasDefault = updated.any { it.isEnabled && it.isDefaultForPlainQueryAction }
-                if (hasDefault) {
-                    current.copy(searchSources = updated)
-                } else {
-                    val firstEnabledIndex = updated.indexOfFirst { it.isEnabled }
-                    if (firstEnabledIndex == -1) {
-                        current.copy(searchSources = updated)
-                    } else {
-                        current.copy(
-                            searchSources = updated.mapIndexed { index, source ->
-                                source.copy(isDefaultForPlainQueryAction = index == firstEnabledIndex)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Sets exactly one default source for plain-query action.
-     */
-    fun setDefaultPlainQuerySource(sourceId: String) {
-        viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                current.copy(
-                    searchSources = current.searchSources.map { source ->
-                        source.copy(isDefaultForPlainQueryAction = source.id == sourceId)
-                    }
-                )
-            }
-        }
-    }
-
-    /**
-     * Updates include-in-suggestions flag for one source.
-     */
-    fun setIncludeInPlainQuerySuggestions(sourceId: String, include: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                current.copy(
-                    searchSources = current.searchSources.map { source ->
-                        if (source.id == sourceId) {
-                            source.copy(includeInPlainQuerySuggestions = include)
-                        } else {
-                            source
-                        }
-                    }
-                )
+                })
             }
         }
     }

@@ -45,10 +45,7 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun SourceSettingItem(
     source: SearchSource,
-    isDefault: Boolean,
     onToggleEnabled: (Boolean) -> Unit,
-    onToggleIncludeInSuggestions: (Boolean) -> Unit,
-    onSetAsDefault: () -> Unit,
     onAddPrefix: (String, (String) -> Unit) -> Unit,
     onRemovePrefix: (String) -> Unit,
     onEdit: () -> Unit,
@@ -117,21 +114,6 @@ fun SourceSettingItem(
                 onCheckedChange = onToggleEnabled
             )
 
-            SwitchSettingItem(
-                title = "Show in plain query suggestions",
-                subtitle = "Display this source when query has no prefix",
-                checked = source.includeInPlainQuerySuggestions,
-                onCheckedChange = onToggleIncludeInSuggestions,
-                enabled = source.isEnabled
-            )
-
-            ActionSettingItem(
-                title = "Set as default plain-query source",
-                subtitle = if (isDefault) "Currently default" else "Tap to set as default",
-                onClick = onSetAsDefault,
-                textColor = if (isDefault) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            )
-
             Spacer(modifier = Modifier.height(Spacing.small))
 
             Text(
@@ -197,8 +179,7 @@ fun SourceEditorDialog(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String,
-        includeInPlainQuerySuggestions: Boolean
+        accentColorHex: String
     ) -> Unit
 ) {
     var name by remember { mutableStateOf(initialSource?.name.orEmpty()) }
@@ -209,9 +190,6 @@ fun SourceEditorDialog(
         mutableStateOf(initialSource?.prefixes?.joinToString(", ").orEmpty())
     }
     var colorHex by remember { mutableStateOf(initialSource?.accentColorHex ?: "#4285F4") }
-    var includeInSuggestions by remember {
-        mutableStateOf(initialSource?.includeInPlainQuerySuggestions ?: true)
-    }
     var errorText by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -268,21 +246,6 @@ fun SourceEditorDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Show in plain query suggestions",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Switch(
-                        checked = includeInSuggestions,
-                        onCheckedChange = { includeInSuggestions = it }
-                    )
-                }
-
                 if (errorText != null) {
                     Text(
                         text = errorText.orEmpty(),
@@ -312,8 +275,7 @@ fun SourceEditorDialog(
                             normalizedName,
                             normalizedTemplate,
                             normalizedPrefixes,
-                            SearchSource.normalizeHexColor(colorHex),
-                            includeInSuggestions
+                            SearchSource.normalizeHexColor(colorHex)
                         )
                     }
                 }

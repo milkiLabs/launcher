@@ -65,8 +65,7 @@ data class SearchUiState(
     val activeProviderConfig: SearchProviderConfig? = null,
     val isLoading: Boolean = false,
     val clipboardSuggestion: ClipboardSuggestion? = null,
-    val providerAccentColorById: Map<String, String> = emptyMap(),
-    val defaultPlainQueryUrlTemplate: String = "https://www.google.com/search?q={query}"
+    val providerAccentColorById: Map<String, String> = emptyMap()
 ) {
     /**
      * Whether results are available to display.
@@ -88,7 +87,8 @@ data class SearchUiState(
     val shouldShowClipboardSuggestion: Boolean
         get() = isSearchVisible &&
             activeProviderConfig == null &&
-            (query.isNotBlank() || clipboardSuggestion != null)
+            query.isBlank() &&
+            clipboardSuggestion != null
 
     /**
      * Placeholder text for the search field.

@@ -126,8 +126,7 @@ class SearchViewModel(
             scope = viewModelScope,
             prefixConfigurations = stateHolder.prefixConfigurations,
             searchSources = stateHolder.searchSources,
-            providerAccentColorById = stateHolder.providerAccentColorById,
-            defaultPlainQueryUrlTemplate = stateHolder.defaultPlainQueryUrlTemplate
+            providerAccentColorById = stateHolder.providerAccentColorById
         )
     }
 

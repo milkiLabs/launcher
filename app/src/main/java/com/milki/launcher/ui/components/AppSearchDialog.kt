@@ -230,21 +230,14 @@ fun AppSearchDialog(
                  * the dialog, below recent apps/results, as requested.
                  */
                 if (uiState.shouldShowClipboardSuggestion) {
-                    val suggestionToShow = if (uiState.activeProviderConfig == null && uiState.query.isNotBlank()) {
-                        ClipboardSuggestion.SearchText(
-                            queryText = uiState.query,
-                            rawText = uiState.query
-                        )
-                    } else {
-                        uiState.clipboardSuggestion
-                    }
+                    val suggestionToShow = uiState.clipboardSuggestion
 
                     if (suggestionToShow != null) {
                         ClipboardSuggestionBottomChip(
                             suggestion = suggestionToShow,
                             onSearchWithDefaultEngine = { queryText ->
                                 val encodedQuery = Uri.encode(queryText)
-                                val url = uiState.defaultPlainQueryUrlTemplate.replace("{query}", encodedQuery)
+                                val url = "https://www.google.com/search?q=$encodedQuery"
                                 actionHandler(
                                     SearchResultAction.OpenUrlInBrowser(
                                         url = url

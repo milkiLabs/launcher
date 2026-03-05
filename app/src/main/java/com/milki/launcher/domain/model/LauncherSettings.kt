@@ -146,8 +146,6 @@ data class LauncherSettings(
      *
      * Behavior notes:
      * - Prefix mode uses each source's `prefixes` values.
-     * - Plain query mode uses `isDefaultForPlainQueryAction` for primary action,
-     *   and `includeInPlainQuerySuggestions` for additional suggestions.
      * - `accentColorHex` is used to tint provider visuals in UI.
      */
     val searchSources: List<SearchSource> = SearchSource.defaultSources(),

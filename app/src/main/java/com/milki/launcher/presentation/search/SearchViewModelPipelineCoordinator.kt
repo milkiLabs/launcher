@@ -5,15 +5,12 @@ import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.model.UrlSearchResult
-import com.milki.launcher.domain.model.WebSearchResult
 import com.milki.launcher.domain.repository.SearchProvider
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.ParsedQuery
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.domain.search.parseSearchQuery
-import com.milki.launcher.util.UrlValidator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +21,6 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import android.net.Uri
 
 /**
  * Coordinates the asynchronous search pipeline for SearchViewModel.
@@ -117,11 +113,6 @@ internal class SearchViewModelPipelineCoordinator(
             return runProviderSearch(parsed.provider, parsed.query)
         }
 
-        val urlResult = detectUrl(parsed.query)
-        val sourceSuggestionResults = buildPlainQuerySourceSuggestions(
-            query = parsed.query,
-            searchSources = searchSources
-        )
         val filteredApps = filterAppsUseCase(
             query = parsed.query,
             installedApps = installedApps,
@@ -132,14 +123,7 @@ internal class SearchViewModelPipelineCoordinator(
             .take(8)
             .map { app -> AppSearchResult(appInfo = app) }
 
-        val headResults = buildList {
-            if (urlResult != null) {
-                add(urlResult)
-            }
-            addAll(sourceSuggestionResults)
-        }
-
-        return headResults + appResults
+        return appResults
     }
 
     /**
@@ -153,66 +137,6 @@ internal class SearchViewModelPipelineCoordinator(
         }
     }
 
-    /**
-     * Detects URL-like queries and resolves a preferred handler app.
-     */
-    private fun detectUrl(query: String): UrlSearchResult? {
-        val validationResult = UrlValidator.validateUrl(query) ?: return null
-        val handlerApp = urlHandlerResolver.resolveUrlHandler(validationResult.url)
-
-        return UrlSearchResult(
-            url = validationResult.url,
-            displayUrl = validationResult.displayUrl,
-            handlerApp = handlerApp,
-            browserFallback = true
-        )
-    }
-
-    /**
-     * Builds plain-query source suggestions according to user settings.
-     *
-     * Behavior:
-     * - Empty query => no source suggestion rows
-     * - Include one default source first
-     * - Include additional enabled sources that opted into plain-query suggestions
-     */
-    private fun buildPlainQuerySourceSuggestions(
-        query: String,
-        searchSources: List<SearchSource>
-    ): List<SearchResult> {
-        if (query.isBlank()) {
-            return emptyList()
-        }
-
-        val enabledSources = searchSources.filter { it.isEnabled }
-        if (enabledSources.isEmpty()) {
-            return emptyList()
-        }
-
-        val defaultSource = enabledSources.firstOrNull { it.isDefaultForPlainQueryAction }
-            ?: enabledSources.firstOrNull()
-
-        val suggestionSources = buildList {
-            if (defaultSource != null) {
-                add(defaultSource)
-            }
-            enabledSources
-                .filter { it.includeInPlainQuerySuggestions && it.id != defaultSource?.id }
-                .forEach(::add)
-        }
-
-        return suggestionSources.map { source ->
-            val encodedQuery = Uri.encode(query)
-            val url = source.buildUrl(encodedQuery)
-            WebSearchResult(
-                title = "Search \"$query\" on ${source.name}",
-                url = url,
-                engine = source.name,
-                query = query,
-                providerId = source.id
-            )
-        }
-    }
 }
 
 /**

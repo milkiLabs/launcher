@@ -69,8 +69,6 @@ class SettingsActivity : ComponentActivity() {
                     onUpdateSearchSource = settingsViewModel::updateSearchSource,
                     onDeleteSearchSource = settingsViewModel::deleteSearchSource,
                     onSetSearchSourceEnabled = settingsViewModel::setSearchSourceEnabled,
-                    onSetDefaultPlainQuerySource = settingsViewModel::setDefaultPlainQuerySource,
-                    onSetIncludeInPlainQuerySuggestions = settingsViewModel::setIncludeInPlainQuerySuggestions,
                     onAddPrefixToSource = settingsViewModel::addPrefixToSource,
                     onRemovePrefixFromSource = settingsViewModel::removePrefixFromSource,
                     onResetToDefaults = settingsViewModel::resetToDefaults

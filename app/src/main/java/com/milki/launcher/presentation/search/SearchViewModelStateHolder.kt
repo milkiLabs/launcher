@@ -36,7 +36,6 @@ internal class SearchViewModelStateHolder(
     val clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
     val searchSources = MutableStateFlow<List<SearchSource>>(emptyList())
     val providerAccentColorById = MutableStateFlow<Map<String, String>>(emptyMap())
-    val defaultPlainQueryUrlTemplate = MutableStateFlow("https://www.google.com/search?q={query}")
 
     val backgroundState: StateFlow<SearchBackgroundState> = combine(
         installedApps,
@@ -69,9 +68,6 @@ internal class SearchViewModelStateHolder(
     }
         .combine(providerAccentColorById) { partialState, colorMap ->
             partialState.copy(providerAccentColorById = colorMap)
-        }
-        .combine(defaultPlainQueryUrlTemplate) { stateWithColors, defaultTemplate ->
-            stateWithColors.copy(defaultPlainQueryUrlTemplate = defaultTemplate)
         }
         .stateIn(scope, SharingStarted.Eagerly, SearchUiState())
 }

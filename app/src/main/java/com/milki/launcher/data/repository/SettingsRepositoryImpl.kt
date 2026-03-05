@@ -743,7 +743,6 @@ class SettingsRepositoryImpl(
      * - Invalid/blank names are replaced with fallback names
      * - Invalid templates are replaced with a safe Google template
      * - Invalid colors are normalized to #RRGGBB fallback
-     * - Exactly one default plain-query source is maintained when possible
      */
     private fun normalizeAndValidateSearchSources(rawSources: List<SearchSource>): List<SearchSource> {
         if (rawSources.isEmpty()) {
@@ -785,20 +784,7 @@ class SettingsRepositoryImpl(
             source.copy(prefixes = filteredPrefixes)
         }
 
-        // Ensure one default plain-query action source.
-        val hasDefault = globallyUnique.any { it.isDefaultForPlainQueryAction && it.isEnabled }
-        if (hasDefault) {
-            return globallyUnique
-        }
-
-        val firstEnabledIndex = globallyUnique.indexOfFirst { it.isEnabled }
-        if (firstEnabledIndex == -1) {
-            return globallyUnique
-        }
-
-        return globallyUnique.mapIndexed { index, source ->
-            source.copy(isDefaultForPlainQueryAction = index == firstEnabledIndex)
-        }
+        return globallyUnique
     }
 
     /**
@@ -836,19 +822,6 @@ class SettingsRepositoryImpl(
             }
         }
 
-        // Apply default engine choice from legacy enum.
-        val targetDefaultId = when (defaultSearchEngine) {
-            SearchEngine.GOOGLE -> "source_google"
-            SearchEngine.DUCKDUCKGO -> "source_duckduckgo"
-            SearchEngine.BING -> "source_google"
-            SearchEngine.BRAVE -> "source_google"
-            SearchEngine.STARTPAGE -> "source_google"
-        }
-
-        return normalizeAndValidateSearchSources(
-            migrated.map { source ->
-                source.copy(isDefaultForPlainQueryAction = source.id == targetDefaultId)
-            }
-        )
+        return normalizeAndValidateSearchSources(migrated)
     }
 }

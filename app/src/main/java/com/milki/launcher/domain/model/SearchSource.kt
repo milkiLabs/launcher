@@ -40,14 +40,6 @@ import kotlinx.serialization.Serializable
  * @property isEnabled If false, this source is excluded from prefix activation and
  *                     excluded from plain-query source suggestions.
  *
- * @property includeInPlainQuerySuggestions When true, this source is allowed to
- *                                          appear as a suggestion for plain queries
- *                                          (query with no prefix).
- *
- * @property isDefaultForPlainQueryAction Marks the source used as primary web/source
- *                                        action for plain query workflows.
- *                                        There should be at most one default.
- *
  * @property accentColorHex Custom user-selected color used by UI accents for this
  *                          source. Stored as `#RRGGBB` for simplicity.
  */
@@ -58,8 +50,6 @@ data class SearchSource(
     val urlTemplate: String,
     val prefixes: List<String>,
     val isEnabled: Boolean,
-    val includeInPlainQuerySuggestions: Boolean,
-    val isDefaultForPlainQueryAction: Boolean,
     val accentColorHex: String
 ) {
 
@@ -91,9 +81,7 @@ data class SearchSource(
             urlTemplate: String,
             prefixes: List<String>,
             accentColorHex: String,
-            isEnabled: Boolean = true,
-            includeInPlainQuerySuggestions: Boolean = true,
-            isDefaultForPlainQueryAction: Boolean = false
+            isEnabled: Boolean = true
         ): SearchSource {
             return SearchSource(
                 id = "source_${UUID.randomUUID()}",
@@ -101,8 +89,6 @@ data class SearchSource(
                 urlTemplate = urlTemplate,
                 prefixes = prefixes,
                 isEnabled = isEnabled,
-                includeInPlainQuerySuggestions = includeInPlainQuerySuggestions,
-                isDefaultForPlainQueryAction = isDefaultForPlainQueryAction,
                 accentColorHex = normalizeHexColor(accentColorHex)
             )
         }
@@ -125,8 +111,6 @@ data class SearchSource(
                     urlTemplate = "https://www.google.com/search?q={query}",
                     prefixes = listOf("g"),
                     isEnabled = true,
-                    includeInPlainQuerySuggestions = true,
-                    isDefaultForPlainQueryAction = true,
                     accentColorHex = "#4285F4"
                 ),
                 SearchSource(
@@ -135,8 +119,6 @@ data class SearchSource(
                     urlTemplate = "https://duckduckgo.com/?q={query}",
                     prefixes = listOf("d"),
                     isEnabled = true,
-                    includeInPlainQuerySuggestions = true,
-                    isDefaultForPlainQueryAction = false,
                     accentColorHex = "#DE5833"
                 ),
                 SearchSource(
@@ -145,8 +127,6 @@ data class SearchSource(
                     urlTemplate = "https://www.youtube.com/results?search_query={query}",
                     prefixes = listOf("y", "yt"),
                     isEnabled = true,
-                    includeInPlainQuerySuggestions = true,
-                    isDefaultForPlainQueryAction = false,
                     accentColorHex = "#FF0000"
                 ),
                 SearchSource(
@@ -155,8 +135,6 @@ data class SearchSource(
                     urlTemplate = "https://www.instagram.com/explore/tags/{query}/",
                     prefixes = listOf("ig"),
                     isEnabled = true,
-                    includeInPlainQuerySuggestions = false,
-                    isDefaultForPlainQueryAction = false,
                     accentColorHex = "#E1306C"
                 ),
                 SearchSource(
@@ -165,8 +143,6 @@ data class SearchSource(
                     urlTemplate = "https://x.com/search?q={query}",
                     prefixes = listOf("x", "tw"),
                     isEnabled = true,
-                    includeInPlainQuerySuggestions = false,
-                    isDefaultForPlainQueryAction = false,
                     accentColorHex = "#1D9BF0"
                 )
             )
