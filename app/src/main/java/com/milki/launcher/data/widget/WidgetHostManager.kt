@@ -44,6 +44,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.content.pm.PackageManager
 import android.util.Log
 
 class WidgetHostManager(
@@ -74,7 +75,7 @@ class WidgetHostManager(
      *
      * The host is created once and reused for the entire app lifetime.
      */
-    val appWidgetHost: AppWidgetHost = AppWidgetHost(context, HOST_ID)
+    private val appWidgetHost: AppWidgetHost = AppWidgetHost(context, HOST_ID)
 
     /**
      * The system-provided AppWidgetManager that queries installed widget providers.
@@ -87,7 +88,7 @@ class WidgetHostManager(
      * Callers (e.g. HomeViewModel) need this to call loadLabel() on
      * AppWidgetProviderInfo when creating HomeItem.WidgetItem.
      */
-    val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(context)
+    private val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(context)
 
     /**
      * Convenience accessor for the system PackageManager.
@@ -97,7 +98,17 @@ class WidgetHostManager(
      * Callers like HomeViewModel don't have direct Context access, so they
      * go through this property instead.
      */
-    val packageManager: android.content.pm.PackageManager = context.packageManager
+    private val packageManager: PackageManager = context.packageManager
+
+    /**
+     * Resolves the user-facing label for a widget provider.
+     *
+     * This keeps PackageManager usage encapsulated inside WidgetHostManager so
+     * callers do not need direct access to packageManager internals.
+     */
+    fun loadProviderLabel(providerInfo: AppWidgetProviderInfo): String {
+        return providerInfo.loadLabel(packageManager) ?: providerInfo.provider.shortClassName
+    }
 
     /**
      * Starts listening for widget updates from the system.
@@ -286,6 +297,17 @@ class WidgetHostManager(
      */
     fun getInstalledProviders(): List<AppWidgetProviderInfo> {
         return appWidgetManager.installedProviders
+    }
+
+    /**
+     * Finds a widget provider from installed providers by its component name.
+     *
+     * This is used when decoding a widget drag payload from ClipData fallback,
+     * where we only have the provider component and must re-resolve full
+     * AppWidgetProviderInfo at drop time.
+     */
+    fun findInstalledProvider(provider: ComponentName): AppWidgetProviderInfo? {
+        return appWidgetManager.installedProviders.firstOrNull { it.provider == provider }
     }
 
     /**

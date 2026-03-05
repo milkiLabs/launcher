@@ -1058,9 +1058,7 @@ fun DraggablePinnedItemsGrid(
                         // providerComponent. We resolve providerInfo here from
                         // WidgetHostManager's installed providers.
                         val resolvedProviderInfo = item.providerInfo
-                            ?: widgetHostManager
-                                ?.getInstalledProviders()
-                                ?.firstOrNull { provider -> provider.provider == item.providerComponent }
+                            ?: widgetHostManager?.findInstalledProvider(item.providerComponent)
 
                         if (resolvedProviderInfo != null) {
                             onWidgetDroppedToHome(resolvedProviderInfo, normalizedSpan, clampedDrop)

@@ -261,6 +261,41 @@ Why this matters:
 - Ensures widget configuration happens in the correct order (after target cell is chosen).
 - Aligns with the app drawer behavior where drag starts external placement intent.
 
+## Widget placement flow ownership (March 2026 cleanup)
+
+Widget placement now uses an explicit command-based state machine in
+`HomeViewModel` instead of callback lambdas passed from `MainActivity`.
+
+Why this was changed:
+
+- Previous flow passed `launchBindPermission` / `launchConfigure` callbacks down
+  into view-model logic, which spread control flow across layers and made
+  behavior harder to follow.
+- The new flow keeps all widget state transitions in one place and makes the
+  activity a thin command dispatcher.
+
+Current contract:
+
+1. `MainActivity` calls `HomeViewModel.startWidgetPlacement(...)` after a valid
+        widget drop.
+2. `HomeViewModel` returns one `WidgetPlacementCommand`:
+        - `LaunchBindPermission(intent)`
+        - `LaunchConfigure(intent)`
+        - `NoOp` (flow completed or cancelled)
+3. `MainActivity` executes command intents via pre-registered ActivityResult
+        launchers.
+4. Activity results are routed back into:
+        - `HomeViewModel.handleWidgetBindResult(...)`
+        - `HomeViewModel.handleWidgetConfigureResult(...)`
+5. ViewModel performs final persistence through serialized home mutation path.
+
+Benefits:
+
+- One source of truth for bind/configure/placement transitions.
+- No launch callback wiring in business logic.
+- Easier maintenance and safer future edits.
+- Keeps widget ID cleanup behavior centralized with placement failure handling.
+
 ## Widget long-press reliability (March 2026)
 
 Widgets are rendered using `AppWidgetHostView` inside `AndroidView`. On some devices,

@@ -381,10 +381,9 @@ class MainActivity : ComponentActivity() {
                             isWidgetPickerOpen = isOpen
                         },
                         widgetHostManager = widgetHostManager,
-                        onRemoveWidget = { widgetId, appWidgetId ->
+                        onRemoveWidget = { widgetId, _ ->
                             homeViewModel.removeWidget(
                                 widgetId = widgetId,
-                                appWidgetId = appWidgetId,
                                 widgetHostManager = widgetHostManager
                             )
                         },
@@ -395,18 +394,13 @@ class MainActivity : ComponentActivity() {
                             // The user dragged a widget from the picker and dropped
                             // it on a specific cell. Begin the bind → configure → place
                             // flow using the actual drop position instead of auto-placement.
-                            homeViewModel.beginWidgetPlacement(
+                            val command = homeViewModel.startWidgetPlacement(
                                 providerInfo = providerInfo,
                                 targetPosition = dropPosition,
                                 span = span,
-                                widgetHostManager = widgetHostManager,
-                                launchBindPermission = { intent ->
-                                    widgetBindLauncher.launch(intent)
-                                },
-                                launchConfigure = { intent ->
-                                    widgetConfigureLauncher.launch(intent)
-                                }
+                                widgetHostManager = widgetHostManager
                             )
+                            executeWidgetPlacementCommand(command)
                         }
                     )
                 }
@@ -512,11 +506,11 @@ class MainActivity : ComponentActivity() {
         widgetBindLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            homeViewModel.onWidgetBindResult(
+            val command = homeViewModel.handleWidgetBindResult(
                 resultCode = result.resultCode,
-                widgetHostManager = widgetHostManager,
-                launchConfigure = { intent -> widgetConfigureLauncher.launch(intent) }
+                widgetHostManager = widgetHostManager
             )
+            executeWidgetPlacementCommand(command)
         }
 
         // Launcher for widget configuration activities.
@@ -524,10 +518,31 @@ class MainActivity : ComponentActivity() {
         widgetConfigureLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            homeViewModel.onWidgetConfigureResult(
+            val command = homeViewModel.handleWidgetConfigureResult(
                 resultCode = result.resultCode,
                 widgetHostManager = widgetHostManager
             )
+            executeWidgetPlacementCommand(command)
+        }
+    }
+
+    /**
+     * Executes a widget-placement command emitted by HomeViewModel.
+     *
+     * Keeping this in one method ensures all bind/configure launches are routed
+     * consistently and keeps widget flow code out of unrelated callbacks.
+     */
+    private fun executeWidgetPlacementCommand(
+        command: HomeViewModel.WidgetPlacementCommand
+    ) {
+        when (command) {
+            is HomeViewModel.WidgetPlacementCommand.LaunchBindPermission -> {
+                widgetBindLauncher.launch(command.intent)
+            }
+            is HomeViewModel.WidgetPlacementCommand.LaunchConfigure -> {
+                widgetConfigureLauncher.launch(command.intent)
+            }
+            HomeViewModel.WidgetPlacementCommand.NoOp -> Unit
         }
     }
 

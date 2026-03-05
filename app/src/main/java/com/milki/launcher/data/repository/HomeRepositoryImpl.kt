@@ -433,8 +433,14 @@ class HomeRepositoryImpl(
         item2: HomeItem,
         atPosition: GridPosition
     ): HomeItem.FolderItem? {
-        // Nesting guard: neither item may itself be a FolderItem.
-        if (item1 is HomeItem.FolderItem || item2 is HomeItem.FolderItem) {
+        // Nesting guard: neither source item may itself be a folder or widget.
+        // Widgets are top-level only and cannot participate in folder composition.
+        if (
+            item1 is HomeItem.FolderItem ||
+            item2 is HomeItem.FolderItem ||
+            item1 is HomeItem.WidgetItem ||
+            item2 is HomeItem.WidgetItem
+        ) {
             return null
         }
 
@@ -475,8 +481,9 @@ class HomeRepositoryImpl(
         item: HomeItem,
         targetIndex: Int?
     ): Boolean {
-        // Nesting guard: we never put a folder inside a folder.
-        if (item is HomeItem.FolderItem) return false
+        // Folder children must be icon-like items only.
+        // We reject both folders (no nesting) and widgets (top-level only).
+        if (item is HomeItem.FolderItem || item is HomeItem.WidgetItem) return false
 
         var wasApplied = false
 
@@ -585,6 +592,7 @@ class HomeRepositoryImpl(
             // Replace children. Ensure no FolderItems sneak in (safety guard).
             val safeChildren = newChildren
                 .filterNot { it is HomeItem.FolderItem }
+                .filterNot { it is HomeItem.WidgetItem }
                 // Ensure children positions are reset to DEFAULT so the folder-internal
                 // grid doesn't get confused by stale home-screen coordinates.
                 .map { it.withPosition(GridPosition.DEFAULT) }
@@ -772,6 +780,12 @@ class HomeRepositoryImpl(
 
             val childToMove = sourceFolder.children.first { it.id == itemId }
 
+            // Defensive guard for corrupted/legacy state: widgets are never valid
+            // folder children and cannot be moved between folders.
+            if (childToMove is HomeItem.WidgetItem) {
+                return@edit
+            }
+
             // Remove any copy of this ID first (including source folder child) so the
             // final write is globally unique by item ID.
             evictItemEverywhere(currentItems, itemId)
@@ -802,7 +816,7 @@ class HomeRepositoryImpl(
         occupantItem: HomeItem,
         atPosition: GridPosition
     ): HomeItem.FolderItem? {
-        if (occupantItem is HomeItem.FolderItem) return null
+        if (occupantItem is HomeItem.FolderItem || occupantItem is HomeItem.WidgetItem) return null
 
         var createdFolder: HomeItem.FolderItem? = null
 
@@ -813,6 +827,11 @@ class HomeRepositoryImpl(
                 ?: return@edit
             val childToMove = sourceFolder.children.firstOrNull { it.id == childItemId }
                 ?: return@edit
+
+            // Defensive guard for corrupted/legacy state: folder children cannot be widgets.
+            if (childToMove is HomeItem.WidgetItem) {
+                return@edit
+            }
 
             // The occupant must still be a top-level non-folder item at the exact
             // drop position; otherwise this drop route is no longer valid.
@@ -1106,24 +1125,9 @@ class HomeRepositoryImpl(
      * If any cell is occupied, the operation is rejected.
      */
     override suspend fun addWidget(widget: HomeItem.WidgetItem): Boolean {
-        var wasApplied = false
-
-        context.homeDataStore.edit { preferences ->
-            val currentItems = deserializeItems(preferences).toMutableList()
-
-            // Check that none of the widget's cells are occupied.
-            val occupiedCells = buildOccupiedCellsMap(currentItems)
-            if (!isSpanFree(widget.position, widget.span, occupiedCells)) {
-                wasApplied = false
-                return@edit
-            }
-
-            currentItems.add(widget)
-            serializeItems(currentItems, preferences)
-            wasApplied = true
-        }
-
-        return wasApplied
+        // Delegate to the canonical placement operation so widget placement and
+        // external pin/move placement always share identical occupancy/uniqueness rules.
+        return pinOrMoveItemToPosition(widget, widget.position)
     }
 
     /**

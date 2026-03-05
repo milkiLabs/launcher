@@ -169,7 +169,8 @@ interface HomeRepository {
      * - If [item] is already a top-level home screen item, it is removed from
      *   the top level and appended to the folder's children.
      * - If [item] is already a child of the target folder, this is a no-op.
-     * - If [item] is a FolderItem, this call is rejected (no nesting).
+        * - If [item] is a FolderItem, this call is rejected (no nesting).
+        * - If [item] is a WidgetItem, this call is rejected (widgets are top-level only).
      * - [targetIndex] controls where in the children list the item is inserted.
      *   If null, item is appended at the end.
      *
