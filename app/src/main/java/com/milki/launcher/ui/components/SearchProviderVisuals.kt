@@ -53,28 +53,54 @@ data class SearchProviderVisual(
  * @return Provider visual mapping, or null when no provider mode is active
  */
 @Composable
-fun rememberSearchProviderVisual(providerId: String?): SearchProviderVisual? {
+fun rememberSearchProviderVisual(
+    providerId: String?,
+    customAccentHex: String? = null
+): SearchProviderVisual? {
     val colorScheme = MaterialTheme.colorScheme
 
-    return remember(providerId, colorScheme) {
+    return remember(providerId, customAccentHex, colorScheme) {
+        val customAccentColor = parseHexColorOrNull(customAccentHex)
+
         when (providerId) {
             ProviderId.WEB -> SearchProviderVisual(
                 icon = Icons.Filled.Search,
-                accentColor = colorScheme.primary
+                accentColor = customAccentColor ?: colorScheme.primary
             )
             ProviderId.CONTACTS -> SearchProviderVisual(
                 icon = Icons.Filled.Person,
-                accentColor = colorScheme.secondary
+                accentColor = customAccentColor ?: colorScheme.secondary
             )
             ProviderId.YOUTUBE -> SearchProviderVisual(
                 icon = Icons.Filled.PlayArrow,
-                accentColor = colorScheme.tertiary
+                accentColor = customAccentColor ?: colorScheme.tertiary
             )
             ProviderId.FILES -> SearchProviderVisual(
                 icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-                accentColor = colorScheme.primaryContainer
+                accentColor = customAccentColor ?: colorScheme.primaryContainer
             )
-            else -> null
+            null -> null
+            else -> SearchProviderVisual(
+                icon = Icons.Filled.Search,
+                accentColor = customAccentColor ?: colorScheme.primary
+            )
         }
     }
+}
+
+/**
+ * Parses #RRGGBB into Compose Color.
+ * Returns null when input is invalid.
+ */
+private fun parseHexColorOrNull(hex: String?): Color? {
+    val normalized = hex?.trim()?.uppercase() ?: return null
+    val withHash = if (normalized.startsWith("#")) normalized else "#$normalized"
+    if (!Regex("^#[0-9A-F]{6}$").matches(withHash)) {
+        return null
+    }
+
+    val red = withHash.substring(1, 3).toInt(16)
+    val green = withHash.substring(3, 5).toInt(16)
+    val blue = withHash.substring(5, 7).toInt(16)
+    return Color(red = red, green = green, blue = blue)
 }

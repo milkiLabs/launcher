@@ -2,6 +2,7 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
+import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.search.ClipboardSuggestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,9 @@ internal class SearchViewModelStateHolder(
     val searchOutput = MutableStateFlow(SearchPipelineOutput())
     val prefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
     val clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
+    val searchSources = MutableStateFlow<List<SearchSource>>(emptyList())
+    val providerAccentColorById = MutableStateFlow<Map<String, String>>(emptyMap())
+    val defaultPlainQueryUrlTemplate = MutableStateFlow("https://www.google.com/search?q={query}")
 
     val backgroundState: StateFlow<SearchBackgroundState> = combine(
         installedApps,
@@ -54,17 +58,20 @@ internal class SearchViewModelStateHolder(
         searchOutput,
         clipboardSuggestion
     ) { currentQuery, visible, output, suggestion ->
-        if (!visible) {
-            SearchUiState(isSearchVisible = false)
-        } else {
-            SearchUiState(
-                query = currentQuery,
-                isSearchVisible = true,
-                results = output.results,
-                activeProviderConfig = output.activeProviderConfig,
-                isLoading = output.isLoading,
-                clipboardSuggestion = suggestion
-            )
+        SearchUiState(
+            query = currentQuery,
+            isSearchVisible = visible,
+            results = if (visible) output.results else emptyList(),
+            activeProviderConfig = if (visible) output.activeProviderConfig else null,
+            isLoading = visible && output.isLoading,
+            clipboardSuggestion = if (visible) suggestion else null
+        )
+    }
+        .combine(providerAccentColorById) { partialState, colorMap ->
+            partialState.copy(providerAccentColorById = colorMap)
         }
-    }.stateIn(scope, SharingStarted.Eagerly, SearchUiState())
+        .combine(defaultPlainQueryUrlTemplate) { stateWithColors, defaultTemplate ->
+            stateWithColors.copy(defaultPlainQueryUrlTemplate = defaultTemplate)
+        }
+        .stateIn(scope, SharingStarted.Eagerly, SearchUiState())
 }

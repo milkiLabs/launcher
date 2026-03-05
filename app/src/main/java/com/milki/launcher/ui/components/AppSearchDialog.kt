@@ -166,6 +166,7 @@ fun AppSearchDialog(
                     onSearchQueryChange = onQueryChange,
                     focusRequester = focusRequester,
                     activeProviderConfig = uiState.activeProviderConfig,
+                    providerAccentColorById = uiState.providerAccentColorById,
                     placeholderText = uiState.placeholderText,
                     onLaunchFirstResult = {
                         uiState.results.firstOrNull()?.let { result ->
@@ -206,7 +207,8 @@ fun AppSearchDialog(
                         EmptyState(
                             searchQuery = uiState.query,
                             activeProvider = uiState.activeProviderConfig,
-                            prefixHint = uiState.prefixHint
+                            prefixHint = uiState.prefixHint,
+                            providerAccentColorById = uiState.providerAccentColorById
                         )
                     } else {
                         /**
@@ -217,6 +219,7 @@ fun AppSearchDialog(
                         SearchResultsList(
                             results = uiState.results,
                             activeProviderConfig = uiState.activeProviderConfig,
+                            providerAccentColorById = uiState.providerAccentColorById,
                             onExternalAppDragStart = onDismiss
                         )
                     }
@@ -241,9 +244,10 @@ fun AppSearchDialog(
                             suggestion = suggestionToShow,
                             onSearchWithDefaultEngine = { queryText ->
                                 val encodedQuery = Uri.encode(queryText)
+                                val url = uiState.defaultPlainQueryUrlTemplate.replace("{query}", encodedQuery)
                                 actionHandler(
                                     SearchResultAction.OpenUrlInBrowser(
-                                        url = "https://www.google.com/search?q=$encodedQuery"
+                                        url = url
                                     )
                                 )
                             },
@@ -317,11 +321,15 @@ private fun SearchTextFieldWithIndicator(
     onSearchQueryChange: (String) -> Unit,
     focusRequester: FocusRequester,
     activeProviderConfig: SearchProviderConfig?,
+    providerAccentColorById: Map<String, String>,
     placeholderText: String,
     onLaunchFirstResult: () -> Unit,
     onClear: () -> Unit
 ) {
-    val providerVisual = rememberSearchProviderVisual(activeProviderConfig?.providerId)
+    val providerVisual = rememberSearchProviderVisual(
+        providerId = activeProviderConfig?.providerId,
+        customAccentHex = activeProviderConfig?.providerId?.let(providerAccentColorById::get)
+    )
 
     /**
      * Animate the indicator color when the provider changes.

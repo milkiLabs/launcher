@@ -65,6 +65,14 @@ class SettingsActivity : ComponentActivity() {
                     onAddProviderPrefix = settingsViewModel::addProviderPrefix,
                     onRemoveProviderPrefix = settingsViewModel::removeProviderPrefix,
                     onResetProviderPrefixes = settingsViewModel::resetProviderPrefixes,
+                    onAddSearchSource = settingsViewModel::addSearchSource,
+                    onUpdateSearchSource = settingsViewModel::updateSearchSource,
+                    onDeleteSearchSource = settingsViewModel::deleteSearchSource,
+                    onSetSearchSourceEnabled = settingsViewModel::setSearchSourceEnabled,
+                    onSetDefaultPlainQuerySource = settingsViewModel::setDefaultPlainQuerySource,
+                    onSetIncludeInPlainQuerySuggestions = settingsViewModel::setIncludeInPlainQuerySuggestions,
+                    onAddPrefixToSource = settingsViewModel::addPrefixToSource,
+                    onRemovePrefixFromSource = settingsViewModel::removePrefixFromSource,
                     onResetToDefaults = settingsViewModel::resetToDefaults
                 )
             }

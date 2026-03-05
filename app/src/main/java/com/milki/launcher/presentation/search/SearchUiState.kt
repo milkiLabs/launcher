@@ -64,7 +64,9 @@ data class SearchUiState(
     val results: List<SearchResult> = emptyList(),
     val activeProviderConfig: SearchProviderConfig? = null,
     val isLoading: Boolean = false,
-    val clipboardSuggestion: ClipboardSuggestion? = null
+    val clipboardSuggestion: ClipboardSuggestion? = null,
+    val providerAccentColorById: Map<String, String> = emptyMap(),
+    val defaultPlainQueryUrlTemplate: String = "https://www.google.com/search?q={query}"
 ) {
     /**
      * Whether results are available to display.
@@ -100,18 +102,12 @@ data class SearchUiState(
      * - "y" prefix → "Search YouTube..."
      */
     val placeholderText: String
-        get() = when (activeProviderConfig?.prefix) {
-            "s" -> "Search the web..."
-            "c" -> "Search contacts..."
-            "y" -> "Search YouTube..."
-            "f" -> "Search files..."
-            else -> "Search apps..."
-        }
+        get() = activeProviderConfig?.let { "Search ${it.name}..." } ?: "Search apps..."
 
     /**
      * Hint text for available prefixes.
      * Shown in the empty state to help users discover search modes.
      */
     val prefixHint: String
-        get() = "Prefix shortcuts:\ns - Web search\nc - Contacts\nf - Files\ny - YouTube"
+        get() = "Tip: type a source prefix followed by a space to search that source"
 }

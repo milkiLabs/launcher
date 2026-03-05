@@ -49,6 +49,13 @@ import java.io.IOException
 private typealias SerializedPrefixConfiguration = Map<String, List<String>>
 
 /**
+ * Serialized representation for dynamic external search sources.
+ *
+ * We persist the list directly as JSON using kotlinx.serialization.
+ */
+private typealias SerializedSearchSources = List<SearchSource>
+
+/**
  * DataStore instance for settings, scoped to the application context.
  * The name "launcher_settings" determines the file name on disk.
  */
@@ -120,6 +127,9 @@ class SettingsRepositoryImpl(
         // Prefix Configuration - stored as JSON string
         // Format: {"web":["s","ج"],"files":["f","م"],...}
         val PREFIX_CONFIGURATIONS = stringPreferencesKey("prefix_configurations")
+
+        // Dynamic source configuration - stored as JSON array
+        val SEARCH_SOURCES = stringPreferencesKey("search_sources")
     }
 
     // ========================================================================
@@ -396,6 +406,16 @@ class SettingsRepositoryImpl(
      */
     private fun mapPreferencesToSettings(preferences: Preferences): LauncherSettings {
         val defaults = LauncherSettings()
+        val parsedPrefixConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS])
+        val parsedSearchSources = parseSearchSources(
+            json = preferences[Keys.SEARCH_SOURCES],
+            legacyPrefixConfigurations = parsedPrefixConfigurations,
+            defaultSearchEngine = preferences[Keys.DEFAULT_SEARCH_ENGINE]?.let {
+                runCatching { SearchEngine.valueOf(it) }.getOrDefault(defaults.defaultSearchEngine)
+            } ?: defaults.defaultSearchEngine,
+            webSearchEnabled = preferences[Keys.WEB_SEARCH_ENABLED] ?: defaults.webSearchEnabled,
+            youtubeSearchEnabled = preferences[Keys.YOUTUBE_SEARCH_ENABLED] ?: defaults.youtubeSearchEnabled
+        )
 
         return LauncherSettings(
             // Search Behavior
@@ -433,8 +453,11 @@ class SettingsRepositoryImpl(
                 ?: defaults.youtubeSearchEnabled,
             filesSearchEnabled = preferences[Keys.FILES_SEARCH_ENABLED] ?: defaults.filesSearchEnabled,
 
+            // Dynamic external search sources
+            searchSources = parsedSearchSources,
+
             // Prefix Configuration
-            prefixConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS]),
+            prefixConfigurations = parsedPrefixConfigurations,
 
             // Hidden Apps
             hiddenApps = preferences[Keys.HIDDEN_APPS] ?: defaults.hiddenApps
@@ -506,6 +529,10 @@ class SettingsRepositoryImpl(
             preferences[Keys.FILES_SEARCH_ENABLED] = newSettings.filesSearchEnabled
         }
 
+        if (currentSettings.searchSources != newSettings.searchSources) {
+            writeSearchSources(newSettings.searchSources, preferences)
+        }
+
         if (currentSettings.prefixConfigurations != newSettings.prefixConfigurations) {
             writePrefixConfigurations(newSettings.prefixConfigurations, preferences)
         }
@@ -572,6 +599,25 @@ class SettingsRepositoryImpl(
         }
     }
 
+    /**
+     * Writes the dynamic search source list into DataStore.
+     *
+     * Empty list compaction:
+     * - Empty list removes the key entirely and lets mapPreferencesToSettings fallback
+     *   to default source list, so the app always has usable source data.
+     */
+    private fun writeSearchSources(
+        sources: List<SearchSource>,
+        preferences: MutablePreferences
+    ) {
+        if (sources.isEmpty()) {
+            preferences.remove(Keys.SEARCH_SOURCES)
+            return
+        }
+
+        preferences[Keys.SEARCH_SOURCES] = serializeSearchSources(sources)
+    }
+
     // ========================================================================
     // PREFIX CONFIGURATION SERIALIZATION
     // ========================================================================
@@ -636,5 +682,173 @@ class SettingsRepositoryImpl(
             config.mapValues { (_, prefixConfig) -> prefixConfig.prefixes }
 
         return settingsJson.encodeToString(serializedConfiguration)
+    }
+
+    // ========================================================================
+    // SEARCH SOURCES SERIALIZATION + LEGACY MIGRATION
+    // ========================================================================
+
+    /**
+     * Parses persisted search sources, with legacy migration fallback.
+     *
+     * Migration behavior when no `search_sources` key exists yet:
+     * - Start from SearchSource.defaultSources()
+     * - Carry over legacy web/youtube enable flags
+     * - Carry over legacy web and youtube prefixes from prefixConfigurations
+     * - Apply legacy default search engine to choose default plain-query source
+     */
+    private fun parseSearchSources(
+        json: String?,
+        legacyPrefixConfigurations: ProviderPrefixConfiguration,
+        defaultSearchEngine: SearchEngine,
+        webSearchEnabled: Boolean,
+        youtubeSearchEnabled: Boolean
+    ): List<SearchSource> {
+        if (json.isNullOrBlank()) {
+            return migrateLegacySources(
+                legacyPrefixConfigurations = legacyPrefixConfigurations,
+                defaultSearchEngine = defaultSearchEngine,
+                webSearchEnabled = webSearchEnabled,
+                youtubeSearchEnabled = youtubeSearchEnabled
+            )
+        }
+
+        return runCatching {
+            val decoded: SerializedSearchSources = settingsJson.decodeFromString(json)
+            normalizeAndValidateSearchSources(decoded)
+        }.getOrElse {
+            migrateLegacySources(
+                legacyPrefixConfigurations = legacyPrefixConfigurations,
+                defaultSearchEngine = defaultSearchEngine,
+                webSearchEnabled = webSearchEnabled,
+                youtubeSearchEnabled = youtubeSearchEnabled
+            )
+        }
+    }
+
+    /**
+     * Serializes search sources to JSON.
+     */
+    private fun serializeSearchSources(sources: List<SearchSource>): String {
+        val normalized = normalizeAndValidateSearchSources(sources)
+        return settingsJson.encodeToString(normalized)
+    }
+
+    /**
+     * Normalizes/validates a source list before runtime use and persistence.
+     *
+     * Rules enforced here:
+     * - Prefixes are normalized to lowercase
+     * - Prefix list values are deduplicated
+     * - Invalid/blank names are replaced with fallback names
+     * - Invalid templates are replaced with a safe Google template
+     * - Invalid colors are normalized to #RRGGBB fallback
+     * - Exactly one default plain-query source is maintained when possible
+     */
+    private fun normalizeAndValidateSearchSources(rawSources: List<SearchSource>): List<SearchSource> {
+        if (rawSources.isEmpty()) {
+            return SearchSource.defaultSources()
+        }
+
+        val normalized = rawSources.mapIndexed { index, source ->
+            val normalizedPrefixes = source.prefixes
+                .map(SearchSource.Companion::normalizePrefix)
+                .filter { it.isNotBlank() && !it.contains(" ") }
+                .distinct()
+
+            val safeName = source.name.trim().ifBlank { "Source ${index + 1}" }
+            val safeTemplate = if (SearchSource.isValidUrlTemplate(source.urlTemplate)) {
+                source.urlTemplate.trim()
+            } else {
+                "https://www.google.com/search?q={query}"
+            }
+
+            source.copy(
+                name = safeName,
+                urlTemplate = safeTemplate,
+                prefixes = normalizedPrefixes,
+                accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex)
+            )
+        }
+
+        // Enforce global prefix uniqueness (first source wins).
+        val seenPrefixes = mutableSetOf<String>()
+        val globallyUnique = normalized.map { source ->
+            val filteredPrefixes = source.prefixes.filter { prefix ->
+                if (prefix in seenPrefixes) {
+                    false
+                } else {
+                    seenPrefixes.add(prefix)
+                    true
+                }
+            }
+            source.copy(prefixes = filteredPrefixes)
+        }
+
+        // Ensure one default plain-query action source.
+        val hasDefault = globallyUnique.any { it.isDefaultForPlainQueryAction && it.isEnabled }
+        if (hasDefault) {
+            return globallyUnique
+        }
+
+        val firstEnabledIndex = globallyUnique.indexOfFirst { it.isEnabled }
+        if (firstEnabledIndex == -1) {
+            return globallyUnique
+        }
+
+        return globallyUnique.mapIndexed { index, source ->
+            source.copy(isDefaultForPlainQueryAction = index == firstEnabledIndex)
+        }
+    }
+
+    /**
+     * Builds initial search source list using legacy settings.
+     */
+    private fun migrateLegacySources(
+        legacyPrefixConfigurations: ProviderPrefixConfiguration,
+        defaultSearchEngine: SearchEngine,
+        webSearchEnabled: Boolean,
+        youtubeSearchEnabled: Boolean
+    ): List<SearchSource> {
+        val defaults = SearchSource.defaultSources().toMutableList()
+
+        val legacyWebPrefixes = legacyPrefixConfigurations[ProviderId.WEB]?.prefixes
+        val legacyYoutubePrefixes = legacyPrefixConfigurations[ProviderId.YOUTUBE]?.prefixes
+
+        val migrated = defaults.map { source ->
+            when (source.id) {
+                "source_google" -> {
+                    source.copy(
+                        isEnabled = webSearchEnabled,
+                        prefixes = (legacyWebPrefixes ?: source.prefixes)
+                    )
+                }
+                "source_duckduckgo" -> {
+                    source.copy(isEnabled = webSearchEnabled)
+                }
+                "source_youtube" -> {
+                    source.copy(
+                        isEnabled = youtubeSearchEnabled,
+                        prefixes = (legacyYoutubePrefixes ?: source.prefixes)
+                    )
+                }
+                else -> source
+            }
+        }
+
+        // Apply default engine choice from legacy enum.
+        val targetDefaultId = when (defaultSearchEngine) {
+            SearchEngine.GOOGLE -> "source_google"
+            SearchEngine.DUCKDUCKGO -> "source_duckduckgo"
+            SearchEngine.BING -> "source_google"
+            SearchEngine.BRAVE -> "source_google"
+            SearchEngine.STARTPAGE -> "source_google"
+        }
+
+        return normalizeAndValidateSearchSources(
+            migrated.map { source ->
+                source.copy(isDefaultForPlainQueryAction = source.id == targetDefaultId)
+            }
+        )
     }
 }

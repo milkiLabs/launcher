@@ -153,7 +153,7 @@ private fun createChipContent(suggestion: ClipboardSuggestion): ClipboardChipCon
 
         is ClipboardSuggestion.SearchText -> {
             ClipboardChipContent(
-                label = "Search on Google",
+                label = "Search with default source",
                 supportingText = suggestion.queryText,
                 icon = Icons.Filled.Search
             )

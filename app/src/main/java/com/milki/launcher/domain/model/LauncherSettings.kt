@@ -136,6 +136,22 @@ data class LauncherSettings(
     /** Whether files search provider is enabled */
     val filesSearchEnabled: Boolean = true,
 
+    /**
+     * Dynamic external search sources configured by the user.
+     *
+     * This is the new unified model for:
+     * - Web engines (Google, DuckDuckGo, etc.)
+     * - Social/search sources (YouTube, Instagram, Twitter/X, ...)
+     * - Any custom source created in Settings
+     *
+     * Behavior notes:
+     * - Prefix mode uses each source's `prefixes` values.
+     * - Plain query mode uses `isDefaultForPlainQueryAction` for primary action,
+     *   and `includeInPlainQuerySuggestions` for additional suggestions.
+     * - `accentColorHex` is used to tint provider visuals in UI.
+     */
+    val searchSources: List<SearchSource> = SearchSource.defaultSources(),
+
     // ========================================================================
     // PREFIX CONFIGURATION
     // ========================================================================

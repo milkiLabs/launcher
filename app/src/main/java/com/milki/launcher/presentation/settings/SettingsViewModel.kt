@@ -30,6 +30,13 @@ class SettingsViewModel(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
+    companion object {
+        const val PREFIX_ADD_SUCCESS = ""
+        const val PREFIX_ERROR_EMPTY = "Prefix cannot be empty"
+        const val PREFIX_ERROR_SPACES = "Prefix cannot contain spaces"
+        const val PREFIX_ERROR_DUPLICATE = "Prefix is already used by another source"
+    }
+
     /**
      * Current settings state, observed from the repository.
      * Starts with default settings until DataStore emits.
@@ -132,6 +139,19 @@ class SettingsViewModel(
     fun setWebSearchEnabled(value: Boolean) {
         viewModelScope.launch {
             settingsRepository.setWebSearchEnabled(value)
+
+            // Keep source model aligned with legacy switch behavior.
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    searchSources = current.searchSources.map { source ->
+                        if (source.id == "source_google" || source.id == "source_duckduckgo") {
+                            source.copy(isEnabled = value)
+                        } else {
+                            source
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -144,6 +164,260 @@ class SettingsViewModel(
     fun setYoutubeSearchEnabled(value: Boolean) {
         viewModelScope.launch {
             settingsRepository.setYoutubeSearchEnabled(value)
+
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    searchSources = current.searchSources.map { source ->
+                        if (source.id == "source_youtube") {
+                            source.copy(isEnabled = value)
+                        } else {
+                            source
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    // ========================================================================
+    // DYNAMIC SEARCH SOURCES
+    // ========================================================================
+
+    /**
+     * Adds a new custom source.
+     */
+    fun addSearchSource(
+        name: String,
+        urlTemplate: String,
+        prefixes: List<String>,
+        accentColorHex: String,
+        includeInPlainQuerySuggestions: Boolean
+    ) {
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                val normalizedPrefixes = prefixes
+                    .map(SearchSource.Companion::normalizePrefix)
+                    .filter { it.isNotBlank() && !it.contains(" ") }
+                    .distinct()
+
+                val shouldBeDefault = current.searchSources.none {
+                    it.isEnabled && it.isDefaultForPlainQueryAction
+                }
+
+                val newSource = SearchSource.create(
+                    name = name.trim(),
+                    urlTemplate = urlTemplate.trim(),
+                    prefixes = normalizedPrefixes,
+                    accentColorHex = accentColorHex,
+                    includeInPlainQuerySuggestions = includeInPlainQuerySuggestions,
+                    isDefaultForPlainQueryAction = shouldBeDefault
+                )
+
+                current.copy(searchSources = current.searchSources + newSource)
+            }
+        }
+    }
+
+    /**
+     * Updates an existing source.
+     */
+    fun updateSearchSource(
+        sourceId: String,
+        name: String,
+        urlTemplate: String,
+        prefixes: List<String>,
+        accentColorHex: String,
+        includeInPlainQuerySuggestions: Boolean
+    ) {
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                val normalizedPrefixes = prefixes
+                    .map(SearchSource.Companion::normalizePrefix)
+                    .filter { it.isNotBlank() && !it.contains(" ") }
+                    .distinct()
+
+                current.copy(
+                    searchSources = current.searchSources.map { source ->
+                        if (source.id == sourceId) {
+                            source.copy(
+                                name = name.trim(),
+                                urlTemplate = urlTemplate.trim(),
+                                prefixes = normalizedPrefixes,
+                                includeInPlainQuerySuggestions = includeInPlainQuerySuggestions,
+                                accentColorHex = SearchSource.normalizeHexColor(accentColorHex)
+                            )
+                        } else {
+                            source
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    /**
+     * Deletes one source by ID.
+     */
+    fun deleteSearchSource(sourceId: String) {
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                val remaining = current.searchSources.filterNot { it.id == sourceId }
+                val hasDefault = remaining.any { it.isEnabled && it.isDefaultForPlainQueryAction }
+
+                val finalSources = if (hasDefault) {
+                    remaining
+                } else {
+                    val firstEnabledIndex = remaining.indexOfFirst { it.isEnabled }
+                    if (firstEnabledIndex == -1) {
+                        remaining
+                    } else {
+                        remaining.mapIndexed { index, source ->
+                            source.copy(isDefaultForPlainQueryAction = index == firstEnabledIndex)
+                        }
+                    }
+                }
+
+                current.copy(searchSources = finalSources)
+            }
+        }
+    }
+
+    /**
+     * Toggles source enabled/disabled state.
+     */
+    fun setSearchSourceEnabled(sourceId: String, enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                val updated = current.searchSources.map { source ->
+                    if (source.id == sourceId) {
+                        source.copy(isEnabled = enabled)
+                    } else {
+                        source
+                    }
+                }
+
+                val hasDefault = updated.any { it.isEnabled && it.isDefaultForPlainQueryAction }
+                if (hasDefault) {
+                    current.copy(searchSources = updated)
+                } else {
+                    val firstEnabledIndex = updated.indexOfFirst { it.isEnabled }
+                    if (firstEnabledIndex == -1) {
+                        current.copy(searchSources = updated)
+                    } else {
+                        current.copy(
+                            searchSources = updated.mapIndexed { index, source ->
+                                source.copy(isDefaultForPlainQueryAction = index == firstEnabledIndex)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Sets exactly one default source for plain-query action.
+     */
+    fun setDefaultPlainQuerySource(sourceId: String) {
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    searchSources = current.searchSources.map { source ->
+                        source.copy(isDefaultForPlainQueryAction = source.id == sourceId)
+                    }
+                )
+            }
+        }
+    }
+
+    /**
+     * Updates include-in-suggestions flag for one source.
+     */
+    fun setIncludeInPlainQuerySuggestions(sourceId: String, include: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    searchSources = current.searchSources.map { source ->
+                        if (source.id == sourceId) {
+                            source.copy(includeInPlainQuerySuggestions = include)
+                        } else {
+                            source
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    /**
+     * Adds a prefix to a source with global uniqueness validation.
+     *
+     * @return empty string on success, otherwise human-readable error.
+     */
+    fun addPrefixToSource(sourceId: String, prefix: String, onValidationResult: (String) -> Unit) {
+        val normalizedPrefix = SearchSource.normalizePrefix(prefix)
+
+        when {
+            normalizedPrefix.isEmpty() -> {
+                onValidationResult(PREFIX_ERROR_EMPTY)
+                return
+            }
+            normalizedPrefix.contains(" ") -> {
+                onValidationResult(PREFIX_ERROR_SPACES)
+                return
+            }
+        }
+
+        val allOtherPrefixes = settings.value.searchSources
+            .filter { it.id != sourceId }
+            .flatMap { it.prefixes }
+            .map(SearchSource.Companion::normalizePrefix)
+            .toSet()
+
+        if (normalizedPrefix in allOtherPrefixes) {
+            onValidationResult(PREFIX_ERROR_DUPLICATE)
+            return
+        }
+
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    searchSources = current.searchSources.map { source ->
+                        if (source.id == sourceId) {
+                            val updatedPrefixes = (source.prefixes + normalizedPrefix)
+                                .map(SearchSource.Companion::normalizePrefix)
+                                .distinct()
+                            source.copy(prefixes = updatedPrefixes)
+                        } else {
+                            source
+                        }
+                    }
+                )
+            }
+            onValidationResult(PREFIX_ADD_SUCCESS)
+        }
+    }
+
+    /**
+     * Removes one prefix from a source.
+     */
+    fun removePrefixFromSource(sourceId: String, prefix: String) {
+        val normalizedPrefix = SearchSource.normalizePrefix(prefix)
+
+        viewModelScope.launch {
+            settingsRepository.updateSettings { current ->
+                current.copy(
+                    searchSources = current.searchSources.map { source ->
+                        if (source.id == sourceId) {
+                            source.copy(prefixes = source.prefixes.filterNot {
+                                SearchSource.normalizePrefix(it) == normalizedPrefix
+                            })
+                        } else {
+                            source
+                        }
+                    }
+                )
+            }
         }
     }
 

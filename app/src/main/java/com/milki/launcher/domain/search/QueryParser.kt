@@ -104,7 +104,7 @@ fun parseSearchQuery(
         val prefixWithSpace = prefix + " "
 
         // Check if input starts with this prefix followed by space
-        if (input.startsWith(prefixWithSpace)) {
+        if (input.startsWith(prefixWithSpace, ignoreCase = true)) {
             // Found a match! Get the provider for this prefix
             val provider = registry.findByPrefix(prefix)
 
@@ -132,7 +132,7 @@ fun parseSearchQuery(
     // This handles both single-character prefixes ("s") and multi-character ("yt")
     for (prefix in sortedPrefixes) {
         // Check if user typed exactly the prefix
-        if (trimmed == prefix) {
+        if (trimmed.equals(prefix, ignoreCase = true)) {
             // User typed just the prefix without space
             // Return as app search (they might be searching for an app)
             // The provider will be activated once they add a space
@@ -146,7 +146,7 @@ fun parseSearchQuery(
         // Check if user is typing a multi-character prefix
         // Example: "y" could be start of "y" or "yt"
         // We still treat it as app search until they complete and add space
-        if (prefix.startsWith(trimmed) && trimmed.length < prefix.length) {
+        if (prefix.startsWith(trimmed, ignoreCase = true) && trimmed.length < prefix.length) {
             // User is typing a multi-character prefix
             // Don't activate provider - wait for completion and space
             return ParsedQuery(

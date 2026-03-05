@@ -28,9 +28,13 @@ import com.milki.launcher.ui.theme.Spacing
 fun EmptyState(
     searchQuery: String,
     activeProvider: SearchProviderConfig?,
-    prefixHint: String
+    prefixHint: String,
+    providerAccentColorById: Map<String, String>
 ) {
-    val providerVisual = rememberSearchProviderVisual(activeProvider?.providerId)
+    val providerVisual = rememberSearchProviderVisual(
+        providerId = activeProvider?.providerId,
+        customAccentHex = activeProvider?.providerId?.let(providerAccentColorById::get)
+    )
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -54,13 +58,7 @@ fun EmptyState(
 
             val message = when {
                 searchQuery.isBlank() && activeProvider != null -> {
-                    when (activeProvider.prefix) {
-                        "c" -> "No recent contacts\nType to search your contacts"
-                        "f" -> "No recent files\nType to search files"
-                        "s" -> "Type to search the web"
-                        "y" -> "Type to search YouTube"
-                        else -> "No ${activeProvider.name.lowercase()} results"
-                    }
+                    "No recent ${activeProvider.name.lowercase()} results\nType to search ${activeProvider.name.lowercase()}"
                 }
                 searchQuery.isBlank() -> {
                     "No recent apps\nType to search"

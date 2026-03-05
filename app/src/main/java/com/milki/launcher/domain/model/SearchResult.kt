@@ -59,7 +59,8 @@ data class WebSearchResult(
     override val title: String,
     val url: String,
     val engine: String,
-    val query: String
+    val query: String,
+    val providerId: String? = null
 ) : SearchResult() {
     override val id: String = "web_${engine}_${url.hashCode()}"
 }

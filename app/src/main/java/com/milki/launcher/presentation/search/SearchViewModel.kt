@@ -117,13 +117,17 @@ class SearchViewModel(
             isSearchVisible = stateHolder.isSearchVisible,
             backgroundState = stateHolder.backgroundState,
             prefixConfigurations = stateHolder.prefixConfigurations,
+            searchSources = stateHolder.searchSources,
             existingOutput = stateHolder.searchOutput
         )
         loadInstalledApps()
         observeRecentApps()
         settingsAdapter.bind(
             scope = viewModelScope,
-            prefixConfigurations = stateHolder.prefixConfigurations
+            prefixConfigurations = stateHolder.prefixConfigurations,
+            searchSources = stateHolder.searchSources,
+            providerAccentColorById = stateHolder.providerAccentColorById,
+            defaultPlainQueryUrlTemplate = stateHolder.defaultPlainQueryUrlTemplate
         )
     }
 

@@ -63,13 +63,15 @@ class WebSearchProvider : SearchProvider {
                 title = "Search \"$query\" on Google",
                 url = "https://www.google.com/search?q=$encodedQuery",
                 engine = "Google",
-                query = query
+                query = query,
+                providerId = ProviderId.WEB
             ),
             WebSearchResult(
                 title = "Search \"$query\" on DuckDuckGo",
                 url = "https://duckduckgo.com/?q=$encodedQuery",
                 engine = "DuckDuckGo",
-                query = query
+                query = query,
+                providerId = ProviderId.WEB
             )
         )
     }

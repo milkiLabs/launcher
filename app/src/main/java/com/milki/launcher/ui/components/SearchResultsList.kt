@@ -59,6 +59,7 @@ import com.milki.launcher.ui.theme.Spacing
 fun SearchResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
+    providerAccentColorById: Map<String, String> = emptyMap(),
     onExternalAppDragStart: () -> Unit = {}
 ) {
     /**
@@ -106,6 +107,7 @@ fun SearchResultsList(
         MixedResultsList(
             results = results,
             activeProviderConfig = activeProviderConfig,
+            providerAccentColorById = providerAccentColorById,
             actionHandler = actionHandler,
             onExternalAppDragStart = onExternalAppDragStart
         )
@@ -200,10 +202,14 @@ private fun AppResultsGrid(
 private fun MixedResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
+    providerAccentColorById: Map<String, String>,
     actionHandler: (SearchResultAction) -> Unit,
     onExternalAppDragStart: () -> Unit
 ) {
-    val providerVisual = rememberSearchProviderVisual(activeProviderConfig?.providerId)
+    val providerVisual = rememberSearchProviderVisual(
+        providerId = activeProviderConfig?.providerId,
+        customAccentHex = activeProviderConfig?.providerId?.let(providerAccentColorById::get)
+    )
     val accentColor = providerVisual?.accentColor
 
     /**
@@ -252,9 +258,17 @@ private fun MixedResultsList(
                     )
                 }
                 is WebSearchResult -> {
+                    val mappedProviderAccentHex = result.providerId?.let(providerAccentColorById::get)
+                    val webResultAccentColor = if (result.providerId != null && mappedProviderAccentHex != null) {
+                        rememberSearchProviderVisual(result.providerId, mappedProviderAccentHex)?.accentColor
+                            ?: accentColor
+                    } else {
+                        accentColor
+                    }
+
                     WebSearchResultItem(
                         result = result,
-                        accentColor = accentColor,
+                        accentColor = webResultAccentColor,
                         onClick = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }

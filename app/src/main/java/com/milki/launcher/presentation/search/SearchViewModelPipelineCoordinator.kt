@@ -4,7 +4,9 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.UrlSearchResult
+import com.milki.launcher.domain.model.WebSearchResult
 import com.milki.launcher.domain.repository.SearchProvider
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.ParsedQuery
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import android.net.Uri
 
 /**
  * Coordinates the asynchronous search pipeline for SearchViewModel.
@@ -50,21 +53,28 @@ internal class SearchViewModelPipelineCoordinator(
         isSearchVisible: StateFlow<Boolean>,
         backgroundState: StateFlow<SearchBackgroundState>,
         prefixConfigurations: StateFlow<ProviderPrefixConfiguration>,
+        searchSources: StateFlow<List<SearchSource>>,
         existingOutput: MutableStateFlow<SearchPipelineOutput>
     ): StateFlow<SearchPipelineOutput> {
         return combine(
             query,
             isSearchVisible,
             backgroundState,
-            prefixConfigurations
-        ) { currentQuery, visible, background, _ ->
-            Triple(currentQuery, visible, background)
+            prefixConfigurations,
+            searchSources
+        ) { currentQuery, visible, background, _, sources ->
+            SearchPipelineInput(
+                query = currentQuery,
+                visible = visible,
+                background = background,
+                sources = sources
+            )
         }
-            .mapLatest { (currentQuery, visible, background) ->
-                if (!visible) {
+            .mapLatest { input ->
+                if (!input.visible) {
                     SearchPipelineOutput()
                 } else {
-                    val parsed = parseSearchQuery(currentQuery, providerRegistry)
+                    val parsed = parseSearchQuery(input.query, providerRegistry)
 
                     existingOutput.update { current ->
                         current.copy(
@@ -75,8 +85,9 @@ internal class SearchViewModelPipelineCoordinator(
 
                     val results = executeSearch(
                         parsed = parsed,
-                        installedApps = background.installedApps,
-                        recentApps = background.recentApps
+                        installedApps = input.background.installedApps,
+                        recentApps = input.background.recentApps,
+                        searchSources = input.sources
                     )
 
                     SearchPipelineOutput(
@@ -99,13 +110,18 @@ internal class SearchViewModelPipelineCoordinator(
     private suspend fun executeSearch(
         parsed: ParsedQuery,
         installedApps: List<AppInfo>,
-        recentApps: List<AppInfo>
+        recentApps: List<AppInfo>,
+        searchSources: List<SearchSource>
     ): List<SearchResult> {
         if (parsed.provider != null) {
             return runProviderSearch(parsed.provider, parsed.query)
         }
 
         val urlResult = detectUrl(parsed.query)
+        val sourceSuggestionResults = buildPlainQuerySourceSuggestions(
+            query = parsed.query,
+            searchSources = searchSources
+        )
         val filteredApps = filterAppsUseCase(
             query = parsed.query,
             installedApps = installedApps,
@@ -116,11 +132,14 @@ internal class SearchViewModelPipelineCoordinator(
             .take(8)
             .map { app -> AppSearchResult(appInfo = app) }
 
-        return if (urlResult != null) {
-            listOf(urlResult) + appResults
-        } else {
-            appResults
+        val headResults = buildList {
+            if (urlResult != null) {
+                add(urlResult)
+            }
+            addAll(sourceSuggestionResults)
         }
+
+        return headResults + appResults
     }
 
     /**
@@ -148,4 +167,60 @@ internal class SearchViewModelPipelineCoordinator(
             browserFallback = true
         )
     }
+
+    /**
+     * Builds plain-query source suggestions according to user settings.
+     *
+     * Behavior:
+     * - Empty query => no source suggestion rows
+     * - Include one default source first
+     * - Include additional enabled sources that opted into plain-query suggestions
+     */
+    private fun buildPlainQuerySourceSuggestions(
+        query: String,
+        searchSources: List<SearchSource>
+    ): List<SearchResult> {
+        if (query.isBlank()) {
+            return emptyList()
+        }
+
+        val enabledSources = searchSources.filter { it.isEnabled }
+        if (enabledSources.isEmpty()) {
+            return emptyList()
+        }
+
+        val defaultSource = enabledSources.firstOrNull { it.isDefaultForPlainQueryAction }
+            ?: enabledSources.firstOrNull()
+
+        val suggestionSources = buildList {
+            if (defaultSource != null) {
+                add(defaultSource)
+            }
+            enabledSources
+                .filter { it.includeInPlainQuerySuggestions && it.id != defaultSource?.id }
+                .forEach(::add)
+        }
+
+        return suggestionSources.map { source ->
+            val encodedQuery = Uri.encode(query)
+            val url = source.buildUrl(encodedQuery)
+            WebSearchResult(
+                title = "Search \"$query\" on ${source.name}",
+                url = url,
+                engine = source.name,
+                query = query,
+                providerId = source.id
+            )
+        }
+    }
 }
+
+/**
+ * Input snapshot for one pipeline execution pass.
+ */
+private data class SearchPipelineInput(
+    val query: String,
+    val visible: Boolean,
+    val background: SearchBackgroundState,
+    val sources: List<SearchSource>
+)

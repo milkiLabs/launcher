@@ -226,10 +226,8 @@ val appModule = module {
         // Koin automatically provides the correct type for each get() call
         SearchProviderRegistry(
             initialProviders = listOf(
-                get<WebSearchProvider>(),
                 get<ContactsSearchProvider>(),
-                get<FilesSearchProvider>(),
-                get<YouTubeSearchProvider>()
+                get<FilesSearchProvider>()
             )
         )
     }

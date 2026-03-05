@@ -147,6 +147,20 @@ class SearchProviderRegistry(
      */
     fun register(provider: SearchProvider) {
         providersById[provider.config.providerId] = provider
+        rebuildPrefixMappings()
+    }
+
+    /**
+     * Unregister an existing provider by ID.
+     *
+     * This is required for dynamic provider CRUD where users can delete
+     * or disable custom sources at runtime.
+     */
+    fun unregister(providerId: String) {
+        val removed = providersById.remove(providerId)
+        if (removed != null) {
+            rebuildPrefixMappings()
+        }
     }
 
     /**
