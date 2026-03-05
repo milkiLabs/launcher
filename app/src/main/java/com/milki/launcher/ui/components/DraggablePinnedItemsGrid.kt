@@ -635,8 +635,15 @@ fun DraggablePinnedItemsGrid(
                         .graphicsLayer {
                             // For folder-join, scale up slightly more than a normal
                             // hover to reinforce the "the two will combine" metaphor.
-                            val scale = if (isFolderMerge) config.dropHighlightScale * 1.05f
-                                else config.dropHighlightScale
+                            // Widget highlights should match exact widget footprint
+                            // and must not be visually inflated by hover scaling.
+                            val scale = if (activeSession.item is HomeItem.WidgetItem) {
+                                1f
+                            } else if (isFolderMerge) {
+                                config.dropHighlightScale * 1.05f
+                            } else {
+                                config.dropHighlightScale
+                            }
                             scaleX = scale
                             scaleY = scale
                         }
@@ -830,8 +837,15 @@ fun DraggablePinnedItemsGrid(
                             shape = highlightShape
                         )
                         .graphicsLayer {
-                            scaleX = config.dropHighlightScale
-                            scaleY = config.dropHighlightScale
+                            // Keep widget external-drop highlight unscaled so
+                            // it matches the actual placed widget bounds.
+                            val highlightScale = if (currentExternalItem is ExternalDragItem.Widget) {
+                                1f
+                            } else {
+                                config.dropHighlightScale
+                            }
+                            scaleX = highlightScale
+                            scaleY = highlightScale
                         }
                 ) {
                     /**
