@@ -23,12 +23,16 @@
 
 package com.milki.launcher.presentation.home
 
+import android.app.Activity
+import android.appwidget.AppWidgetProviderInfo
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -603,5 +607,273 @@ class HomeViewModel(
             }
             applied
         }
+    }
+
+    // ========================================================================
+    // WIDGET OPERATIONS
+    // ========================================================================
+
+    /**
+     * Holds the state for a widget that is currently going through the
+     * multi-step bind → configure → place flow.
+     *
+     * WHY THIS EXISTS:
+     * Adding a widget is NOT a single step — it requires:
+     * 1) Allocating an appWidgetId from the host
+     * 2) Binding the widget (may require a system permission dialog)
+     * 3) Optionally launching the widget's configure Activity
+     * 4) Finally placing it on the home grid
+     *
+     * Between steps 2→3→4, the Activity is backgrounded while the system
+     * dialog / configure Activity is shown.  We need to remember which
+     * widget the user was setting up so the ActivityResult callbacks can
+     * complete the flow.
+     */
+    private data class PendingWidget(
+        val appWidgetId: Int,
+        val providerInfo: AppWidgetProviderInfo,
+        val targetPosition: GridPosition,
+        val span: GridSpan
+    )
+
+    /**
+     * The widget currently going through the bind/configure flow, or null.
+     */
+    private var pendingWidget: PendingWidget? = null
+
+    /**
+     * Begins the widget placement flow.
+     *
+     * This is called when the user selects a widget from the Widget Picker
+     * BottomSheet and drops it on the home screen grid.
+     *
+     * FLOW:
+     * 1) Allocate an appWidgetId from [WidgetHostManager]
+     * 2) Try to bind the provider to that ID
+     *    - If binding succeeded immediately → check for config Activity
+     *    - If binding needs permission → launch bind permission dialog
+     *      (result arrives in [onWidgetBindResult])
+     * 3) If the provider has a configure Activity → launch it
+     *    (result arrives in [onWidgetConfigureResult])
+     * 4) Place the widget on the home grid via repository
+     *
+     * @param providerInfo     The widget provider selected by the user
+     * @param targetPosition   The grid cell where the widget should be placed
+     * @param span             The initial span (columns × rows) for this widget
+     * @param widgetHostManager The host manager to allocate/bind widget IDs
+     * @param launchBindPermission Callback to launch the system bind-permission
+     *                             Activity via the pre-registered ActivityResultLauncher.
+     *                             Receives an Intent to start.
+     * @param launchConfigure  Callback to launch the widget's configure Activity.
+     *                         Receives an Intent to start.
+     */
+    fun beginWidgetPlacement(
+        providerInfo: AppWidgetProviderInfo,
+        targetPosition: GridPosition,
+        span: GridSpan,
+        widgetHostManager: WidgetHostManager,
+        launchBindPermission: (android.content.Intent) -> Unit,
+        launchConfigure: (android.content.Intent) -> Unit
+    ) {
+        val appWidgetId = widgetHostManager.allocateWidgetId()
+
+        // Save state so ActivityResult callbacks can finish the flow.
+        pendingWidget = PendingWidget(
+            appWidgetId = appWidgetId,
+            providerInfo = providerInfo,
+            targetPosition = targetPosition,
+            span = span
+        )
+
+        // Try binding. If the launcher already has BIND_APPWIDGET permission
+        // (rare for non-system launchers), this returns true immediately.
+        val boundImmediately = widgetHostManager.bindWidget(
+            appWidgetId = appWidgetId,
+            providerInfo = providerInfo
+        )
+
+        if (boundImmediately) {
+            // Binding succeeded — proceed to configure or place.
+            proceedAfterBind(widgetHostManager, launchConfigure)
+        } else {
+            // Need user permission. The system dialog will grant bind permission.
+            val intent = widgetHostManager.createBindPermissionIntent(
+                appWidgetId = appWidgetId,
+                providerInfo = providerInfo
+            )
+            launchBindPermission(intent)
+        }
+    }
+
+    /**
+     * Called when the bind-permission Activity returns a result.
+     *
+     * If the user granted permission (RESULT_OK), we continue the flow.
+     * Otherwise we clean up the allocated widget ID.
+     */
+    fun onWidgetBindResult(
+        resultCode: Int,
+        widgetHostManager: WidgetHostManager,
+        launchConfigure: ((android.content.Intent) -> Unit)? = null
+    ) {
+        val pending = pendingWidget ?: return
+
+        if (resultCode == Activity.RESULT_OK) {
+            // Bind permission granted — proceed to configure or place.
+            if (launchConfigure != null) {
+                proceedAfterBind(widgetHostManager, launchConfigure)
+            } else {
+                // No configure launcher available — place directly.
+                placeWidget(pending, widgetHostManager)
+            }
+        } else {
+            // User denied — release the allocated ID.
+            widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+            pendingWidget = null
+        }
+    }
+
+    /**
+     * Called when the widget's configure Activity returns a result.
+     *
+     * If the user completed configuration (RESULT_OK), we place the widget.
+     * Otherwise we clean up.
+     */
+    fun onWidgetConfigureResult(
+        resultCode: Int,
+        widgetHostManager: WidgetHostManager
+    ) {
+        val pending = pendingWidget ?: return
+
+        if (resultCode == Activity.RESULT_OK) {
+            placeWidget(pending, widgetHostManager)
+        } else {
+            // Configuration cancelled — release the widget ID.
+            widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+            pendingWidget = null
+        }
+    }
+
+    /**
+     * After binding succeeds, check whether the widget has a configure Activity
+     * and either launch it or place the widget directly.
+     */
+    private fun proceedAfterBind(
+        widgetHostManager: WidgetHostManager,
+        launchConfigure: (android.content.Intent) -> Unit
+    ) {
+        val pending = pendingWidget ?: return
+
+        val configureIntent = widgetHostManager.createConfigureIntent(pending.appWidgetId)
+        if (configureIntent != null) {
+            // Widget wants configuration — launch the configure Activity.
+            launchConfigure(configureIntent)
+        } else {
+            // No configure needed — place immediately.
+            placeWidget(pending, widgetHostManager)
+        }
+    }
+
+    /**
+     * Final step: persist the widget in the home repository.
+     *
+     * Creates a [HomeItem.WidgetItem] from the pending state and adds it
+     * through the serialized mutation path.
+     */
+    private fun placeWidget(pending: PendingWidget, widgetHostManager: WidgetHostManager) {
+        val provider = pending.providerInfo.provider
+        val label = pending.providerInfo.loadLabel(
+            widgetHostManager.packageManager
+        ) ?: provider.shortClassName
+
+        val widgetItem = HomeItem.WidgetItem.create(
+            appWidgetId = pending.appWidgetId,
+            providerPackage = provider.packageName,
+            providerClass = provider.className,
+            label = label,
+            position = pending.targetPosition,
+            span = pending.span
+        )
+
+        pendingWidget = null
+
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not place widget"
+        ) {
+            val placed = homeRepository.addWidget(widgetItem)
+
+            // If placement fails (for example due to a race where cells became
+            // occupied between drag hover and repository write), release the
+            // allocated appWidgetId so we don't leak orphan widget IDs in host.
+            if (!placed) {
+                widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+            }
+
+            placed
+        }
+    }
+
+    /**
+     * Removes a widget from the home screen and releases its appWidgetId.
+     *
+     * @param widgetId The [HomeItem.WidgetItem.id] (format: "widget:{appWidgetId}")
+     * @param appWidgetId The numeric ID to release from the AppWidgetHost
+     * @param widgetHostManager The host manager to release the ID from
+     */
+    fun removeWidget(
+        widgetId: String,
+        appWidgetId: Int,
+        widgetHostManager: WidgetHostManager
+    ) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Could not remove widget"
+        ) {
+            homeRepository.removeWidget(widgetId)
+            widgetHostManager.deallocateWidgetId(appWidgetId)
+            true
+        }
+    }
+
+    /**
+     * Resizes a widget's span on the home grid.
+     *
+     * Validates that the new span doesn't overlap other items before applying.
+     *
+     * @param widgetId The [HomeItem.WidgetItem.id]
+     * @param newSpan  The desired new span
+     */
+    fun resizeWidget(widgetId: String, newSpan: GridSpan) {
+        launchSerializedHomeMutation(
+            fallbackErrorMessage = "Cannot resize — cells are occupied"
+        ) {
+            homeRepository.updateWidgetSpan(widgetId, newSpan)
+        }
+    }
+
+    /**
+     * Returns the first available grid position for a new single-cell item.
+     *
+     * This is a synchronous snapshot from the current UI state. It's used
+     * as a fallback target position when the user selects a widget from the
+     * picker without a prior drag-to-position interaction.
+     */
+    fun findFirstAvailablePosition(): GridPosition {
+        val items = uiState.value.pinnedItems
+        val occupied = mutableSetOf<GridPosition>()
+        for (item in items) {
+            if (item is HomeItem.WidgetItem) {
+                occupied.addAll(item.span.occupiedPositions(item.position))
+            } else {
+                occupied.add(item.position)
+            }
+        }
+        // Scan from top-left.
+        for (row in 0 until 100) {
+            for (col in 0 until 4) {
+                val pos = GridPosition(row, col)
+                if (pos !in occupied) return pos
+            }
+        }
+        return GridPosition(100, 0)
     }
 }

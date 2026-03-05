@@ -48,6 +48,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -87,6 +88,9 @@ import com.milki.launcher.ui.components.AppDrawerOverlay
 import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.components.FolderPopupDialog
+import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
+import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.ui.theme.Spacing
 import com.milki.launcher.util.openFile
 import com.milki.launcher.util.launchPinnedApp
@@ -184,7 +188,24 @@ fun LauncherScreen(
      *   occupantItem   – the existing grid icon it was dropped onto.
      *   atPosition     – the grid cell where the new folder should appear.
      */
-    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> }
+    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> },
+    // ---- Widget picker ----
+    /** Whether the widget picker bottom sheet is currently visible. */
+    isWidgetPickerOpen: Boolean = false,
+    /** Toggle widget picker visibility. */
+    onWidgetPickerOpenChange: (Boolean) -> Unit = {},
+    /** The WidgetHostManager instance needed by the widget picker to query providers. */
+    widgetHostManager: WidgetHostManager? = null,
+    /** Called when a widget should be removed via its context menu. */
+    onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
+    /** Called when a widget is resized via the resize overlay. */
+    onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit = { _, _ -> },
+    /**
+     * Called when a widget is dragged from the Widget Picker and dropped onto
+     * an empty cell on the home grid. The caller should begin the
+     * bind → configure → place flow at the given position.
+     */
+    onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -196,6 +217,7 @@ fun LauncherScreen(
         if (searchUiState.isSearchVisible) {
             onHomescreenMenuOpenChange(false)
             onAppDrawerOpenChange(false)
+            onWidgetPickerOpenChange(false)
         }
     }
 
@@ -203,6 +225,7 @@ fun LauncherScreen(
         if (homeUiState.openFolderItem != null) {
             onHomescreenMenuOpenChange(false)
             onAppDrawerOpenChange(false)
+            onWidgetPickerOpenChange(false)
         }
     }
 
@@ -305,6 +328,10 @@ fun LauncherScreen(
             onFolderItemExtracted = onExtractItemFromFolder,
             onMoveFolderItemToFolder = onMoveFolderItemToFolder,
             onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
+            widgetHostManager = widgetHostManager,
+            onRemoveWidget = onRemoveWidget,
+            onResizeWidget = onResizeWidget,
+            onWidgetDroppedToHome = onWidgetDroppedToHome,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(Spacing.mediumLarge)
@@ -321,6 +348,19 @@ fun LauncherScreen(
                 )
             }
         ) {
+            DropdownMenuItem(
+                text = { Text("Widgets") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Widgets,
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    onHomescreenMenuOpenChange(false)
+                    onWidgetPickerOpenChange(true)
+                }
+            )
             DropdownMenuItem(
                 text = { Text("Settings") },
                 leadingIcon = {
@@ -389,6 +429,21 @@ fun LauncherScreen(
                 )
             }
         }
+
+        // ─── Widget Picker BottomSheet ─────────────────────────────────────
+        // Shown when the user selects "Widgets" from the homescreen long-press
+        // context menu. Displays all installed widgets grouped by app.
+        if (isWidgetPickerOpen && widgetHostManager != null) {
+            WidgetPickerBottomSheet(
+                onDismiss = { onWidgetPickerOpenChange(false) },
+                widgetHostManager = widgetHostManager,
+                onExternalDragStarted = {
+                    // Close the bottom sheet immediately when the user starts
+                    // dragging a widget, so the home grid is visible for dropping.
+                    onWidgetPickerOpenChange(false)
+                }
+            )
+        }
     }
 
     if (searchUiState.isSearchVisible) {
@@ -419,6 +474,9 @@ fun openPinnedItem(item: HomeItem, context: Context) {
         // routed to homeViewModel.openFolder). This branch is here solely to
         // make the when expression exhaustive and avoid a compile error.
         is HomeItem.FolderItem -> { /* handled upstream; no-op here */ }
+        // Widgets handle their own click events via RemoteViews PendingIntents,
+        // so tapping a widget in the grid should not trigger any launcher action.
+        is HomeItem.WidgetItem -> { /* no-op: widget handles its own clicks */ }
     }
 }
 

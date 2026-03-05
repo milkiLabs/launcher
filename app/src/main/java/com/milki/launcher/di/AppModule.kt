@@ -53,6 +53,7 @@ import com.milki.launcher.data.repository.HomeRepositoryImpl
 import com.milki.launcher.data.repository.SettingsRepositoryImpl
 import com.milki.launcher.data.search.ContactsSearchProvider
 import com.milki.launcher.data.search.FilesSearchProvider
+import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.FilesRepository
@@ -155,6 +156,24 @@ val appModule = module {
      */
     single<HomeRepository> {
         HomeRepositoryImpl(get())
+    }
+
+    // ========================================================================
+    // WIDGET INFRASTRUCTURE - SINGLETON
+    // ========================================================================
+
+    /**
+     * WidgetHostManager - Wraps Android's AppWidgetHost framework.
+     *
+     * SINGLETON: Yes - there should be exactly one AppWidgetHost per launcher app.
+     * AppWidgetHost manages widget IDs, creates widget views, and receives widget
+     * update broadcasts. Having multiple hosts would cause ID conflicts and
+     * duplicate update handling.
+     *
+     * DEPENDENCY: Android Context (for creating AppWidgetHost and getting AppWidgetManager)
+     */
+    single {
+        WidgetHostManager(get())
     }
 
     // ========================================================================

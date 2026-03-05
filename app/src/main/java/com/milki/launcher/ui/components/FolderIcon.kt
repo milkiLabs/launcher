@@ -237,6 +237,10 @@ private fun FolderMiniIconSlot(item: HomeItem?) {
                 // guard in the repository prevents this). But if somehow they do,
                 // render a neutral placeholder to avoid a crash.
             }
+            is HomeItem.WidgetItem -> {
+                // Widgets cannot be placed inside folders, so this branch should
+                // never be reached. Present only for exhaustiveness.
+            }
         }
     }
 }

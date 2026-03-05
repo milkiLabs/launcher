@@ -270,6 +270,129 @@ sealed class HomeItem {
     }
 
     // ========================================================================
+    // WIDGET ITEM
+    // ========================================================================
+
+    /**
+     * A home screen widget (Android AppWidget) that can span multiple grid cells.
+     *
+     * WHAT IS AN APP WIDGET?
+     * Android app widgets are miniature application views that can be embedded in
+     * the home screen. Examples include clocks, weather displays, music players,
+     * and calendar views. They are provided by installed apps and rendered by the
+     * launcher using Android's AppWidgetHost framework.
+     *
+     * MULTI-CELL SIZING:
+     * Unlike all other HomeItem types which occupy exactly one grid cell (1×1),
+     * a WidgetItem can span multiple columns and rows. The [span] property defines
+     * how many cells the widget occupies. The [position] property defines the
+     * top-left anchor cell.
+     *
+     * EXAMPLE: A 2-column × 3-row widget at position (1, 1):
+     * The widget covers cells (1,1), (1,2), (2,1), (2,2), (3,1), (3,2).
+     * No other items can be placed in those cells.
+     *
+     * WIDGET LIFECYCLE:
+     * 1. User opens widget picker from home screen long-press menu
+     * 2. User drags a widget from the picker onto the home grid
+     * 3. System allocates a widget ID via AppWidgetHost
+     * 4. System binds the widget to the chosen provider (may require permission)
+     * 5. If the provider has a configuration activity, it is launched
+     * 6. Widget is persisted in DataStore and rendered on the grid
+     *
+     * RESIZING:
+     * Users can resize widgets by long-pressing → selecting "Resize" from the
+     * context menu → dragging the resize handles. The resize respects:
+     * - Provider's minimum and maximum size (from AppWidgetProviderInfo)
+     * - Grid boundaries (no spanning outside the 4-column grid)
+     * - Collision prevention (no overlapping other items)
+     *
+     * CLEANUP:
+     * When a widget's provider app is uninstalled, the widget becomes orphaned.
+     * The launcher detects this on app list refresh and removes the widget,
+     * deallocating its widget ID.
+     *
+     * @property id Unique identifier: "widget:{appWidgetId}"
+     * @property appWidgetId The integer ID assigned by Android's AppWidgetHost.
+     *                       This ID is used to create the AppWidgetHostView that
+     *                       renders the widget content.
+     * @property providerPackage The package name of the app that provides this widget
+     *                           (e.g., "com.google.android.deskclock" for the Clock widget).
+     * @property providerClass The fully qualified class name of the AppWidgetProvider
+     *                         (e.g., "com.google.android.deskclock.widget.DigitalWidget").
+     * @property label Display name shown when the widget is selected or in the picker.
+     * @property position Grid position of the widget's top-left anchor cell.
+     * @property span How many columns and rows this widget occupies on the grid.
+     *                Defaults to 1×1 (single cell), but widgets typically use larger spans.
+     */
+    @Serializable
+    data class WidgetItem(
+        override val id: String,
+        val appWidgetId: Int,
+        val providerPackage: String,
+        val providerClass: String,
+        val label: String,
+        override val position: GridPosition = GridPosition.DEFAULT,
+        val span: GridSpan = GridSpan.SINGLE
+    ) : HomeItem() {
+
+        /**
+         * Creates a copy of this WidgetItem with a new grid position.
+         * Called when the user drags the widget to a new location on the home screen.
+         */
+        override fun withPosition(newPosition: GridPosition): WidgetItem {
+            return copy(position = newPosition)
+        }
+
+        /**
+         * Creates a copy of this WidgetItem with a new span (size).
+         * Called when the user resizes the widget via drag handles.
+         *
+         * @param newSpan The new size (columns × rows) for this widget.
+         * @return A new WidgetItem instance with the updated span.
+         */
+        fun withSpan(newSpan: GridSpan): WidgetItem {
+            return copy(span = newSpan)
+        }
+
+        companion object {
+            /**
+             * Creates a WidgetItem from the Android widget binding information.
+             *
+             * This is called after the widget has been successfully allocated and bound
+             * by the AppWidgetHost. The appWidgetId is the integer returned by
+             * AppWidgetHost.allocateAppWidgetId().
+             *
+             * @param appWidgetId The allocated widget ID from AppWidgetHost.
+             * @param providerPackage Package name of the widget provider app.
+             * @param providerClass Class name of the AppWidgetProvider.
+             * @param label Display label for the widget.
+             * @param position Where on the grid to place the widget.
+             * @param span How many cells the widget should occupy.
+             * @return A new WidgetItem ready to be persisted and rendered.
+             */
+            fun create(
+                appWidgetId: Int,
+                providerPackage: String,
+                providerClass: String,
+                label: String,
+                position: GridPosition = GridPosition.DEFAULT,
+                span: GridSpan = GridSpan.SINGLE
+            ): WidgetItem {
+                return WidgetItem(
+                    id = "widget:$appWidgetId",
+                    appWidgetId = appWidgetId,
+                    providerPackage = providerPackage,
+                    providerClass = providerClass,
+                    label = label,
+                    position = position,
+                    span = span
+                )
+            }
+        }
+    }
+
+    // ========================================================================
     // FOLDER ITEM
     // ========================================================================
 

@@ -37,6 +37,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.Flow
@@ -196,8 +197,8 @@ class HomeRepositoryImpl(
      * @return The first available GridPosition
      */
     private fun findAvailablePositionInList(items: List<HomeItem>, columns: Int): GridPosition {
-        // Collect all occupied positions
-        val occupiedPositions = items.map { it.position }.toSet()
+        // Collect all occupied positions, including cells spanned by widgets.
+        val occupiedPositions = buildOccupiedCellsMap(items).keys
 
         // Search for the first available position
         // Start from row 0, column 0 and search left-to-right, top-to-bottom
@@ -252,11 +253,13 @@ class HomeRepositoryImpl(
 
             // Re-evaluate indices AFTER the eviction — the list may have changed.
             val existingItemIndex = currentItems.indexOfFirst { it.id == item.id }
-            val targetOccupantIndex = currentItems.indexOfFirst {
-                it.id != item.id && it.position == targetPosition
-            }
 
-            if (targetOccupantIndex != -1) {
+            // Build span-aware occupancy map excluding the item being placed.
+            val occupiedCells = buildOccupiedCellsMap(currentItems, excludeItemId = item.id)
+
+            // For widgets, verify the full span fits; for single-cell items, check just the cell.
+            val span = (item as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+            if (!isSpanFree(targetPosition, span, occupiedCells, gridColumns = 4)) {
                 wasApplied = false
                 return@edit
             }
@@ -333,11 +336,14 @@ class HomeRepositoryImpl(
                 return@edit
             }
 
-            val targetOccupiedByAnotherItem = currentItems.any {
-                it.id != itemId && it.position == newPosition
-            }
+            // Build span-aware occupancy map excluding the item being moved.
+            val occupiedCells = buildOccupiedCellsMap(currentItems, excludeItemId = itemId)
 
-            if (targetOccupiedByAnotherItem) {
+            // For widgets, check that the full span fits; for single-cell items, check the single cell.
+            val span = (currentItem as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+            val wouldOverlap = !isSpanFree(newPosition, span, occupiedCells, gridColumns = 4)
+
+            if (wouldOverlap) {
                 wasApplied = false
                 return@edit
             }
@@ -369,10 +375,10 @@ class HomeRepositoryImpl(
             deserializeItems(preferences)
         }.first()
 
-        // Collect all occupied positions
-        val occupiedPositions = currentItems.map { it.position }.toSet()
+        // Build span-aware set of all occupied cells.
+        val occupiedPositions = buildOccupiedCellsMap(currentItems).keys
 
-        // Search for the first available position
+        // Search for the first available position (single-cell).
         for (row in 0 until maxRows) {
             for (column in 0 until columns) {
                 val position = GridPosition(row, column)
@@ -382,7 +388,7 @@ class HomeRepositoryImpl(
             }
         }
 
-        // Fallback: return a position at the end
+        // Fallback: return a position at the end.
         return GridPosition(maxRows, 0)
     }
 
@@ -706,11 +712,9 @@ class HomeRepositoryImpl(
             // Find the item inside the folder.
             if (folder.children.none { it.id == itemId }) return@edit
 
-            // Occupancy check: the target must be empty or occupied by the folder itself.
-            val targetOccupant = currentItems.find {
-                it.id != folderId && it.position == targetPosition
-            }
-            if (targetOccupant != null) {
+            // Span-aware occupancy check: the target must be empty or occupied by the folder itself.
+            val occupiedCells = buildOccupiedCellsMap(currentItems, excludeItemId = folderId)
+            if (targetPosition in occupiedCells) {
                 // Target is occupied by something else — reject the operation.
                 return@edit
             }
@@ -1020,5 +1024,159 @@ class HomeRepositoryImpl(
             }
 
         preferences[Keys.PINNED_ITEMS] = itemsString
+    }
+
+    // ========================================================================
+    // SPAN-AWARE OCCUPANCY HELPERS
+    // ========================================================================
+
+    /**
+     * Builds a map of every occupied grid cell → the item ID occupying it.
+     *
+     * This is the core helper that enables multi-cell widget support. For
+     * single-cell items (PinnedApp, PinnedFile, etc.), only one cell is claimed.
+     * For WidgetItems, ALL cells in the widget's span are claimed.
+     *
+     * USAGE:
+     * Used by widget add/move/resize operations to check if the requested cells
+     * are free before placing or resizing a widget.
+     *
+     * @param items The current list of home screen items.
+     * @param excludeItemId Optional item ID to exclude from the map (used when
+     *                       moving or resizing an item — it shouldn't collide with
+     *                       its own current cells).
+     * @return A map from GridPosition → item ID for every occupied cell.
+     */
+    private fun buildOccupiedCellsMap(
+        items: List<HomeItem>,
+        excludeItemId: String? = null
+    ): Map<GridPosition, String> {
+        val occupiedCells = mutableMapOf<GridPosition, String>()
+        for (item in items) {
+            if (item.id == excludeItemId) continue
+            if (item is HomeItem.WidgetItem) {
+                // Widget occupies multiple cells based on its span.
+                for (pos in item.span.occupiedPositions(item.position)) {
+                    occupiedCells[pos] = item.id
+                }
+            } else {
+                // Single-cell items occupy only their position.
+                occupiedCells[item.position] = item.id
+            }
+        }
+        return occupiedCells
+    }
+
+    /**
+     * Checks whether ALL cells in a span are free (not occupied by any other item).
+     *
+     * Used before placing or resizing a widget to ensure it won't overlap anything.
+     *
+     * @param position The top-left anchor of the span to check.
+     * @param span The size (columns × rows) to check.
+     * @param occupiedCells The pre-computed map from [buildOccupiedCellsMap].
+     * @param gridColumns The number of columns in the grid (for bounds checking).
+     * @return true if all cells in the span are free and within grid bounds.
+     */
+    private fun isSpanFree(
+        position: GridPosition,
+        span: GridSpan,
+        occupiedCells: Map<GridPosition, String>,
+        gridColumns: Int = DEFAULT_GRID_COLUMNS
+    ): Boolean {
+        // Bounds check: the span must not extend beyond the grid columns.
+        if (position.column + span.columns > gridColumns) return false
+        if (position.row < 0 || position.column < 0) return false
+
+        // Check every cell in the span for occupancy.
+        for (pos in span.occupiedPositions(position)) {
+            if (pos in occupiedCells) return false
+        }
+        return true
+    }
+
+    // ========================================================================
+    // WIDGET OPERATIONS
+    // ========================================================================
+
+    /**
+     * Adds a widget to the home screen at the specified position.
+     *
+     * Checks ALL cells in the widget's span for occupancy before placement.
+     * If any cell is occupied, the operation is rejected.
+     */
+    override suspend fun addWidget(widget: HomeItem.WidgetItem): Boolean {
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            // Check that none of the widget's cells are occupied.
+            val occupiedCells = buildOccupiedCellsMap(currentItems)
+            if (!isSpanFree(widget.position, widget.span, occupiedCells)) {
+                wasApplied = false
+                return@edit
+            }
+
+            currentItems.add(widget)
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
+    /**
+     * Removes a widget from the home screen by its ID.
+     *
+     * The caller is responsible for deallocating the widget ID from
+     * AppWidgetHost after this method returns.
+     */
+    override suspend fun removeWidget(widgetId: String) {
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+            currentItems.removeAll { it.id == widgetId }
+            serializeItems(currentItems, preferences)
+        }
+    }
+
+    /**
+     * Updates the span (size) of an existing widget.
+     *
+     * Checks that the new span doesn't overlap with any other items
+     * (excluding the widget being resized from the occupancy check).
+     */
+    override suspend fun updateWidgetSpan(widgetId: String, newSpan: GridSpan): Boolean {
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val widgetIndex = currentItems.indexOfFirst { it.id == widgetId }
+            if (widgetIndex == -1) {
+                wasApplied = false
+                return@edit
+            }
+
+            val widget = currentItems[widgetIndex] as? HomeItem.WidgetItem
+            if (widget == null) {
+                wasApplied = false
+                return@edit
+            }
+
+            // Build occupancy map EXCLUDING the widget being resized,
+            // so it doesn't collide with its own current cells.
+            val occupiedCells = buildOccupiedCellsMap(currentItems, excludeItemId = widgetId)
+            if (!isSpanFree(widget.position, newSpan, occupiedCells)) {
+                wasApplied = false
+                return@edit
+            }
+
+            currentItems[widgetIndex] = widget.withSpan(newSpan)
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
     }
 }

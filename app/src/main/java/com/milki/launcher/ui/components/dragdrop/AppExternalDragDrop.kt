@@ -15,11 +15,13 @@
 
 package com.milki.launcher.ui.components.dragdrop
 
+import android.appwidget.AppWidgetProviderInfo
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Point
 import android.graphics.drawable.Drawable
 import android.util.Log
@@ -36,6 +38,7 @@ import androidx.core.content.ContextCompat
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.theme.IconSize
@@ -257,6 +260,60 @@ fun startExternalFolderItemDrag(
 }
 
 /**
+ * Starts an external drag for a widget being dragged from the Widget Picker BottomSheet.
+ *
+ * WHY THIS FUNCTION EXISTS:
+ * The Widget Picker is rendered in a ModalBottomSheet (a dialog window), but the
+ * home grid drop target lives in the main Activity window. Just like search-dialog
+ * app drags, we use Android platform View.startDragAndDrop() to cross the window
+ * boundary. The drag shadow shows either the widget's preview image or the app icon.
+ *
+ * PAYLOAD:
+ * We pass [ExternalDragItem.Widget] via [DragEvent.localState] for fast same-process
+ * decoding, and also attach a ClipData JSON fallback (provider component + span)
+ * so widget drags still decode correctly when localState is unavailable.
+ *
+ * @param hostView  Any attached View in the bottom sheet window (typically [LocalView.current]).
+ * @param providerInfo  The widget provider selected by the user.
+ * @param span          The default grid span for this widget.
+ * @param dragShadowSize  Base one-cell size for drag shadow calculations.
+ * @return true when the platform drag session started successfully.
+ */
+fun startExternalWidgetDrag(
+    hostView: View,
+    providerInfo: AppWidgetProviderInfo,
+    span: GridSpan,
+    dragShadowSize: Dp = IconSize.appGrid
+): Boolean {
+    val density = hostView.context.resources.displayMetrics.density
+    val shadowCellSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
+    val shadowWidthPx = (shadowCellSizePx * span.columns).coerceAtLeast(1)
+    val shadowHeightPx = (shadowCellSizePx * span.rows).coerceAtLeast(1)
+
+    val payload = ExternalDragItem.Widget(
+        providerInfo = providerInfo,
+        providerComponent = providerInfo.provider,
+        span = span
+    )
+    val clipData = AppExternalDragDropPayload.createClipData(payload)
+    // Use a simple rectangle shadow for widgets (no stretched widget image).
+    // This keeps startDragAndDrop reliable on OEM variants while preserving
+    // the "box-like" drag visual requested by product UX.
+    val dragShadowBuilder = AppPlainRectDragShadowBuilder(
+        shadowWidthPx = shadowWidthPx,
+        shadowHeightPx = shadowHeightPx
+    )
+
+    return startExternalDragWithFallbackHosts(
+        hostView = hostView,
+        clipData = clipData,
+        localState = payload,
+        dragShadowBuilder = dragShadowBuilder,
+        failureLogLabel = "widget:${providerInfo.provider.flattenToShortString()}"
+    )
+}
+
+/**
  * Shared host-selection and drag start logic for all external payload types.
  */
 private fun startExternalDragWithFallbackHosts(
@@ -337,6 +394,62 @@ private class AppIconDragShadowBuilder(
     override fun onDrawShadow(canvas: Canvas) {
         iconDrawable.setBounds(0, 0, shadowSizePx, shadowSizePx)
         iconDrawable.draw(canvas)
+    }
+}
+
+/**
+ * Drag shadow builder that draws a rectangular widget preview area.
+ */
+private class AppRectangularDragShadowBuilder(
+    private val iconDrawable: Drawable,
+    private val shadowWidthPx: Int,
+    private val shadowHeightPx: Int
+) : View.DragShadowBuilder() {
+    override fun onProvideShadowMetrics(outShadowSize: Point, outShadowTouchPoint: Point) {
+        outShadowSize.set(shadowWidthPx, shadowHeightPx)
+        outShadowTouchPoint.set(shadowWidthPx / 2, shadowHeightPx / 2)
+    }
+
+    override fun onDrawShadow(canvas: Canvas) {
+        iconDrawable.setBounds(0, 0, shadowWidthPx, shadowHeightPx)
+        iconDrawable.draw(canvas)
+    }
+}
+
+/**
+ * Drag shadow builder that draws a plain rectangular box for widget drags.
+ *
+ * WHY NOT EMPTY SHADOW:
+ * Some OEM drag implementations are unreliable when the shadow draws nothing.
+ * A lightweight rectangle keeps drag initiation stable without rendering
+ * stretched widget preview images.
+ */
+private class AppPlainRectDragShadowBuilder(
+    private val shadowWidthPx: Int,
+    private val shadowHeightPx: Int
+) : View.DragShadowBuilder() {
+
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = android.graphics.Color.argb(56, 255, 255, 255)
+    }
+
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        color = android.graphics.Color.argb(160, 255, 255, 255)
+    }
+
+    override fun onProvideShadowMetrics(outShadowSize: Point, outShadowTouchPoint: Point) {
+        outShadowSize.set(shadowWidthPx, shadowHeightPx)
+        outShadowTouchPoint.set(shadowWidthPx / 2, shadowHeightPx / 2)
+    }
+
+    override fun onDrawShadow(canvas: Canvas) {
+        val right = shadowWidthPx.toFloat()
+        val bottom = shadowHeightPx.toFloat()
+        canvas.drawRect(0f, 0f, right, bottom, fillPaint)
+        canvas.drawRect(0f, 0f, right, bottom, strokePaint)
     }
 }
 

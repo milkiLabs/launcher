@@ -2,11 +2,14 @@ package com.milki.launcher.ui.components.dragdrop
 
 import android.content.ClipData
 import android.content.ClipDescription
+import android.content.ComponentName
 import android.net.Uri
 import android.view.DragEvent
+import android.appwidget.AppWidgetProviderInfo
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
+import com.milki.launcher.domain.model.GridSpan
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -70,6 +73,27 @@ object ExternalDragPayloadCodec {
             val folderId: String,
             val childItem: com.milki.launcher.domain.model.HomeItem
         ) : ExternalDragItem()
+
+        /**
+         * A widget being dragged from the Widget Picker BottomSheet to the home grid.
+         *
+         * HOW IT TRAVELS:
+         * Like [FolderChild], this is carried entirely via [DragEvent.localState]
+         * because the BottomSheet and home grid live in the same Activity process.
+         * [AppWidgetProviderInfo] is a Parcelable but not easily JSON-serializable,
+         * so we rely on the fast localState path exclusively.
+         *
+         * @property providerInfo  The widget provider the user selected.
+         *                         This may be null when decoded from ClipData fallback.
+         * @property providerComponent  Stable provider identity used for ClipData fallback
+         *                              decode and later provider re-resolution.
+         * @property span          The default grid span (columns × rows) for this widget.
+         */
+        data class Widget(
+            val providerInfo: AppWidgetProviderInfo?,
+            val providerComponent: ComponentName,
+            val span: GridSpan
+        ) : ExternalDragItem()
     }
 
     @Serializable
@@ -105,6 +129,15 @@ object ExternalDragPayloadCodec {
             val emails: List<String>,
             val photoUri: String?,
             val lookupKey: String
+        ) : ExternalPayloadDto()
+
+        @Serializable
+        data class WidgetPayload(
+            override val type: String = "widget",
+            val providerPackage: String,
+            val providerClass: String,
+            val spanColumns: Int,
+            val spanRows: Int
         ) : ExternalPayloadDto()
     }
 
@@ -163,6 +196,19 @@ object ExternalDragPayloadCodec {
                 // ClipData requires a non-empty text, so we use the child item's id as
                 // a minimal stable identifier; the actual payload is never decoded from it.
                 item.childItem.id
+            }
+
+            is ExternalDragItem.Widget -> {
+                // Widget payloads must have a ClipData fallback because localState
+                // can be unavailable on some OEM/global drag paths.
+                json.encodeToString(
+                    ExternalPayloadDto.WidgetPayload(
+                        providerPackage = item.providerComponent.packageName,
+                        providerClass = item.providerComponent.className,
+                        spanColumns = item.span.columns,
+                        spanRows = item.span.rows
+                    )
+                )
             }
         }
 
@@ -287,6 +333,15 @@ object ExternalDragPayloadCodec {
                             photoUri = payload.photoUri,
                             lookupKey = payload.lookupKey
                         )
+                    )
+                }
+
+                "widget" -> {
+                    val payload = json.decodeFromString(ExternalPayloadDto.WidgetPayload.serializer(), rawText)
+                    ExternalDragItem.Widget(
+                        providerInfo = null,
+                        providerComponent = ComponentName(payload.providerPackage, payload.providerClass),
+                        span = GridSpan(columns = payload.spanColumns, rows = payload.spanRows)
                     )
                 }
 

@@ -23,6 +23,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.ContactsRepository
@@ -91,6 +94,15 @@ class MainActivity : ComponentActivity() {
      */
     private val settingsRepository: SettingsRepository by inject()
 
+    /**
+     * WidgetHostManager wraps Android's AppWidgetHost framework.
+     *
+     * It manages the lifecycle of hosted widgets (startListening/stopListening),
+     * allocates widget IDs, binds widget providers, and creates widget views.
+     * Provided as a singleton by Koin DI.
+     */
+    private val widgetHostManager: WidgetHostManager by inject()
+
     // ========================================================================
     // HANDLERS
     // ========================================================================
@@ -148,6 +160,53 @@ class MainActivity : ComponentActivity() {
      */
     private var isAppDrawerOpen by mutableStateOf(false)
 
+    /**
+     * Whether the widget picker bottom sheet is visible.
+     *
+     * Set to true when the user selects "Widgets" from the long-press menu.
+     * The widget picker bottom sheet displays all available widgets grouped by app.
+     */
+    private var isWidgetPickerOpen by mutableStateOf(false)
+
+    /**
+     * Activity result launcher for the widget bind permission dialog.
+     *
+     * WHY THIS LAUNCHER EXISTS:
+     * When the user tries to add a widget, the system may require explicit permission
+     * to bind that widget to our launcher. If AppWidgetManager.bindAppWidgetIdIfAllowed()
+     * returns false, we launch the system's permission dialog using this launcher.
+     *
+     * The dialog shows something like "Allow Milki Launcher to use this widget?"
+     * and returns RESULT_OK or RESULT_CANCELED.
+     *
+     * FLOW:
+     * 1. User drags widget from picker
+     * 2. We allocate a widget ID and try to bind
+     * 3. If bind fails → launch this permission dialog  
+     * 4. If user grants → continue with widget placement
+     * 5. If user denies → deallocate the widget ID, show toast
+     */
+    private lateinit var widgetBindLauncher: ActivityResultLauncher<Intent>
+
+    /**
+     * Activity result launcher for widget configuration activities.
+     *
+     * WHY THIS LAUNCHER EXISTS:
+     * Some widgets have a configuration activity (e.g., a clock widget that lets
+     * the user pick a style, or a weather widget that asks for a location).
+     * After binding the widget, we check if it has a configure activity and launch it.
+     *
+     * The configuration activity returns RESULT_OK when the user finishes configuration,
+     * or RESULT_CANCELED if they back out.
+     *
+     * FLOW:
+     * 1. Widget is bound successfully
+     * 2. We check providerInfo.configure — if non-null, launch this activity
+     * 3. If user completes config → persist widget to DataStore
+     * 4. If user cancels → deallocate widget ID, don't place widget
+     */
+    private lateinit var widgetConfigureLauncher: ActivityResultLauncher<Intent>
+
     // ========================================================================
     // LIFECYCLE
     // ========================================================================
@@ -158,6 +217,7 @@ class MainActivity : ComponentActivity() {
         searchSessionController = SearchSessionController(searchViewModel)
         initializeHandlers()
         initializeBackButtonBehavior()
+        initializeWidgetLaunchers()
 
         setContent {
             // Collect state from ViewModels
@@ -314,6 +374,39 @@ class MainActivity : ComponentActivity() {
                                 occupantItem = occupantItem,
                                 atPosition = atPosition
                             )
+                        },
+                        // ---- Widget system callbacks ----
+                        isWidgetPickerOpen = isWidgetPickerOpen,
+                        onWidgetPickerOpenChange = { isOpen ->
+                            isWidgetPickerOpen = isOpen
+                        },
+                        widgetHostManager = widgetHostManager,
+                        onRemoveWidget = { widgetId, appWidgetId ->
+                            homeViewModel.removeWidget(
+                                widgetId = widgetId,
+                                appWidgetId = appWidgetId,
+                                widgetHostManager = widgetHostManager
+                            )
+                        },
+                        onResizeWidget = { widgetId, newSpan ->
+                            homeViewModel.resizeWidget(widgetId, newSpan)
+                        },
+                        onWidgetDroppedToHome = { providerInfo, span, dropPosition ->
+                            // The user dragged a widget from the picker and dropped
+                            // it on a specific cell. Begin the bind → configure → place
+                            // flow using the actual drop position instead of auto-placement.
+                            homeViewModel.beginWidgetPlacement(
+                                providerInfo = providerInfo,
+                                targetPosition = dropPosition,
+                                span = span,
+                                widgetHostManager = widgetHostManager,
+                                launchBindPermission = { intent ->
+                                    widgetBindLauncher.launch(intent)
+                                },
+                                launchConfigure = { intent ->
+                                    widgetConfigureLauncher.launch(intent)
+                                }
+                            )
                         }
                     )
                 }
@@ -362,6 +455,12 @@ class MainActivity : ComponentActivity() {
                         return
                     }
 
+                    // If widget picker is open, close it before handling search/back behavior.
+                    if (isWidgetPickerOpen) {
+                        isWidgetPickerOpen = false
+                        return
+                    }
+
                     // If search is open, close it.
                     if (uiState.isSearchVisible) {
                         searchViewModel.hideSearch()
@@ -395,6 +494,43 @@ class MainActivity : ComponentActivity() {
         permissionRequestCoordinator.bind()
     }
 
+    /**
+     * Initializes the Activity result launchers for widget operations.
+     *
+     * These launchers handle two async flows that require an Activity result:
+     * 1. Widget bind permission — when the system needs user consent to bind a widget
+     * 2. Widget configuration — when a widget has a configure Activity (e.g., pick clock style)
+     *
+     * WHY IN onCreate:
+     * ActivityResultLauncher must be registered before the Activity reaches STARTED state.
+     * Registering in onCreate guarantees this. Registering later (e.g., in a callback)
+     * would throw an IllegalStateException.
+     */
+    private fun initializeWidgetLaunchers() {
+        // Launcher for the system's "allow widget binding?" permission dialog.
+        // This is triggered when bindAppWidgetIdIfAllowed() returns false.
+        widgetBindLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            homeViewModel.onWidgetBindResult(
+                resultCode = result.resultCode,
+                widgetHostManager = widgetHostManager,
+                launchConfigure = { intent -> widgetConfigureLauncher.launch(intent) }
+            )
+        }
+
+        // Launcher for widget configuration activities.
+        // Some widgets (e.g., clock style picker) require user configuration before use.
+        widgetConfigureLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            homeViewModel.onWidgetConfigureResult(
+                resultCode = result.resultCode,
+                widgetHostManager = widgetHostManager
+            )
+        }
+    }
+
     // ========================================================================
     // ACTIVITY LIFECYCLE CALLBACKS
     // ========================================================================
@@ -405,10 +541,28 @@ class MainActivity : ComponentActivity() {
         wasAlreadyOnHomescreen = true
     }
 
+    /**
+     * Called when the Activity becomes visible to the user.
+     *
+     * We use onStart (not onResume) for widget host listening because:
+     * - The widget host should be active whenever the Activity is visible
+     * - onStart/onStop pairs match the visible lifecycle, which is what
+     *   AppWidgetHost expects for its listening lifecycle
+     */
+    override fun onStart() {
+        super.onStart()
+        widgetHostManager.startListening()
+    }
+
     override fun onStop() {
         super.onStop()
         wasAlreadyOnHomescreen = false
         isAppDrawerOpen = false
+        isWidgetPickerOpen = false
+        // Stop listening for widget updates when the launcher is not visible.
+        // This saves battery by telling the system to stop sending widget
+        // update broadcasts to this host.
+        widgetHostManager.stopListening()
         // Close any open folder popup whenever the launcher leaves the foreground
         // (e.g. user launched an app from search, switched to recents, etc.).
         // Without this the popup is still "open" in the ViewModel when the user
@@ -436,6 +590,12 @@ class MainActivity : ComponentActivity() {
             // This mirrors layered-dismiss behavior used by folder popup and menus.
             if (isAppDrawerOpen) {
                 isAppDrawerOpen = false
+                return
+            }
+
+            // If widget picker is open, close it and consume this home press.
+            if (isWidgetPickerOpen) {
+                isWidgetPickerOpen = false
                 return
             }
 

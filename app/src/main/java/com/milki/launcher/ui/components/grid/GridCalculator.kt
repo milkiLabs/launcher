@@ -33,6 +33,7 @@ package com.milki.launcher.ui.components.grid
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
 import kotlin.math.roundToInt
 
 /**
@@ -264,5 +265,83 @@ data class GridCalculator(
         ): GridCalculator {
             return GridCalculator(cellWidthPx, cellHeightPx, columns, rows)
         }
+    }
+
+    // ========================================================================
+    // SPAN-AWARE HELPERS (Widget multi-cell support)
+    // ========================================================================
+
+    /**
+     * Gets the pixel bounds for a widget that spans multiple grid cells.
+     *
+     * Returns a [GridCellBounds] whose width and height cover the full span
+     * starting from the origin cell's top-left corner.
+     *
+     * @param origin The top-left grid position of the widget
+     * @param span   How many columns and rows the widget occupies
+     * @return Pixel bounds covering the entire span
+     */
+    fun getSpanBounds(origin: GridPosition, span: GridSpan): GridCellBounds {
+        return GridCellBounds(
+            position = origin,
+            x = origin.column * cellWidthPx,
+            y = origin.row * cellHeightPx,
+            width = span.columns * cellWidthPx,
+            height = span.rows * cellHeightPx
+        )
+    }
+
+    /**
+     * Checks whether a span placed at [origin] fits entirely within the grid.
+     *
+     * @param origin The top-left grid position
+     * @param span   The widget span
+     * @return true if every cell is within bounds
+     */
+    fun isSpanInBounds(origin: GridPosition, span: GridSpan): Boolean {
+        return origin.row >= 0 &&
+                origin.column >= 0 &&
+                origin.column + span.columns <= columns &&
+                origin.row + span.rows <= rows
+    }
+
+    /**
+     * Clamps a span's origin so the full span stays within the grid.
+     *
+     * Use this when dragging large widgets to prevent them from overflowing
+     * the right or bottom edges.
+     *
+     * @param origin The desired top-left position
+     * @param span   The widget span
+     * @return An origin that guarantees the span fits inside the grid
+     */
+    fun clampSpanOrigin(origin: GridPosition, span: GridSpan): GridPosition {
+        return GridPosition(
+            row = origin.row.coerceIn(0, (rows - span.rows).coerceAtLeast(0)),
+            column = origin.column.coerceIn(0, (columns - span.columns).coerceAtLeast(0))
+        )
+    }
+
+    /**
+     * Calculates the target position for a multi-cell widget drag, clamping
+     * so the entire span stays in bounds.
+     *
+     * @param startPosition The grid position where the drag started
+     * @param offset        Pixel offset accumulated during the drag
+     * @param span          The widget's span
+     * @return A clamped target position for the widget's origin
+     */
+    fun calculateTargetPositionForSpan(
+        startPosition: GridPosition,
+        offset: Offset,
+        span: GridSpan
+    ): GridPosition {
+        val targetColumn = startPosition.column + (offset.x / cellWidthPx).roundToInt()
+        val targetRow = startPosition.row + (offset.y / cellHeightPx).roundToInt()
+
+        return GridPosition(
+            row = targetRow.coerceIn(0, (rows - span.rows).coerceAtLeast(0)),
+            column = targetColumn.coerceIn(0, (columns - span.columns).coerceAtLeast(0))
+        )
     }
 }

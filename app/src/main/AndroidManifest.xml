@@ -6,6 +6,20 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     
     <uses-permission android:name="android.permission.CALL_PHONE" />
+
+    <!--
+      Permission to bind app widgets to our launcher's AppWidgetHost.
+      
+      This allows us to host widgets on the home screen. When we call
+      AppWidgetManager.bindAppWidgetIdIfAllowed(), the system checks if
+      we have this permission. If not, we launch a system dialog that
+      asks the user to grant widget binding for each provider.
+      
+      Note: This is a signature-level permission that is normally only
+      granted to system apps. For third-party launchers, the system will
+      prompt the user with a permission dialog per widget provider.
+    -->
+    <uses-permission android:name="android.permission.BIND_APPWIDGET" />
     
     <!--
       Storage permissions for file search feature:

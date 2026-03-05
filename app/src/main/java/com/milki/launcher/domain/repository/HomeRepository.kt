@@ -17,6 +17,7 @@
 package com.milki.launcher.domain.repository
 
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import kotlinx.coroutines.flow.Flow
 
@@ -357,4 +358,52 @@ interface HomeRepository {
         occupantItem: HomeItem,
         atPosition: GridPosition
     ): HomeItem.FolderItem?
+
+    // ========================================================================
+    // WIDGET OPERATIONS
+    // ========================================================================
+
+    /**
+     * Adds a widget to the home screen at the specified position.
+     *
+     * MULTI-CELL OCCUPANCY:
+     * Unlike single-cell items, widgets can span multiple columns and rows.
+     * This method checks ALL cells in the widget's span for occupancy —
+     * if any cell is already occupied by another item, the operation is rejected.
+     *
+     * WHY A DEDICATED METHOD:
+     * Widget placement needs span-aware occupancy checking that is different from
+     * the single-cell logic in [pinOrMoveItemToPosition]. Using a dedicated method
+     * makes the intent clear and avoids complicating the existing method.
+     *
+     * @param widget The WidgetItem to add (must have valid position and span).
+     * @return true if the widget was placed; false if any cell in its span is occupied.
+     */
+    suspend fun addWidget(widget: HomeItem.WidgetItem): Boolean
+
+    /**
+     * Removes a widget from the home screen and signals that its widget ID should
+     * be deallocated by the caller.
+     *
+     * This method only removes the WidgetItem from persistence. The caller
+     * (typically HomeViewModel) is responsible for calling
+     * WidgetHostManager.deallocateWidgetId() after this method returns.
+     *
+     * @param widgetId The [HomeItem.WidgetItem.id] (format: "widget:{appWidgetId}").
+     */
+    suspend fun removeWidget(widgetId: String)
+
+    /**
+     * Updates the span (size) of an existing widget after a resize operation.
+     *
+     * MULTI-CELL OCCUPANCY CHECK:
+     * The new span is checked against all other items on the grid. If the new
+     * span would overlap any existing item, the operation is rejected.
+     *
+     * @param widgetId The [HomeItem.WidgetItem.id] of the widget to resize.
+     * @param newSpan The new span (columns × rows) for the widget.
+     * @return true if the resize was applied; false if the new span would overlap
+     *         other items or the widget was not found.
+     */
+    suspend fun updateWidgetSpan(widgetId: String, newSpan: GridSpan): Boolean
 }

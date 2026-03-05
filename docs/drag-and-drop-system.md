@@ -184,10 +184,29 @@ highlight feedback stable across devices:
 
 1. **Payload-gated activation**
          - The external drop overlay only activates when the drag payload resolves to
-                 a valid launcher payload (`App`, `File`, or `Contact`).
+                 a valid launcher payload (`App`, `File`, `Contact`, or `Widget`).
          - Payload resolution prefers same-process `localState` first, then falls back
                  to ClipData JSON decoding.
          - This prevents unrelated system drags from triggering home-grid highlights.
+
+6. **Widget payload fallback is mandatory**
+         - Widget drags can lose `localState` on some OEM/global drag paths.
+         - Widget payloads therefore include a ClipData JSON fallback carrying:
+                 provider package, provider class, and span (`columns`, `rows`).
+         - On drop, if `providerInfo` is missing, the grid resolves it from
+                 `WidgetHostManager.getInstalledProviders()` using the provider component.
+         - This keeps widget hover highlights span-aware and prevents silent drop failures.
+
+7. **Widget span normalization for fixed grid width**
+         - Provider-reported widget spans can exceed launcher grid width
+                 (example: `7x7` widget on a `4`-column grid).
+         - Before collision checks and placement, widget spans are normalized using
+                 a launcher-style default heuristic:
+                 1) clamp columns to grid width,
+                 2) scale rows proportionally when width shrinks,
+                 3) cap rows to a practical default (currently 4).
+         - Example on 4-column grid: `7x7` is placed as `4x4`.
+         - Hover highlight uses the same normalized span so preview matches drop result.
 
 2. **Stable drag host selection**
          - External payload drags are started from Activity decor view when available,
@@ -226,6 +245,49 @@ Visual behavior remains launcher-like:
 - Drop target highlight follows resolved cell
 - Preview item follows finger
 - Haptic feedback is triggered at long press, drag activation, and confirmed drop
+
+## Widget picker interaction contract (March 2026)
+
+Widget cards in `WidgetPickerBottomSheet` are now **drag-only**:
+
+- Tap is intentionally ignored.
+- Long-press + drag starts external platform drag.
+- The picker closes when drag starts so the home grid is visible.
+- Bind/configure flow starts only after a successful drop onto a valid home-grid target.
+
+Why this matters:
+
+- Prevents accidental pre-drop widget placement.
+- Ensures widget configuration happens in the correct order (after target cell is chosen).
+- Aligns with the app drawer behavior where drag starts external placement intent.
+
+## Widget long-press reliability (March 2026)
+
+Widgets are rendered using `AppWidgetHostView` inside `AndroidView`. On some devices,
+`AppWidgetHostView` consumes touch events before parent Compose pointer handlers can
+observe them, which makes parent-level long-press detection unreliable.
+
+Current behavior:
+
+- A transparent Compose gesture layer is rendered above each home-screen widget.
+- Gesture rules now match normal home icons exactly:
+        - Long-press opens widget dropdown menu.
+        - Long-press + drag closes menu and starts internal drag.
+        - Releasing after long-press without drag keeps menu interactive.
+- Widget drag uses the same `detectDragGesture` + `AppDragDropController` path,
+        with span-aware occupancy checks on drop.
+
+## Widget drag-size visuals (March 2026)
+
+Widget dragging now shows span-sized visuals in both paths:
+
+- Internal home-grid drag: target highlight and floating preview use the widget span
+        (`columns × rows`) instead of a fixed 1×1 cell.
+- External picker drag: platform drag shadow uses a lightweight plain box
+        (no stretched widget preview image), while homescreen span-highlight shows
+        the final target footprint.
+- External highlight now waits for resolved payload before rendering, avoiding
+        transient 1×1 fallback highlights for widgets.
 
 ### Non-focusable popup pattern for long-press + drag coexistence
 

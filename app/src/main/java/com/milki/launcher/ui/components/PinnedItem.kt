@@ -311,6 +311,8 @@ private fun getItemLabel(item: HomeItem): String {
         is HomeItem.AppShortcut -> item.shortLabel
         // Folder name is set by the user (defaults to "Folder").
         is HomeItem.FolderItem -> item.name
+        // Widget label comes from the provider metadata.
+        is HomeItem.WidgetItem -> item.label
     }
 }
 
@@ -363,6 +365,15 @@ private fun PinnedItemIcon(
             // expression exhaustive and avoid a compile error.
             FolderIcon(
                 folder = item,
+                modifier = modifier
+            )
+        }
+        is HomeItem.WidgetItem -> {
+            // Widgets are rendered by HomeScreenWidgetView, not PinnedItemIcon.
+            // This branch exists solely for exhaustiveness.
+            AppIcon(
+                packageName = item.providerPackage,
+                size = size,
                 modifier = modifier
             )
         }
