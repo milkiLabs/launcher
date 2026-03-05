@@ -41,37 +41,41 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
@@ -87,6 +91,7 @@ import com.milki.launcher.ui.theme.Spacing
 import com.milki.launcher.util.openFile
 import com.milki.launcher.util.launchPinnedApp
 import com.milki.launcher.util.launchAppShortcut
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
@@ -119,6 +124,7 @@ import kotlin.math.abs
  * @param onItemDroppedToHome Callback for external drag payload drops (app/file/contact)
  * @param onOpenSettings Called when user opens the homescreen long-press menu and selects Settings
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(
     searchUiState: SearchUiState,
@@ -182,6 +188,8 @@ fun LauncherScreen(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val drawerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val drawerSheetScope = rememberCoroutineScope()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(searchUiState.isSearchVisible) {
@@ -199,7 +207,7 @@ fun LauncherScreen(
     }
 
     val swipeOpenThresholdPx = with(density) {
-        Spacing.extraLarge.toPx()
+        Spacing.mediumLarge.toPx()
     }
 
     Box(
@@ -224,7 +232,7 @@ fun LauncherScreen(
                  */
                 awaitPointerEventScope {
                     while (true) {
-                        val down = awaitPointerEvent().changes.firstOrNull() ?: continue
+                        val down = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull() ?: continue
 
                         // Guard against opening drawer when another surface is active.
                         if (searchUiState.isSearchVisible ||
@@ -241,14 +249,14 @@ fun LauncherScreen(
                         var hasTriggeredOpen = false
 
                         while (!hasTriggeredOpen) {
-                            val event = awaitPointerEvent()
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
                             val change = event.changes.firstOrNull { it.id == activePointerId } ?: break
 
                             if (change.changedToUpIgnoreConsumed()) {
                                 break
                             }
 
-                            val delta = change.positionChange()
+                            val delta = change.positionChangeIgnoreConsumed()
                             totalDragY += delta.y
                             totalDragX += delta.x
 
@@ -357,19 +365,29 @@ fun LauncherScreen(
             }
         }
 
-        AnimatedVisibility(
-            visible = isAppDrawerOpen,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { fullHeight -> fullHeight / 8 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { fullHeight -> fullHeight / 8 })
-        ) {
-            AppDrawerOverlay(
-                uiState = appDrawerUiState,
-                onDismiss = {
+        if (isAppDrawerOpen) {
+            ModalBottomSheet(
+                onDismissRequest = {
                     onAppDrawerOpenChange(false)
                 },
-                onSortModeSelected = onDrawerSortModeSelected,
-                modifier = Modifier.fillMaxSize()
-            )
+                sheetState = drawerSheetState,
+                sheetMaxWidth = Dp.Unspecified,
+                shape = RectangleShape,
+                dragHandle = null,
+                contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+            ) {
+                AppDrawerOverlay(
+                    uiState = appDrawerUiState,
+                    onDismiss = {
+                        drawerSheetScope.launch {
+                            drawerSheetState.hide()
+                            onAppDrawerOpenChange(false)
+                        }
+                    },
+                    onSortModeSelected = onDrawerSortModeSelected,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 

@@ -7,7 +7,7 @@ This document explains the new homescreen app drawer feature and how it reuses t
 The launcher now supports a full-screen app drawer overlay with the following behavior:
 
 - Swipe up on homescreen opens the drawer **only** when `SwipeUpAction` is set to `OPEN_APP_DRAWER`.
-- Drawer open and close use subtle animated transitions (fade + small vertical slide) for smoother UX.
+- Drawer open and close use Material bottom-sheet motion/gesture behavior.
 - Drawer shows all installed launcher activities from `AppRepository`.
 - Drawer can be sorted from a dropdown menu using:
   - `Alphabetical (A → Z)`
@@ -38,7 +38,11 @@ The launcher now supports a full-screen app drawer overlay with the following be
   - Full-screen drawer composable.
   - Header with sort dropdown.
   - `LazyVerticalGrid` (4 columns) of `AppGridItem` tiles.
-  - Swipe-down close detector gated by grid-at-top state.
+
+- `LauncherScreen`
+  - Presents drawer in a full-screen `ModalBottomSheet` (`skipPartiallyExpanded = true`, `sheetMaxWidth = Dp.Unspecified`).
+  - Uses native bottom-sheet drag-to-dismiss behavior instead of custom close gesture code.
+  - Programmatic drawer closes (for example, drag start from drawer icon) call sheet hide animation before removing visibility state.
 
 ### Host Integration
 
@@ -88,6 +92,17 @@ This avoids introducing a new drag/drop mechanism and keeps behavior consistent 
 
 The drawer ViewModel sorts against this field for “Last update date (Newest first)”.
 
+### Performance notes for sorting
+
+- Drawer sort computation runs on a background dispatcher to avoid blocking the main thread during mode changes.
+- Alphabetical descending uses `asReversed()` (cheap view) instead of a full resort.
+- Re-selecting the currently active sort mode is ignored to prevent unnecessary recomputation.
+
+### Performance notes for app loading
+
+- Installed app discovery now deduplicates icon preloads per package when multiple launcher activities exist.
+- Last-update timestamps are cached per package during discovery to avoid repeated `PackageManager.getPackageInfo(...)` calls.
+
 ---
 
 ## Gesture Rules
@@ -101,19 +116,15 @@ Open is attempted only when:
 - Homescreen context menu is not open.
 - Drawer is not already open.
 
-The gesture detector checks for a predominantly vertical upward movement past a higher threshold derived from `Spacing.extraLarge`.
+The gesture detector checks for a predominantly vertical upward movement past a lower threshold derived from `Spacing.mediumLarge`.
+Gesture sampling uses the initial pointer pass and ignore-consumed deltas so opening remains responsive even when child composables are handling touch input.
 
 ### Close (drawer swipe down)
 
 Close is attempted only when:
 
-- Drawer `LazyVerticalGrid` is exactly at top (`firstVisibleItemIndex == 0` and `firstVisibleItemScrollOffset == 0`).
-- Gesture is predominantly vertical downward and passes the threshold.
-- Close threshold also uses `Spacing.extraLarge` to reduce accidental rapid dismisses.
-
-Interaction scope:
-
-- The swipe-down close gesture is detected across the full drawer surface (header and grid region), not only over the header.
+- User drags down the full-screen bottom sheet.
+- Material sheet behavior handles thresholds/animation internally.
 
 ---
 

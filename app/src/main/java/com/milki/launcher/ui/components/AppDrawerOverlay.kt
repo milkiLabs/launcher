@@ -37,7 +37,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -45,18 +44,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.presentation.drawer.AppDrawerSortMode
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.Spacing
-import kotlin.math.abs
 
 /**
  * AppDrawerOverlay - Full-screen drawer surface.
@@ -93,70 +86,9 @@ fun AppDrawerOverlay(
     key(uiState.sortMode) {
         val gridState = rememberLazyGridState()
 
-        /**
-         * A lightweight, derived check to know whether the grid is exactly at top.
-         * We require BOTH index==0 and offset==0 for strict "top reached" semantics.
-         */
-        val isAtTop by remember {
-            derivedStateOf {
-                gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset == 0
-            }
-        }
-
-        /**
-         * Swipe threshold in pixels for dismiss gesture.
-         * We derive from design-system spacing token to avoid hardcoded dp values.
-         */
-        val closeSwipeThresholdPx = with(LocalDensity.current) {
-            Spacing.extraLarge.toPx()
-        }
-
         Surface(
             modifier = modifier
-                .fillMaxSize()
-                .pointerInput(isAtTop, closeSwipeThresholdPx) {
-                    // Swipe-down close is only armed when the grid is at top.
-                    if (!isAtTop) return@pointerInput
-
-                    awaitPointerEventScope {
-                        while (true) {
-                            /**
-                             * Read down/move events in the INITIAL pass so this detector can
-                             * observe gesture deltas even when child composables (like the grid)
-                             * also participate in pointer handling.
-                             */
-                            val down = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull() ?: continue
-                            val activePointerId = down.id
-                            var totalDragY = 0f
-                            var totalDragX = 0f
-                            var dismissTriggered = false
-
-                            while (!dismissTriggered) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull { it.id == activePointerId } ?: break
-
-                                if (change.changedToUpIgnoreConsumed()) {
-                                    break
-                                }
-
-                                /**
-                                 * Use positionChangeIgnoreConsumed so we still receive useful
-                                 * movement values even if descendants consumed parts of the drag.
-                                 * This is what enables "swipe down anywhere" while at top.
-                                 */
-                                val delta = change.positionChangeIgnoreConsumed()
-                                totalDragY += delta.y
-                                totalDragX += delta.x
-
-                                val isPredominantlyVertical = abs(totalDragY) > abs(totalDragX) * 1.2f
-                                if (isAtTop && isPredominantlyVertical && totalDragY > closeSwipeThresholdPx) {
-                                    dismissTriggered = true
-                                    onDismiss()
-                                }
-                            }
-                        }
-                    }
-                },
+                .fillMaxSize(),
             color = MaterialTheme.colorScheme.surface
         ) {
             Column(
@@ -229,7 +161,8 @@ fun AppDrawerOverlay(
                     ) {
                         items(
                             items = uiState.sortedApps,
-                            key = { "${it.packageName}/${it.activityName}" }
+                            key = { "${it.packageName}/${it.activityName}" },
+                            contentType = { "drawer_app_item" }
                         ) { appInfo ->
                             AppGridItem(
                                 appInfo = appInfo,

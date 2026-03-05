@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 // ============================================================================
 // PACKAGEMANAGER COMPATIBILITY EXTENSIONS
@@ -228,6 +229,14 @@ class AppRepositoryImpl(
             // Step 2: Query the system using compat extension
             // This returns a list of ResolveInfo objects representing matching activities
             val resolveInfos = pm.queryIntentActivitiesCompat(mainIntent)
+
+            // PERFORMANCE OPTIMIZATION:
+            // Some packages expose multiple launcher activities. Without caches we would:
+            // - preload the same app icon repeatedly
+            // - query PackageInfo.lastUpdateTime repeatedly
+            // Both are unnecessary and increase startup cost before drawer/search can render.
+            val preloadedIconPackages = ConcurrentHashMap.newKeySet<String>()
+            val lastUpdateTimestampByPackage = ConcurrentHashMap<String, Long>()
             
             // Step 3 & 4: Launch all coroutines, limitedParallelism handles concurrency
             // We create one async per app, but only 8 run at a time
@@ -243,10 +252,12 @@ class AppRepositoryImpl(
                     // iterates every launcher activity to build AppInfo objects.
                     // Preloading at this stage means the UI can usually render icons from
                     // memory on first composition instead of triggering per-item loads.
-                    AppIconMemoryCache.preload(
-                        packageName = packageName,
-                        icon = resolveInfo.loadIcon(pm)
-                    )
+                    if (preloadedIconPackages.add(packageName)) {
+                        AppIconMemoryCache.preload(
+                            packageName = packageName,
+                            icon = resolveInfo.loadIcon(pm)
+                        )
+                    }
 
                     // Build an explicit launch intent for this specific activity.
                     // We use the full component name (package + activity class)
@@ -264,9 +275,11 @@ class AppRepositoryImpl(
                     }
 
                     // Convert ResolveInfo to our domain model AppInfo
-                    val lastUpdateTimestamp = runCatching {
-                        pm.getPackageInfoCompat(packageName).lastUpdateTime
-                    }.getOrDefault(0L)
+                    val lastUpdateTimestamp = lastUpdateTimestampByPackage.computeIfAbsent(packageName) { queriedPackageName ->
+                        runCatching {
+                            pm.getPackageInfoCompat(queriedPackageName).lastUpdateTime
+                        }.getOrDefault(0L)
+                    }
 
                     AppInfo(
                         // loadLabel gets the localized display name

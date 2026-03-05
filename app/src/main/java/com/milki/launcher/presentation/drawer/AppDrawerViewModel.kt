@@ -21,11 +21,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Drawer sort options visible in the app-drawer dropdown.
@@ -88,19 +91,28 @@ class AppDrawerViewModel(
         installedApps,
         sortMode
     ) { loading, apps, mode ->
-        val sortedApps = when (mode) {
-            AppDrawerSortMode.ALPHABETICAL_ASC -> apps.sortedBy { it.nameLower }
-            AppDrawerSortMode.ALPHABETICAL_DESC -> apps.sortedByDescending { it.nameLower }
-            AppDrawerSortMode.LAST_UPDATED_DESC -> apps.sortedByDescending { it.lastUpdatedTimestamp }
-        }
+        Triple(loading, apps, mode)
+    }
+        .mapLatest { (loading, apps, mode) ->
+            val sortedApps = withContext(Dispatchers.Default) {
+                when (mode) {
+                    // AppRepository already returns alphabetical ascending order.
+                    AppDrawerSortMode.ALPHABETICAL_ASC -> apps
+                    // Reversed view is cheaper than a full re-sort for descending alpha.
+                    AppDrawerSortMode.ALPHABETICAL_DESC -> apps.asReversed()
+                    // Last-update ordering is not precomputed, so we sort on background thread.
+                    AppDrawerSortMode.LAST_UPDATED_DESC -> apps.sortedByDescending { it.lastUpdatedTimestamp }
+                }
+            }
 
-        AppDrawerUiState(
-            isLoading = loading,
-            allApps = apps,
-            sortMode = mode,
-            sortedApps = sortedApps
-        )
-    }.stateIn(
+            AppDrawerUiState(
+                isLoading = loading,
+                allApps = apps,
+                sortMode = mode,
+                sortedApps = sortedApps
+            )
+        }
+        .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = AppDrawerUiState(isLoading = true)
@@ -129,6 +141,9 @@ class AppDrawerViewModel(
      * Update selected sort mode from the drawer dropdown.
      */
     fun setSortMode(mode: AppDrawerSortMode) {
+        if (sortMode.value == mode) {
+            return
+        }
         sortMode.value = mode
     }
 
