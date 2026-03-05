@@ -313,6 +313,13 @@ class MainActivity : ComponentActivity() {
                 override fun handleOnBackPressed() {
                     val uiState = searchViewModel.uiState.value
 
+                    // If a folder popup is open, close it first.
+                    // The next back press will then handle search or be consumed as usual.
+                    if (homeViewModel.uiState.value.openFolderItem != null) {
+                        homeViewModel.closeFolder()
+                        return
+                    }
+
                     // If search is open, close it.
                     if (uiState.isSearchVisible) {
                         searchViewModel.hideSearch()
@@ -359,6 +366,11 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         wasAlreadyOnHomescreen = false
+        // Close any open folder popup whenever the launcher leaves the foreground
+        // (e.g. user launched an app from search, switched to recents, etc.).
+        // Without this the popup is still "open" in the ViewModel when the user
+        // returns, and the folder dialog would reappear immediately on re-entry.
+        homeViewModel.closeFolder()
     }
 
     /**
@@ -377,6 +389,15 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
 
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
+            // If a folder popup is open, close it and consume this home press entirely.
+            // The normal policy (open search, clear query, etc.) only runs on the NEXT
+            // home press — matching the same layered-dismiss pattern used for the
+            // homescreen menu and the search dialog.
+            if (homeViewModel.uiState.value.openFolderItem != null) {
+                homeViewModel.closeFolder()
+                return
+            }
+
             val uiState = searchViewModel.uiState.value
             val decision = homeButtonPolicy.resolve(
                 HomeButtonPolicy.InputState(
