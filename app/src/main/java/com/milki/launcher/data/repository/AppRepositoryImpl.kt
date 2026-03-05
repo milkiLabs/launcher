@@ -86,6 +86,27 @@ fun PackageManager.getApplicationInfoCompat(packageName: String): android.conten
     }
 }
 
+/**
+ * Extension function to get package info with backwards compatibility.
+ *
+ * WHY THIS IS NEEDED:
+ * - API 33+ replaced the Int flags API with PackageInfoFlags.
+ * - We need PackageInfo.lastUpdateTime for app-drawer sorting by update date.
+ *
+ * @param packageName The package name to query.
+ * @return PackageInfo containing metadata such as lastUpdateTime.
+ * @throws PackageManager.NameNotFoundException when package is missing.
+ */
+@Throws(PackageManager.NameNotFoundException::class)
+fun PackageManager.getPackageInfoCompat(packageName: String): android.content.pm.PackageInfo {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0L))
+    } else {
+        @Suppress("DEPRECATION")
+        getPackageInfo(packageName, 0)
+    }
+}
+
 // ============================================================================
 // TOP-LEVEL DATASTORE DELEGATE
 // ============================================================================
@@ -243,6 +264,10 @@ class AppRepositoryImpl(
                     }
 
                     // Convert ResolveInfo to our domain model AppInfo
+                    val lastUpdateTimestamp = runCatching {
+                        pm.getPackageInfoCompat(packageName).lastUpdateTime
+                    }.getOrDefault(0L)
+
                     AppInfo(
                         // loadLabel gets the localized display name
                         name = resolveInfo.loadLabel(pm).toString(),
@@ -252,7 +277,9 @@ class AppRepositoryImpl(
                         // This distinguishes multiple activities in the same package
                         activityName = resolveInfo.activityInfo.name,
                         // Explicit intent targeting this specific activity
-                        launchIntent = launchIntent
+                        launchIntent = launchIntent,
+                        // Used by app-drawer sorting mode "Last update date"
+                        lastUpdatedTimestamp = lastUpdateTimestamp
                     )
                 }
             }.awaitAll().sortedBy { it.nameLower } // Sort alphabetically
@@ -330,7 +357,12 @@ class AppRepositoryImpl(
                         name = pm.getApplicationLabel(appInfo).toString(),
                         packageName = packageName,
                         activityName = activityName,
-                        launchIntent = launchIntent
+                        launchIntent = launchIntent,
+                        // Keep recent app entries compatible with any UI that might
+                        // sort or display recency based on package update metadata.
+                        lastUpdatedTimestamp = runCatching {
+                            pm.getPackageInfoCompat(packageName).lastUpdateTime
+                        }.getOrDefault(0L)
                     )
                 } catch (e: PackageManager.NameNotFoundException) {
                     // App was uninstalled, return null (filtered out by mapNotNull)

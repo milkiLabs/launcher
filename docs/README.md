@@ -10,6 +10,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | **[custom-source-search.md](custom-source-search.md)** | Unified external search via configurable custom sources |
 | **[search-settings-contacts-modularization.md](search-settings-contacts-modularization.md)** | Detailed walkthrough of the March 2026 file modularization refactor |
 | **[multi-mode-search.md](multi-mode-search.md)** | Multi-mode search feature documentation |
+| **[app-drawer.md](app-drawer.md)** | Homescreen swipe-up app drawer, sorting, and drag-to-home behavior |
 | **[app-icon-memory-cache.md](app-icon-memory-cache.md)** | Launcher-optimized app icon caching and rendering flow |
 | **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** | Reducing DataStore read/write churn in settings/home hot paths |
 | **[LauncherApplication.md](LauncherApplication.md)** | Application class and Koin startup configuration |
@@ -238,6 +239,7 @@ This project is extensively documented for educational purposes. Each major comp
 
 ### Features
 - **[multi-mode-search.md](multi-mode-search.md)** - Multi-mode search feature with usage examples and extension guide
+- **[app-drawer.md](app-drawer.md)** - App drawer gesture model, sorting, and drag/drop integration
 
 ### Technical Components
 - **[app-icon-memory-cache.md](app-icon-memory-cache.md)** - How launcher icon caching and rendering works

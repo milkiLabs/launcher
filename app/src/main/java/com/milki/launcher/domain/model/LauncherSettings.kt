@@ -44,7 +44,7 @@ enum class HomeTapAction(val displayName: String) {
  */
 enum class SwipeUpAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
-    OPEN_APP_DRAWER("Open app drawer (not yet implemented)"),
+    OPEN_APP_DRAWER("Open app drawer"),
     DO_NOTHING("Do nothing")
 }
 

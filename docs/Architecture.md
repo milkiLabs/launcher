@@ -292,7 +292,7 @@ class ContactsRepositoryImpl(private val context: Context) : ContactsRepository 
 // WebSearchProvider.kt (prefix "s ")
 class WebSearchProvider : SearchProvider {
     override val config = SearchProviderConfig(
-        providerId = ProviderId.WEB,
+        providerId = "source_google",
         prefix = "s",
         name = "Web Search",
         description = "Search the web"
@@ -332,7 +332,7 @@ class ContactsSearchProvider(
 // YouTubeSearchProvider.kt (prefix "y ")
 class YouTubeSearchProvider(private val context: Context) : SearchProvider {
     override val config = SearchProviderConfig(
-        providerId = ProviderId.YOUTUBE,
+        providerId = "source_youtube",
         prefix = "y",
         name = "YouTube",
         description = "Search YouTube"

@@ -62,6 +62,7 @@ import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
+import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.presentation.settings.SettingsViewModel
@@ -313,6 +314,20 @@ val appModule = module {
     viewModel {
         HomeViewModel(
             homeRepository = get()
+        )
+    }
+
+    /**
+     * AppDrawerViewModel - Manages app drawer app list and sorting state.
+     *
+     * LIFECYCLE: Scoped to the Activity/Composable that requests it.
+     *
+     * DEPENDENCIES:
+     * - AppRepository (for installed apps list)
+     */
+    viewModel {
+        AppDrawerViewModel(
+            appRepository = get()
         )
     }
 }

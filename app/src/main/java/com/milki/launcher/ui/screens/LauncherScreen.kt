@@ -41,6 +41,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -62,14 +67,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.DpOffset
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.presentation.drawer.AppDrawerSortMode
+import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.home.HomeUiState
 import com.milki.launcher.presentation.search.SearchUiState
-import androidx.compose.runtime.mutableStateOf
+import com.milki.launcher.ui.components.AppDrawerOverlay
 import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.components.FolderPopupDialog
@@ -77,6 +87,7 @@ import com.milki.launcher.ui.theme.Spacing
 import com.milki.launcher.util.openFile
 import com.milki.launcher.util.launchPinnedApp
 import com.milki.launcher.util.launchAppShortcut
+import kotlin.math.abs
 
 /**
  * LauncherScreen - The main home screen of the launcher.
@@ -121,6 +132,11 @@ fun LauncherScreen(
     onOpenSettings: () -> Unit = {},
     isHomescreenMenuOpen: Boolean = false,
     onHomescreenMenuOpenChange: (Boolean) -> Unit = {},
+    isAppDrawerOpen: Boolean = false,
+    onAppDrawerOpenChange: (Boolean) -> Unit = {},
+    appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
+    onDrawerSortModeSelected: (AppDrawerSortMode) -> Unit = {},
+    onHomeSwipeUp: () -> Unit = {},
     // ---- Folder lifecycle callbacks ----
     /** Called when a non-folder icon is dropped onto another non-folder icon. */
     onCreateFolder: (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _ -> },
@@ -171,13 +187,80 @@ fun LauncherScreen(
     LaunchedEffect(searchUiState.isSearchVisible) {
         if (searchUiState.isSearchVisible) {
             onHomescreenMenuOpenChange(false)
+            onAppDrawerOpenChange(false)
         }
+    }
+
+    LaunchedEffect(homeUiState.openFolderItem?.id) {
+        if (homeUiState.openFolderItem != null) {
+            onHomescreenMenuOpenChange(false)
+            onAppDrawerOpenChange(false)
+        }
+    }
+
+    val swipeOpenThresholdPx = with(density) {
+        Spacing.extraLarge.toPx()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Transparent),
+            .background(Color.Transparent)
+            .pointerInput(
+                searchUiState.isSearchVisible,
+                homeUiState.openFolderItem?.id,
+                isHomescreenMenuOpen,
+                isAppDrawerOpen,
+                swipeOpenThresholdPx
+            ) {
+                /**
+                 * Swipe-up gesture detector for opening app drawer from homescreen.
+                 *
+                 * IMPORTANT INTERACTION RULES:
+                 * - We DO NOT consume pointer changes in this observer.
+                 * - Existing drag/long-press handlers (home grid items) keep full control.
+                 * - We only emit open-drawer callback when the gesture is clearly vertical,
+                 *   above threshold, and no other layered surface is visible.
+                 */
+                awaitPointerEventScope {
+                    while (true) {
+                        val down = awaitPointerEvent().changes.firstOrNull() ?: continue
+
+                        // Guard against opening drawer when another surface is active.
+                        if (searchUiState.isSearchVisible ||
+                            homeUiState.openFolderItem != null ||
+                            isHomescreenMenuOpen ||
+                            isAppDrawerOpen
+                        ) {
+                            continue
+                        }
+
+                        val activePointerId = down.id
+                        var totalDragY = 0f
+                        var totalDragX = 0f
+                        var hasTriggeredOpen = false
+
+                        while (!hasTriggeredOpen) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == activePointerId } ?: break
+
+                            if (change.changedToUpIgnoreConsumed()) {
+                                break
+                            }
+
+                            val delta = change.positionChange()
+                            totalDragY += delta.y
+                            totalDragX += delta.x
+
+                            val isPredominantlyVertical = abs(totalDragY) > abs(totalDragX) * 1.2f
+                            if (isPredominantlyVertical && totalDragY < -swipeOpenThresholdPx) {
+                                hasTriggeredOpen = true
+                                onHomeSwipeUp()
+                            }
+                        }
+                    }
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
         if (isHomescreenMenuOpen) {
@@ -272,6 +355,21 @@ fun LauncherScreen(
                     }
                 )
             }
+        }
+
+        AnimatedVisibility(
+            visible = isAppDrawerOpen,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { fullHeight -> fullHeight / 8 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { fullHeight -> fullHeight / 8 })
+        ) {
+            AppDrawerOverlay(
+                uiState = appDrawerUiState,
+                onDismiss = {
+                    onAppDrawerOpenChange(false)
+                },
+                onSortModeSelected = onDrawerSortModeSelected,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 

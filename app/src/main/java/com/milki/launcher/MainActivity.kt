@@ -30,8 +30,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.milki.launcher.domain.model.LauncherSettings
+import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.handlers.PermissionHandler
+import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.main.HomeButtonPolicy
 import com.milki.launcher.presentation.main.PermissionRequestCoordinator
@@ -72,10 +76,20 @@ class MainActivity : ComponentActivity() {
     private val homeViewModel: HomeViewModel by viewModel()
 
     /**
+     * AppDrawerViewModel manages drawer app list + sort mode state.
+     */
+    private val appDrawerViewModel: AppDrawerViewModel by viewModel()
+
+    /**
      * ContactsRepository for contact-related operations.
      * Provided by Koin DI.
      */
     private val contactsRepository: ContactsRepository by inject()
+
+    /**
+     * Settings repository used for reading swipe-up action configuration.
+     */
+    private val settingsRepository: SettingsRepository by inject()
 
     // ========================================================================
     // HANDLERS
@@ -129,6 +143,11 @@ class MainActivity : ComponentActivity() {
      */
     private var isHomescreenMenuOpen by mutableStateOf(false)
 
+    /**
+     * Whether the app drawer full-screen overlay is visible.
+     */
+    private var isAppDrawerOpen by mutableStateOf(false)
+
     // ========================================================================
     // LIFECYCLE
     // ========================================================================
@@ -144,6 +163,10 @@ class MainActivity : ComponentActivity() {
             // Collect state from ViewModels
             val searchUiState by searchViewModel.uiState.collectAsStateWithLifecycle()
             val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+            val appDrawerUiState by appDrawerViewModel.uiState.collectAsStateWithLifecycle()
+            val launcherSettings by settingsRepository.settings.collectAsStateWithLifecycle(
+                initialValue = LauncherSettings()
+            )
             val context = LocalContext.current
 
             /**
@@ -167,6 +190,20 @@ class MainActivity : ComponentActivity() {
                         isHomescreenMenuOpen = isHomescreenMenuOpen,
                         onHomescreenMenuOpenChange = { isOpen ->
                             isHomescreenMenuOpen = isOpen
+                        },
+                        isAppDrawerOpen = isAppDrawerOpen,
+                        onAppDrawerOpenChange = { isOpen ->
+                            isAppDrawerOpen = isOpen
+                        },
+                        appDrawerUiState = appDrawerUiState,
+                        onDrawerSortModeSelected = appDrawerViewModel::setSortMode,
+                        onHomeSwipeUp = {
+                            if (launcherSettings.swipeUpAction == SwipeUpAction.OPEN_APP_DRAWER) {
+                                isHomescreenMenuOpen = false
+                                searchViewModel.hideSearch()
+                                homeViewModel.closeFolder()
+                                isAppDrawerOpen = true
+                            }
                         },
                         onPinnedItemClick = { item ->
                             // Folder icons open the FolderPopupDialog.
@@ -319,6 +356,12 @@ class MainActivity : ComponentActivity() {
                         return
                     }
 
+                    // If app drawer is open, close it before handling search/back behavior.
+                    if (isAppDrawerOpen) {
+                        isAppDrawerOpen = false
+                        return
+                    }
+
                     // If search is open, close it.
                     if (uiState.isSearchVisible) {
                         searchViewModel.hideSearch()
@@ -365,6 +408,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         wasAlreadyOnHomescreen = false
+        isAppDrawerOpen = false
         // Close any open folder popup whenever the launcher leaves the foreground
         // (e.g. user launched an app from search, switched to recents, etc.).
         // Without this the popup is still "open" in the ViewModel when the user
@@ -388,6 +432,13 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
 
         if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
+            // If app drawer is open, close it and consume this home press entirely.
+            // This mirrors layered-dismiss behavior used by folder popup and menus.
+            if (isAppDrawerOpen) {
+                isAppDrawerOpen = false
+                return
+            }
+
             // If a folder popup is open, close it and consume this home press entirely.
             // The normal policy (open search, clear query, etc.) only runs on the NEXT
             // home press — matching the same layered-dismiss pattern used for the
