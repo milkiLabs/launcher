@@ -235,7 +235,7 @@ fun AppSearchDialog(
                     if (suggestionToShow != null) {
                         ClipboardSuggestionBottomChip(
                             suggestion = suggestionToShow,
-                            onSearchWithDefaultEngine = { queryText ->
+                            onSearchTextInBrowser = { queryText ->
                                 val encodedQuery = Uri.encode(queryText)
                                 val url = "https://www.google.com/search?q=$encodedQuery"
                                 actionHandler(

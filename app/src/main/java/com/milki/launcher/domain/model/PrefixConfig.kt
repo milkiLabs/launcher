@@ -13,7 +13,7 @@
  *    Example: Both "f" and "م" (Arabic letter) can trigger files search
  *
  * 3. PREFIXES CAN BE ONE OR MORE CHARACTERS:
- *    - Single character: "s", "c", "y", "f"
+ *    - Single character: "c", "f"
  *    - Multiple characters: "web", "find", "م"
  *
  * ARCHITECTURE:
@@ -23,10 +23,8 @@
  * │                                                              │
  * │  Example:                                                    │
  * │  {                                                          │
- * │    "web" -> PrefixConfig(["s", "ج"]),      // Arabic 'ج'    │
  * │    "files" -> PrefixConfig(["f", "م"]),    // Arabic 'م'    │
- * │    "contacts" -> PrefixConfig(["c"]),                       │
- * │    "youtube" -> PrefixConfig(["y", "yt"])                   │
+ * │    "contacts" -> PrefixConfig(["c"])                       │
  * │  }                                                          │
  * └─────────────────────────────────────────────────────────────┘
  *
@@ -54,13 +52,13 @@ package com.milki.launcher.domain.model
  * EXAMPLES:
  * ```kotlin
  * // Default configuration - single prefix
- * PrefixConfig(listOf("s"))
+ * PrefixConfig(listOf("c"))
  *
  * // Multilingual configuration - English and Arabic
- * PrefixConfig(listOf("s", "ج"))  // 'ج' is Arabic letter equivalent to 'j'
+ * PrefixConfig(listOf("f", "م"))
  *
  * // Multi-character prefixes
- * PrefixConfig(listOf("y", "yt", "tube"))
+ * PrefixConfig(listOf("c", "ct", "contact"))
  * ```
  */
 data class PrefixConfig(
@@ -112,9 +110,7 @@ data class PrefixConfig(
          * The keys here MUST match the providerId in SearchProviderConfig.
          */
         val defaults: Map<String, PrefixConfig> = mapOf(
-            ProviderId.WEB to PrefixConfig(listOf("s")),
             ProviderId.CONTACTS to PrefixConfig(listOf("c")),
-            ProviderId.YOUTUBE to PrefixConfig(listOf("y")),
             ProviderId.FILES to PrefixConfig(listOf("f"))
         )
     }
@@ -135,19 +131,9 @@ data class PrefixConfig(
  */
 object ProviderId {
     /**
-     * ID for the web search provider (Google, DuckDuckGo, etc.)
-     */
-    const val WEB = "web"
-
-    /**
      * ID for the contacts search provider
      */
     const val CONTACTS = "contacts"
-
-    /**
-     * ID for the YouTube search provider
-     */
-    const val YOUTUBE = "youtube"
 
     /**
      * ID for the files search provider
@@ -158,5 +144,5 @@ object ProviderId {
      * List of all valid provider IDs.
      * Used for validation and iteration.
      */
-    val all: List<String> = listOf(WEB, CONTACTS, YOUTUBE, FILES)
+    val all: List<String> = listOf(CONTACTS, FILES)
 }

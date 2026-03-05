@@ -7,6 +7,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | Document | Description |
 |----------|-------------|
 | **[Architecture.md](Architecture.md)** | Complete architecture guide (Clean Architecture + MVVM) |
+| **[custom-source-search.md](custom-source-search.md)** | Unified external search via configurable custom sources |
 | **[search-settings-contacts-modularization.md](search-settings-contacts-modularization.md)** | Detailed walkthrough of the March 2026 file modularization refactor |
 | **[multi-mode-search.md](multi-mode-search.md)** | Multi-mode search feature documentation |
 | **[app-icon-memory-cache.md](app-icon-memory-cache.md)** | Launcher-optimized app icon caching and rendering flow |
@@ -24,11 +25,11 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 
 ### Key Features
 
-- **Multi-Mode Search**: Search apps, contacts, web, and YouTube using prefixes
-  - No prefix: Search installed apps
-  - `s `: Web search (opens browser)
-  - `c `: Contacts search (requires permission)
-  - `y `: YouTube search
+- **Multi-Mode Search**: Search apps, local providers, and custom external sources
+    - No prefix: Search installed apps only
+    - `c `: Contacts search (requires permission)
+    - `f `: Files search
+    - Custom source prefixes (e.g. `yt `, `ig `, `x `) are user-configurable in Settings
     - Clipboard smart suggestion: one bottom chip on search open (URL/app, browser fallback, phone, email, maps, or text search)
   
 - **Smart Layout**: 

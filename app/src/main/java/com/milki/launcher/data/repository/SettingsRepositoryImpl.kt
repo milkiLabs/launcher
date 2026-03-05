@@ -84,8 +84,8 @@ class SettingsRepositoryImpl(
      * - encodeDefaults = true:
      *   Keeps output deterministic when defaultable values are introduced later.
      *
-     * We keep this instance private to the repository because it is tightly
-     * coupled to the repository's storage schema and migration behavior.
+    * We keep this instance private to the repository because it is tightly
+    * coupled to the repository's storage schema and normalization behavior.
      */
     private val settingsJson: Json = Json {
         ignoreUnknownKeys = true
@@ -115,10 +115,7 @@ class SettingsRepositoryImpl(
         val HOME_BUTTON_CLEARS_QUERY = booleanPreferencesKey("home_button_clears_query")
 
         // Search Providers
-        val DEFAULT_SEARCH_ENGINE = stringPreferencesKey("default_search_engine")
-        val WEB_SEARCH_ENABLED = booleanPreferencesKey("web_search_enabled")
         val CONTACTS_SEARCH_ENABLED = booleanPreferencesKey("contacts_search_enabled")
-        val YOUTUBE_SEARCH_ENABLED = booleanPreferencesKey("youtube_search_enabled")
         val FILES_SEARCH_ENABLED = booleanPreferencesKey("files_search_enabled")
 
         // Hidden Apps
@@ -248,31 +245,10 @@ class SettingsRepositoryImpl(
     }
 
     /**
-     * Targeted key-only update for default search engine enum.
-     */
-    override suspend fun setDefaultSearchEngine(engine: SearchEngine) {
-        writeStringSetting(Keys.DEFAULT_SEARCH_ENGINE, engine.name)
-    }
-
-    /**
-     * Targeted key-only update for web provider enabled setting.
-     */
-    override suspend fun setWebSearchEnabled(value: Boolean) {
-        writeBooleanSetting(Keys.WEB_SEARCH_ENABLED, value)
-    }
-
-    /**
      * Targeted key-only update for contacts provider enabled setting.
      */
     override suspend fun setContactsSearchEnabled(value: Boolean) {
         writeBooleanSetting(Keys.CONTACTS_SEARCH_ENABLED, value)
-    }
-
-    /**
-     * Targeted key-only update for YouTube provider enabled setting.
-     */
-    override suspend fun setYoutubeSearchEnabled(value: Boolean) {
-        writeBooleanSetting(Keys.YOUTUBE_SEARCH_ENABLED, value)
     }
 
     /**
@@ -408,13 +384,7 @@ class SettingsRepositoryImpl(
         val defaults = LauncherSettings()
         val parsedPrefixConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS])
         val parsedSearchSources = parseSearchSources(
-            json = preferences[Keys.SEARCH_SOURCES],
-            legacyPrefixConfigurations = parsedPrefixConfigurations,
-            defaultSearchEngine = preferences[Keys.DEFAULT_SEARCH_ENGINE]?.let {
-                runCatching { SearchEngine.valueOf(it) }.getOrDefault(defaults.defaultSearchEngine)
-            } ?: defaults.defaultSearchEngine,
-            webSearchEnabled = preferences[Keys.WEB_SEARCH_ENABLED] ?: defaults.webSearchEnabled,
-            youtubeSearchEnabled = preferences[Keys.YOUTUBE_SEARCH_ENABLED] ?: defaults.youtubeSearchEnabled
+            json = preferences[Keys.SEARCH_SOURCES]
         )
 
         return LauncherSettings(
@@ -443,14 +413,8 @@ class SettingsRepositoryImpl(
                 ?: defaults.homeButtonClearsQuery,
 
             // Search Providers
-            defaultSearchEngine = preferences[Keys.DEFAULT_SEARCH_ENGINE]?.let {
-                runCatching { SearchEngine.valueOf(it) }.getOrDefault(defaults.defaultSearchEngine)
-            } ?: defaults.defaultSearchEngine,
-            webSearchEnabled = preferences[Keys.WEB_SEARCH_ENABLED] ?: defaults.webSearchEnabled,
             contactsSearchEnabled = preferences[Keys.CONTACTS_SEARCH_ENABLED]
                 ?: defaults.contactsSearchEnabled,
-            youtubeSearchEnabled = preferences[Keys.YOUTUBE_SEARCH_ENABLED]
-                ?: defaults.youtubeSearchEnabled,
             filesSearchEnabled = preferences[Keys.FILES_SEARCH_ENABLED] ?: defaults.filesSearchEnabled,
 
             // Dynamic external search sources
@@ -513,17 +477,8 @@ class SettingsRepositoryImpl(
             preferences[Keys.HOME_BUTTON_CLEARS_QUERY] = newSettings.homeButtonClearsQuery
         }
 
-        if (currentSettings.defaultSearchEngine != newSettings.defaultSearchEngine) {
-            preferences[Keys.DEFAULT_SEARCH_ENGINE] = newSettings.defaultSearchEngine.name
-        }
-        if (currentSettings.webSearchEnabled != newSettings.webSearchEnabled) {
-            preferences[Keys.WEB_SEARCH_ENABLED] = newSettings.webSearchEnabled
-        }
         if (currentSettings.contactsSearchEnabled != newSettings.contactsSearchEnabled) {
             preferences[Keys.CONTACTS_SEARCH_ENABLED] = newSettings.contactsSearchEnabled
-        }
-        if (currentSettings.youtubeSearchEnabled != newSettings.youtubeSearchEnabled) {
-            preferences[Keys.YOUTUBE_SEARCH_ENABLED] = newSettings.youtubeSearchEnabled
         }
         if (currentSettings.filesSearchEnabled != newSettings.filesSearchEnabled) {
             preferences[Keys.FILES_SEARCH_ENABLED] = newSettings.filesSearchEnabled
@@ -628,10 +583,8 @@ class SettingsRepositoryImpl(
      * JSON FORMAT:
      * ```json
      * {
-     *   "web": ["s", "ج"],
      *   "files": ["f", "م"],
-     *   "contacts": ["c"],
-     *   "youtube": ["y", "yt"]
+    *   "contacts": ["c"]
      * }
      * ```
      *
@@ -685,44 +638,28 @@ class SettingsRepositoryImpl(
     }
 
     // ========================================================================
-    // SEARCH SOURCES SERIALIZATION + LEGACY MIGRATION
+    // SEARCH SOURCES SERIALIZATION
     // ========================================================================
 
     /**
-     * Parses persisted search sources, with legacy migration fallback.
+     * Parses persisted search sources.
      *
-     * Migration behavior when no `search_sources` key exists yet:
-     * - Start from SearchSource.defaultSources()
-     * - Carry over legacy web/youtube enable flags
-     * - Carry over legacy web and youtube prefixes from prefixConfigurations
-     * - Apply legacy default search engine to choose default plain-query source
+     * Behavior:
+     * - Missing/blank value -> use default sources
+     * - Invalid JSON -> use default sources
      */
     private fun parseSearchSources(
-        json: String?,
-        legacyPrefixConfigurations: ProviderPrefixConfiguration,
-        defaultSearchEngine: SearchEngine,
-        webSearchEnabled: Boolean,
-        youtubeSearchEnabled: Boolean
+        json: String?
     ): List<SearchSource> {
         if (json.isNullOrBlank()) {
-            return migrateLegacySources(
-                legacyPrefixConfigurations = legacyPrefixConfigurations,
-                defaultSearchEngine = defaultSearchEngine,
-                webSearchEnabled = webSearchEnabled,
-                youtubeSearchEnabled = youtubeSearchEnabled
-            )
+            return SearchSource.defaultSources()
         }
 
         return runCatching {
             val decoded: SerializedSearchSources = settingsJson.decodeFromString(json)
             normalizeAndValidateSearchSources(decoded)
         }.getOrElse {
-            migrateLegacySources(
-                legacyPrefixConfigurations = legacyPrefixConfigurations,
-                defaultSearchEngine = defaultSearchEngine,
-                webSearchEnabled = webSearchEnabled,
-                youtubeSearchEnabled = youtubeSearchEnabled
-            )
+            SearchSource.defaultSources()
         }
     }
 
@@ -787,41 +724,4 @@ class SettingsRepositoryImpl(
         return globallyUnique
     }
 
-    /**
-     * Builds initial search source list using legacy settings.
-     */
-    private fun migrateLegacySources(
-        legacyPrefixConfigurations: ProviderPrefixConfiguration,
-        defaultSearchEngine: SearchEngine,
-        webSearchEnabled: Boolean,
-        youtubeSearchEnabled: Boolean
-    ): List<SearchSource> {
-        val defaults = SearchSource.defaultSources().toMutableList()
-
-        val legacyWebPrefixes = legacyPrefixConfigurations[ProviderId.WEB]?.prefixes
-        val legacyYoutubePrefixes = legacyPrefixConfigurations[ProviderId.YOUTUBE]?.prefixes
-
-        val migrated = defaults.map { source ->
-            when (source.id) {
-                "source_google" -> {
-                    source.copy(
-                        isEnabled = webSearchEnabled,
-                        prefixes = (legacyWebPrefixes ?: source.prefixes)
-                    )
-                }
-                "source_duckduckgo" -> {
-                    source.copy(isEnabled = webSearchEnabled)
-                }
-                "source_youtube" -> {
-                    source.copy(
-                        isEnabled = youtubeSearchEnabled,
-                        prefixes = (legacyYoutubePrefixes ?: source.prefixes)
-                    )
-                }
-                else -> source
-            }
-        }
-
-        return normalizeAndValidateSearchSources(migrated)
-    }
 }

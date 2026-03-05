@@ -54,15 +54,13 @@ import com.milki.launcher.domain.model.SearchProviderConfig
  * // Create registry with providers
  * val registry = SearchProviderRegistry(
  *     initialProviders = listOf(
- *         webSearchProvider,
  *         contactsSearchProvider,
- *         youtubeSearchProvider,
  *         filesSearchProvider
  *     )
  * )
  *
  * // Find provider by prefix (uses configured or default prefix)
- * val provider = registry.findByPrefix("s") // Returns web search provider
+ * val provider = registry.findByPrefix("c") // Returns contacts provider
  *
  * // Find provider by ID
  * val filesProvider = registry.findByProviderId(ProviderId.FILES)
@@ -73,7 +71,7 @@ import com.milki.launcher.domain.model.SearchProviderConfig
  * // Update prefix configurations (e.g., from settings)
  * registry.updatePrefixConfigurations(mapOf(
  *     ProviderId.FILES to PrefixConfig(listOf("f", "م")),
- *     ProviderId.WEB to PrefixConfig(listOf("s", "ج"))
+ *     ProviderId.CONTACTS to PrefixConfig(listOf("c", "ct"))
  * ))
  * ```
  *
@@ -83,18 +81,16 @@ import com.milki.launcher.domain.model.SearchProviderConfig
  * │                                                              │
  * │  providersById: Map<providerId, SearchProvider>             │
  * │  ┌─────────────────────────────────────────────────────┐    │
- * │  │ "web" → WebSearchProvider                            │    │
  * │  │ "contacts" → ContactsSearchProvider                  │    │
- * │  │ "youtube" → YouTubeSearchProvider                    │    │
  * │  │ "files" → FilesSearchProvider                        │    │
+ * │  │ "source_youtube" → ConfigurableUrlSearchProvider      │    │
  * │  └─────────────────────────────────────────────────────┘    │
  * │                                                              │
  * │  prefixToProviderId: Map<prefix, providerId>                │
  * │  ┌─────────────────────────────────────────────────────┐    │
- * │  │ "s" → "web", "ج" → "web"                             │    │
  * │  │ "c" → "contacts"                                     │    │
- * │  │ "y" → "youtube", "yt" → "youtube"                    │    │
  * │  │ "f" → "files", "م" → "files"                         │    │
+ * │  │ "yt" → "source_youtube"                               │    │
  * │  └─────────────────────────────────────────────────────┘    │
  * └─────────────────────────────────────────────────────────────┘
  */
@@ -249,7 +245,7 @@ class SearchProviderRegistry(
     /**
      * Find a provider by its unique provider ID.
      *
-     * @param providerId The provider ID to search for (e.g., ProviderId.WEB)
+    * @param providerId The provider ID to search for (e.g., ProviderId.FILES)
      * @return The matching provider, or null if not found
      */
     fun findByProviderId(providerId: String): SearchProvider? {

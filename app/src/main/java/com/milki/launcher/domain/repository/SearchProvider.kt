@@ -44,9 +44,9 @@ import com.milki.launcher.domain.model.SearchResult
  *
  * Each search provider handles a specific search domain:
  * - AppSearchProvider: Searches installed apps
- * - WebSearchProvider: Provides web search options
  * - ContactsSearchProvider: Searches device contacts
- * - YouTubeSearchProvider: Provides YouTube search
+ * - FilesSearchProvider: Searches indexed files
+ * - ConfigurableUrlSearchProvider: Handles dynamic external sources
  *
  * Providers are responsible for:
  * 1. Defining their prefix and display configuration

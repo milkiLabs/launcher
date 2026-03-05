@@ -22,7 +22,6 @@ package com.milki.launcher.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -63,17 +62,9 @@ fun rememberSearchProviderVisual(
         val customAccentColor = parseHexColorOrNull(customAccentHex)
 
         when (providerId) {
-            ProviderId.WEB -> SearchProviderVisual(
-                icon = Icons.Filled.Search,
-                accentColor = customAccentColor ?: colorScheme.primary
-            )
             ProviderId.CONTACTS -> SearchProviderVisual(
                 icon = Icons.Filled.Person,
                 accentColor = customAccentColor ?: colorScheme.secondary
-            )
-            ProviderId.YOUTUBE -> SearchProviderVisual(
-                icon = Icons.Filled.PlayArrow,
-                accentColor = customAccentColor ?: colorScheme.tertiary
             )
             ProviderId.FILES -> SearchProviderVisual(
                 icon = Icons.AutoMirrored.Filled.InsertDriveFile,

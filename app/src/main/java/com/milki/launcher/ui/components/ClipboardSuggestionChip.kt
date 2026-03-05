@@ -39,7 +39,7 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun ClipboardSuggestionBottomChip(
     suggestion: ClipboardSuggestion,
-    onSearchWithDefaultEngine: (String) -> Unit,
+    onSearchTextInBrowser: (String) -> Unit,
     onOpenUrl: (UrlSearchResult) -> Unit,
     onOpenDialer: (String) -> Unit,
     onComposeEmail: (String) -> Unit,
@@ -68,7 +68,7 @@ fun ClipboardSuggestionBottomChip(
                     is ClipboardSuggestion.DialNumber -> onOpenDialer(suggestion.phoneNumber)
                     is ClipboardSuggestion.ComposeEmail -> onComposeEmail(suggestion.emailAddress)
                     is ClipboardSuggestion.OpenMapLocation -> onOpenMapLocation(suggestion.locationQuery)
-                    is ClipboardSuggestion.SearchText -> onSearchWithDefaultEngine(suggestion.queryText)
+                    is ClipboardSuggestion.SearchText -> onSearchTextInBrowser(suggestion.queryText)
                 }
             },
             label = {

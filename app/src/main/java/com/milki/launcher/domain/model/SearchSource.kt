@@ -37,8 +37,7 @@ import kotlinx.serialization.Serializable
  * @property prefixes Prefixes that activate this source in provider mode.
  *                    Parsing rule in query parser remains `prefix + space`.
  *
- * @property isEnabled If false, this source is excluded from prefix activation and
- *                     excluded from plain-query source suggestions.
+ * @property isEnabled If false, this source is excluded from prefix activation.
  *
  * @property accentColorHex Custom user-selected color used by UI accents for this
  *                          source. Stored as `#RRGGBB` for simplicity.
@@ -94,7 +93,7 @@ data class SearchSource(
         }
 
         /**
-         * Default starter sources used for first run and migration fallback.
+         * Default starter sources used for first run and reset fallback.
          *
          * These defaults intentionally include the user-requested examples:
          * - YouTube

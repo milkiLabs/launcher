@@ -14,7 +14,6 @@ package com.milki.launcher.domain.repository
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.HomeTapAction
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
-import com.milki.launcher.domain.model.SearchEngine
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SwipeUpAction
 import kotlinx.coroutines.flow.Flow
@@ -99,24 +98,9 @@ interface SettingsRepository {
     suspend fun setHomeButtonClearsQuery(value: Boolean)
 
     /**
-     * Update default web search engine.
-     */
-    suspend fun setDefaultSearchEngine(engine: SearchEngine)
-
-    /**
-     * Update web provider enabled state.
-     */
-    suspend fun setWebSearchEnabled(value: Boolean)
-
-    /**
      * Update contacts provider enabled state.
      */
     suspend fun setContactsSearchEnabled(value: Boolean)
-
-    /**
-     * Update YouTube provider enabled state.
-     */
-    suspend fun setYoutubeSearchEnabled(value: Boolean)
 
     /**
      * Update files provider enabled state.

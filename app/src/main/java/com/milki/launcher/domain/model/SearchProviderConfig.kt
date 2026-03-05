@@ -14,7 +14,8 @@
  *                              ▼
  * ┌─────────────────────────────────────────────────────────────┐
  * │                     DATA LAYER                              │
- * │  WebSearchProvider, ContactsSearchProvider, etc.            │
+ * │  ContactsSearchProvider, FilesSearchProvider,               │
+ * │  ConfigurableUrlSearchProvider, etc.                        │
  * │  (implement SearchProvider interface)                       │
  * └─────────────────────────────────────────────────────────────┘
  */
@@ -34,10 +35,10 @@ package com.milki.launcher.domain.model
  * @property providerId Unique identifier for this provider.
  *                       Used to match with prefix configurations.
  *                       Must match one of the constants in ProviderId.
- * @property prefix The default prefix that activates this provider (e.g., "s", "c", "y").
+ * @property prefix The default prefix that activates this provider (e.g., "c", "f", "yt").
  *                   This is the fallback prefix if no custom configuration exists.
  *                   NOTE: This is now the DEFAULT prefix - users can configure different ones.
- * @property name Human-readable name for display (e.g., "Web Search", "Contacts")
+ * @property name Human-readable name for display (e.g., "Contacts", "YouTube")
  * @property description Short description shown in hints
  * IMPORTANT ARCHITECTURE NOTE:
  * This model intentionally contains ONLY semantic provider metadata.
@@ -49,11 +50,11 @@ package com.milki.launcher.domain.model
  *
  * Example:
  * ```kotlin
- * val webConfig = SearchProviderConfig(
- *     providerId = ProviderId.WEB,
- *     prefix = "s",
- *     name = "Web Search",
- *     description = "Search the web"
+ * val contactsConfig = SearchProviderConfig(
+ *     providerId = ProviderId.CONTACTS,
+ *     prefix = "c",
+ *     name = "Contacts",
+ *     description = "Search contacts"
  * )
  * ```
  */

@@ -24,17 +24,6 @@ package com.milki.launcher.domain.model
 typealias ProviderPrefixConfiguration = Map<String, PrefixConfig>
 
 /**
- * Search engine options for web search provider.
- */
-enum class SearchEngine(val displayName: String, val urlTemplate: String) {
-    GOOGLE("Google", "https://www.google.com/search?q=%s"),
-    DUCKDUCKGO("DuckDuckGo", "https://duckduckgo.com/?q=%s"),
-    BING("Bing", "https://www.bing.com/search?q=%s"),
-    BRAVE("Brave Search", "https://search.brave.com/search?q=%s"),
-    STARTPAGE("Startpage", "https://www.startpage.com/sp/search?query=%s")
-}
-
-/**
  * Display layout options for search results.
  */
 enum class SearchResultLayout(val displayName: String) {
@@ -68,7 +57,7 @@ enum class SwipeUpAction(val displayName: String) {
  * 1. Search Behavior - How search works
  * 2. Appearance - Visual customizations
  * 3. Home Screen - Home button/gesture behavior
- * 4. Search Providers - Enable/disable and configure providers
+ * 4. Search Providers - Enable local providers and configure dynamic sources
  */
 data class LauncherSettings(
 
@@ -121,17 +110,8 @@ data class LauncherSettings(
     // SEARCH PROVIDERS
     // ========================================================================
 
-    /** Default search engine for web search (prefix "s") */
-    val defaultSearchEngine: SearchEngine = SearchEngine.GOOGLE,
-
-    /** Whether web search provider is enabled */
-    val webSearchEnabled: Boolean = true,
-
     /** Whether contacts search provider is enabled */
     val contactsSearchEnabled: Boolean = true,
-
-    /** Whether YouTube search provider is enabled */
-    val youtubeSearchEnabled: Boolean = true,
 
     /** Whether files search provider is enabled */
     val filesSearchEnabled: Boolean = true,
@@ -158,14 +138,12 @@ data class LauncherSettings(
      * Configurable prefixes for each search provider.
      *
      * This map allows users to:
-     * 1. Change the default prefix for a provider (e.g., "sd" instead of "s" for web)
-     * 2. Add multiple prefixes per provider (e.g., "f" and "م" for files)
+    * 1. Change the default prefix for a local provider (contacts/files)
+    * 2. Add multiple prefixes per provider (e.g., "f" and "م" for files)
      * 3. Use prefixes with multiple characters (e.g., "web", "find")
      *
      * The keys are provider IDs (see ProviderId constants):
-     * - "web" -> Web search (Google, DuckDuckGo)
      * - "contacts" -> Contacts search
-     * - "youtube" -> YouTube search
      * - "files" -> Files search
      *
      * If a provider is not in this map, its default prefix is used.
@@ -173,11 +151,10 @@ data class LauncherSettings(
      *
      * Example:
      * ```kotlin
-     * mapOf(
-     *     "web" to PrefixConfig(listOf("s", "ج")),      // Arabic 'ج'
-     *     "files" to PrefixConfig(listOf("f", "م", "find")), // Arabic 'م' and "find"
-     *     "youtube" to PrefixConfig(listOf("yt"))       // Custom "yt" prefix
-     * )
+    * mapOf(
+    *     "files" to PrefixConfig(listOf("f", "م", "find")),
+    *     "contacts" to PrefixConfig(listOf("c", "ct"))
+    * )
      * ```
      */
     val prefixConfigurations: ProviderPrefixConfiguration = emptyMap(),

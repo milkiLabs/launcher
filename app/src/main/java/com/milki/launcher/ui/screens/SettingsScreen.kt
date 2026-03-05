@@ -5,7 +5,7 @@
  * 1. Search Behavior - Result limits, keyboard behavior, recent apps
  * 2. Appearance - Layout, hints, icons
  * 3. Home Screen - Tap/gesture behavior
- * 4. Search Providers - Enable/disable providers, default search engine
+ * 4. Search Providers - Enable local providers and configure custom sources
  * 5. Advanced - Reset to defaults, app info
  *
  * ARCHITECTURE:
@@ -47,10 +47,7 @@ import com.milki.launcher.ui.theme.Spacing
  * @param onSetHomeTapAction Set home tap action
  * @param onSetSwipeUpAction Set swipe up action
  * @param onSetHomeButtonClearsQuery Toggle home-button-clears-query behavior
- * @param onSetDefaultSearchEngine Set default search engine
- * @param onSetWebSearchEnabled Toggle web search provider
  * @param onSetContactsSearchEnabled Toggle contacts search provider
- * @param onSetYoutubeSearchEnabled Toggle YouTube search provider
  * @param onSetFilesSearchEnabled Toggle files search provider
  * @param onAddProviderPrefix Add a prefix to a provider
  * @param onRemoveProviderPrefix Remove a prefix from a provider
@@ -73,10 +70,7 @@ fun SettingsScreen(
     onSetHomeTapAction: (HomeTapAction) -> Unit,
     onSetSwipeUpAction: (SwipeUpAction) -> Unit,
     onSetHomeButtonClearsQuery: (Boolean) -> Unit,
-    onSetDefaultSearchEngine: (SearchEngine) -> Unit,
-    onSetWebSearchEnabled: (Boolean) -> Unit,
     onSetContactsSearchEnabled: (Boolean) -> Unit,
-    onSetYoutubeSearchEnabled: (Boolean) -> Unit,
     onSetFilesSearchEnabled: (Boolean) -> Unit,
     onAddProviderPrefix: (String, String) -> Unit,
     onRemoveProviderPrefix: (String, String) -> Unit,
@@ -243,24 +237,10 @@ fun SettingsScreen(
             SettingsCategory(title = "Search Providers")
 
             SwitchSettingItem(
-                title = "Web search",
-                subtitle = "Enable default web sources (Google + DuckDuckGo)",
-                checked = settings.webSearchEnabled,
-                onCheckedChange = onSetWebSearchEnabled
-            )
-
-            SwitchSettingItem(
                 title = "Contacts search",
                 subtitle = "Search contacts with prefix \"c\"",
                 checked = settings.contactsSearchEnabled,
                 onCheckedChange = onSetContactsSearchEnabled
-            )
-
-            SwitchSettingItem(
-                title = "YouTube search",
-                subtitle = "Enable default YouTube source",
-                checked = settings.youtubeSearchEnabled,
-                onCheckedChange = onSetYoutubeSearchEnabled
             )
 
             SwitchSettingItem(

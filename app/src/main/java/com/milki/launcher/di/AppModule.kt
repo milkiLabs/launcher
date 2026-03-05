@@ -53,8 +53,6 @@ import com.milki.launcher.data.repository.HomeRepositoryImpl
 import com.milki.launcher.data.repository.SettingsRepositoryImpl
 import com.milki.launcher.data.search.ContactsSearchProvider
 import com.milki.launcher.data.search.FilesSearchProvider
-import com.milki.launcher.data.search.WebSearchProvider
-import com.milki.launcher.data.search.YouTubeSearchProvider
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.FilesRepository
@@ -163,28 +161,6 @@ val appModule = module {
     // ========================================================================
     // Search providers are singletons because they don't hold state
     // that needs to be different per request.
-
-    /**
-     * WebSearchProvider - Handles "s" prefix searches.
-     *
-     * SINGLETON: Yes - no state needed, just URL generation.
-     *
-     * DEPENDENCY: None
-     */
-    single {
-        WebSearchProvider()
-    }
-
-    /**
-     * YouTubeSearchProvider - Handles "y" prefix searches.
-     *
-     * SINGLETON: Yes - no state needed, just URL generation.
-     *
-     * DEPENDENCY: None
-     */
-    single {
-        YouTubeSearchProvider()
-    }
 
     /**
      * ContactsSearchProvider - Handles "c" prefix searches.

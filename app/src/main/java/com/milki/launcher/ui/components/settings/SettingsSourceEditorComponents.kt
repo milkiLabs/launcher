@@ -109,7 +109,7 @@ fun SourceSettingItem(
 
             SwitchSettingItem(
                 title = "Enabled",
-                subtitle = "Use this source for prefix and suggestions",
+                subtitle = "Use this source for prefix search",
                 checked = source.isEnabled,
                 onCheckedChange = onToggleEnabled
             )

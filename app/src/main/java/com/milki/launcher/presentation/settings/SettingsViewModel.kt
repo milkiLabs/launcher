@@ -130,52 +130,9 @@ class SettingsViewModel(
     // SEARCH PROVIDERS
     // ========================================================================
 
-    fun setDefaultSearchEngine(engine: SearchEngine) {
-        viewModelScope.launch {
-            settingsRepository.setDefaultSearchEngine(engine)
-        }
-    }
-
-    fun setWebSearchEnabled(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setWebSearchEnabled(value)
-
-            // Keep source model aligned with legacy switch behavior.
-            settingsRepository.updateSettings { current ->
-                current.copy(
-                    searchSources = current.searchSources.map { source ->
-                        if (source.id == "source_google" || source.id == "source_duckduckgo") {
-                            source.copy(isEnabled = value)
-                        } else {
-                            source
-                        }
-                    }
-                )
-            }
-        }
-    }
-
     fun setContactsSearchEnabled(value: Boolean) {
         viewModelScope.launch {
             settingsRepository.setContactsSearchEnabled(value)
-        }
-    }
-
-    fun setYoutubeSearchEnabled(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setYoutubeSearchEnabled(value)
-
-            settingsRepository.updateSettings { current ->
-                current.copy(
-                    searchSources = current.searchSources.map { source ->
-                        if (source.id == "source_youtube") {
-                            source.copy(isEnabled = value)
-                        } else {
-                            source
-                        }
-                    }
-                )
-            }
         }
     }
 
@@ -362,7 +319,7 @@ class SettingsViewModel(
      * This replaces all existing prefixes for the provider with the new list.
      * The first prefix in the list is considered the "primary" prefix for display.
      *
-     * @param providerId The provider ID (e.g., ProviderId.WEB)
+    * @param providerId The provider ID (contacts/files)
      * @param prefixes List of prefixes to set for this provider
      */
     fun setProviderPrefixes(providerId: String, prefixes: List<String>) {
@@ -438,9 +395,7 @@ class SettingsViewModel(
      */
     private fun getDefaultPrefix(providerId: String): String {
         return when (providerId) {
-            ProviderId.WEB -> "s"
             ProviderId.CONTACTS -> "c"
-            ProviderId.YOUTUBE -> "y"
             ProviderId.FILES -> "f"
             else -> ""
         }
