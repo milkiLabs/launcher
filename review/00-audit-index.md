@@ -28,6 +28,18 @@ This audit reviews the current codebase across architecture, design quality, rel
 6. `review/06-settings-configuration-audit.md`
 - Focused audit of settings/configuration models, persistence, runtime application, and scalability/performance patterns.
 
+7. `review/07-folders-feature-audit.md`
+- Focused review of folder architecture, mutation paths, and lifecycle behavior.
+
+8. `review/08-drag-drop-feature-audit.md`
+- Focused review of internal/external drag-drop routing, occupancy logic, and maintainability.
+
+9. `review/09-widget-feature-audit.md`
+- Focused review of widget picker, bind/configure/place flow, and host lifecycle robustness.
+
+10. `review/10-drawer-feature-audit.md`
+- Focused review of app drawer data flow, scaling behavior, and UX architecture.
+
 ## Top 5 Immediate Actions
 
 1. Replace single `pendingWidget` state with a robust widget-placement session model to prevent overwrites and wrong-result routing (`app/src/main/java/com/milki/launcher/presentation/home/HomeViewModel.kt:645`).
