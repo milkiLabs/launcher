@@ -1,33 +1,37 @@
-# Launcher Codebase Audit (March 2026)
+# Launcher Audit Index (2026-03-06)
 
-This audit reviews architecture, software design, bugs, performance, UX/UI, dead code, deprecated APIs, and standardization opportunities.
+This audit reviews the current codebase across architecture, design quality, reliability, performance, UX/UI consistency, and maintainability.
 
-## Priority Legend
-- **P0 (Critical):** User-facing functionality broken or settings do not work as advertised.
-- **P1 (High):** Significant architecture/design debt, reliability risk, or major UX inconsistency.
-- **P2 (Medium):** Performance/scalability concerns, maintainability issues, moderate UX gaps.
-- **P3 (Low):** Cleanup, polish, optional modernization.
+## Priority Summary
 
-## Audit Files
-1. `01-critical-functional-gaps.md` — highest-impact behavior bugs and misleading settings.
-2. `02-architecture-and-design.md` — architecture smells, separation-of-concerns issues, overengineering.
-3. `03-performance-reliability.md` — runtime performance and reliability risks.
-4. `04-ui-ux-and-design-system.md` — UX friction and design-system violations.
-5. `05-deprecated-dead-code-and-modernization.md` — dead code, deprecated usage, modernization targets.
-6. `06-library-opportunities-and-standards.md` — libraries/dependencies and coding standards proposal.
+- P0: Fix now (functional risk / data integrity / major architectural blocker)
+- P1: Fix soon (high impact maintainability, UX consistency, perf under real usage)
+- P2: Plan and execute in roadmap (modularization and long-term standardization)
 
-## Executive Summary
-The biggest issue is **feature integrity**: many settings are persisted and editable but are not actually applied at runtime. This creates a trust problem in UX and makes the app feel unstable/inconsistent.
+## Report Files
 
-Top priorities:
-1. Fix P0 settings-to-runtime wiring first.
-2. Establish architectural boundaries (domain should not depend on Compose UI primitives).
-3. Split oversized files and unify action/gesture/menu patterns.
-4. Enforce design-system tokens (`Spacing`, icon policy, color tokens) consistently.
-5. Remove dead/placeholder paths and align with modern APIs and dependency versions.
+1. `review/01-critical-functional-and-architecture-risks.md`
+- P0/P1 findings that can cause user-facing bugs, state corruption, or critical scalability pain.
 
-## Suggested Delivery Phases
-- **Phase 1 (P0, 2-4 days):** Runtime settings correctness (search behavior, provider enablement, close behavior, result limits).
-- **Phase 2 (P1, 3-5 days):** Architecture boundary fixes + large file decomposition.
-- **Phase 3 (P1/P2, 2-4 days):** UX consistency and design-system compliance.
-- **Phase 4 (P2/P3, 2-3 days):** Dead code cleanup, modernization, dependency refresh.
+2. `review/02-performance-and-reliability.md`
+- Performance bottlenecks, duplicate expensive flows, and failure handling quality.
+
+3. `review/03-ui-ux-and-design-system.md`
+- UX and interaction review, design-system drift, accessibility/usability gaps.
+
+4. `review/04-dead-code-and-standardization.md`
+- Dead code, TODO debt, and concrete coding standards to unify implementation style.
+
+5. `review/05-modularization-roadmap.md`
+- Step-by-step plan to split large files, self-contain features, and move toward a maintainable modular architecture.
+
+6. `review/06-settings-configuration-audit.md`
+- Focused audit of settings/configuration models, persistence, runtime application, and scalability/performance patterns.
+
+## Top 5 Immediate Actions
+
+1. Replace single `pendingWidget` state with a robust widget-placement session model to prevent overwrites and wrong-result routing (`app/src/main/java/com/milki/launcher/presentation/home/HomeViewModel.kt:645`).
+2. Remove duplicate initial app-loading paths and centralize installed-app stream sharing to prevent repeated heavy `PackageManager` scans (`app/src/main/java/com/milki/launcher/presentation/search/SearchViewModel.kt:123`, `app/src/main/java/com/milki/launcher/presentation/drawer/AppDrawerViewModel.kt:140`).
+3. Stop silently dropping malformed home items on deserialize; add corruption telemetry and recovery UX (`app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:880`, `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:888`).
+4. Close permission UX gap for permanently denied states (`app/src/main/java/com/milki/launcher/handlers/PermissionHandler.kt:264`).
+5. Enforce UI design-system rules (Spacing + AutoMirrored icons) and remove current violations (`app/src/main/java/com/milki/launcher/ui/components/FolderPopupDialog.kt:371`, `app/src/main/java/com/milki/launcher/ui/screens/LauncherScreen.kt:355`).

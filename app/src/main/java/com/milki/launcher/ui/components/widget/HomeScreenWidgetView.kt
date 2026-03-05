@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -66,6 +67,21 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
     /** Callback invoked exactly once per gesture when long-press is recognized. */
     var onWidgetLongPress: (() -> Unit)? = null
 
+    /** Callback invoked when finger lifts after long-press without drag. */
+    var onWidgetLongPressRelease: (() -> Unit)? = null
+
+    /** Callback invoked when drag starts after a recognized long-press. */
+    var onWidgetDragStart: (() -> Unit)? = null
+
+    /** Callback invoked during drag after long-press with per-event delta. */
+    var onWidgetDrag: ((Offset) -> Unit)? = null
+
+    /** Callback invoked when an active widget drag ends with finger up. */
+    var onWidgetDragEnd: (() -> Unit)? = null
+
+    /** Callback invoked when an active widget drag is cancelled. */
+    var onWidgetDragCancel: (() -> Unit)? = null
+
     /** Platform long-press timeout used to match Android gesture expectations. */
     private val longPressTimeoutMs: Long = ViewConfiguration.getLongPressTimeout().toLong()
 
@@ -82,6 +98,17 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
     /** Ensures callback fires at most once per pointer-down sequence. */
     private var hasFiredLongPress = false
 
+    /** True once long-press has transitioned into drag mode. */
+    private var isDragActive = false
+
+    /** Last pointer coordinates used to compute drag delta. */
+    private var lastX = 0f
+    private var lastY = 0f
+
+    /** Total drag distance used to gate drag start by touch slop. */
+    private var accumulatedDragX = 0f
+    private var accumulatedDragY = 0f
+
     /** Runnable posted on ACTION_DOWN; fires callback if gesture remains valid. */
     private val longPressRunnable = Runnable {
         if (isLongPressCandidate && !hasFiredLongPress) {
@@ -95,8 +122,13 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
             MotionEvent.ACTION_DOWN -> {
                 downX = event.x
                 downY = event.y
+                lastX = event.x
+                lastY = event.y
+                accumulatedDragX = 0f
+                accumulatedDragY = 0f
                 isLongPressCandidate = true
                 hasFiredLongPress = false
+                isDragActive = false
                 removeCallbacks(longPressRunnable)
                 postDelayed(longPressRunnable, longPressTimeoutMs)
             }
@@ -110,12 +142,63 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
                         removeCallbacks(longPressRunnable)
                     }
                 }
+
+                // Long-press already fired: this move may transition into drag mode.
+                if (hasFiredLongPress) {
+                    val deltaX = event.x - lastX
+                    val deltaY = event.y - lastY
+                    lastX = event.x
+                    lastY = event.y
+
+                    if (!isDragActive) {
+                        accumulatedDragX += deltaX
+                        accumulatedDragY += deltaY
+                        val crossedDragThreshold =
+                            abs(accumulatedDragX) > touchSlopPx || abs(accumulatedDragY) > touchSlopPx
+                        if (crossedDragThreshold) {
+                            isDragActive = true
+                            onWidgetDragStart?.invoke()
+                        }
+                    }
+
+                    if (isDragActive) {
+                        onWidgetDrag?.invoke(Offset(deltaX, deltaY))
+                        // While dragging we consume at wrapper level so the inner
+                        // widget does not receive click/up and trigger accidental actions.
+                        return true
+                    }
+                }
             }
 
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
+                val wasDragActive = isDragActive
+                val hadLongPress = hasFiredLongPress
+
                 isLongPressCandidate = false
+                isDragActive = false
                 removeCallbacks(longPressRunnable)
+
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_UP -> {
+                        if (wasDragActive) {
+                            onWidgetDragEnd?.invoke()
+                            return true
+                        }
+                        if (hadLongPress) {
+                            onWidgetLongPressRelease?.invoke()
+                        }
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        if (wasDragActive) {
+                            onWidgetDragCancel?.invoke()
+                            return true
+                        }
+                        if (hadLongPress) {
+                            onWidgetLongPressRelease?.invoke()
+                        }
+                    }
+                }
             }
         }
 
@@ -154,10 +237,20 @@ fun HomeScreenWidgetView(
     widthPx: Int,
     heightPx: Int,
     onWidgetLongPress: () -> Unit = {},
+    onWidgetLongPressRelease: () -> Unit = {},
+    onWidgetDragStart: () -> Unit = {},
+    onWidgetDrag: (Offset) -> Unit = {},
+    onWidgetDragEnd: () -> Unit = {},
+    onWidgetDragCancel: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
     val currentOnWidgetLongPress = rememberUpdatedState(onWidgetLongPress)
+    val currentOnWidgetLongPressRelease = rememberUpdatedState(onWidgetLongPressRelease)
+    val currentOnWidgetDragStart = rememberUpdatedState(onWidgetDragStart)
+    val currentOnWidgetDrag = rememberUpdatedState(onWidgetDrag)
+    val currentOnWidgetDragEnd = rememberUpdatedState(onWidgetDragEnd)
+    val currentOnWidgetDragCancel = rememberUpdatedState(onWidgetDragCancel)
 
     // Create the AppWidgetHostView once for this widget ID.
     // If the widget's provider is uninstalled, getProviderInfo returns null
@@ -216,6 +309,21 @@ fun HomeScreenWidgetView(
             if (frameLayout is WidgetLongPressFrameLayout) {
                 frameLayout.onWidgetLongPress = {
                     currentOnWidgetLongPress.value.invoke()
+                }
+                frameLayout.onWidgetLongPressRelease = {
+                    currentOnWidgetLongPressRelease.value.invoke()
+                }
+                frameLayout.onWidgetDragStart = {
+                    currentOnWidgetDragStart.value.invoke()
+                }
+                frameLayout.onWidgetDrag = { delta ->
+                    currentOnWidgetDrag.value.invoke(delta)
+                }
+                frameLayout.onWidgetDragEnd = {
+                    currentOnWidgetDragEnd.value.invoke()
+                }
+                frameLayout.onWidgetDragCancel = {
+                    currentOnWidgetDragCancel.value.invoke()
                 }
             }
         },

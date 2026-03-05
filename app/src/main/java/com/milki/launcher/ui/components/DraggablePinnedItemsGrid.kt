@@ -262,7 +262,19 @@ fun DraggablePinnedItemsGrid(
                             if (dragController.session != null) return@detectTapGestures
 
                             val pressedCell = layoutMetrics.pixelToCell(longPressOffset)
-                            val isCellOccupied = items.any { it.position == pressedCell }
+
+                            // IMPORTANT: occupancy must be span-aware.
+                            // Widgets can cover multiple cells while their
+                            // `position` only points to the top-left anchor.
+                            // If we only check `item.position == pressedCell`,
+                            // long-pressing inside a widget's non-anchor area
+                            // is incorrectly treated as empty space, which
+                            // opens the homescreen menu at the same time as
+                            // the widget menu.
+                            val isCellOccupied = items.any { candidate ->
+                                val candidateSpan = (candidate as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+                                pressedCell in candidateSpan.occupiedPositions(candidate.position)
+                            }
 
                             if (!isCellOccupied) {
                                 hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -439,84 +451,63 @@ fun DraggablePinnedItemsGrid(
                             widgetHostManager = widgetHostManager,
                             widthPx = (cellWidthPx * span.columns).toInt(),
                             heightPx = (cellHeightPx * span.rows).toInt(),
-                            modifier = Modifier.fillMaxSize()
-                        )
+                            onWidgetLongPress = {
+                                if (dragController.session == null) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    menuShownForItemId = item.id
+                                    // The long-press callback comes from the Android view wrapper,
+                                    // not from a Compose gesture stream that keeps tracking movement.
+                                    // Keep menu focusable so actions are immediately clickable.
+                                    isMenuGestureActive = true
+                                    onItemLongPress(item)
+                                }
+                            },
+                            onWidgetLongPressRelease = {
+                                isMenuGestureActive = false
+                            },
+                            onWidgetDragStart = {
+                                if (dragController.session == null) {
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
+                                    menuShownForItemId = null
+                                    isMenuGestureActive = false
+                                    dragController.startDrag(
+                                        item = item,
+                                        itemId = item.id,
+                                        startPosition = item.position
+                                    )
+                                }
+                            },
+                            onWidgetDrag = { dragAmount ->
+                                if (dragController.isDraggingItem(item.id)) {
+                                    dragController.updateDrag(dragAmount, layoutMetrics)
+                                }
+                            },
+                            onWidgetDragEnd = {
+                                val result = dragController.endDrag(layoutMetrics)
+                                if (result is AppDragDropResult.Moved && result.itemId == item.id) {
+                                    // Span-aware occupancy check for widget moves.
+                                    val draggedSpan = item.span
+                                    val draggedTargetCells = draggedSpan.occupiedPositions(result.to)
 
-                        // Gesture layer above the Android widget view.
-                        //
-                        // WHY THIS EXISTS:
-                        // We want widget interactions to follow the same pattern as
-                        // normal home icons:
-                        // 1) long-press shows dropdown menu
-                        // 2) long-press + drag closes menu and starts drag
-                        //
-                        // The underlying AppWidgetHostView can consume touch events,
-                        // so we place a transparent Compose gesture surface on top to
-                        // guarantee consistent drag/menu behavior.
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .detectDragGesture(
-                                    key = "widget-gesture-${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}",
-                                    dragThreshold = config.dragThresholdPx,
-                                    onTap = {
-                                        // Widgets do not launch via launcher tap.
-                                        // Their internal click behavior (if needed)
-                                        // comes from RemoteViews PendingIntents.
-                                    },
-                                    onLongPress = {
-                                        if (dragController.session == null) {
-                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            menuShownForItemId = item.id
-                                            isMenuGestureActive = true
-                                            onItemLongPress(item)
-                                        }
-                                    },
-                                    onLongPressRelease = {
-                                        isMenuGestureActive = false
-                                    },
-                                    onDragStart = {
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                                        menuShownForItemId = null
-                                        isMenuGestureActive = false
-                                        dragController.startDrag(
-                                            item = item,
-                                            itemId = item.id,
-                                            startPosition = item.position
-                                        )
-                                    },
-                                    onDrag = { change, dragAmount ->
-                                        if (dragController.isDraggingItem(item.id)) {
-                                            change.consume()
-                                            dragController.updateDrag(dragAmount, layoutMetrics)
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        val result = dragController.endDrag(layoutMetrics)
-                                        if (result is AppDragDropResult.Moved && result.itemId == item.id) {
-                                            // Span-aware occupancy check for widget moves.
-                                            val draggedSpan = item.span
-                                            val draggedTargetCells = draggedSpan.occupiedPositions(result.to)
-
-                                            val occupant = items.find { other ->
-                                                if (other.id == item.id) return@find false
-                                                val otherSpan = (other as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
-                                                val otherCells = otherSpan.occupiedPositions(other.position)
-                                                otherCells.any { it in draggedTargetCells }
-                                            }
-
-                                            if (occupant == null) {
-                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
-                                                onItemMove(result.itemId, result.to)
-                                            }
-                                            // If occupied, widget drop is invalid and snaps back.
-                                        }
-                                    },
-                                    onDragCancel = {
-                                        dragController.cancelDrag()
-                                        isMenuGestureActive = false
+                                    val occupant = items.find { other ->
+                                        if (other.id == item.id) return@find false
+                                        val otherSpan = (other as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+                                        val otherCells = otherSpan.occupiedPositions(other.position)
+                                        otherCells.any { it in draggedTargetCells }
                                     }
-                                )
+
+                                    if (occupant == null) {
+                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                        onItemMove(result.itemId, result.to)
+                                    }
+                                    // If occupied, widget drop is invalid and snaps back.
+                                }
+                            },
+                            onWidgetDragCancel = {
+                                dragController.cancelDrag()
+                                isMenuGestureActive = false
+                            },
+                            modifier = Modifier.fillMaxSize()
                         )
 
                         // Widget-specific context menu (shown on long-press).
