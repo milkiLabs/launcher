@@ -251,14 +251,13 @@ class MainActivity : ComponentActivity() {
                             // folder to the resolved grid cell. Folder cleanup policy applies.
                             homeViewModel.extractItemFromFolder(folderId, itemId, targetPosition)
                         },
-                        onMoveFolderItemToFolder = { sourceFolderId, itemId, item, targetFolderId ->
+                        onMoveFolderItemToFolder = { sourceFolderId, itemId, targetFolderId ->
                             // User dragged an icon from one folder popup and dropped it
                             // onto a different folder icon. Move between folders without
                             // placing the item on the grid (avoids position collision).
                             homeViewModel.moveItemBetweenFolders(
                                 sourceFolderId = sourceFolderId,
                                 itemId = itemId,
-                                item = item,
                                 targetFolderId = targetFolderId
                             )
                         },

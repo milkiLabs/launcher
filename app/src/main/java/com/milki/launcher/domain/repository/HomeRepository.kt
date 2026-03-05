@@ -294,4 +294,67 @@ interface HomeRepository {
         itemId: String,
         targetPosition: GridPosition
     ): Boolean
+
+    /**
+     * Atomically moves a child item from one folder into another folder.
+     *
+     * WHY THIS API EXISTS:
+     * Older call sites implemented this as two independent repository calls:
+     * 1) removeItemFromFolder(source)
+     * 2) addItemToFolder(target)
+     *
+     * Even when both calls happen quickly, they are still separate DataStore edit
+     * transactions with an observable intermediate state. This method removes that
+     * gap by performing the entire transfer in one edit block.
+     *
+     * OPERATION RULES:
+     * - [sourceFolderId] and [targetFolderId] must both exist and be FolderItems.
+     * - [itemId] must exist as a child in source folder.
+     * - Source and target must be different folder IDs.
+     * - Target folder will not receive duplicate IDs.
+     * - Folder cleanup policy is applied to source after child removal.
+     *
+     * @param sourceFolderId Folder the child is moved FROM.
+     * @param targetFolderId Folder the child is moved TO.
+     * @param itemId ID of the child being moved.
+     * @return true when transfer succeeds; false when rejected by guards.
+     */
+    suspend fun moveItemBetweenFolders(
+        sourceFolderId: String,
+        targetFolderId: String,
+        itemId: String
+    ): Boolean
+
+    /**
+     * Atomically removes a child from a source folder and creates a new folder at
+     * [atPosition] with that child + [occupantItem].
+     *
+     * This models dropping a folder child onto an occupied non-folder home cell.
+     *
+     * ATOMICITY GUARANTEE:
+     * - Child removal from source folder
+     * - Source-folder cleanup policy
+     * - Occupant removal from top-level grid
+     * - New folder creation at [atPosition]
+     *
+     * All happen in a single DataStore edit transaction.
+     *
+     * VALIDATION RULES:
+     * - Source folder must exist and contain [childItemId].
+     * - [occupantItem] must be a top-level non-folder item currently at [atPosition].
+     * - Nested folders are not allowed.
+     * - Global uniqueness by ID is enforced before writing the new folder.
+     *
+     * @param sourceFolderId Folder containing the child to extract.
+     * @param childItemId ID of the source-folder child to extract.
+     * @param occupantItem Top-level item currently occupying [atPosition].
+     * @param atPosition Grid position where the new folder should appear.
+     * @return The newly created folder when successful; null when rejected.
+     */
+    suspend fun extractFolderChildOntoItem(
+        sourceFolderId: String,
+        childItemId: String,
+        occupantItem: HomeItem,
+        atPosition: GridPosition
+    ): HomeItem.FolderItem?
 }

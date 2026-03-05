@@ -459,23 +459,18 @@ class HomeViewModel(
     fun moveItemBetweenFolders(
         sourceFolderId: String,
         itemId: String,
-        item: HomeItem,
         targetFolderId: String
     ) {
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not move item between folders"
         ) {
-            // Step 1: remove from source folder and apply cleanup policy.
-            // removeItemFromFolder returns null if the folder was deleted (≤1 child left),
-            // or the remaining children list if the folder still exists.
-            homeRepository.removeItemFromFolder(sourceFolderId, itemId)
-
-            // Step 2: add to the target folder.
-            // addItemToFolder removes the item from the flat pinnedItems list (if present)
-            // and appends it to the target folder's children.  Since we only removed it
-            // from the source folder's children list (not the flat list), we pass the item
-            // object directly — the repository will ignore missing flat-list entries.
-            homeRepository.addItemToFolder(folderId = targetFolderId, item = item)
+            // Single atomic repository transaction: remove from source, apply source
+            // cleanup policy, then insert into target folder children.
+            homeRepository.moveItemBetweenFolders(
+                sourceFolderId = sourceFolderId,
+                targetFolderId = targetFolderId,
+                itemId = itemId
+            )
         }
     }
 
@@ -527,30 +522,16 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not create folder from drag"
         ) {
-            // ----------------------------------------------------------------
-            // Step 1: Remove childItem from its source folder.
-            //
-            // removeItemFromFolder returns:
-            //   null  → folder was deleted or unwrapped (cleanup policy applied).
-            //   list  → remaining children, folder still exists.
-            //
-            // Either way we do not need the return value here — we just need
-            // the item to be gone from the source folder before step 2.
-            // ----------------------------------------------------------------
-            homeRepository.removeItemFromFolder(sourceFolderId, childItem.id)
-
-            // ----------------------------------------------------------------
-            // Step 2: Create a new folder containing childItem + occupantItem.
-            //
-            // createFolder will:
-            //   • Try to remove childItem from pinnedItems (no-op, not there).
-            //   • Remove occupantItem from pinnedItems (it IS there).
-            //   • Insert a new FolderItem at atPosition with both items as children.
-            //
-            // We pass childItem first so it appears as the "icon 1" in the folder
-            // (the one the user was dragging), matching the expected visual order.
-            // ----------------------------------------------------------------
-            val folder = homeRepository.createFolder(childItem, occupantItem, atPosition)
+            // Single atomic repository transaction:
+            // 1) remove child from source folder + apply cleanup policy
+            // 2) remove occupant from top-level cell
+            // 3) create new folder at the occupied cell
+            val folder = homeRepository.extractFolderChildOntoItem(
+                sourceFolderId = sourceFolderId,
+                childItemId = childItem.id,
+                occupantItem = occupantItem,
+                atPosition = atPosition
+            )
             folder != null
         }
     }

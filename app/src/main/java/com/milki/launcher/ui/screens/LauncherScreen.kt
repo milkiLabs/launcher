@@ -147,7 +147,7 @@ fun LauncherScreen(
      * Called when the user drags an item from one folder popup and drops it
      * onto a DIFFERENT folder icon on the home grid.
      */
-    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, item: HomeItem, targetFolderId: String) -> Unit = { _, _, _, _ -> },
+    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit = { _, _, _ -> },
     /**
      * Called when the user drags a folder child icon and drops it onto a NON-FOLDER
      * home grid icon.  The two icons should be merged into a brand new folder.

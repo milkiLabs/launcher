@@ -167,8 +167,8 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences)
 
-            // Check for duplicate by ID
-            if (currentItems.any { it.id == item.id }) {
+            // Check for duplicate by ID across BOTH top-level items and folder children.
+            if (containsItemIdAnywhere(currentItems, item.id)) {
                 return@edit // Item already pinned, do nothing
             }
 
@@ -245,13 +245,10 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            // If the item lives inside a folder (not on the flat home-screen grid),
-            // remove it from that folder BEFORE placing it on the grid.  Without this
-            // step the item would appear both inside its folder AND on the grid.
-            //
-            // The folder cleanup policy is applied: if the folder becomes empty it is
-            // deleted; if only one child remains the folder is unwrapped to a plain icon.
-            evictItemFromFolderIfPresent(currentItems, item.id)
+            // Enforce uniqueness globally before placing this item on the top-level grid.
+            // This evicts the same ID from any folder and from accidental duplicate
+            // top-level entries, then we write exactly one canonical copy below.
+            evictItemEverywhere(currentItems, item.id)
 
             // Re-evaluate indices AFTER the eviction — the list may have changed.
             val existingItemIndex = currentItems.indexOfFirst { it.id == item.id }
@@ -441,6 +438,11 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
+            // Enforce global uniqueness before creating a new folder.
+            // This guarantees each logical item ID exists in exactly one location.
+            evictItemEverywhere(currentItems, item1.id)
+            evictItemEverywhere(currentItems, item2.id)
+
             // Remove both source items from the top-level list.
             // We use removeAll with id comparison to be safe if positions shifted.
             currentItems.removeAll { it.id == item1.id || it.id == item2.id }
@@ -490,17 +492,9 @@ class HomeRepositoryImpl(
                 return@edit
             }
 
-            // Remove the item from the top-level flat list if it appears there.
-            // (When dragging a home-screen icon onto a folder, the icon is
-            //  at the top level and must be removed before being added to the folder.)
-            currentItems.removeAll { it.id == item.id }
-
-            // Also remove the item from any OTHER folder it may already be in.
-            // Without this, an icon that lives inside folder A could be dragged (from
-            // the search dialog) into folder B and appear in both — a duplication bug.
-            // The same cleanup policy that governs individual item removal applies here:
-            // empty folder → deleted; single-child folder → unwrapped.
-            evictItemFromFolderIfPresent(currentItems, item.id)
+            // Enforce global uniqueness by removing this ID from any other location
+            // (top-level and/or folder children) before inserting into target folder.
+            evictItemEverywhere(currentItems, item.id)
 
             // Re-find folder index after the removal above (index may have shifted).
             val updatedFolderIndex = currentItems.indexOfFirst { it.id == folderId }
@@ -540,44 +534,27 @@ class HomeRepositoryImpl(
         itemId: String
     ): HomeItem.FolderItem? {
         var resultFolder: HomeItem.FolderItem? = null
+        var wasApplied = false
 
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
-            if (folderIndex == -1) return@edit
+            // STRICT GUARD: if the child is not present in the folder, this must be
+            // a no-op. We intentionally do not apply cleanup in that case.
+            val removedChild = removeChildFromFolderWithCleanup(
+                items = currentItems,
+                folderId = folderId,
+                childItemId = itemId
+            ) ?: return@edit
 
-            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
-
-            // Build the new children list without the removed item.
-            val updatedChildren = folder.children.filterNot { it.id == itemId }
-
-            when (updatedChildren.size) {
-                0 -> {
-                    // Folder is now empty — delete it entirely from the home screen.
-                    currentItems.removeAt(folderIndex)
-                    resultFolder = null
-                }
-                1 -> {
-                    // Only one child left — promote it to the folder's grid position.
-                    // The folder is deleted and the single remaining child takes its spot.
-                    val promotedChild = updatedChildren.first().withPosition(folder.position)
-                    currentItems.removeAt(folderIndex)
-                    currentItems.add(promotedChild)
-                    resultFolder = null
-                }
-                else -> {
-                    // Two or more children remain — just update the folder.
-                    val updatedFolder = folder.copy(children = updatedChildren)
-                    currentItems[folderIndex] = updatedFolder
-                    resultFolder = updatedFolder
-                }
-            }
+            // Child was found and removed. Determine whether the folder still exists.
+            resultFolder = currentItems.firstOrNull { it.id == folderId } as? HomeItem.FolderItem
+            wasApplied = removedChild.id == itemId
 
             serializeItems(currentItems, preferences)
         }
 
-        return resultFolder
+        return if (wasApplied) resultFolder else null
     }
 
     /**
@@ -727,7 +704,7 @@ class HomeRepositoryImpl(
             val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
 
             // Find the item inside the folder.
-            val childItem = folder.children.find { it.id == itemId } ?: return@edit
+            if (folder.children.none { it.id == itemId }) return@edit
 
             // Occupancy check: the target must be empty or occupied by the folder itself.
             val targetOccupant = currentItems.find {
@@ -738,35 +715,123 @@ class HomeRepositoryImpl(
                 return@edit
             }
 
-            // Build the updated children list without the extracted item.
-            val remainingChildren = folder.children.filterNot { it.id == itemId }
+            // Remove from source folder and apply cleanup policy in one shared helper.
+            // This keeps folder-removal logic identical across all write paths.
+            val removedChild = removeChildFromFolderWithCleanup(
+                items = currentItems,
+                folderId = folderId,
+                childItemId = itemId
+            ) ?: return@edit
 
-            when (remainingChildren.size) {
-                0 -> {
-                    // Folder becomes empty — delete it.
-                    currentItems.removeAt(folderIndex)
-                }
-                1 -> {
-                    // Only one child left — promote it to the folder's position
-                    // and delete the folder.
-                    val promotedChild = remainingChildren.first().withPosition(folder.position)
-                    currentItems.removeAt(folderIndex)
-                    currentItems.add(promotedChild)
-                }
-                else -> {
-                    // Folder still has multiple children — just update it.
-                    currentItems[folderIndex] = folder.copy(children = remainingChildren)
-                }
-            }
+            // Enforce uniqueness before adding to top-level grid position.
+            evictItemEverywhere(currentItems, removedChild.id)
 
             // Place the extracted item at the target position.
-            currentItems.add(childItem.withPosition(targetPosition))
+            currentItems.add(removedChild.withPosition(targetPosition))
 
             serializeItems(currentItems, preferences)
             wasApplied = true
         }
 
         return wasApplied
+    }
+
+    /**
+     * Atomically moves a child from one folder into another folder.
+     */
+    override suspend fun moveItemBetweenFolders(
+        sourceFolderId: String,
+        targetFolderId: String,
+        itemId: String
+    ): Boolean {
+        if (sourceFolderId == targetFolderId) return false
+
+        var wasApplied = false
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val sourceFolder = currentItems.firstOrNull { it.id == sourceFolderId } as? HomeItem.FolderItem
+                ?: return@edit
+            if (sourceFolder.children.none { it.id == itemId }) {
+                return@edit
+            }
+
+            val targetFolder = currentItems.firstOrNull { it.id == targetFolderId } as? HomeItem.FolderItem
+                ?: return@edit
+
+            // Keep existing semantics explicit: moving an item onto a folder that
+            // already contains the same ID is rejected.
+            if (targetFolder.children.any { it.id == itemId }) {
+                return@edit
+            }
+
+            val childToMove = sourceFolder.children.first { it.id == itemId }
+
+            // Remove any copy of this ID first (including source folder child) so the
+            // final write is globally unique by item ID.
+            evictItemEverywhere(currentItems, itemId)
+
+            val updatedTargetIndex = currentItems.indexOfFirst { it.id == targetFolderId }
+            if (updatedTargetIndex == -1) return@edit
+
+            val updatedTarget = currentItems[updatedTargetIndex] as? HomeItem.FolderItem ?: return@edit
+            val updatedChildren = updatedTarget.children.toMutableList()
+            updatedChildren.add(childToMove.withPosition(GridPosition.DEFAULT))
+
+            currentItems[updatedTargetIndex] = updatedTarget.copy(children = updatedChildren)
+
+            serializeItems(currentItems, preferences)
+            wasApplied = true
+        }
+
+        return wasApplied
+    }
+
+    /**
+     * Atomically extracts a child from one folder and creates a new folder at an
+     * occupied cell with that child + the current occupant.
+     */
+    override suspend fun extractFolderChildOntoItem(
+        sourceFolderId: String,
+        childItemId: String,
+        occupantItem: HomeItem,
+        atPosition: GridPosition
+    ): HomeItem.FolderItem? {
+        if (occupantItem is HomeItem.FolderItem) return null
+
+        var createdFolder: HomeItem.FolderItem? = null
+
+        context.homeDataStore.edit { preferences ->
+            val currentItems = deserializeItems(preferences).toMutableList()
+
+            val sourceFolder = currentItems.firstOrNull { it.id == sourceFolderId } as? HomeItem.FolderItem
+                ?: return@edit
+            val childToMove = sourceFolder.children.firstOrNull { it.id == childItemId }
+                ?: return@edit
+
+            // The occupant must still be a top-level non-folder item at the exact
+            // drop position; otherwise this drop route is no longer valid.
+            val liveOccupant = currentItems.firstOrNull {
+                it.id == occupantItem.id && it.position == atPosition && it !is HomeItem.FolderItem
+            } ?: return@edit
+
+            // Remove all existing copies before creating the final folder.
+            evictItemEverywhere(currentItems, childToMove.id)
+            evictItemEverywhere(currentItems, liveOccupant.id)
+
+            val newFolder = HomeItem.FolderItem.create(
+                item1 = childToMove,
+                item2 = liveOccupant,
+                atPosition = atPosition
+            )
+
+            currentItems.add(newFolder)
+            serializeItems(currentItems, preferences)
+            createdFolder = newFolder
+        }
+
+        return createdFolder
     }
 
     // ========================================================================
@@ -869,38 +934,80 @@ class HomeRepositoryImpl(
      * @param items  The mutable flat home-items list (modified in-place).
      * @param itemId The ID of the child item to evict.
      */
-    private fun evictItemFromFolderIfPresent(items: MutableList<HomeItem>, itemId: String) {
+    private fun evictItemFromFolderIfPresent(items: MutableList<HomeItem>, itemId: String): Boolean {
         // Find the index of the folder that contains this item as a child.
-        // An item can only live in one folder at a time, so we stop at the first match.
-        val folderIndex = items.indexOfFirst { candidate ->
-            candidate is HomeItem.FolderItem &&
-                candidate.children.any { child -> child.id == itemId }
-        }
+        // We remove one match per call; caller can loop to remove all matches.
+        val folder = items.firstOrNull { candidate ->
+            candidate is HomeItem.FolderItem && candidate.children.any { child -> child.id == itemId }
+        } as? HomeItem.FolderItem
 
         // Item is not inside any folder — nothing to do.
-        if (folderIndex == -1) return
+        if (folder == null) return false
 
-        val folder = items[folderIndex] as HomeItem.FolderItem
+        return removeChildFromFolderWithCleanup(
+            items = items,
+            folderId = folder.id,
+            childItemId = itemId
+        ) != null
+    }
 
-        // Build the updated children list with the target item removed.
-        val updatedChildren = folder.children.filterNot { it.id == itemId }
+    /**
+     * Removes an item ID from top-level and all folders, applying source-folder
+     * cleanup policy each time a folder child is evicted.
+     */
+    private fun evictItemEverywhere(items: MutableList<HomeItem>, itemId: String) {
+        items.removeAll { it.id == itemId }
 
-        when (updatedChildren.size) {
+        // Run until no folder contains this child ID. We intentionally clean all
+        // duplicates so every mutation leaves the data model globally unique by ID.
+        while (evictItemFromFolderIfPresent(items, itemId)) {
+            // Keep evicting until exhausted.
+        }
+    }
+
+    /**
+     * Removes one child from a specific folder and applies folder cleanup policy.
+     *
+     * @return the removed child when the child existed; null when no mutation happened.
+     */
+    private fun removeChildFromFolderWithCleanup(
+        items: MutableList<HomeItem>,
+        folderId: String,
+        childItemId: String
+    ): HomeItem? {
+        val folderIndex = items.indexOfFirst { it.id == folderId }
+        if (folderIndex == -1) return null
+
+        val folder = items[folderIndex] as? HomeItem.FolderItem ?: return null
+        val removedChild = folder.children.firstOrNull { it.id == childItemId } ?: return null
+        val remainingChildren = folder.children.filterNot { it.id == childItemId }
+
+        when (remainingChildren.size) {
             0 -> {
-                // No children left — delete the folder from the home screen.
                 items.removeAt(folderIndex)
             }
             1 -> {
-                // Only one child left — "unwrap" the folder:
-                // delete the folder and promote its last child to the folder's position.
-                val promotedChild = updatedChildren.first().withPosition(folder.position)
+                val promotedChild = remainingChildren.first().withPosition(folder.position)
                 items.removeAt(folderIndex)
                 items.add(promotedChild)
             }
             else -> {
-                // Two or more children remain — keep the folder, just update children.
-                items[folderIndex] = folder.copy(children = updatedChildren)
+                items[folderIndex] = folder.copy(children = remainingChildren)
             }
+        }
+
+        return removedChild
+    }
+
+    /**
+     * Checks whether an item ID exists anywhere in the model (top-level or folder child).
+     */
+    private fun containsItemIdAnywhere(items: List<HomeItem>, itemId: String): Boolean {
+        if (items.any { it.id == itemId }) return true
+
+        return items.any { item ->
+            val folder = item as? HomeItem.FolderItem ?: return@any false
+            folder.children.any { child -> child.id == itemId }
         }
     }
 

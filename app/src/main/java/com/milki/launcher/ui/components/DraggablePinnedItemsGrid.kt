@@ -99,7 +99,7 @@ import kotlin.math.roundToInt
  *                                  DIFFERENT folder on the home grid.  The caller should call
  *                                  [HomeViewModel.moveItemBetweenFolders] — NOT extractItemFromFolder
  *                                  — to avoid placing the item on the grid at an occupied position.
- *                                  Parameters: sourceFolderId, childItemId, childItem, targetFolderId.
+ *                                  Parameters: sourceFolderId, childItemId, targetFolderId.
  * @param onFolderChildDroppedOnItem Called when a [ExternalDragItem.FolderChild] is dropped onto a
  *                                   NON-FOLDER home grid item (i.e., the drop cell is occupied by a
  *                                   regular icon, not a folder).  Just like dragging two normal
@@ -123,7 +123,7 @@ fun DraggablePinnedItemsGrid(
     onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
     onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit = { _, _ -> },
     onFolderItemExtracted: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
-    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, item: HomeItem, targetFolderId: String) -> Unit = { _, _, _, _ -> },
+    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit = { _, _, _ -> },
     /**
      * Called when the user drags a folder child and drops it onto a NON-FOLDER icon in the grid.
      * The two items should be merged into a brand new folder at [atPosition].
@@ -636,7 +636,6 @@ fun DraggablePinnedItemsGrid(
                             onMoveFolderItemToFolder(
                                 item.folderId,
                                 item.childItem.id,
-                                item.childItem,
                                 occupantAtDrop.id
                             )
                             hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
