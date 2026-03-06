@@ -227,6 +227,9 @@ highlight feedback stable across devices:
                  a valid launcher payload (`App`, `File`, `Contact`, or `Widget`).
          - Payload resolution prefers same-process `localState` first, then falls back
                  to ClipData JSON decoding.
+         - ClipData decoding is tolerant to OEM label mutation: if
+                 `ClipDescription.label` is changed in transit, we still parse payload
+                 JSON and accept only known launcher DTO shapes.
          - This prevents unrelated system drags from triggering home-grid highlights.
 
 6. **Widget payload fallback is mandatory**

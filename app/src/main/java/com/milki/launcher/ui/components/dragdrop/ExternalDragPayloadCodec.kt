@@ -265,13 +265,12 @@ object ExternalDragPayloadCodec {
         }
 
         val descriptionLabel = dragEvent.clipDescription?.label?.toString()
-        if (
-            descriptionLabel != null &&
-            descriptionLabel != DRAG_CLIP_LABEL &&
-            descriptionLabel != LEGACY_APP_DRAG_CLIP_LABEL
-        ) {
-            return null
-        }
+        // IMPORTANT:
+        // Some OEM/platform drag paths may alter or drop custom ClipDescription
+        // labels when crossing windows. We therefore do NOT hard-reject unknown
+        // labels here. Instead, we attempt to parse the payload text and only
+        // return a drag item when the JSON shape matches our known launcher types.
+        // Non-launcher/plain-text drags naturally decode to null below.
 
         val clipData = dragEvent.clipData ?: return null
         if (clipData.itemCount <= 0) return null

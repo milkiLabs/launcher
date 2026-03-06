@@ -516,9 +516,9 @@ internal fun DropHighlightLayer(
 
     if (isExternalDragActive) {
         externalDragTargetPosition?.let { targetPosition ->
-            // Keep hover highlight visible even if payload decode is briefly null.
-            // This avoids "no landing preview" during cross-window drag frames.
-            val currentExternalItem = externalDragItem
+            // Render external highlight only when payload is resolved.
+            // This keeps widget drags span-accurate and avoids dual-box visuals.
+            val currentExternalItem = externalDragItem ?: return@let
             val rawDragSpan = (currentExternalItem as? ExternalDragItem.Widget)?.span ?: GridSpan.SINGLE
             val dragSpan = normalizeWidgetSpanForHomeGrid(rawSpan = rawDragSpan, gridColumns = config.columns)
 
@@ -580,7 +580,7 @@ internal fun DropHighlightLayer(
                         scaleY = highlightScale
                     }
             ) {
-                val previewItem = currentExternalItem?.toPreviewHomeItem()
+                val previewItem = currentExternalItem.toPreviewHomeItem()
                 if (previewItem != null) {
                     Box(modifier = Modifier.alpha(config.dropHighlightAlpha)) {
                         PinnedItem(
