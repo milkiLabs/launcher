@@ -91,17 +91,142 @@ The settings system is generally well-structured for a single-module app: immuta
 
 ## Scalability Pattern Recommendations
 
-1. Introduce a typed settings schema (Proto DataStore) with versioned migrations once configuration surface grows further.
-2. Create dedicated `SettingsMutationResult` sealed class for deterministic UX feedback and conflict handling.
-3. Split settings into feature-scoped repositories/adapters:
+1. Introduce a dedicated `SettingsMutationResult` family (feature-scoped where needed) for deterministic UX feedback and conflict handling.
+2. Split settings into feature-scoped repositories/adapters:
 - `SearchSettingsStore`
 - `HomeSettingsStore`
 - `AppearanceSettingsStore`
+3. Add explicit settings schema/version keys and migration functions even while staying on Preferences DataStore.
 4. Add focused tests:
 - prefix collision behavior
 - source normalization and migration
 - adapter diffing behavior under unrelated settings changes
 - reset/default semantics for custom sources
+
+## Potential Refactoring, Cleanup, and Redesign Backlog (Settings)
+
+This section is a practical backlog for the next settings-focused iterations. It is intentionally broader than the findings list and includes cleanup and redesign opportunities that reduce future maintenance cost.
+
+### A) Domain and Contract Refactoring
+
+1. Introduce feature-specific settings aggregates instead of one broad `LauncherSettings` dependency at every callsite.
+- Candidate models:
+	- `SearchSettings` (sources, provider toggles, prefixes, result limits)
+	- `AppearanceSettings` (layout, icon visibility, hint visibility)
+	- `HomeSettings` (tap/swipe/home-button behavior)
+- Benefit: reduces accidental coupling and makes use-case ownership clearer.
+
+2. Introduce feature-level repository interfaces as first-class contracts.
+- `SearchSettingsRepository`
+- `AppearanceSettingsRepository`
+- `HomeSettingsRepository`
+- Keep current `SettingsRepository` as orchestration facade during migration.
+
+3. Standardize mutation result contracts.
+- Continue moving from fire-and-forget writes toward typed outcomes:
+	- `Success`
+	- `ValidationError`
+	- `Conflict`
+	- `NotFound`
+	- `NoOp`
+- Benefit: deterministic UI behavior and simpler telemetry hooks.
+
+4. Formalize prefix collision contract in one place.
+- Current policy should be codified as an explicit domain rule document + constants.
+- UI should be able to query conflict reason before write (pre-check), but repository/domain remains source of truth.
+
+### B) Persistence and DataStore Cleanup
+
+1. Introduce a lightweight persistence schema module for Preferences keys.
+- Centralize key versioning/state marker conventions.
+- Add migration helper functions with strict unit tests.
+
+2. Separate first-run seed logic from parse logic for all settings groups, not only search sources.
+- Search sources now have state semantics; same pattern can be applied to future complex keys.
+
+3. Add corruption handling policy per key family.
+- Define behavior matrix:
+	- missing key
+	- malformed JSON
+	- semantically invalid payload
+- Choose deterministic recovery action and optional user-facing notice path.
+
+4. Add write-coalescing helpers for related settings updates.
+- Example: source update + prefix mutation in one transaction API when UI submits both.
+
+### C) UI and Presentation Redesign
+
+1. Continue section extraction beyond action contracts.
+- Move each settings section into its own file for discoverability:
+	- `SearchBehaviorSection.kt`
+	- `AppearanceSection.kt`
+	- `HomeSettingsSection.kt`
+	- `CustomSourcesSection.kt`
+	- `LocalPrefixesSection.kt`
+
+2. Introduce section-specific view state models.
+- Reduce entire-screen recomposition sensitivity and clarify data dependencies.
+- Example: `CustomSourcesUiState`, `LocalPrefixesUiState`.
+
+3. Consolidate dialog orchestration into a typed settings dialog state.
+- Replace multiple nullable flags with a single sealed state:
+	- `None`
+	- `ConfirmReset`
+	- `AddSource`
+	- `EditSource(sourceId)`
+	- `DeleteSource(sourceId)`
+
+4. Introduce a settings-intent layer for complex flows.
+- Keep simple toggles direct.
+- Use intents for multi-step edits (source create/edit + validation + mutation result display).
+
+### D) Search Runtime Configuration Pipeline Redesign
+
+1. Introduce a dedicated `SearchRuntimeConfig` projection model at repository boundary.
+- Should include only runtime-relevant values used by search pipeline and registry.
+- Benefit: avoids repeated projection logic and reduces fanout risk.
+
+2. Add config diff model for registry updates.
+- Compute `added/removed/updated` providers and prefixes before applying mutation.
+- Enables precise logs, tests, and potential rollback semantics.
+
+3. Add observable conflict report API.
+- When conflicts are resolved by policy, expose structured report for debugging/tests/UI hints.
+
+### E) Testing and Quality Infrastructure
+
+1. Add repository transaction tests for source CRUD + prefix operations under rapid sequential writes.
+
+2. Add parser state-matrix tests for search sources.
+- first-run defaults
+- initialized-empty
+- initialized-invalid
+- legacy-no-state-but-valid-json
+
+3. Add UI contract tests for settings action groups.
+- Verify each section triggers expected action contract without cross-section leakage.
+
+4. Add performance guard tests for settings fanout.
+- Ensure unrelated settings edits do not trigger search registry churn.
+
+### F) Observability and Operational Cleanup
+
+1. Add structured logging around settings mutation outcomes.
+- Mutation type, result category, conflict reason.
+
+2. Add one-time recovery notification mechanism for corrupted persisted search source payloads.
+- Keep non-blocking UX.
+- Avoid repeated toasts/dialog spam with persisted "notice shown" marker.
+
+3. Add developer diagnostics endpoint/screen (debug build only) for settings state snapshot.
+- Raw key state + parsed model + migration state marker visibility.
+
+## Recommended Next Iteration After Current Work
+
+1. Implement typed dialog state and section-file extraction for `SettingsScreen` to complete presentation decomposition.
+2. Add parser state-matrix and repository transaction tests for search sources and prefixes.
+3. Add conflict-report surface from search registry into settings validation UX.
+4. Add corruption telemetry + one-time user recovery notice for initialized-invalid source payloads.
 
 ## Suggested Implementation Order
 

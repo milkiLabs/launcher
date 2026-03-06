@@ -2,7 +2,6 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
-import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.search.ClipboardSuggestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +33,6 @@ internal class SearchViewModelStateHolder(
     val searchOutput = MutableStateFlow(SearchPipelineOutput())
     val prefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
     val clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
-    val searchSources = MutableStateFlow<List<SearchSource>>(emptyList())
     val providerAccentColorById = MutableStateFlow<Map<String, String>>(emptyMap())
 
     val backgroundState: StateFlow<SearchBackgroundState> = combine(

@@ -9,6 +9,7 @@ import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -31,14 +32,16 @@ internal class SearchViewModelSettingsAdapter(
     fun bind(
         scope: CoroutineScope,
         prefixConfigurations: MutableStateFlow<ProviderPrefixConfiguration>,
-        searchSources: MutableStateFlow<List<SearchSource>>,
         providerAccentColorById: MutableStateFlow<Map<String, String>>
     ) {
         scope.launch {
             settingsRepository.settings
+                // Observe only search-runtime-relevant settings so unrelated toggles
+                // (UI appearance, home gestures, etc.) do not trigger provider churn.
+                .map(SearchRuntimeSettingsProjection::from)
                 .distinctUntilChanged()
-                .collect { settings ->
-                    val enabledSources = settings.searchSources.filter { it.isEnabled }
+                .collect { projection ->
+                    val enabledSources = projection.searchSources.filter { it.isEnabled }
 
                     val dynamicProviderIds = providerRegistry
                         .getAllConfigs()
@@ -61,12 +64,18 @@ internal class SearchViewModelSettingsAdapter(
                     }
 
                     val fixedProviderConfigurations = buildMap {
-                        put(ProviderId.CONTACTS, settings.prefixConfigurations[ProviderId.CONTACTS] ?: PrefixConfig.single("c"))
-                        put(ProviderId.FILES, settings.prefixConfigurations[ProviderId.FILES] ?: PrefixConfig.single("f"))
-                        if (settings.contactsSearchEnabled.not()) {
+                        put(
+                            ProviderId.CONTACTS,
+                            projection.prefixConfigurations[ProviderId.CONTACTS] ?: PrefixConfig.single("c")
+                        )
+                        put(
+                            ProviderId.FILES,
+                            projection.prefixConfigurations[ProviderId.FILES] ?: PrefixConfig.single("f")
+                        )
+                        if (projection.contactsSearchEnabled.not()) {
                             remove(ProviderId.CONTACTS)
                         }
-                        if (settings.filesSearchEnabled.not()) {
+                        if (projection.filesSearchEnabled.not()) {
                             remove(ProviderId.FILES)
                         }
                     }
@@ -76,9 +85,33 @@ internal class SearchViewModelSettingsAdapter(
 
                     providerRegistry.updatePrefixConfigurations(mergedConfigurations)
                     prefixConfigurations.value = mergedConfigurations
-                    searchSources.value = settings.searchSources
-                    providerAccentColorById.value = settings.searchSources.associate { it.id to it.accentColorHex }
+                    providerAccentColorById.value = projection.searchSources.associate { it.id to it.accentColorHex }
                 }
+        }
+    }
+}
+
+/**
+ * Narrow projection used by the search runtime.
+ *
+ * Keeping this as a dedicated data class gives us stable `equals` semantics for
+ * `distinctUntilChanged` and documents exactly which settings can influence
+ * search provider registration and prefix configuration.
+ */
+private data class SearchRuntimeSettingsProjection(
+    val searchSources: List<SearchSource>,
+    val contactsSearchEnabled: Boolean,
+    val filesSearchEnabled: Boolean,
+    val prefixConfigurations: ProviderPrefixConfiguration
+) {
+    companion object {
+        fun from(settings: com.milki.launcher.domain.model.LauncherSettings): SearchRuntimeSettingsProjection {
+            return SearchRuntimeSettingsProjection(
+                searchSources = settings.searchSources,
+                contactsSearchEnabled = settings.contactsSearchEnabled,
+                filesSearchEnabled = settings.filesSearchEnabled,
+                prefixConfigurations = settings.prefixConfigurations
+            )
         }
     }
 }

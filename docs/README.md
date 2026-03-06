@@ -15,6 +15,11 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | **[launcher-screen-feature-hosts.md](launcher-screen-feature-hosts.md)** | LauncherScreen action grouping and host boundary refactor |
 | **[app-icon-memory-cache.md](app-icon-memory-cache.md)** | Launcher-optimized app icon caching and rendering flow |
 | **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** | Reducing DataStore read/write churn in settings/home hot paths |
+| **[settings-configuration-audit-phase-1.md](settings-configuration-audit-phase-1.md)** | Phase 1 settings audit refactor (adapter scope, collision policy, lifecycle wiring cleanup) |
+| **[settings-configuration-audit-phase-2.md](settings-configuration-audit-phase-2.md)** | Phase 2 settings audit refactor (transactional source-prefix mutation validation) |
+| **[settings-configuration-audit-phase-3.md](settings-configuration-audit-phase-3.md)** | Phase 3 settings audit refactor (targeted source CRUD repository APIs) |
+| **[settings-configuration-audit-phase-4.md](settings-configuration-audit-phase-4.md)** | Phase 4 settings audit refactor (explicit empty-state and first-run source persistence semantics) |
+| **[settings-configuration-audit-phase-5.md](settings-configuration-audit-phase-5.md)** | Phase 5 settings audit refactor (action contracts and section-level UI decomposition) |
 | **[LauncherApplication.md](LauncherApplication.md)** | Application class and Koin startup configuration |
 | **[Theme.md](Theme.md)** | Material Design 3 theming explained |
 | **[BuildConfiguration.md](BuildConfiguration.md)** | Gradle build files explained |
@@ -246,6 +251,11 @@ This project is extensively documented for educational purposes. Each major comp
 ### Technical Components
 - **[app-icon-memory-cache.md](app-icon-memory-cache.md)** - How launcher icon caching and rendering works
 - **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** - How hot-path repository writes were optimized
+- **[settings-configuration-audit-phase-1.md](settings-configuration-audit-phase-1.md)** - Phase 1 prioritized settings/configuration audit fixes
+- **[settings-configuration-audit-phase-2.md](settings-configuration-audit-phase-2.md)** - Phase 2 transactional source-prefix mutation refactor
+- **[settings-configuration-audit-phase-3.md](settings-configuration-audit-phase-3.md)** - Phase 3 targeted source CRUD repository refactor
+- **[settings-configuration-audit-phase-4.md](settings-configuration-audit-phase-4.md)** - Phase 4 source persistence semantics refactor (first-run vs initialized + explicit empty state)
+- **[settings-configuration-audit-phase-5.md](settings-configuration-audit-phase-5.md)** - Phase 5 action-contract and section-level Settings UI decomposition refactor
 - **[LauncherApplication.md](LauncherApplication.md)** - Application class and startup initialization
 - **[Theme.md](Theme.md)** - Material Design 3 theming explained
 

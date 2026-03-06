@@ -194,14 +194,36 @@ class SearchProviderRegistry(
     private fun rebuildPrefixMappings() {
         prefixToProviderId.clear()
 
-        for ((providerId, provider) in providersById) {
+        // Explicit and deterministic collision policy:
+        // 1) Built-in local providers (contacts/files) have highest priority.
+        // 2) Dynamic source_* providers come next.
+        // 3) Any remaining provider IDs are applied last.
+        //
+        // The first owner of a prefix wins (`putIfAbsent`), so this ordering is
+        // the contract that determines collision resolution behavior.
+        val orderedProviders = providersById
+            .toList()
+            .sortedWith(compareBy({ providerPriority(it.first) }, { it.first }))
+
+        for ((providerId, provider) in orderedProviders) {
             // Get prefixes for this provider: custom or default
             val prefixes = getPrefixesForProvider(providerId, provider)
 
-            // Map each prefix to this provider
+            // Map each prefix to this provider using first-wins semantics.
             for (prefix in prefixes) {
-                prefixToProviderId[prefix] = providerId
+                prefixToProviderId.putIfAbsent(prefix, providerId)
             }
+        }
+    }
+
+    /**
+     * Returns provider priority used by collision policy in rebuildPrefixMappings().
+     */
+    private fun providerPriority(providerId: String): Int {
+        return when {
+            providerId in ProviderId.all -> 0
+            providerId.startsWith("source_") -> 1
+            else -> 2
         }
     }
 

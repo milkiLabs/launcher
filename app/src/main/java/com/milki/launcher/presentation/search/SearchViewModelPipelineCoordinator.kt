@@ -4,7 +4,6 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResult
-import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.SearchProvider
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.ParsedQuery
@@ -49,21 +48,18 @@ internal class SearchViewModelPipelineCoordinator(
         isSearchVisible: StateFlow<Boolean>,
         backgroundState: StateFlow<SearchBackgroundState>,
         prefixConfigurations: StateFlow<ProviderPrefixConfiguration>,
-        searchSources: StateFlow<List<SearchSource>>,
         existingOutput: MutableStateFlow<SearchPipelineOutput>
     ): StateFlow<SearchPipelineOutput> {
         return combine(
             query,
             isSearchVisible,
             backgroundState,
-            prefixConfigurations,
-            searchSources
-        ) { currentQuery, visible, background, _, sources ->
+            prefixConfigurations
+        ) { currentQuery, visible, background, _ ->
             SearchPipelineInput(
                 query = currentQuery,
                 visible = visible,
-                background = background,
-                sources = sources
+                background = background
             )
         }
             .mapLatest { input ->
@@ -82,8 +78,7 @@ internal class SearchViewModelPipelineCoordinator(
                     val results = executeSearch(
                         parsed = parsed,
                         installedApps = input.background.installedApps,
-                        recentApps = input.background.recentApps,
-                        searchSources = input.sources
+                        recentApps = input.background.recentApps
                     )
 
                     SearchPipelineOutput(
@@ -106,8 +101,7 @@ internal class SearchViewModelPipelineCoordinator(
     private suspend fun executeSearch(
         parsed: ParsedQuery,
         installedApps: List<AppInfo>,
-        recentApps: List<AppInfo>,
-        searchSources: List<SearchSource>
+        recentApps: List<AppInfo>
     ): List<SearchResult> {
         if (parsed.provider != null) {
             return runProviderSearch(parsed.provider, parsed.query)
@@ -145,6 +139,5 @@ internal class SearchViewModelPipelineCoordinator(
 private data class SearchPipelineInput(
     val query: String,
     val visible: Boolean,
-    val background: SearchBackgroundState,
-    val sources: List<SearchSource>
+    val background: SearchBackgroundState
 )

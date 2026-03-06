@@ -35,6 +35,7 @@ class SettingsViewModel(
         const val PREFIX_ERROR_EMPTY = "Prefix cannot be empty"
         const val PREFIX_ERROR_SPACES = "Prefix cannot contain spaces"
         const val PREFIX_ERROR_DUPLICATE = "Prefix is already used by another source"
+        const val PREFIX_ERROR_SOURCE_NOT_FOUND = "Source no longer exists"
     }
 
     /**
@@ -136,6 +137,12 @@ class SettingsViewModel(
         }
     }
 
+    fun setFilesSearchEnabled(value: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setFilesSearchEnabled(value)
+        }
+    }
+
     // ========================================================================
     // DYNAMIC SEARCH SOURCES
     // ========================================================================
@@ -150,21 +157,19 @@ class SettingsViewModel(
         accentColorHex: String
     ) {
         viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                val normalizedPrefixes = prefixes
-                    .map(SearchSource.Companion::normalizePrefix)
-                    .filter { it.isNotBlank() && !it.contains(" ") }
-                    .distinct()
+            val normalizedPrefixes = prefixes
+                .map(SearchSource.Companion::normalizePrefix)
+                .filter { it.isNotBlank() && !it.contains(" ") }
+                .distinct()
 
-                val newSource = SearchSource.create(
-                    name = name.trim(),
-                    urlTemplate = urlTemplate.trim(),
-                    prefixes = normalizedPrefixes,
-                    accentColorHex = accentColorHex
-                )
+            val newSource = SearchSource.create(
+                name = name.trim(),
+                urlTemplate = urlTemplate.trim(),
+                prefixes = normalizedPrefixes,
+                accentColorHex = accentColorHex
+            )
 
-                current.copy(searchSources = current.searchSources + newSource)
-            }
+            settingsRepository.addSearchSource(newSource)
         }
     }
 
@@ -179,27 +184,18 @@ class SettingsViewModel(
         accentColorHex: String
     ) {
         viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                val normalizedPrefixes = prefixes
-                    .map(SearchSource.Companion::normalizePrefix)
-                    .filter { it.isNotBlank() && !it.contains(" ") }
-                    .distinct()
+            val normalizedPrefixes = prefixes
+                .map(SearchSource.Companion::normalizePrefix)
+                .filter { it.isNotBlank() && !it.contains(" ") }
+                .distinct()
 
-                current.copy(
-                    searchSources = current.searchSources.map { source ->
-                        if (source.id == sourceId) {
-                            source.copy(
-                                name = name.trim(),
-                                urlTemplate = urlTemplate.trim(),
-                                prefixes = normalizedPrefixes,
-                                accentColorHex = SearchSource.normalizeHexColor(accentColorHex)
-                            )
-                        } else {
-                            source
-                        }
-                    }
-                )
-            }
+            settingsRepository.updateSearchSource(
+                sourceId = sourceId,
+                name = name.trim(),
+                urlTemplate = urlTemplate.trim(),
+                prefixes = normalizedPrefixes,
+                accentColorHex = SearchSource.normalizeHexColor(accentColorHex)
+            )
         }
     }
 
@@ -208,9 +204,7 @@ class SettingsViewModel(
      */
     fun deleteSearchSource(sourceId: String) {
         viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                current.copy(searchSources = current.searchSources.filterNot { it.id == sourceId })
-            }
+            settingsRepository.deleteSearchSource(sourceId)
         }
     }
 
@@ -219,22 +213,19 @@ class SettingsViewModel(
      */
     fun setSearchSourceEnabled(sourceId: String, enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                current.copy(searchSources = current.searchSources.map { source ->
-                    if (source.id == sourceId) {
-                        source.copy(isEnabled = enabled)
-                    } else {
-                        source
-                    }
-                })
-            }
+            settingsRepository.setSearchSourceEnabled(sourceId, enabled)
         }
     }
 
     /**
-     * Adds a prefix to a source with global uniqueness validation.
+     * Adds a prefix to a source.
      *
-     * @return empty string on success, otherwise human-readable error.
+     * INPUT VALIDATION STRATEGY:
+     * 1) Keep immediate client-side checks for empty/spacing so dialog UX stays snappy.
+     * 2) Delegate uniqueness and source-existence validation to repository transaction.
+     *
+     * This split gives quick feedback without relying on potentially stale snapshots
+     * for correctness-critical uniqueness rules.
      */
     fun addPrefixToSource(sourceId: String, prefix: String, onValidationResult: (String) -> Unit) {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
@@ -250,62 +241,44 @@ class SettingsViewModel(
             }
         }
 
-        val allOtherPrefixes = settings.value.searchSources
-            .filter { it.id != sourceId }
-            .flatMap { it.prefixes }
-            .map(SearchSource.Companion::normalizePrefix)
-            .toSet()
-
-        if (normalizedPrefix in allOtherPrefixes) {
-            onValidationResult(PREFIX_ERROR_DUPLICATE)
-            return
-        }
-
         viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                current.copy(
-                    searchSources = current.searchSources.map { source ->
-                        if (source.id == sourceId) {
-                            val updatedPrefixes = (source.prefixes + normalizedPrefix)
-                                .map(SearchSource.Companion::normalizePrefix)
-                                .distinct()
-                            source.copy(prefixes = updatedPrefixes)
-                        } else {
-                            source
-                        }
-                    }
-                )
-            }
-            onValidationResult(PREFIX_ADD_SUCCESS)
+            val mutationResult = settingsRepository.addPrefixToSource(
+                sourceId = sourceId,
+                prefix = normalizedPrefix
+            )
+            onValidationResult(mutationResult.toAddPrefixUserMessage())
         }
     }
 
     /**
      * Removes one prefix from a source.
+     *
+     * The operation is executed in repository-level transaction to keep behavior
+     * deterministic when source data changes concurrently.
      */
     fun removePrefixFromSource(sourceId: String, prefix: String) {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
 
         viewModelScope.launch {
-            settingsRepository.updateSettings { current ->
-                current.copy(
-                    searchSources = current.searchSources.map { source ->
-                        if (source.id == sourceId) {
-                            source.copy(prefixes = source.prefixes.filterNot {
-                                SearchSource.normalizePrefix(it) == normalizedPrefix
-                            })
-                        } else {
-                            source
-                        }
-                    }
-                )
-            }
+            settingsRepository.removePrefixFromSource(
+                sourceId = sourceId,
+                prefix = normalizedPrefix
+            )
         }
     }
 
-    fun setFilesSearchEnabled(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setFilesSearchEnabled(value)
+    /**
+     * Translates repository mutation outcomes into existing dialog contract.
+     */
+    private fun SourcePrefixMutationResult.toAddPrefixUserMessage(): String {
+        return when (this) {
+            SourcePrefixMutationResult.Success -> PREFIX_ADD_SUCCESS
+            SourcePrefixMutationResult.PrefixAlreadyExistsOnTargetSource -> PREFIX_ADD_SUCCESS
+            is SourcePrefixMutationResult.DuplicatePrefixOnAnotherSource -> PREFIX_ERROR_DUPLICATE
+            SourcePrefixMutationResult.InvalidPrefixEmpty -> PREFIX_ERROR_EMPTY
+            SourcePrefixMutationResult.InvalidPrefixContainsSpaces -> PREFIX_ERROR_SPACES
+            SourcePrefixMutationResult.SourceNotFound -> PREFIX_ERROR_SOURCE_NOT_FOUND
+            SourcePrefixMutationResult.PrefixNotFoundOnTargetSource -> PREFIX_ADD_SUCCESS
         }
     }
 

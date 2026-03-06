@@ -1,100 +1,75 @@
 /**
  * SettingsScreen.kt - Main settings screen for the launcher
  *
- * Displays all configurable launcher settings organized into sections:
- * 1. Search Behavior - Result limits, keyboard behavior, recent apps
- * 2. Appearance - Layout, hints, icons
- * 3. Home Screen - Tap/gesture behavior
- * 4. Search Providers - Enable local providers and configure custom sources
- * 5. Advanced - Reset to defaults, app info
+ * Displays launcher settings organized into focused section composables.
  *
- * ARCHITECTURE:
- * This is a stateless composable. All state comes from SettingsViewModel
- * and all changes are propagated via ViewModel methods.
+ * REFACTOR NOTE:
+ * This file was decomposed into section-level composables and grouped action
+ * contracts (`SettingsActions`) so each section receives only the callbacks it
+ * actually needs. This improves readability and keeps change impact localized.
  */
 
 package com.milki.launcher.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
-import com.milki.launcher.domain.model.*
-import com.milki.launcher.ui.components.settings.*
+import com.milki.launcher.domain.model.HomeTapAction
+import com.milki.launcher.domain.model.LauncherSettings
+import com.milki.launcher.domain.model.ProviderId
+import com.milki.launcher.domain.model.SearchResultLayout
+import com.milki.launcher.domain.model.SearchSource
+import com.milki.launcher.domain.model.SwipeUpAction
+import com.milki.launcher.ui.components.settings.ActionSettingItem
+import com.milki.launcher.ui.components.settings.DropdownSettingItem
+import com.milki.launcher.ui.components.settings.PrefixSettingItem
+import com.milki.launcher.ui.components.settings.SettingsCategory
+import com.milki.launcher.ui.components.settings.SliderSettingItem
+import com.milki.launcher.ui.components.settings.SourceEditorDialog
+import com.milki.launcher.ui.components.settings.SourceSettingItem
+import com.milki.launcher.ui.components.settings.SwitchSettingItem
 import com.milki.launcher.ui.theme.Spacing
 
 /**
- * SettingsScreen - The main settings page for the launcher.
- *
- * @param settings Current launcher settings
- * @param onNavigateBack Called when user taps the back button
- * @param onSetMaxSearchResults Set max search results
- * @param onSetAutoFocusKeyboard Toggle auto-focus keyboard
- * @param onSetShowRecentApps Toggle recent apps display
- * @param onSetMaxRecentApps Set max recent apps count
- * @param onSetCloseSearchOnLaunch Toggle close-on-launch behavior
- * @param onSetSearchResultLayout Set result layout type
- * @param onSetShowHomescreenHint Toggle homescreen hint text
- * @param onSetShowAppIcons Toggle app icons in results
- * @param onSetHomeTapAction Set home tap action
- * @param onSetSwipeUpAction Set swipe up action
- * @param onSetHomeButtonClearsQuery Toggle home-button-clears-query behavior
- * @param onSetContactsSearchEnabled Toggle contacts search provider
- * @param onSetFilesSearchEnabled Toggle files search provider
- * @param onAddProviderPrefix Add a prefix to a provider
- * @param onRemoveProviderPrefix Remove a prefix from a provider
- * @param onResetProviderPrefixes Reset a provider's prefixes to default
- * @param onResetToDefaults Reset all settings to defaults
+ * SettingsScreen - launcher settings page with grouped action contract.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settings: LauncherSettings,
     onNavigateBack: () -> Unit,
-    onSetMaxSearchResults: (Int) -> Unit,
-    onSetAutoFocusKeyboard: (Boolean) -> Unit,
-    onSetShowRecentApps: (Boolean) -> Unit,
-    onSetMaxRecentApps: (Int) -> Unit,
-    onSetCloseSearchOnLaunch: (Boolean) -> Unit,
-    onSetSearchResultLayout: (SearchResultLayout) -> Unit,
-    onSetShowHomescreenHint: (Boolean) -> Unit,
-    onSetShowAppIcons: (Boolean) -> Unit,
-    onSetHomeTapAction: (HomeTapAction) -> Unit,
-    onSetSwipeUpAction: (SwipeUpAction) -> Unit,
-    onSetHomeButtonClearsQuery: (Boolean) -> Unit,
-    onSetContactsSearchEnabled: (Boolean) -> Unit,
-    onSetFilesSearchEnabled: (Boolean) -> Unit,
-    onAddProviderPrefix: (String, String) -> Unit,
-    onRemoveProviderPrefix: (String, String) -> Unit,
-    onResetProviderPrefixes: (String) -> Unit,
-    onAddSearchSource: (
-        name: String,
-        urlTemplate: String,
-        prefixes: List<String>,
-        accentColorHex: String
-    ) -> Unit,
-    onUpdateSearchSource: (
-        sourceId: String,
-        name: String,
-        urlTemplate: String,
-        prefixes: List<String>,
-        accentColorHex: String
-    ) -> Unit,
-    onDeleteSearchSource: (String) -> Unit,
-    onSetSearchSourceEnabled: (String, Boolean) -> Unit,
-    onAddPrefixToSource: (String, String, (String) -> Unit) -> Unit,
-    onRemovePrefixFromSource: (String, String) -> Unit,
-    onResetToDefaults: () -> Unit
+    actions: SettingsActions
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+
+    // Dialog state is kept at screen scope because multiple sections trigger it.
     var showResetDialog by remember { mutableStateOf(false) }
     var editingSource by remember { mutableStateOf<SearchSource?>(null) }
     var showAddSourceDialog by remember { mutableStateOf(false) }
@@ -132,222 +107,47 @@ fun SettingsScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ================================================================
-            // SEARCH BEHAVIOR
-            // ================================================================
-            SettingsCategory(title = "Search Behavior")
-
-            SwitchSettingItem(
-                title = "Auto-focus keyboard",
-                subtitle = "Automatically show keyboard when search opens",
-                checked = settings.autoFocusKeyboard,
-                onCheckedChange = onSetAutoFocusKeyboard
+            SearchBehaviorSection(
+                settings = settings,
+                actions = actions.searchBehavior
             )
 
-            SwitchSettingItem(
-                title = "Show recent apps",
-                subtitle = "Display recently used apps when search is empty",
-                checked = settings.showRecentApps,
-                onCheckedChange = onSetShowRecentApps
+            AppearanceSection(
+                settings = settings,
+                actions = actions.appearance
             )
 
-            SliderSettingItem(
-                title = "Max recent apps",
-                subtitle = "Number of recent apps to show",
-                value = settings.maxRecentApps,
-                onValueChange = onSetMaxRecentApps,
-                valueRange = 1..10,
-                steps = 8
+            HomeScreenSection(
+                settings = settings,
+                actions = actions.homeScreen
             )
 
-            SliderSettingItem(
-                title = "Max search results",
-                subtitle = "Maximum results shown per search",
-                value = settings.maxSearchResults,
-                onValueChange = onSetMaxSearchResults,
-                valueRange = 3..20,
-                steps = 16
+            LocalProvidersSection(
+                settings = settings,
+                actions = actions.localProviders
             )
 
-            SwitchSettingItem(
-                title = "Close search on launch",
-                subtitle = "Close the search dialog after launching an app",
-                checked = settings.closeSearchOnLaunch,
-                onCheckedChange = onSetCloseSearchOnLaunch
+            CustomSourcesSection(
+                settings = settings,
+                actions = actions.customSources,
+                onRequestAddSource = { showAddSourceDialog = true },
+                onRequestEditSource = { editingSource = it },
+                onRequestDeleteSource = { sourceIdPendingDelete = it }
             )
 
-            // ================================================================
-            // APPEARANCE
-            // ================================================================
-            SettingsCategory(title = "Appearance")
-
-            DropdownSettingItem(
-                title = "Search result layout",
-                subtitle = "How search results are displayed",
-                selectedValue = settings.searchResultLayout.displayName,
-                options = SearchResultLayout.entries.map { it.displayName to it },
-                onOptionSelected = onSetSearchResultLayout
+            LocalPrefixesSection(
+                settings = settings,
+                actions = actions.localPrefixes
             )
 
-            SwitchSettingItem(
-                title = "Show homescreen hint",
-                subtitle = "Display \"Tap to search\" text on homescreen",
-                checked = settings.showHomescreenHint,
-                onCheckedChange = onSetShowHomescreenHint
+            AdvancedSection(
+                onRequestReset = { showResetDialog = true }
             )
 
-            SwitchSettingItem(
-                title = "Show app icons",
-                subtitle = "Display app icons in search results",
-                checked = settings.showAppIcons,
-                onCheckedChange = onSetShowAppIcons
-            )
-
-            // ================================================================
-            // HOME SCREEN
-            // ================================================================
-            SettingsCategory(title = "Home Screen")
-
-            DropdownSettingItem(
-                title = "Homescreen tap action",
-                subtitle = "What happens when you tap the homescreen",
-                selectedValue = settings.homeTapAction.displayName,
-                options = HomeTapAction.entries.map { it.displayName to it },
-                onOptionSelected = onSetHomeTapAction
-            )
-
-            DropdownSettingItem(
-                title = "Swipe up action",
-                subtitle = "What happens when you swipe up on the homescreen",
-                selectedValue = settings.swipeUpAction.displayName,
-                options = SwipeUpAction.entries.map { it.displayName to it },
-                onOptionSelected = onSetSwipeUpAction
-            )
-
-            SwitchSettingItem(
-                title = "Home button clears query",
-                subtitle = "Pressing home clears query before closing search",
-                checked = settings.homeButtonClearsQuery,
-                onCheckedChange = onSetHomeButtonClearsQuery
-            )
-
-            // ================================================================
-            // SEARCH PROVIDERS
-            // ================================================================
-            SettingsCategory(title = "Search Providers")
-
-            SwitchSettingItem(
-                title = "Contacts search",
-                subtitle = "Search contacts with prefix \"c\"",
-                checked = settings.contactsSearchEnabled,
-                onCheckedChange = onSetContactsSearchEnabled
-            )
-
-            SwitchSettingItem(
-                title = "Files search",
-                subtitle = "Search files with prefix \"f\"",
-                checked = settings.filesSearchEnabled,
-                onCheckedChange = onSetFilesSearchEnabled
-            )
-
-            // ================================================================
-            // CUSTOM SOURCES (NEW)
-            // ================================================================
-            SettingsCategory(title = "Custom Sources")
-
-            Text(
-                text = "Create your own search sources (YouTube, Instagram, Twitter/X, engines, or any URL template). You can configure prefixes, fallback behavior via URL handlers, and custom colors.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(
-                    horizontal = Spacing.mediumLarge,
-                    vertical = Spacing.small
-                )
-            )
-
-            ActionSettingItem(
-                title = "Add custom source",
-                subtitle = "Define name, URL template, prefixes, and color",
-                onClick = { showAddSourceDialog = true },
-                icon = Icons.Default.Add
-            )
-
-            settings.searchSources.forEach { source ->
-                SourceSettingItem(
-                    source = source,
-                    onToggleEnabled = { enabled -> onSetSearchSourceEnabled(source.id, enabled) },
-                    onAddPrefix = { prefix, onResult ->
-                        onAddPrefixToSource(source.id, prefix, onResult)
-                    },
-                    onRemovePrefix = { prefix ->
-                        onRemovePrefixFromSource(source.id, prefix)
-                    },
-                    onEdit = { editingSource = source },
-                    onDelete = { sourceIdPendingDelete = source.id }
-                )
-            }
-
-            // ================================================================
-            // PREFIX CONFIGURATION
-            // ================================================================
-            SettingsCategory(title = "Local Prefixes")
-
-            // Helper text for prefix configuration
-            Text(
-                text = "Customize prefixes for local providers. External source prefixes are configured in the Custom Sources section.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(
-                    horizontal = Spacing.mediumLarge,
-                    vertical = Spacing.small
-                )
-            )
-
-            // Contacts prefix configuration
-            PrefixSettingItem(
-                providerName = "Contacts",
-                providerIcon = Icons.Default.Person,
-                providerColor = MaterialTheme.colorScheme.secondary,
-                defaultPrefix = "c",
-                currentPrefixes = settings.prefixConfigurations[ProviderId.CONTACTS]?.prefixes
-                    ?: listOf("c"),
-                onAddPrefix = { onAddProviderPrefix(ProviderId.CONTACTS, it) },
-                onRemovePrefix = { onRemoveProviderPrefix(ProviderId.CONTACTS, it) },
-                onReset = { onResetProviderPrefixes(ProviderId.CONTACTS) }
-            )
-
-
-            // Files prefix configuration
-            PrefixSettingItem(
-                providerName = "Files",
-                providerIcon = Icons.AutoMirrored.Filled.InsertDriveFile,
-                providerColor = MaterialTheme.colorScheme.primaryContainer,
-                defaultPrefix = "f",
-                currentPrefixes = settings.prefixConfigurations[ProviderId.FILES]?.prefixes
-                    ?: listOf("f"),
-                onAddPrefix = { onAddProviderPrefix(ProviderId.FILES, it) },
-                onRemovePrefix = { onRemoveProviderPrefix(ProviderId.FILES, it) },
-                onReset = { onResetProviderPrefixes(ProviderId.FILES) }
-            )
-
-            // ================================================================
-            // ADVANCED
-            // ================================================================
-            SettingsCategory(title = "Advanced")
-
-            ActionSettingItem(
-                title = "Reset to defaults",
-                subtitle = "Restore all settings to their default values",
-                onClick = { showResetDialog = true },
-                textColor = MaterialTheme.colorScheme.error
-            )
-
-            // Bottom padding for navigation gesture area
             Spacer(modifier = Modifier.height(Spacing.extraLarge))
         }
     }
 
-    // Reset confirmation dialog
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -356,7 +156,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onResetToDefaults()
+                        actions.advanced.onResetToDefaults()
                         showResetDialog = false
                     }
                 ) {
@@ -376,7 +176,7 @@ fun SettingsScreen(
             initialSource = null,
             onDismiss = { showAddSourceDialog = false },
             onConfirm = { name, urlTemplate, prefixes, accentColorHex ->
-                onAddSearchSource(name, urlTemplate, prefixes, accentColorHex)
+                actions.customSources.onAddSearchSource(name, urlTemplate, prefixes, accentColorHex)
                 showAddSourceDialog = false
             }
         )
@@ -388,7 +188,7 @@ fun SettingsScreen(
             onDismiss = { editingSource = null },
             onConfirm = { name, urlTemplate, prefixes, accentColorHex ->
                 val sourceId = editingSource?.id ?: return@SourceEditorDialog
-                onUpdateSearchSource(
+                actions.customSources.onUpdateSearchSource(
                     sourceId,
                     name,
                     urlTemplate,
@@ -408,7 +208,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     val sourceId = sourceIdPendingDelete ?: return@TextButton
-                    onDeleteSearchSource(sourceId)
+                    actions.customSources.onDeleteSearchSource(sourceId)
                     sourceIdPendingDelete = null
                 }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
@@ -421,4 +221,254 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+/**
+ * Section: Search Behavior.
+ */
+@Composable
+private fun SearchBehaviorSection(
+    settings: LauncherSettings,
+    actions: SettingsSearchBehaviorActions
+) {
+    SettingsCategory(title = "Search Behavior")
+
+    SwitchSettingItem(
+        title = "Auto-focus keyboard",
+        subtitle = "Automatically show keyboard when search opens",
+        checked = settings.autoFocusKeyboard,
+        onCheckedChange = actions.onSetAutoFocusKeyboard
+    )
+
+    SwitchSettingItem(
+        title = "Show recent apps",
+        subtitle = "Display recently used apps when search is empty",
+        checked = settings.showRecentApps,
+        onCheckedChange = actions.onSetShowRecentApps
+    )
+
+    SliderSettingItem(
+        title = "Max recent apps",
+        subtitle = "Number of recent apps to show",
+        value = settings.maxRecentApps,
+        onValueChange = actions.onSetMaxRecentApps,
+        valueRange = 1..10,
+        steps = 8
+    )
+
+    SliderSettingItem(
+        title = "Max search results",
+        subtitle = "Maximum results shown per search",
+        value = settings.maxSearchResults,
+        onValueChange = actions.onSetMaxSearchResults,
+        valueRange = 3..20,
+        steps = 16
+    )
+
+    SwitchSettingItem(
+        title = "Close search on launch",
+        subtitle = "Close the search dialog after launching an app",
+        checked = settings.closeSearchOnLaunch,
+        onCheckedChange = actions.onSetCloseSearchOnLaunch
+    )
+}
+
+/**
+ * Section: Appearance.
+ */
+@Composable
+private fun AppearanceSection(
+    settings: LauncherSettings,
+    actions: SettingsAppearanceActions
+) {
+    SettingsCategory(title = "Appearance")
+
+    DropdownSettingItem(
+        title = "Search result layout",
+        subtitle = "How search results are displayed",
+        selectedValue = settings.searchResultLayout.displayName,
+        options = SearchResultLayout.entries.map { it.displayName to it },
+        onOptionSelected = actions.onSetSearchResultLayout
+    )
+
+    SwitchSettingItem(
+        title = "Show homescreen hint",
+        subtitle = "Display \"Tap to search\" text on homescreen",
+        checked = settings.showHomescreenHint,
+        onCheckedChange = actions.onSetShowHomescreenHint
+    )
+
+    SwitchSettingItem(
+        title = "Show app icons",
+        subtitle = "Display app icons in search results",
+        checked = settings.showAppIcons,
+        onCheckedChange = actions.onSetShowAppIcons
+    )
+}
+
+/**
+ * Section: Home Screen.
+ */
+@Composable
+private fun HomeScreenSection(
+    settings: LauncherSettings,
+    actions: SettingsHomeScreenActions
+) {
+    SettingsCategory(title = "Home Screen")
+
+    DropdownSettingItem(
+        title = "Homescreen tap action",
+        subtitle = "What happens when you tap the homescreen",
+        selectedValue = settings.homeTapAction.displayName,
+        options = HomeTapAction.entries.map { it.displayName to it },
+        onOptionSelected = actions.onSetHomeTapAction
+    )
+
+    DropdownSettingItem(
+        title = "Swipe up action",
+        subtitle = "What happens when you swipe up on the homescreen",
+        selectedValue = settings.swipeUpAction.displayName,
+        options = SwipeUpAction.entries.map { it.displayName to it },
+        onOptionSelected = actions.onSetSwipeUpAction
+    )
+
+    SwitchSettingItem(
+        title = "Home button clears query",
+        subtitle = "Pressing home clears query before closing search",
+        checked = settings.homeButtonClearsQuery,
+        onCheckedChange = actions.onSetHomeButtonClearsQuery
+    )
+}
+
+/**
+ * Section: Local providers enabled/disabled toggles.
+ */
+@Composable
+private fun LocalProvidersSection(
+    settings: LauncherSettings,
+    actions: SettingsLocalProviderActions
+) {
+    SettingsCategory(title = "Search Providers")
+
+    SwitchSettingItem(
+        title = "Contacts search",
+        subtitle = "Search contacts with prefix \"c\"",
+        checked = settings.contactsSearchEnabled,
+        onCheckedChange = actions.onSetContactsSearchEnabled
+    )
+
+    SwitchSettingItem(
+        title = "Files search",
+        subtitle = "Search files with prefix \"f\"",
+        checked = settings.filesSearchEnabled,
+        onCheckedChange = actions.onSetFilesSearchEnabled
+    )
+}
+
+/**
+ * Section: Dynamic/custom source CRUD and source-prefix edits.
+ */
+@Composable
+private fun CustomSourcesSection(
+    settings: LauncherSettings,
+    actions: SettingsCustomSourceActions,
+    onRequestAddSource: () -> Unit,
+    onRequestEditSource: (SearchSource) -> Unit,
+    onRequestDeleteSource: (String) -> Unit
+) {
+    SettingsCategory(title = "Custom Sources")
+
+    Text(
+        text = "Create your own search sources (YouTube, Instagram, Twitter/X, engines, or any URL template). You can configure prefixes, fallback behavior via URL handlers, and custom colors.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(
+            horizontal = Spacing.mediumLarge,
+            vertical = Spacing.small
+        )
+    )
+
+    ActionSettingItem(
+        title = "Add custom source",
+        subtitle = "Define name, URL template, prefixes, and color",
+        onClick = onRequestAddSource,
+        icon = Icons.Default.Add
+    )
+
+    settings.searchSources.forEach { source ->
+        SourceSettingItem(
+            source = source,
+            onToggleEnabled = { enabled -> actions.onSetSearchSourceEnabled(source.id, enabled) },
+            onAddPrefix = { prefix, onResult ->
+                actions.onAddPrefixToSource(source.id, prefix, onResult)
+            },
+            onRemovePrefix = { prefix ->
+                actions.onRemovePrefixFromSource(source.id, prefix)
+            },
+            onEdit = { onRequestEditSource(source) },
+            onDelete = { onRequestDeleteSource(source.id) }
+        )
+    }
+}
+
+/**
+ * Section: Local provider prefix customization.
+ */
+@Composable
+private fun LocalPrefixesSection(
+    settings: LauncherSettings,
+    actions: SettingsLocalPrefixActions
+) {
+    SettingsCategory(title = "Local Prefixes")
+
+    Text(
+        text = "Customize prefixes for local providers. External source prefixes are configured in the Custom Sources section.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(
+            horizontal = Spacing.mediumLarge,
+            vertical = Spacing.small
+        )
+    )
+
+    PrefixSettingItem(
+        providerName = "Contacts",
+        providerIcon = Icons.Default.Person,
+        providerColor = MaterialTheme.colorScheme.secondary,
+        defaultPrefix = "c",
+        currentPrefixes = settings.prefixConfigurations[ProviderId.CONTACTS]?.prefixes
+            ?: listOf("c"),
+        onAddPrefix = { actions.onAddProviderPrefix(ProviderId.CONTACTS, it) },
+        onRemovePrefix = { actions.onRemoveProviderPrefix(ProviderId.CONTACTS, it) },
+        onReset = { actions.onResetProviderPrefixes(ProviderId.CONTACTS) }
+    )
+
+    PrefixSettingItem(
+        providerName = "Files",
+        providerIcon = Icons.AutoMirrored.Filled.InsertDriveFile,
+        providerColor = MaterialTheme.colorScheme.primaryContainer,
+        defaultPrefix = "f",
+        currentPrefixes = settings.prefixConfigurations[ProviderId.FILES]?.prefixes
+            ?: listOf("f"),
+        onAddPrefix = { actions.onAddProviderPrefix(ProviderId.FILES, it) },
+        onRemovePrefix = { actions.onRemoveProviderPrefix(ProviderId.FILES, it) },
+        onReset = { actions.onResetProviderPrefixes(ProviderId.FILES) }
+    )
+}
+
+/**
+ * Section: Advanced actions.
+ */
+@Composable
+private fun AdvancedSection(
+    onRequestReset: () -> Unit
+) {
+    SettingsCategory(title = "Advanced")
+
+    ActionSettingItem(
+        title = "Reset to defaults",
+        subtitle = "Restore all settings to their default values",
+        onClick = onRequestReset,
+        textColor = MaterialTheme.colorScheme.error
+    )
 }

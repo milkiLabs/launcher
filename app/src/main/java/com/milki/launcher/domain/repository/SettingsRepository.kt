@@ -15,6 +15,8 @@ import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.HomeTapAction
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
+import com.milki.launcher.domain.model.SearchSource
+import com.milki.launcher.domain.model.SourcePrefixMutationResult
 import com.milki.launcher.domain.model.SwipeUpAction
 import kotlinx.coroutines.flow.Flow
 
@@ -108,6 +110,37 @@ interface SettingsRepository {
     suspend fun setFilesSearchEnabled(value: Boolean)
 
     /**
+     * Append a custom search source using a targeted search-sources key write.
+     *
+     * The implementation normalizes/validates the resulting list before
+     * persistence, matching existing repository behavior.
+     */
+    suspend fun addSearchSource(source: SearchSource)
+
+    /**
+     * Update one existing custom search source by ID.
+     *
+     * If source is not found, the operation is a no-op.
+     */
+    suspend fun updateSearchSource(
+        sourceId: String,
+        name: String,
+        urlTemplate: String,
+        prefixes: List<String>,
+        accentColorHex: String
+    )
+
+    /**
+     * Delete one custom search source by ID.
+     */
+    suspend fun deleteSearchSource(sourceId: String)
+
+    /**
+     * Set enabled/disabled flag for one custom source by ID.
+     */
+    suspend fun setSearchSourceEnabled(sourceId: String, enabled: Boolean)
+
+    /**
      * Replace all prefixes for one provider with a new list.
      *
      * HOT-PATH OPTIMIZATION NOTE:
@@ -166,4 +199,25 @@ interface SettingsRepository {
      * validated map and want one targeted prefix-key write.
      */
     suspend fun setAllPrefixConfigurations(configurations: ProviderPrefixConfiguration)
+
+    /**
+     * Add one prefix to a custom source with atomic repository-level validation.
+     *
+     * Validation and write happen in the same DataStore transaction so callers do
+     * not need to rely on potentially stale UI snapshots for uniqueness checks.
+     *
+     * @param sourceId Stable source ID (for example: source_google)
+     * @param prefix Raw user input prefix
+     * @return Structured mutation result for deterministic UI handling
+     */
+    suspend fun addPrefixToSource(sourceId: String, prefix: String): SourcePrefixMutationResult
+
+    /**
+     * Remove one prefix from a custom source with atomic repository-level lookup.
+     *
+     * @param sourceId Stable source ID
+     * @param prefix Raw user input prefix to remove
+     * @return Structured mutation result for deterministic UI handling/debugging
+     */
+    suspend fun removePrefixFromSource(sourceId: String, prefix: String): SourcePrefixMutationResult
 }

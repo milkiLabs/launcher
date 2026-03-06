@@ -134,7 +134,6 @@ class SearchViewModel(
             isSearchVisible = stateHolder.isSearchVisible,
             backgroundState = stateHolder.backgroundState,
             prefixConfigurations = stateHolder.prefixConfigurations,
-            searchSources = stateHolder.searchSources,
             existingOutput = stateHolder.searchOutput
         )
         observeInstalledApps()
@@ -142,7 +141,6 @@ class SearchViewModel(
         settingsAdapter.bind(
             scope = viewModelScope,
             prefixConfigurations = stateHolder.prefixConfigurations,
-            searchSources = stateHolder.searchSources,
             providerAccentColorById = stateHolder.providerAccentColorById
         )
     }

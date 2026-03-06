@@ -127,6 +127,17 @@ class SettingsRepositoryImpl(
 
         // Dynamic source configuration - stored as JSON array
         val SEARCH_SOURCES = stringPreferencesKey("search_sources")
+
+        // Explicit persisted state marker for search source semantics.
+        // This allows us to distinguish first-run defaults from initialized data.
+        val SEARCH_SOURCES_STATE = stringPreferencesKey("search_sources_state")
+    }
+
+    /**
+     * Persisted state values for search source storage semantics.
+     */
+    private object SearchSourcesState {
+        const val INITIALIZED = "initialized"
     }
 
     // ========================================================================
@@ -258,6 +269,93 @@ class SettingsRepositoryImpl(
         writeBooleanSetting(Keys.FILES_SEARCH_ENABLED, value)
     }
 
+    /**
+     * Targeted search source append.
+     *
+     * WHY TARGETED:
+     * This updates only the SEARCH_SOURCES key, avoiding full settings
+     * remapping/writes for source list edits that happen frequently in settings UI.
+     */
+    override suspend fun addSearchSource(source: SearchSource) {
+        context.settingsDataStore.edit { preferences ->
+            val currentSources = parseSearchSources(preferences)
+            writeSearchSources(currentSources + source, preferences)
+        }
+    }
+
+    /**
+     * Targeted search source update by stable source ID.
+     */
+    override suspend fun updateSearchSource(
+        sourceId: String,
+        name: String,
+        urlTemplate: String,
+        prefixes: List<String>,
+        accentColorHex: String
+    ) {
+        context.settingsDataStore.edit { preferences ->
+            val currentSources = parseSearchSources(preferences)
+
+            if (currentSources.none { it.id == sourceId }) {
+                return@edit
+            }
+
+            val updatedSources = currentSources.map { existing ->
+                if (existing.id == sourceId) {
+                    existing.copy(
+                        name = name,
+                        urlTemplate = urlTemplate,
+                        prefixes = prefixes,
+                        accentColorHex = accentColorHex
+                    )
+                } else {
+                    existing
+                }
+            }
+
+            writeSearchSources(updatedSources, preferences)
+        }
+    }
+
+    /**
+     * Targeted search source delete by ID.
+     */
+    override suspend fun deleteSearchSource(sourceId: String) {
+        context.settingsDataStore.edit { preferences ->
+            val currentSources = parseSearchSources(preferences)
+            val updatedSources = currentSources.filterNot { it.id == sourceId }
+
+            if (updatedSources == currentSources) {
+                return@edit
+            }
+
+            writeSearchSources(updatedSources, preferences)
+        }
+    }
+
+    /**
+     * Targeted source enabled-state mutation by ID.
+     */
+    override suspend fun setSearchSourceEnabled(sourceId: String, enabled: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            val currentSources = parseSearchSources(preferences)
+
+            if (currentSources.none { it.id == sourceId }) {
+                return@edit
+            }
+
+            val updatedSources = currentSources.map { source ->
+                if (source.id == sourceId) {
+                    source.copy(isEnabled = enabled)
+                } else {
+                    source
+                }
+            }
+
+            writeSearchSources(updatedSources, preferences)
+        }
+    }
+
     // ========================================================================
     // TARGETED HOT-PATH UPDATES
     // ========================================================================
@@ -357,6 +455,137 @@ class SettingsRepositoryImpl(
     }
 
     /**
+     * Transactional source-prefix add operation.
+     *
+     * IMPORTANT RACE-SAFETY NOTE:
+     * We intentionally perform read + validation + write inside ONE DataStore
+     * edit transaction. This guarantees uniqueness checks are evaluated against
+     * the same snapshot that is persisted, eliminating ViewModel snapshot races.
+     */
+    override suspend fun addPrefixToSource(
+        sourceId: String,
+        prefix: String
+    ): SourcePrefixMutationResult {
+        var result: SourcePrefixMutationResult = SourcePrefixMutationResult.SourceNotFound
+
+        context.settingsDataStore.edit { preferences ->
+            val normalizedPrefix = SearchSource.normalizePrefix(prefix)
+
+            if (normalizedPrefix.isEmpty()) {
+                result = SourcePrefixMutationResult.InvalidPrefixEmpty
+                return@edit
+            }
+
+            if (normalizedPrefix.contains(" ")) {
+                result = SourcePrefixMutationResult.InvalidPrefixContainsSpaces
+                return@edit
+            }
+
+            val currentSources = parseSearchSources(preferences)
+            val targetSource = currentSources.firstOrNull { it.id == sourceId }
+
+            if (targetSource == null) {
+                result = SourcePrefixMutationResult.SourceNotFound
+                return@edit
+            }
+
+            val normalizedTargetPrefixes = targetSource.prefixes
+                .map(SearchSource.Companion::normalizePrefix)
+
+            if (normalizedPrefix in normalizedTargetPrefixes) {
+                result = SourcePrefixMutationResult.PrefixAlreadyExistsOnTargetSource
+                return@edit
+            }
+
+            val conflictingSource = currentSources
+                .asSequence()
+                .filter { it.id != sourceId }
+                .firstOrNull { source ->
+                    source.prefixes
+                        .map(SearchSource.Companion::normalizePrefix)
+                        .contains(normalizedPrefix)
+                }
+
+            if (conflictingSource != null) {
+                result = SourcePrefixMutationResult.DuplicatePrefixOnAnotherSource(
+                    ownerSourceId = conflictingSource.id
+                )
+                return@edit
+            }
+
+            val updatedSources = currentSources.map { source ->
+                if (source.id == sourceId) {
+                    source.copy(
+                        prefixes = (source.prefixes + normalizedPrefix)
+                            .map(SearchSource.Companion::normalizePrefix)
+                            .filter { it.isNotBlank() && !it.contains(" ") }
+                            .distinct()
+                    )
+                } else {
+                    source
+                }
+            }
+
+            writeSearchSources(updatedSources, preferences)
+            result = SourcePrefixMutationResult.Success
+        }
+
+        return result
+    }
+
+    /**
+     * Transactional source-prefix remove operation.
+     */
+    override suspend fun removePrefixFromSource(
+        sourceId: String,
+        prefix: String
+    ): SourcePrefixMutationResult {
+        var result: SourcePrefixMutationResult = SourcePrefixMutationResult.SourceNotFound
+
+        context.settingsDataStore.edit { preferences ->
+            val normalizedPrefix = SearchSource.normalizePrefix(prefix)
+
+            if (normalizedPrefix.isEmpty()) {
+                result = SourcePrefixMutationResult.InvalidPrefixEmpty
+                return@edit
+            }
+
+            val currentSources = parseSearchSources(preferences)
+            val targetSource = currentSources.firstOrNull { it.id == sourceId }
+
+            if (targetSource == null) {
+                result = SourcePrefixMutationResult.SourceNotFound
+                return@edit
+            }
+
+            val normalizedTargetPrefixes = targetSource.prefixes
+                .map(SearchSource.Companion::normalizePrefix)
+
+            if (normalizedPrefix !in normalizedTargetPrefixes) {
+                result = SourcePrefixMutationResult.PrefixNotFoundOnTargetSource
+                return@edit
+            }
+
+            val updatedSources = currentSources.map { source ->
+                if (source.id == sourceId) {
+                    source.copy(
+                        prefixes = source.prefixes.filterNot {
+                            SearchSource.normalizePrefix(it) == normalizedPrefix
+                        }
+                    )
+                } else {
+                    source
+                }
+            }
+
+            writeSearchSources(updatedSources, preferences)
+            result = SourcePrefixMutationResult.Success
+        }
+
+        return result
+    }
+
+    /**
      * Toggle hidden-app package inside the hidden apps set.
      */
     override suspend fun toggleHiddenApp(packageName: String) {
@@ -383,9 +612,7 @@ class SettingsRepositoryImpl(
     private fun mapPreferencesToSettings(preferences: Preferences): LauncherSettings {
         val defaults = LauncherSettings()
         val parsedPrefixConfigurations = parsePrefixConfigurations(preferences[Keys.PREFIX_CONFIGURATIONS])
-        val parsedSearchSources = parseSearchSources(
-            json = preferences[Keys.SEARCH_SOURCES]
-        )
+        val parsedSearchSources = parseSearchSources(preferences)
 
         return LauncherSettings(
             // Search Behavior
@@ -557,19 +784,17 @@ class SettingsRepositoryImpl(
     /**
      * Writes the dynamic search source list into DataStore.
      *
-     * Empty list compaction:
-     * - Empty list removes the key entirely and lets mapPreferencesToSettings fallback
-     *   to default source list, so the app always has usable source data.
+     * STORAGE SEMANTICS:
+     * - We always persist the source list JSON, including empty list (`[]`).
+     * - We also set an explicit state marker so parser can distinguish:
+     *   1) First-run (state missing) -> default seeded runtime view
+     *   2) Initialized + empty JSON list -> intentional empty sources
      */
     private fun writeSearchSources(
         sources: List<SearchSource>,
         preferences: MutablePreferences
     ) {
-        if (sources.isEmpty()) {
-            preferences.remove(Keys.SEARCH_SOURCES)
-            return
-        }
-
+        preferences[Keys.SEARCH_SOURCES_STATE] = SearchSourcesState.INITIALIZED
         preferences[Keys.SEARCH_SOURCES] = serializeSearchSources(sources)
     }
 
@@ -644,22 +869,53 @@ class SettingsRepositoryImpl(
     /**
      * Parses persisted search sources.
      *
+     * Wrapper that parses sources from preferences while respecting state marker.
+     */
+    private fun parseSearchSources(preferences: Preferences): List<SearchSource> {
+        val json = preferences[Keys.SEARCH_SOURCES]
+        val isInitialized = preferences[Keys.SEARCH_SOURCES_STATE] == SearchSourcesState.INITIALIZED
+
+        return parseSearchSources(
+            json = json,
+            isInitialized = isInitialized
+        )
+    }
+
+    /**
+     * Parses persisted search sources.
+     *
      * Behavior:
-     * - Missing/blank value -> use default sources
-     * - Invalid JSON -> use default sources
+     * - state missing + missing/blank JSON: treat as first run and expose defaults
+     * - state missing + valid JSON: parse legacy persisted list
+     * - state initialized + missing/blank JSON: intentional empty state
+     * - invalid JSON in initialized state: recover to empty list (avoid silent default restore)
      */
     private fun parseSearchSources(
-        json: String?
+        json: String?,
+        isInitialized: Boolean
     ): List<SearchSource> {
+        if (!isInitialized) {
+            if (json.isNullOrBlank()) {
+                return SearchSource.defaultSources()
+            }
+
+            return runCatching {
+                val decoded: SerializedSearchSources = settingsJson.decodeFromString(json)
+                normalizeAndValidateSearchSources(decoded)
+            }.getOrElse {
+                SearchSource.defaultSources()
+            }
+        }
+
         if (json.isNullOrBlank()) {
-            return SearchSource.defaultSources()
+            return emptyList()
         }
 
         return runCatching {
             val decoded: SerializedSearchSources = settingsJson.decodeFromString(json)
             normalizeAndValidateSearchSources(decoded)
         }.getOrElse {
-            SearchSource.defaultSources()
+            emptyList()
         }
     }
 
@@ -682,10 +938,6 @@ class SettingsRepositoryImpl(
      * - Invalid colors are normalized to #RRGGBB fallback
      */
     private fun normalizeAndValidateSearchSources(rawSources: List<SearchSource>): List<SearchSource> {
-        if (rawSources.isEmpty()) {
-            return SearchSource.defaultSources()
-        }
-
         val normalized = rawSources.mapIndexed { index, source ->
             val normalizedPrefixes = source.prefixes
                 .map(SearchSource.Companion::normalizePrefix)
