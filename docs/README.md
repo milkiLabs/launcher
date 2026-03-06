@@ -7,6 +7,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | Document | Description |
 |----------|-------------|
 | **[Architecture.md](Architecture.md)** | Complete architecture guide (Clean Architecture + MVVM) |
+| **[main-activity-coordinators.md](main-activity-coordinators.md)** | Coordinator extraction that keeps MainActivity as lifecycle/host shell |
 | **[custom-source-search.md](custom-source-search.md)** | Unified external search via configurable custom sources |
 | **[search-settings-contacts-modularization.md](search-settings-contacts-modularization.md)** | Detailed walkthrough of the March 2026 file modularization refactor |
 | **[multi-mode-search.md](multi-mode-search.md)** | Multi-mode search feature documentation |

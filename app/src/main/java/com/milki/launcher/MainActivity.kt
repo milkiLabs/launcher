@@ -23,12 +23,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -40,9 +36,15 @@ import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
+import com.milki.launcher.presentation.main.ActivityWidgetPlacementCoordinator
 import com.milki.launcher.presentation.main.HomeButtonPolicy
+import com.milki.launcher.presentation.main.HomeIntentCoordinator
+import com.milki.launcher.presentation.main.HomeIntentCoordinatorContract
 import com.milki.launcher.presentation.main.PermissionRequestCoordinator
 import com.milki.launcher.presentation.main.SearchSessionController
+import com.milki.launcher.presentation.main.SurfaceStateCoordinator
+import com.milki.launcher.presentation.main.SurfaceStateCoordinatorContract
+import com.milki.launcher.presentation.main.WidgetPlacementCoordinator
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
@@ -132,87 +134,24 @@ class MainActivity : ComponentActivity() {
     private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
 
     /**
-     * Stateless policy used to decide what a home-button press should do.
-     */
-    private val homeButtonPolicy = HomeButtonPolicy()
-
-    /**
      * Controller that applies search/menu state transitions chosen by policy.
      */
     private lateinit var searchSessionController: SearchSessionController
 
     /**
-        * Tracks whether launcher is currently considered the active homescreen surface.
-        *
-        * Lifecycle semantics:
-        * - Set to true in onResume() when launcher enters foreground.
-        * - Set to false in onStop() when launcher leaves foreground.
-        *
-        * This flag feeds HomeButtonPolicy so repeated home-button presses while already
-        * on launcher can trigger search/menu behavior, while first return to launcher
-        * resets transient UI instead.
+     * Coordinator responsible for layered surface open/close orchestration.
      */
-    private var wasAlreadyOnHomescreen = false
+    private lateinit var surfaceStateCoordinator: SurfaceStateCoordinatorContract
 
     /**
-     * Whether the homescreen empty-area long-press dropdown menu is currently open.
-     *
-     * This is controlled by LauncherScreen and read by onNewIntent() so the
-     * home button can close the menu first before opening search.
+     * Coordinator that owns HOME-button policy orchestration.
      */
-    private var isHomescreenMenuOpen by mutableStateOf(false)
+    private lateinit var homeIntentCoordinator: HomeIntentCoordinatorContract
 
     /**
-     * Whether the app drawer full-screen overlay is visible.
+     * Coordinator that owns widget bind/configure activity launcher orchestration.
      */
-    private var isAppDrawerOpen by mutableStateOf(false)
-
-    /**
-     * Whether the widget picker bottom sheet is visible.
-     *
-     * Set to true when the user selects "Widgets" from the long-press menu.
-     * The widget picker bottom sheet displays all available widgets grouped by app.
-     */
-    private var isWidgetPickerOpen by mutableStateOf(false)
-
-    /**
-     * Activity result launcher for the widget bind permission dialog.
-     *
-     * WHY THIS LAUNCHER EXISTS:
-     * When the user tries to add a widget, the system may require explicit permission
-     * to bind that widget to our launcher. If AppWidgetManager.bindAppWidgetIdIfAllowed()
-     * returns false, we launch the system's permission dialog using this launcher.
-     *
-     * The dialog shows something like "Allow Milki Launcher to use this widget?"
-     * and returns RESULT_OK or RESULT_CANCELED.
-     *
-     * FLOW:
-     * 1. User drags widget from picker
-     * 2. We allocate a widget ID and try to bind
-     * 3. If bind fails → launch this permission dialog  
-     * 4. If user grants → continue with widget placement
-     * 5. If user denies → deallocate the widget ID, show toast
-     */
-    private lateinit var widgetBindLauncher: ActivityResultLauncher<Intent>
-
-    /**
-     * Activity result launcher for widget configuration activities.
-     *
-     * WHY THIS LAUNCHER EXISTS:
-     * Some widgets have a configuration activity (e.g., a clock widget that lets
-     * the user pick a style, or a weather widget that asks for a location).
-     * After binding the widget, we check if it has a configure activity and launch it.
-     *
-     * The configuration activity returns RESULT_OK when the user finishes configuration,
-     * or RESULT_CANCELED if they back out.
-     *
-     * FLOW:
-     * 1. Widget is bound successfully
-     * 2. We check providerInfo.configure — if non-null, launch this activity
-     * 3. If user completes config → persist widget to DataStore
-     * 4. If user cancels → deallocate widget ID, don't place widget
-     */
-    private lateinit var widgetConfigureLauncher: ActivityResultLauncher<Intent>
+    private lateinit var widgetPlacementCoordinator: WidgetPlacementCoordinator
 
     // ========================================================================
     // LIFECYCLE
@@ -223,8 +162,9 @@ class MainActivity : ComponentActivity() {
 
         searchSessionController = SearchSessionController(searchViewModel)
         initializeHandlers()
+        initializeCoordinators()
         initializeBackButtonBehavior()
-        initializeWidgetLaunchers()
+        widgetPlacementCoordinator.initialize()
 
         setContent {
             // Collect state from ViewModels
@@ -259,22 +199,19 @@ class MainActivity : ComponentActivity() {
                                     startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                                 },
                                 onHomescreenMenuOpenChange = { isOpen ->
-                                    isHomescreenMenuOpen = isOpen
+                                    surfaceStateCoordinator.updateHomescreenMenuOpen(isOpen)
                                 }
                             ),
                             drawer = DrawerActions(
                                 onAppDrawerOpenChange = { isOpen ->
-                                    isAppDrawerOpen = isOpen
+                                    surfaceStateCoordinator.updateAppDrawerOpen(isOpen)
                                 },
                                 onDrawerSortModeSelected = appDrawerViewModel::setSortMode
                             ),
                             home = HomeActions(
                                 onHomeSwipeUp = {
                                     if (launcherSettings.swipeUpAction == SwipeUpAction.OPEN_APP_DRAWER) {
-                                        isHomescreenMenuOpen = false
-                                        searchViewModel.hideSearch()
-                                        homeViewModel.closeFolder()
-                                        isAppDrawerOpen = true
+                                        surfaceStateCoordinator.openAppDrawerFromSwipeGesture()
                                     }
                                 },
                                 onPinnedItemClick = { item ->
@@ -389,7 +326,7 @@ class MainActivity : ComponentActivity() {
                             ),
                             widget = WidgetActions(
                                 onWidgetPickerOpenChange = { isOpen ->
-                                    isWidgetPickerOpen = isOpen
+                                    surfaceStateCoordinator.updateWidgetPickerOpen(isOpen)
                                 },
                                 onRemoveWidget = { widgetId, _ ->
                                     homeViewModel.removeWidget(
@@ -410,14 +347,14 @@ class MainActivity : ComponentActivity() {
                                         span = span,
                                         widgetHostManager = widgetHostManager
                                     )
-                                    executeWidgetPlacementCommand(command)
+                                    widgetPlacementCoordinator.execute(command)
                                 }
                             )
                         ),
-                        isHomescreenMenuOpen = isHomescreenMenuOpen,
-                        isAppDrawerOpen = isAppDrawerOpen,
+                        isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
+                        isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
                         appDrawerUiState = appDrawerUiState,
-                        isWidgetPickerOpen = isWidgetPickerOpen,
+                        isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
                         widgetHostManager = widgetHostManager
                     )
                 }
@@ -453,33 +390,11 @@ class MainActivity : ComponentActivity() {
                 override fun handleOnBackPressed() {
                     val uiState = searchViewModel.uiState.value
 
-                    // If a folder popup is open, close it first.
-                    // The next back press will then handle search or be consumed as usual.
-                    if (homeViewModel.uiState.value.openFolderItem != null) {
-                        homeViewModel.closeFolder()
-                        return
-                    }
-
-                    // If app drawer is open, close it before handling search/back behavior.
-                    if (isAppDrawerOpen) {
-                        isAppDrawerOpen = false
-                        return
-                    }
-
-                    // If widget picker is open, close it before handling search/back behavior.
-                    if (isWidgetPickerOpen) {
-                        isWidgetPickerOpen = false
-                        return
-                    }
-
-                    // If search is open, close it.
-                    if (uiState.isSearchVisible) {
-                        searchViewModel.hideSearch()
-                        return
-                    }
-
-                    // Launcher home screen behavior:
-                    // Consume back press and stay on home.
+                    // Delegate layered back behavior to coordinator so Activity
+                    // does not own per-surface close ordering logic.
+                    surfaceStateCoordinator.handleBackPressed(
+                        isSearchVisible = uiState.isSearchVisible
+                    )
                 }
             }
         )
@@ -506,61 +421,44 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Initializes the Activity result launchers for widget operations.
+     * Initializes orchestration coordinators extracted from MainActivity.
      *
-     * These launchers handle two async flows that require an Activity result:
-     * 1. Widget bind permission — when the system needs user consent to bind a widget
-     * 2. Widget configuration — when a widget has a configure Activity (e.g., pick clock style)
+     * COORDINATORS CREATED HERE:
+     * 1) SurfaceStateCoordinator
+     *    - Owns layered surface visibility state and close ordering policies.
      *
-     * WHY IN onCreate:
-     * ActivityResultLauncher must be registered before the Activity reaches STARTED state.
-     * Registering in onCreate guarantees this. Registering later (e.g., in a callback)
-     * would throw an IllegalStateException.
+     * 2) HomeIntentCoordinator
+     *    - Owns HOME-button policy orchestration using HomeButtonPolicy + SearchSessionController.
+     *
+     * 3) WidgetPlacementCoordinator
+     *    - Owns bind/configure ActivityResult launchers and command dispatching.
      */
-    private fun initializeWidgetLaunchers() {
-        // Launcher for the system's "allow widget binding?" permission dialog.
-        // This is triggered when bindAppWidgetIdIfAllowed() returns false.
-        widgetBindLauncher = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            val command = homeViewModel.handleWidgetBindResult(
-                resultCode = result.resultCode,
-                widgetHostManager = widgetHostManager
-            )
-            executeWidgetPlacementCommand(command)
-        }
+    private fun initializeCoordinators() {
+        surfaceStateCoordinator = SurfaceStateCoordinator(
+            hideSearch = { searchViewModel.hideSearch() },
+            isFolderOpen = { homeViewModel.uiState.value.openFolderItem != null },
+            closeFolder = { homeViewModel.closeFolder() }
+        )
 
-        // Launcher for widget configuration activities.
-        // Some widgets (e.g., clock style picker) require user configuration before use.
-        widgetConfigureLauncher = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            val command = homeViewModel.handleWidgetConfigureResult(
-                resultCode = result.resultCode,
-                widgetHostManager = widgetHostManager
-            )
-            executeWidgetPlacementCommand(command)
-        }
-    }
+        homeIntentCoordinator = HomeIntentCoordinator(
+            homeButtonPolicy = HomeButtonPolicy(),
+            isHomescreenMenuOpen = { surfaceStateCoordinator.isHomescreenMenuOpen },
+            consumeLayeredHomePress = { surfaceStateCoordinator.consumeHomePressForLayeredSurface() },
+            applyDecision = { decision ->
+                searchSessionController.applyHomeButtonDecision(
+                    decision = decision,
+                    closeHomescreenMenu = {
+                        surfaceStateCoordinator.updateHomescreenMenuOpen(false)
+                    }
+                )
+            }
+        )
 
-    /**
-     * Executes a widget-placement command emitted by HomeViewModel.
-     *
-     * Keeping this in one method ensures all bind/configure launches are routed
-     * consistently and keeps widget flow code out of unrelated callbacks.
-     */
-    private fun executeWidgetPlacementCommand(
-        command: HomeViewModel.WidgetPlacementCommand
-    ) {
-        when (command) {
-            is HomeViewModel.WidgetPlacementCommand.LaunchBindPermission -> {
-                widgetBindLauncher.launch(command.intent)
-            }
-            is HomeViewModel.WidgetPlacementCommand.LaunchConfigure -> {
-                widgetConfigureLauncher.launch(command.intent)
-            }
-            HomeViewModel.WidgetPlacementCommand.NoOp -> Unit
-        }
+        widgetPlacementCoordinator = ActivityWidgetPlacementCoordinator(
+            activity = this,
+            homeViewModel = homeViewModel,
+            widgetHostManagerProvider = { widgetHostManager }
+        )
     }
 
     // ========================================================================
@@ -570,7 +468,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         permissionHandler.updateStates()
-        wasAlreadyOnHomescreen = true
+        homeIntentCoordinator.onResume()
     }
 
     /**
@@ -588,18 +486,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        wasAlreadyOnHomescreen = false
-        isAppDrawerOpen = false
-        isWidgetPickerOpen = false
+        homeIntentCoordinator.onStop()
+        surfaceStateCoordinator.onStop()
         // Stop listening for widget updates when the launcher is not visible.
         // This saves battery by telling the system to stop sending widget
         // update broadcasts to this host.
         widgetHostManager.stopListening()
-        // Close any open folder popup whenever the launcher leaves the foreground
-        // (e.g. user launched an app from search, switched to recents, etc.).
-        // Without this the popup is still "open" in the ViewModel when the user
-        // returns, and the folder dialog would reappear immediately on re-entry.
-        homeViewModel.closeFolder()
     }
 
     /**
@@ -610,60 +502,29 @@ class MainActivity : ComponentActivity() {
      * - Another app launches an Intent targeting this Activity
      *
      * HOME BUTTON BEHAVIOR:
-    * - Input state is captured (homescreen/menu/search/query).
-    * - HomeButtonPolicy resolves one deterministic decision.
-    * - SearchSessionController applies the resulting transition.
+     * - Home-intent classification stays in MainActivity (host responsibility).
+     * - Orchestration/policy execution is delegated to HomeIntentCoordinator.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
 
-        if (intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) {
-            // If app drawer is open, close it and consume this home press entirely.
-            // This mirrors layered-dismiss behavior used by folder popup and menus.
-            if (isAppDrawerOpen) {
-                isAppDrawerOpen = false
-                return
-            }
-
-            // If widget picker is open, close it and consume this home press.
-            if (isWidgetPickerOpen) {
-                isWidgetPickerOpen = false
-                return
-            }
-
-            // If a folder popup is open, close it and consume this home press entirely.
-            // The normal policy (open search, clear query, etc.) only runs on the NEXT
-            // home press — matching the same layered-dismiss pattern used for the
-            // homescreen menu and the search dialog.
-            if (homeViewModel.uiState.value.openFolderItem != null) {
-                homeViewModel.closeFolder()
-                return
-            }
-
+        if (isLauncherHomeIntent(intent)) {
             val uiState = searchViewModel.uiState.value
-            val decision = homeButtonPolicy.resolve(
-                HomeButtonPolicy.InputState(
-                    isAlreadyOnHomescreen = wasAlreadyOnHomescreen,
-                    isHomescreenMenuOpen = isHomescreenMenuOpen,
-                    isSearchVisible = uiState.isSearchVisible,
-                    hasSearchQuery = uiState.query.isNotEmpty()
-                )
-            )
-
-            searchSessionController.applyHomeButtonDecision(
-                decision = decision,
-                closeHomescreenMenu = ::closeHomescreenMenu
+            homeIntentCoordinator.onHomeButtonPressed(
+                isSearchVisible = uiState.isSearchVisible,
+                hasSearchQuery = uiState.query.isNotEmpty()
             )
         }
     }
 
     /**
-     * Closes the homescreen long-press dropdown menu.
+     * Host-level helper that classifies whether an Intent is a HOME-button return.
      *
-     * Keeping this as a dedicated helper avoids repeating direct state writes
-     * in multiple intent/interaction paths.
+     * Keeping this check near onNewIntent maintains clear ownership:
+     * MainActivity handles Android Intent mechanics,
+     * HomeIntentCoordinator handles policy/orchestration once classified.
      */
-    private fun closeHomescreenMenu() {
-        isHomescreenMenuOpen = false
+    private fun isLauncherHomeIntent(intent: Intent): Boolean {
+        return intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
     }
 }
