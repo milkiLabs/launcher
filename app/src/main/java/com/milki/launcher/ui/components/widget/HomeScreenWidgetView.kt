@@ -32,6 +32,7 @@ import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
 import android.view.ViewConfiguration
@@ -113,7 +114,33 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
     private val longPressRunnable = Runnable {
         if (isLongPressCandidate && !hasFiredLongPress) {
             hasFiredLongPress = true
+
+            // Once long-press is recognized, stop forwarding this gesture stream
+            // to child widget views so ACTION_UP cannot trigger an unintended click.
+            dispatchSyntheticCancelToChildren()
+
             onWidgetLongPress?.invoke()
+        }
+    }
+
+    /**
+     * Sends ACTION_CANCEL through the normal dispatch chain to terminate child
+     * touch handling for the current gesture once long-press is recognized.
+     */
+    private fun dispatchSyntheticCancelToChildren() {
+        val now = SystemClock.uptimeMillis()
+        val cancelEvent = MotionEvent.obtain(
+            now,
+            now,
+            MotionEvent.ACTION_CANCEL,
+            lastX,
+            lastY,
+            0
+        )
+        try {
+            super.dispatchTouchEvent(cancelEvent)
+        } finally {
+            cancelEvent.recycle()
         }
     }
 
@@ -187,6 +214,9 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
                         }
                         if (hadLongPress) {
                             onWidgetLongPressRelease?.invoke()
+                            // Consume UP after long-press so it cannot be
+                            // interpreted as a widget click by child views.
+                            return true
                         }
                     }
                     MotionEvent.ACTION_CANCEL -> {
@@ -196,6 +226,7 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
                         }
                         if (hadLongPress) {
                             onWidgetLongPressRelease?.invoke()
+                            return true
                         }
                     }
                 }
