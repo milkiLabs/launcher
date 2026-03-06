@@ -1,12 +1,13 @@
 # Folder System
 
 This document describes the current folder implementation on the home screen after the
-atomicity + simplification refactor.
+folder-mutation-engine extraction and atomicity simplification work.
 
 The focus of this version is correctness and maintainability:
 - cross-folder and cross-location folder operations are now single repository transactions,
 - stale folder-child removals are strict no-ops,
-- global uniqueness by item ID is enforced during write paths.
+- global uniqueness by item ID is enforced during write paths,
+- folder-domain mutation rules are centralized in `FolderMutationEngine`.
 
 ---
 
@@ -77,7 +78,19 @@ The two new atomic APIs remove previous two-step orchestration from ViewModel.
 
 ## Repository Implementation Guarantees
 
-**Implementation:** `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt`
+**Implementations:**
+- `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt`
+- `app/src/main/java/com/milki/launcher/data/repository/FolderMutationEngine.kt`
+
+Repository role now:
+- deserialize DataStore payload,
+- execute a mutation using the folder engine,
+- serialize back only when mutation is applied.
+
+Folder engine role now:
+- folder invariants (no nesting, no widget children),
+- folder cleanup policy (delete/unwrap/update),
+- folder-domain dedup and move/merge/extract behavior.
 
 ### 1) Strict removal guard
 
@@ -94,7 +107,7 @@ This protects against stale drag/menu events.
 ### 2) Shared cleanup helper
 
 Folder-child removal + cleanup is centralized in:
-- `removeChildFromFolderWithCleanup(items, folderId, childItemId)`.
+- `FolderMutationEngine.removeChildFromFolderWithCleanup(items, folderId, childItemId)`.
 
 Cleanup policy:
 - remaining 0 → delete folder
@@ -109,7 +122,7 @@ This helper is reused by:
 ### 3) Global uniqueness enforcement
 
 Write paths now use:
-- `evictItemEverywhere(items, itemId)`
+- `FolderMutationEngine.evictItemEverywhere(items, itemId)`
 
 This removes a given item ID from:
 - top-level list
@@ -224,7 +237,9 @@ new invariant directly.
 - `HomeRepository`
   - folder API contract, including new atomic operations.
 - `HomeRepositoryImpl`
-  - DataStore edits, cleanup helper, global dedup helper, atomic folder transactions.
+  - DataStore orchestration for home items, occupancy checks, and widget mutations.
+- `FolderMutationEngine`
+  - Pure in-memory folder mutation rules and folder-domain invariants.
 - `HomeViewModel`
   - serialized command routing and popup state.
 - `DraggablePinnedItemsGrid`
@@ -249,6 +264,20 @@ Recommended manual checks after future changes:
 7. Drag folder child onto empty cell → extracted icon appears at drop cell.
 8. Trigger remove of non-existent child ID → no folder mutation.
 9. Verify cleanup transitions: 2→1 unwrap and 1→0 delete.
+
+---
+
+## Contract Tests
+
+Automated contract tests for folder mutation paths now live in:
+- `app/src/test/java/com/milki/launcher/data/repository/FolderMutationEngineContractTest.kt`
+
+Covered mutation paths:
+1. `createFolder`
+2. `addItemToFolder`
+3. `mergeFolders`
+4. `extractItemFromFolder`
+5. `moveItemBetweenFolders`
 
 ---
 

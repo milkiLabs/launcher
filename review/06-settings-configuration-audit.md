@@ -228,10 +228,15 @@ This section is a practical backlog for the next settings-focused iterations. It
 3. Add conflict-report surface from search registry into settings validation UX.
 4. Add corruption telemetry + one-time user recovery notice for initialized-invalid source payloads.
 
-## Suggested Implementation Order
+## Updated Next-Step Order
 
-1. Narrow settings adapter observation scope and collision-policy enforcement.
-2. Add repository-level transactional validation/results for source prefix operations.
-3. Add targeted source CRUD repository methods and migrate ViewModel callsites.
-4. Adopt lifecycle-aware collection in `SettingsActivity` and clean stale pipeline signatures.
-5. Add regression tests for all configuration conflict/fallback paths.
+1. Finish presentation decomposition:
+- move each settings section composable into its own file
+- introduce typed dialog state to replace multiple nullable dialog flags
+2. Add regression tests for settings persistence and mutation contracts:
+- source parser state matrix
+- source/prefix transactional mutation result matrix
+- unrelated-settings fanout guard
+3. Add settings corruption observability and one-time recovery UX hook.
+4. Expose collision/conflict report signal from runtime config layer back to settings validation UI.
+5. Gradually introduce feature-scoped settings stores/repositories while keeping `SettingsRepository` as migration facade.

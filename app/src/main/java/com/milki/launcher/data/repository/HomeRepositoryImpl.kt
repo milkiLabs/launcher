@@ -126,6 +126,14 @@ class HomeRepositoryImpl(
      */
     private val json: Json = HomeItem.json
 
+    /**
+     * Dedicated folder-domain mutation engine.
+     *
+     * Repository keeps DataStore transaction ownership, while folder invariants
+     * and in-memory mutation policy live in this dedicated class.
+     */
+    private val folderMutationEngine = FolderMutationEngine()
+
     // ========================================================================
     // PINNED ITEMS FLOW
     // ========================================================================
@@ -169,7 +177,7 @@ class HomeRepositoryImpl(
             val currentItems = deserializeItems(preferences)
 
             // Check for duplicate by ID across BOTH top-level items and folder children.
-            if (containsItemIdAnywhere(currentItems, item.id)) {
+            if (folderMutationEngine.containsItemIdAnywhere(currentItems, item.id)) {
                 return@edit // Item already pinned, do nothing
             }
 
@@ -249,7 +257,7 @@ class HomeRepositoryImpl(
             // Enforce uniqueness globally before placing this item on the top-level grid.
             // This evicts the same ID from any folder and from accidental duplicate
             // top-level entries, then we write exactly one canonical copy below.
-            evictItemEverywhere(currentItems, item.id)
+            folderMutationEngine.evictItemEverywhere(currentItems, item.id)
 
             // Re-evaluate indices AFTER the eviction — the list may have changed.
             val existingItemIndex = currentItems.indexOfFirst { it.id == item.id }
@@ -433,39 +441,23 @@ class HomeRepositoryImpl(
         item2: HomeItem,
         atPosition: GridPosition
     ): HomeItem.FolderItem? {
-        // Nesting guard: neither source item may itself be a folder or widget.
-        // Widgets are top-level only and cannot participate in folder composition.
-        if (
-            item1 is HomeItem.FolderItem ||
-            item2 is HomeItem.FolderItem ||
-            item1 is HomeItem.WidgetItem ||
-            item2 is HomeItem.WidgetItem
-        ) {
-            return null
-        }
-
-        // Build the new folder using the factory method on FolderItem.
-        val newFolder = HomeItem.FolderItem.create(item1, item2, atPosition)
+        var createdFolder: HomeItem.FolderItem? = null
 
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            // Enforce global uniqueness before creating a new folder.
-            // This guarantees each logical item ID exists in exactly one location.
-            evictItemEverywhere(currentItems, item1.id)
-            evictItemEverywhere(currentItems, item2.id)
-
-            // Remove both source items from the top-level list.
-            // We use removeAll with id comparison to be safe if positions shifted.
-            currentItems.removeAll { it.id == item1.id || it.id == item2.id }
-
-            // Add the new folder at the requested position.
-            currentItems.add(newFolder)
+            createdFolder = folderMutationEngine.createFolder(
+                items = currentItems,
+                item1 = item1,
+                item2 = item2,
+                atPosition = atPosition
+            )
+            if (createdFolder == null) return@edit
 
             serializeItems(currentItems, preferences)
         }
 
-        return newFolder
+        return createdFolder
     }
 
     /**
@@ -481,52 +473,20 @@ class HomeRepositoryImpl(
         item: HomeItem,
         targetIndex: Int?
     ): Boolean {
-        // Folder children must be icon-like items only.
-        // We reject both folders (no nesting) and widgets (top-level only).
-        if (item is HomeItem.FolderItem || item is HomeItem.WidgetItem) return false
-
         var wasApplied = false
 
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            // Find the target folder in the top-level list.
-            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
-            if (folderIndex == -1) {
-                // Folder not found — nothing to do.
-                return@edit
-            }
-
-            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
-
-            // Guard: item is already a child of this folder.
-            if (folder.children.any { it.id == item.id }) {
-                wasApplied = false
-                return@edit
-            }
-
-            // Enforce global uniqueness by removing this ID from any other location
-            // (top-level and/or folder children) before inserting into target folder.
-            evictItemEverywhere(currentItems, item.id)
-
-            // Re-find folder index after the removal above (index may have shifted).
-            val updatedFolderIndex = currentItems.indexOfFirst { it.id == folderId }
-            if (updatedFolderIndex == -1) return@edit
-            val updatedFolder = currentItems[updatedFolderIndex] as HomeItem.FolderItem
-
-            // Build the updated children list.
-            val updatedChildren = updatedFolder.children.toMutableList()
-            val insertAt = targetIndex?.coerceIn(0, updatedChildren.size) ?: updatedChildren.size
-
-            // Always store children with DEFAULT position so they don't carry stale
-            // home-screen grid coordinates into the folder-internal grid.
-            updatedChildren.add(insertAt, item.withPosition(GridPosition.DEFAULT))
-
-            // Replace the folder in the top-level list with the updated version.
-            currentItems[updatedFolderIndex] = updatedFolder.copy(children = updatedChildren)
+            wasApplied = folderMutationEngine.addItemToFolder(
+                items = currentItems,
+                folderId = folderId,
+                item = item,
+                targetIndex = targetIndex
+            )
+            if (!wasApplied) return@edit
 
             serializeItems(currentItems, preferences)
-            wasApplied = true
         }
 
         return wasApplied
@@ -552,17 +512,15 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            // STRICT GUARD: if the child is not present in the folder, this must be
-            // a no-op. We intentionally do not apply cleanup in that case.
-            val removedChild = removeChildFromFolderWithCleanup(
+            val result = folderMutationEngine.removeItemFromFolder(
                 items = currentItems,
                 folderId = folderId,
-                childItemId = itemId
-            ) ?: return@edit
+                itemId = itemId
+            )
+            if (!result.wasApplied) return@edit
 
-            // Child was found and removed. Determine whether the folder still exists.
-            resultFolder = currentItems.firstOrNull { it.id == folderId } as? HomeItem.FolderItem
-            wasApplied = removedChild.id == itemId
+            resultFolder = result.updatedFolder
+            wasApplied = true
 
             serializeItems(currentItems, preferences)
         }
@@ -584,22 +542,14 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
-            if (folderIndex == -1) return@edit
+            wasApplied = folderMutationEngine.reorderFolderItems(
+                items = currentItems,
+                folderId = folderId,
+                newChildren = newChildren
+            )
+            if (!wasApplied) return@edit
 
-            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
-
-            // Replace children. Ensure no FolderItems sneak in (safety guard).
-            val safeChildren = newChildren
-                .filterNot { it is HomeItem.FolderItem }
-                .filterNot { it is HomeItem.WidgetItem }
-                // Ensure children positions are reset to DEFAULT so the folder-internal
-                // grid doesn't get confused by stale home-screen coordinates.
-                .map { it.withPosition(GridPosition.DEFAULT) }
-
-            currentItems[folderIndex] = folder.copy(children = safeChildren)
             serializeItems(currentItems, preferences)
-            wasApplied = true
         }
 
         return wasApplied
@@ -619,36 +569,14 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            val sourceIndex = currentItems.indexOfFirst { it.id == sourceFolderId }
-            val targetIndex = currentItems.indexOfFirst { it.id == targetFolderId }
-
-            if (sourceIndex == -1 || targetIndex == -1) return@edit
-
-            val sourceFolder = currentItems[sourceIndex] as? HomeItem.FolderItem ?: return@edit
-            val targetFolder = currentItems[targetIndex] as? HomeItem.FolderItem ?: return@edit
-
-            // Build the merged children list: target's children first, then unique source children.
-            val targetChildIds = targetFolder.children.map { it.id }.toSet()
-            val newChildrenFromSource = sourceFolder.children
-                .filterNot { it.id in targetChildIds }    // skip duplicates
-                .filterNot { it is HomeItem.FolderItem }   // safety check (no nesting)
-                .map { it.withPosition(GridPosition.DEFAULT) }
-
-            val mergedChildren = targetFolder.children + newChildrenFromSource
-
-            // Update the target folder with the merged children.
-            val updatedTarget = targetFolder.copy(children = mergedChildren)
-
-            // Remove the source folder from the list.
-            currentItems.removeAll { it.id == sourceFolderId }
-
-            // Update the target in its (potentially shifted) position.
-            val newTargetIndex = currentItems.indexOfFirst { it.id == targetFolderId }
-            if (newTargetIndex == -1) return@edit
-            currentItems[newTargetIndex] = updatedTarget
+            wasApplied = folderMutationEngine.mergeFolders(
+                items = currentItems,
+                sourceFolderId = sourceFolderId,
+                targetFolderId = targetFolderId
+            )
+            if (!wasApplied) return@edit
 
             serializeItems(currentItems, preferences)
-            wasApplied = true
         }
 
         return wasApplied
@@ -668,17 +596,14 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
-            if (folderIndex == -1) return@edit
-
-            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
-
-            // Use the user-supplied name if non-blank, otherwise default back to "Folder".
-            val safeName = newName.trim().ifBlank { "Folder" }
-            currentItems[folderIndex] = folder.copy(name = safeName)
+            wasApplied = folderMutationEngine.renameFolder(
+                items = currentItems,
+                folderId = folderId,
+                newName = newName
+            )
+            if (!wasApplied) return@edit
 
             serializeItems(currentItems, preferences)
-            wasApplied = true
         }
 
         return wasApplied
@@ -711,38 +636,19 @@ class HomeRepositoryImpl(
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            // Find the folder.
-            val folderIndex = currentItems.indexOfFirst { it.id == folderId }
-            if (folderIndex == -1) return@edit
-
-            val folder = currentItems[folderIndex] as? HomeItem.FolderItem ?: return@edit
-
-            // Find the item inside the folder.
-            if (folder.children.none { it.id == itemId }) return@edit
-
             // Span-aware occupancy check: the target must be empty or occupied by the folder itself.
             val occupiedCells = buildOccupiedCellsMap(currentItems, excludeItemId = folderId)
-            if (targetPosition in occupiedCells) {
-                // Target is occupied by something else — reject the operation.
-                return@edit
-            }
 
-            // Remove from source folder and apply cleanup policy in one shared helper.
-            // This keeps folder-removal logic identical across all write paths.
-            val removedChild = removeChildFromFolderWithCleanup(
+            wasApplied = folderMutationEngine.extractItemFromFolder(
                 items = currentItems,
                 folderId = folderId,
-                childItemId = itemId
-            ) ?: return@edit
-
-            // Enforce uniqueness before adding to top-level grid position.
-            evictItemEverywhere(currentItems, removedChild.id)
-
-            // Place the extracted item at the target position.
-            currentItems.add(removedChild.withPosition(targetPosition))
+                itemId = itemId,
+                targetPosition = targetPosition,
+                targetPositionOccupiedByOtherItem = targetPosition in occupiedCells
+            )
+            if (!wasApplied) return@edit
 
             serializeItems(currentItems, preferences)
-            wasApplied = true
         }
 
         return wasApplied
@@ -756,51 +662,20 @@ class HomeRepositoryImpl(
         targetFolderId: String,
         itemId: String
     ): Boolean {
-        if (sourceFolderId == targetFolderId) return false
-
         var wasApplied = false
 
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            val sourceFolder = currentItems.firstOrNull { it.id == sourceFolderId } as? HomeItem.FolderItem
-                ?: return@edit
-            if (sourceFolder.children.none { it.id == itemId }) {
-                return@edit
-            }
-
-            val targetFolder = currentItems.firstOrNull { it.id == targetFolderId } as? HomeItem.FolderItem
-                ?: return@edit
-
-            // Keep existing semantics explicit: moving an item onto a folder that
-            // already contains the same ID is rejected.
-            if (targetFolder.children.any { it.id == itemId }) {
-                return@edit
-            }
-
-            val childToMove = sourceFolder.children.first { it.id == itemId }
-
-            // Defensive guard for corrupted/legacy state: widgets are never valid
-            // folder children and cannot be moved between folders.
-            if (childToMove is HomeItem.WidgetItem) {
-                return@edit
-            }
-
-            // Remove any copy of this ID first (including source folder child) so the
-            // final write is globally unique by item ID.
-            evictItemEverywhere(currentItems, itemId)
-
-            val updatedTargetIndex = currentItems.indexOfFirst { it.id == targetFolderId }
-            if (updatedTargetIndex == -1) return@edit
-
-            val updatedTarget = currentItems[updatedTargetIndex] as? HomeItem.FolderItem ?: return@edit
-            val updatedChildren = updatedTarget.children.toMutableList()
-            updatedChildren.add(childToMove.withPosition(GridPosition.DEFAULT))
-
-            currentItems[updatedTargetIndex] = updatedTarget.copy(children = updatedChildren)
+            wasApplied = folderMutationEngine.moveItemBetweenFolders(
+                items = currentItems,
+                sourceFolderId = sourceFolderId,
+                targetFolderId = targetFolderId,
+                itemId = itemId
+            )
+            if (!wasApplied) return@edit
 
             serializeItems(currentItems, preferences)
-            wasApplied = true
         }
 
         return wasApplied
@@ -816,42 +691,21 @@ class HomeRepositoryImpl(
         occupantItem: HomeItem,
         atPosition: GridPosition
     ): HomeItem.FolderItem? {
-        if (occupantItem is HomeItem.FolderItem || occupantItem is HomeItem.WidgetItem) return null
-
         var createdFolder: HomeItem.FolderItem? = null
 
         context.homeDataStore.edit { preferences ->
             val currentItems = deserializeItems(preferences).toMutableList()
 
-            val sourceFolder = currentItems.firstOrNull { it.id == sourceFolderId } as? HomeItem.FolderItem
-                ?: return@edit
-            val childToMove = sourceFolder.children.firstOrNull { it.id == childItemId }
-                ?: return@edit
-
-            // Defensive guard for corrupted/legacy state: folder children cannot be widgets.
-            if (childToMove is HomeItem.WidgetItem) {
-                return@edit
-            }
-
-            // The occupant must still be a top-level non-folder item at the exact
-            // drop position; otherwise this drop route is no longer valid.
-            val liveOccupant = currentItems.firstOrNull {
-                it.id == occupantItem.id && it.position == atPosition && it !is HomeItem.FolderItem
-            } ?: return@edit
-
-            // Remove all existing copies before creating the final folder.
-            evictItemEverywhere(currentItems, childToMove.id)
-            evictItemEverywhere(currentItems, liveOccupant.id)
-
-            val newFolder = HomeItem.FolderItem.create(
-                item1 = childToMove,
-                item2 = liveOccupant,
+            createdFolder = folderMutationEngine.extractFolderChildOntoItem(
+                items = currentItems,
+                sourceFolderId = sourceFolderId,
+                childItemId = childItemId,
+                occupantItem = occupantItem,
                 atPosition = atPosition
             )
+            if (createdFolder == null) return@edit
 
-            currentItems.add(newFolder)
             serializeItems(currentItems, preferences)
-            createdFolder = newFolder
         }
 
         return createdFolder
@@ -922,118 +776,6 @@ class HomeRepositoryImpl(
      * @param items The list of items to serialize
      * @param preferences The mutable preferences to write to
      */
-    // ========================================================================
-    // PRIVATE HELPER — folder eviction
-    // ========================================================================
-
-    /**
-     * Removes the item with [itemId] from whichever [HomeItem.FolderItem] it
-     * currently lives in, applying the standard folder cleanup policy.
-     *
-     * This helper operates directly on the already-deserialized [items] list
-     * (a [MutableList] obtained inside a DataStore [edit] block).  It must be
-     * called BEFORE any index-based look-ups on [items], because the list may
-     * change size.
-     *
-     * WHY THIS EXISTS:
-     * Items in the data model can live in exactly ONE place:
-     *   (a) the flat home-screen [pinnedItems] list, or
-     *   (b) inside a [HomeItem.FolderItem]'s children list.
-     *
-     * When an item is added to a new location — either directly onto the grid
-     * via [pinOrMoveItemToPosition], or into a folder via [addItemToFolder] —
-     * we must first evict it from wherever it currently is.  The existing flat-
-     * list removal (`removeAll { it.id == item.id }`) already handles case (a);
-     * this helper handles case (b).
-     *
-     * CLEANUP POLICY (identical to [removeItemFromFolder]):
-     *   - 0 children remain after removal → folder deleted from [items].
-     *   - 1 child  remains after removal → folder deleted; sole remaining child
-     *     is promoted to the folder's home-screen grid position.
-     *   - 2+ children remain             → folder updated in place.
-     *
-     * If [itemId] is not a child of any folder, this function is a no-op.
-     *
-     * @param items  The mutable flat home-items list (modified in-place).
-     * @param itemId The ID of the child item to evict.
-     */
-    private fun evictItemFromFolderIfPresent(items: MutableList<HomeItem>, itemId: String): Boolean {
-        // Find the index of the folder that contains this item as a child.
-        // We remove one match per call; caller can loop to remove all matches.
-        val folder = items.firstOrNull { candidate ->
-            candidate is HomeItem.FolderItem && candidate.children.any { child -> child.id == itemId }
-        } as? HomeItem.FolderItem
-
-        // Item is not inside any folder — nothing to do.
-        if (folder == null) return false
-
-        return removeChildFromFolderWithCleanup(
-            items = items,
-            folderId = folder.id,
-            childItemId = itemId
-        ) != null
-    }
-
-    /**
-     * Removes an item ID from top-level and all folders, applying source-folder
-     * cleanup policy each time a folder child is evicted.
-     */
-    private fun evictItemEverywhere(items: MutableList<HomeItem>, itemId: String) {
-        items.removeAll { it.id == itemId }
-
-        // Run until no folder contains this child ID. We intentionally clean all
-        // duplicates so every mutation leaves the data model globally unique by ID.
-        while (evictItemFromFolderIfPresent(items, itemId)) {
-            // Keep evicting until exhausted.
-        }
-    }
-
-    /**
-     * Removes one child from a specific folder and applies folder cleanup policy.
-     *
-     * @return the removed child when the child existed; null when no mutation happened.
-     */
-    private fun removeChildFromFolderWithCleanup(
-        items: MutableList<HomeItem>,
-        folderId: String,
-        childItemId: String
-    ): HomeItem? {
-        val folderIndex = items.indexOfFirst { it.id == folderId }
-        if (folderIndex == -1) return null
-
-        val folder = items[folderIndex] as? HomeItem.FolderItem ?: return null
-        val removedChild = folder.children.firstOrNull { it.id == childItemId } ?: return null
-        val remainingChildren = folder.children.filterNot { it.id == childItemId }
-
-        when (remainingChildren.size) {
-            0 -> {
-                items.removeAt(folderIndex)
-            }
-            1 -> {
-                val promotedChild = remainingChildren.first().withPosition(folder.position)
-                items.removeAt(folderIndex)
-                items.add(promotedChild)
-            }
-            else -> {
-                items[folderIndex] = folder.copy(children = remainingChildren)
-            }
-        }
-
-        return removedChild
-    }
-
-    /**
-     * Checks whether an item ID exists anywhere in the model (top-level or folder child).
-     */
-    private fun containsItemIdAnywhere(items: List<HomeItem>, itemId: String): Boolean {
-        if (items.any { it.id == itemId }) return true
-
-        return items.any { item ->
-            val folder = item as? HomeItem.FolderItem ?: return@any false
-            folder.children.any { child -> child.id == itemId }
-        }
-    }
-
     private fun serializeItems(items: List<HomeItem>, preferences: MutablePreferences) {
         val itemsString = items
             .joinToString("\n") { item ->

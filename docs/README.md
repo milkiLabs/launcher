@@ -13,6 +13,7 @@ Welcome to the Milki Launcher documentation! This is an educational Android laun
 | **[multi-mode-search.md](multi-mode-search.md)** | Multi-mode search feature documentation |
 | **[app-drawer.md](app-drawer.md)** | Homescreen swipe-up app drawer, sorting, and drag-to-home behavior |
 | **[launcher-screen-feature-hosts.md](launcher-screen-feature-hosts.md)** | LauncherScreen action grouping and host boundary refactor |
+| **[folder-mutation-engine.md](folder-mutation-engine.md)** | Folder domain mutation engine extraction and contract test coverage |
 | **[app-icon-memory-cache.md](app-icon-memory-cache.md)** | Launcher-optimized app icon caching and rendering flow |
 | **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** | Reducing DataStore read/write churn in settings/home hot paths |
 | **[settings-configuration-audit-phase-1.md](settings-configuration-audit-phase-1.md)** | Phase 1 settings audit refactor (adapter scope, collision policy, lifecycle wiring cleanup) |
@@ -250,6 +251,7 @@ This project is extensively documented for educational purposes. Each major comp
 
 ### Technical Components
 - **[app-icon-memory-cache.md](app-icon-memory-cache.md)** - How launcher icon caching and rendering works
+- **[folder-mutation-engine.md](folder-mutation-engine.md)** - Folder domain mutation engine design and mutation contract guarantees
 - **[DataStoreHotPathOptimizations.md](DataStoreHotPathOptimizations.md)** - How hot-path repository writes were optimized
 - **[settings-configuration-audit-phase-1.md](settings-configuration-audit-phase-1.md)** - Phase 1 prioritized settings/configuration audit fixes
 - **[settings-configuration-audit-phase-2.md](settings-configuration-audit-phase-2.md)** - Phase 2 transactional source-prefix mutation refactor
