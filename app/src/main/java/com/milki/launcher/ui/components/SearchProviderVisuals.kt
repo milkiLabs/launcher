@@ -20,9 +20,11 @@
 package com.milki.launcher.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -61,19 +63,27 @@ fun rememberSearchProviderVisual(
     return remember(providerId, customAccentHex, colorScheme) {
         val customAccentColor = parseHexColorOrNull(customAccentHex)
 
-        when (providerId) {
-            ProviderId.CONTACTS -> SearchProviderVisual(
+        when {
+            providerId == ProviderId.CONTACTS -> SearchProviderVisual(
                 icon = Icons.Filled.Person,
                 accentColor = customAccentColor ?: colorScheme.secondary
             )
-            ProviderId.FILES -> SearchProviderVisual(
+            providerId == ProviderId.FILES -> SearchProviderVisual(
                 icon = Icons.AutoMirrored.Filled.InsertDriveFile,
                 accentColor = customAccentColor ?: colorScheme.primaryContainer
             )
-            null -> null
-            else -> SearchProviderVisual(
+            providerId?.contains("youtube") == true -> SearchProviderVisual(
+                icon = Icons.Filled.VideoLibrary,
+                accentColor = customAccentColor ?: colorScheme.error
+            )
+            providerId?.contains("web") == true || providerId?.contains("google") == true -> SearchProviderVisual(
                 icon = Icons.Filled.Search,
                 accentColor = customAccentColor ?: colorScheme.primary
+            )
+            providerId == null -> null
+            else -> SearchProviderVisual(
+                icon = Icons.AutoMirrored.Filled.HelpOutline,
+                accentColor = customAccentColor ?: colorScheme.outline
             )
         }
     }

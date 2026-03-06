@@ -180,7 +180,8 @@ fun AppGridItem(
                         HomeItem.PinnedApp.fromAppInfo(appInfo).id
                     )
                 ),
-                createAppInfoAction(appInfo.packageName)
+                createAppInfoAction(appInfo.packageName),
+                createUninstallAction(appInfo.packageName)
             )
         )
     }

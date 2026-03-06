@@ -157,6 +157,17 @@ sealed class SearchResultAction {
      * @property packageName The package name of the app
      */
     data class OpenAppInfo(val packageName: String) : SearchResultAction()
+
+    /**
+     * User wants to uninstall an application.
+     *
+     * This triggers the system's uninstall dialog for the specified package.
+     * Educational Note: We use Intent.ACTION_DELETE with a package URI to
+     * trigger the standard Android uninstallation flow.
+     *
+     * @property packageName The package name of the app to uninstall
+     */
+    data class UninstallApp(val packageName: String) : SearchResultAction()
     
     // ========================================================================
     // PERMISSION ACTIONS
@@ -197,5 +208,6 @@ fun SearchResultAction.shouldCloseSearch(): Boolean = when (this) {
     is SearchResultAction.PinContact -> false
     is SearchResultAction.UnpinItem -> false
     is SearchResultAction.OpenAppInfo -> false
+    is SearchResultAction.UninstallApp -> true
     is SearchResultAction.RequestPermission -> false
 }
