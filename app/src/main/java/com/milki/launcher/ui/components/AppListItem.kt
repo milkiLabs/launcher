@@ -135,7 +135,8 @@ fun AppListItem(
                         HomeItem.PinnedApp.fromAppInfo(appInfo).id
                     )
                 ),
-                createAppInfoAction(appInfo.packageName)
+                createAppInfoAction(appInfo.packageName),
+                createUninstallAction(appInfo.packageName)
             )
         )
     }

@@ -95,6 +95,9 @@ sealed class SearchResultAction {
     
     // Request permission
     data class RequestPermission(val permission: String, val providerPrefix: String) : SearchResultAction()
+
+    // Uninstall an app
+    data class UninstallApp(val packageName: String) : SearchResultAction()
 }
 ```
 

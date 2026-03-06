@@ -24,6 +24,7 @@ package com.milki.launcher.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.DropdownMenu
@@ -187,6 +188,22 @@ fun createAppInfoAction(packageName: String): MenuAction {
         label = "App info",
         icon = Icons.Filled.Info,
         action = SearchResultAction.OpenAppInfo(packageName)
+    )
+}
+
+/**
+ * Creates an "Uninstall" action for apps.
+ *
+ * This triggers the system's uninstallation flow.
+ *
+ * @param packageName The package name of the app to uninstall
+ * @return MenuAction that will trigger uninstallation
+ */
+fun createUninstallAction(packageName: String): MenuAction {
+    return MenuAction(
+        label = "Uninstall",
+        icon = Icons.Filled.DeleteForever,
+        action = SearchResultAction.UninstallApp(packageName)
     )
 }
 

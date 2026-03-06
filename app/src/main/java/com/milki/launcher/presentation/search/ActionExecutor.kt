@@ -100,6 +100,7 @@ class ActionExecutor(
             is SearchResultAction.PinContact -> handlePinContact(action)
             is SearchResultAction.UnpinItem -> handleUnpinItem(action)
             is SearchResultAction.OpenAppInfo -> handleOpenAppInfo(action)
+            is SearchResultAction.UninstallApp -> handleUninstallApp(action)
             is SearchResultAction.RequestPermission -> handleRequestPermission(action)
         }
         
@@ -280,6 +281,27 @@ class ActionExecutor(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
+    }
+
+    /**
+     * Triggers the system uninstallation dialog for an app.
+     *
+     * WHY ACTION_DELETE:
+     * This is the standard Android way to request an app uninstallation.
+     * The system will show a confirmation dialog to the user.
+     *
+     * @param action The action containing the package name to uninstall
+     */
+    private fun handleUninstallApp(action: SearchResultAction.UninstallApp) {
+        val intent = Intent(Intent.ACTION_DELETE).apply {
+            data = Uri.parse("package:${action.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Could not start uninstaller", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // ========================================================================

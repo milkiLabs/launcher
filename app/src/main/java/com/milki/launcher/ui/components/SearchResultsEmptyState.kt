@@ -57,17 +57,26 @@ fun EmptyState(
             Spacer(modifier = Modifier.height(Spacing.mediumLarge))
 
             val message = when {
+                searchQuery.isBlank() && activeProvider?.providerId?.contains("youtube") == true -> {
+                    "Ready to watch something?\nType to search YouTube"
+                }
+                searchQuery.isBlank() && (activeProvider?.providerId?.contains("web") == true || activeProvider?.providerId?.contains("google") == true) -> {
+                    "Search the world's information\nWhat are you looking for?"
+                }
                 searchQuery.isBlank() && activeProvider != null -> {
                     "No recent ${activeProvider.name.lowercase()} results\nType to search ${activeProvider.name.lowercase()}"
                 }
                 searchQuery.isBlank() -> {
                     "No recent apps\nType to search"
                 }
+                activeProvider?.providerId?.contains("youtube") == true -> {
+                    "No videos found for \"$searchQuery\""
+                }
                 activeProvider != null -> {
                     "No ${activeProvider.name.lowercase()} results found"
                 }
                 else -> {
-                    "No apps found"
+                    "No apps found for \"$searchQuery\""
                 }
             }
 

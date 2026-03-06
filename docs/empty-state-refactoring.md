@@ -266,6 +266,14 @@ No contacts results found
 No contacts results found
 ```
 
+### Contextual Messaging for Sources
+
+The empty state now provides more engaging, contextual messaging for dynamic search sources:
+
+- **YouTube**: "Ready to watch something?" (when query is blank)
+- **Web Search**: "Search the world's information" (when query is blank)
+- **All Sources**: Contextual "No results found for '[query]'" messages
+
 The UI layer has all the context it needs to show appropriate messages without the search layer needing to provide fake results.
 
 ## Files Changed
