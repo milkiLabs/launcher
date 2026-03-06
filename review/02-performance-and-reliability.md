@@ -27,7 +27,6 @@
 2. Emit structured logs with action context and identifiers.
 3. Keep user-friendly fallback but preserve real failure reason in logs/telemetry.
 
-### 5)
 
 ## Reliability Gaps
 

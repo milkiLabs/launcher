@@ -49,7 +49,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,7 +74,6 @@ import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import com.milki.launcher.domain.model.GridPosition
@@ -99,6 +97,85 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
+ * Aggregates all callback contracts emitted from LauncherScreen.
+ *
+ * Grouping actions by feature domain keeps LauncherScreen's API stable as
+ * individual features evolve. Instead of adding one callback parameter per
+ * interaction, callers now provide one `LauncherActions` object with
+ * feature-scoped action groups.
+ */
+data class LauncherActions(
+    val home: HomeActions = HomeActions(),
+    val folder: FolderActions = FolderActions(),
+    val widget: WidgetActions = WidgetActions(),
+    val drawer: DrawerActions = DrawerActions(),
+    val search: SearchActions = SearchActions(),
+    val menu: MenuActions = MenuActions()
+)
+
+/**
+ * Home-surface interactions emitted from the pinned grid.
+ */
+data class HomeActions(
+    val onPinnedItemClick: (HomeItem) -> Unit = {},
+    val onPinnedItemLongPress: (HomeItem) -> Unit = {},
+    val onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit = { _, _ -> },
+    val onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> },
+    val onHomeSwipeUp: () -> Unit = {}
+)
+
+/**
+ * Folder lifecycle and drag-drop interactions.
+ */
+data class FolderActions(
+    val onCreateFolder: (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _ -> },
+    val onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
+    val onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit = { _, _ -> },
+    val onFolderClose: () -> Unit = {},
+    val onFolderRename: (folderId: String, newName: String) -> Unit = { _, _ -> },
+    val onFolderItemClick: (HomeItem) -> Unit = {},
+    val onFolderItemRemove: (folderId: String, itemId: String) -> Unit = { _, _ -> },
+    val onFolderItemReorder: (folderId: String, newChildren: List<HomeItem>) -> Unit = { _, _ -> },
+    val onExtractItemFromFolder: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
+    val onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit = { _, _, _ -> },
+    val onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> }
+)
+
+/**
+ * Widget picker visibility and widget-grid interactions.
+ */
+data class WidgetActions(
+    val onWidgetPickerOpenChange: (Boolean) -> Unit = {},
+    val onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
+    val onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit = { _, _ -> },
+    val onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit = { _, _, _ -> }
+)
+
+/**
+ * App drawer lifecycle and sorting interactions.
+ */
+data class DrawerActions(
+    val onAppDrawerOpenChange: (Boolean) -> Unit = {},
+    val onDrawerSortModeSelected: (AppDrawerSortMode) -> Unit = {}
+)
+
+/**
+ * Search dialog interactions.
+ */
+data class SearchActions(
+    val onQueryChange: (String) -> Unit = {},
+    val onDismissSearch: () -> Unit = {}
+)
+
+/**
+ * Homescreen context-menu interactions.
+ */
+data class MenuActions(
+    val onOpenSettings: () -> Unit = {},
+    val onHomescreenMenuOpenChange: (Boolean) -> Unit = {}
+)
+
+/**
  * LauncherScreen - The main home screen of the launcher.
  *
  * Displays a transparent background showing the user's system wallpaper,
@@ -120,94 +197,27 @@ import kotlin.math.abs
  *
  * @param searchUiState Current search state from SearchViewModel
  * @param homeUiState Current home screen state from HomeViewModel
- * @param onQueryChange Called when user types in search field
- * @param onDismissSearch Called when search dialog should close
- * @param onPinnedItemClick Called when a pinned item is clicked
- * @param onPinnedItemLongPress Called when a pinned item is long-pressed (for menu)
- * @param onPinnedItemMove Called when a pinned item is dragged to a new position
- * @param onItemDroppedToHome Callback for external drag payload drops (app/file/contact)
- * @param onOpenSettings Called when user opens the homescreen long-press menu and selects Settings
+ * @param actions Grouped feature contracts for home/folder/widget/drawer/search/menu interactions
+ * @param isHomescreenMenuOpen Whether the homescreen long-press menu is visible
+ * @param isAppDrawerOpen Whether the app drawer bottom sheet host is visible
+ * @param appDrawerUiState Current app drawer state from AppDrawerViewModel
+ * @param isWidgetPickerOpen Whether the widget picker bottom sheet is visible
+ * @param widgetHostManager Host manager used by widget grid/picker components
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(
     searchUiState: SearchUiState,
     homeUiState: HomeUiState,
-    onQueryChange: (String) -> Unit,
-    onDismissSearch: () -> Unit,
-    onPinnedItemClick: (HomeItem) -> Unit,
-    onPinnedItemLongPress: (HomeItem) -> Unit,
-    onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> },
-    onOpenSettings: () -> Unit = {},
+    actions: LauncherActions = LauncherActions(),
     isHomescreenMenuOpen: Boolean = false,
-    onHomescreenMenuOpenChange: (Boolean) -> Unit = {},
     isAppDrawerOpen: Boolean = false,
-    onAppDrawerOpenChange: (Boolean) -> Unit = {},
     appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
-    onDrawerSortModeSelected: (AppDrawerSortMode) -> Unit = {},
-    onHomeSwipeUp: () -> Unit = {},
-    // ---- Folder lifecycle callbacks ----
-    /** Called when a non-folder icon is dropped onto another non-folder icon. */
-    onCreateFolder: (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _ -> },
-    /** Called when a non-folder icon is dropped onto an existing folder icon. */
-    onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
-    /** Called when a folder icon is dropped onto another folder icon. */
-    onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit = { _, _ -> },
-    /** Called when the user taps the scrim or back-navigates from the folder popup. */
-    onFolderClose: () -> Unit = {},
-    /** Called when the user edits the folder title inside the popup and confirms. */
-    onFolderRename: (folderId: String, newName: String) -> Unit = { _, _ -> },
-    /** Called when the user taps an icon inside the folder popup to launch it. */
-    onFolderItemClick: (HomeItem) -> Unit = {},
-    /** Called from the context menu inside the folder popup to remove the item. */
-    onFolderItemRemove: (folderId: String, itemId: String) -> Unit = { _, _ -> },
-    /** Called after the user reorders items via drag inside the folder popup. */
-    onFolderItemReorder: (folderId: String, newChildren: List<HomeItem>) -> Unit = { _, _ -> },
-    /**
-     * Called when the user finishes dragging an item OUT of the folder popup
-     * and releases it over an empty home grid cell.
-     */
-    onExtractItemFromFolder: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
-    /**
-     * Called when the user drags an item from one folder popup and drops it
-     * onto a DIFFERENT folder icon on the home grid.
-     */
-    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit = { _, _, _ -> },
-    /**
-     * Called when the user drags a folder child icon and drops it onto a NON-FOLDER
-     * home grid icon.  The two icons should be merged into a brand new folder.
-     *
-     * This mirrors the existing drag-two-grid-icons-together behaviour; the only
-     * difference is that the dragged item starts inside a folder rather than the
-     * flat home grid.
-     *
-     * Parameters:
-     *   sourceFolderId – the folder the child came from.
-     *   childItem      – the item that was dragged (the folder child).
-     *   occupantItem   – the existing grid icon it was dropped onto.
-     *   atPosition     – the grid cell where the new folder should appear.
-     */
-    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> },
-    // ---- Widget picker ----
     /** Whether the widget picker bottom sheet is currently visible. */
     isWidgetPickerOpen: Boolean = false,
-    /** Toggle widget picker visibility. */
-    onWidgetPickerOpenChange: (Boolean) -> Unit = {},
     /** The WidgetHostManager instance needed by the widget picker to query providers. */
     widgetHostManager: WidgetHostManager? = null,
-    /** Called when a widget should be removed via its context menu. */
-    onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
-    /** Called when a widget is resized via the resize overlay. */
-    onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit = { _, _ -> },
-    /**
-     * Called when a widget is dragged from the Widget Picker and dropped onto
-     * an empty cell on the home grid. The caller should begin the
-     * bind → configure → place flow at the given position.
-     */
-    onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit = { _, _, _ -> }
 ) {
-    val context = LocalContext.current
     val density = LocalDensity.current
     val drawerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val drawerSheetScope = rememberCoroutineScope()
@@ -215,17 +225,17 @@ fun LauncherScreen(
 
     LaunchedEffect(searchUiState.isSearchVisible) {
         if (searchUiState.isSearchVisible) {
-            onHomescreenMenuOpenChange(false)
-            onAppDrawerOpenChange(false)
-            onWidgetPickerOpenChange(false)
+            actions.menu.onHomescreenMenuOpenChange(false)
+            actions.drawer.onAppDrawerOpenChange(false)
+            actions.widget.onWidgetPickerOpenChange(false)
         }
     }
 
     LaunchedEffect(homeUiState.openFolderItem?.id) {
         if (homeUiState.openFolderItem != null) {
-            onHomescreenMenuOpenChange(false)
-            onAppDrawerOpenChange(false)
-            onWidgetPickerOpenChange(false)
+            actions.menu.onHomescreenMenuOpenChange(false)
+            actions.drawer.onAppDrawerOpenChange(false)
+            actions.widget.onWidgetPickerOpenChange(false)
         }
     }
 
@@ -286,7 +296,7 @@ fun LauncherScreen(
                             val isPredominantlyVertical = abs(totalDragY) > abs(totalDragX) * 1.2f
                             if (isPredominantlyVertical && totalDragY < -swipeOpenThresholdPx) {
                                 hasTriggeredOpen = true
-                                onHomeSwipeUp()
+                                actions.home.onHomeSwipeUp()
                             }
                         }
                     }
@@ -302,45 +312,24 @@ fun LauncherScreen(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) {
-                        onHomescreenMenuOpenChange(false)
+                        actions.menu.onHomescreenMenuOpenChange(false)
                     }
             )
         }
 
-        DraggablePinnedItemsGrid(
-            items = homeUiState.pinnedItems,
-            onItemClick = onPinnedItemClick,
-            onItemLongPress = onPinnedItemLongPress,
-            onItemMove = onPinnedItemMove,
-            onEmptyAreaLongPress = { touchOffset ->
-                homescreenMenuAnchorPx = touchOffset
-                onHomescreenMenuOpenChange(true)
-            },
-            onItemDroppedToHome = { item, position ->
-                onItemDroppedToHome(item, position)
-                onDismissSearch()
-            },
-            // ---- Folder operation callbacks -----
-            // Routed from DraggablePinnedItemsGrid's occupancy-check logic in onDragEnd.
-            onCreateFolder = onCreateFolder,
-            onAddItemToFolder = onAddItemToFolder,
-            onMergeFolders = onMergeFolders,
-            onFolderItemExtracted = onExtractItemFromFolder,
-            onMoveFolderItemToFolder = onMoveFolderItemToFolder,
-            onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
+        HomeSurface(
+            homeUiState = homeUiState,
+            actions = actions,
+            onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
             widgetHostManager = widgetHostManager,
-            onRemoveWidget = onRemoveWidget,
-            onResizeWidget = onResizeWidget,
-            onWidgetDroppedToHome = onWidgetDroppedToHome,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(Spacing.mediumLarge)
                 .align(Alignment.Center)
         )
 
         DropdownMenu(
             expanded = isHomescreenMenuOpen,
-            onDismissRequest = { onHomescreenMenuOpenChange(false) },
+            onDismissRequest = { actions.menu.onHomescreenMenuOpenChange(false) },
             offset = with(density) {
                 DpOffset(
                     x = homescreenMenuAnchorPx.x.toDp(),
@@ -357,8 +346,8 @@ fun LauncherScreen(
                     )
                 },
                 onClick = {
-                    onHomescreenMenuOpenChange(false)
-                    onWidgetPickerOpenChange(true)
+                    actions.menu.onHomescreenMenuOpenChange(false)
+                    actions.widget.onWidgetPickerOpenChange(true)
                 }
             )
             DropdownMenuItem(
@@ -370,8 +359,8 @@ fun LauncherScreen(
                     )
                 },
                 onClick = {
-                    onHomescreenMenuOpenChange(false)
-                    onOpenSettings()
+                    actions.menu.onHomescreenMenuOpenChange(false)
+                    actions.menu.onOpenSettings()
                 }
             )
         }
@@ -386,71 +375,154 @@ fun LauncherScreen(
         // It is keyed on [folder.id] so Compose recreates the composable fresh
         // when a different folder is opened (avoids stale local state from the
         // previously open folder leaking into the new one).
-        homeUiState.openFolderItem?.let { folder ->
-            key(folder.id) {
-                FolderPopupDialog(
-                    folder = folder,
-                    onClose = onFolderClose,
-                    onRenameFolder = { newName ->
-                        onFolderRename(folder.id, newName)
-                    },
-                    onItemClick = onFolderItemClick,
-                    onReorderFolderItems = { newChildren ->
-                        onFolderItemReorder(folder.id, newChildren)
-                    },
-                    onRemoveItemFromFolder = { itemId ->
-                        onFolderItemRemove(folder.id, itemId)
-                    }
-                )
-            }
-        }
+        FolderOverlayHost(homeUiState = homeUiState, actions = actions)
 
-        if (isAppDrawerOpen) {
-            ModalBottomSheet(
-                onDismissRequest = {
-                    onAppDrawerOpenChange(false)
-                },
-                sheetState = drawerSheetState,
-                sheetMaxWidth = Dp.Unspecified,
-                shape = RectangleShape,
-                dragHandle = null,
-                contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
-            ) {
-                AppDrawerOverlay(
-                    uiState = appDrawerUiState,
-                    onDismiss = {
-                        drawerSheetScope.launch {
-                            drawerSheetState.hide()
-                            onAppDrawerOpenChange(false)
-                        }
-                    },
-                    onSortModeSelected = onDrawerSortModeSelected,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-        }
+        DrawerHost(
+            isAppDrawerOpen = isAppDrawerOpen,
+            appDrawerUiState = appDrawerUiState,
+            drawerSheetState = drawerSheetState,
+            drawerSheetScope = drawerSheetScope,
+            actions = actions
+        )
 
-        // ─── Widget Picker BottomSheet ─────────────────────────────────────
-        // Shown when the user selects "Widgets" from the homescreen long-press
-        // context menu. Displays all installed widgets grouped by app.
-        if (isWidgetPickerOpen && widgetHostManager != null) {
-            WidgetPickerBottomSheet(
-                onDismiss = { onWidgetPickerOpenChange(false) },
-                widgetHostManager = widgetHostManager,
-                onExternalDragStarted = {
-                    // Close the bottom sheet immediately when the user starts
-                    // dragging a widget, so the home grid is visible for dropping.
-                    onWidgetPickerOpenChange(false)
-                }
-            )
-        }
+        WidgetPickerHost(
+            isWidgetPickerOpen = isWidgetPickerOpen,
+            widgetHostManager = widgetHostManager,
+            actions = actions
+        )
     }
 
     if (searchUiState.isSearchVisible) {
         AppSearchDialog(
             uiState = searchUiState,
-            onQueryChange = onQueryChange,
-            onDismiss = onDismissSearch
+            onQueryChange = actions.search.onQueryChange,
+            onDismiss = actions.search.onDismissSearch
+        )
+    }
+}
+
+/**
+ * Hosts the home grid surface and routes all grid events to grouped action contracts.
+ */
+@Composable
+private fun HomeSurface(
+    homeUiState: HomeUiState,
+    actions: LauncherActions,
+    onMenuAnchorChanged: (Offset) -> Unit,
+    widgetHostManager: WidgetHostManager?,
+    modifier: Modifier = Modifier
+) {
+    DraggablePinnedItemsGrid(
+        items = homeUiState.pinnedItems,
+        onItemClick = actions.home.onPinnedItemClick,
+        onItemLongPress = actions.home.onPinnedItemLongPress,
+        onItemMove = actions.home.onPinnedItemMove,
+        onEmptyAreaLongPress = { touchOffset ->
+            onMenuAnchorChanged(touchOffset)
+            actions.menu.onHomescreenMenuOpenChange(true)
+        },
+        onItemDroppedToHome = { item, position ->
+            actions.home.onItemDroppedToHome(item, position)
+            actions.search.onDismissSearch()
+        },
+        onCreateFolder = actions.folder.onCreateFolder,
+        onAddItemToFolder = actions.folder.onAddItemToFolder,
+        onMergeFolders = actions.folder.onMergeFolders,
+        onFolderItemExtracted = actions.folder.onExtractItemFromFolder,
+        onMoveFolderItemToFolder = actions.folder.onMoveFolderItemToFolder,
+        onFolderChildDroppedOnItem = actions.folder.onFolderChildDroppedOnItem,
+        widgetHostManager = widgetHostManager,
+        onRemoveWidget = actions.widget.onRemoveWidget,
+        onResizeWidget = actions.widget.onResizeWidget,
+        onWidgetDroppedToHome = actions.widget.onWidgetDroppedToHome,
+        modifier = modifier
+            .padding(Spacing.mediumLarge)
+    )
+}
+
+/**
+ * Hosts folder popup lifecycle and delegates actions through folder contracts.
+ */
+@Composable
+private fun FolderOverlayHost(
+    homeUiState: HomeUiState,
+    actions: LauncherActions
+) {
+    homeUiState.openFolderItem?.let { folder ->
+        key(folder.id) {
+            FolderPopupDialog(
+                folder = folder,
+                onClose = actions.folder.onFolderClose,
+                onRenameFolder = { newName ->
+                    actions.folder.onFolderRename(folder.id, newName)
+                },
+                onItemClick = actions.folder.onFolderItemClick,
+                onReorderFolderItems = { newChildren ->
+                    actions.folder.onFolderItemReorder(folder.id, newChildren)
+                },
+                onRemoveItemFromFolder = { itemId ->
+                    actions.folder.onFolderItemRemove(folder.id, itemId)
+                }
+            )
+        }
+    }
+}
+
+/**
+ * Hosts app drawer bottom sheet and keeps drawer-specific UI isolated.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DrawerHost(
+    isAppDrawerOpen: Boolean,
+    appDrawerUiState: AppDrawerUiState,
+    drawerSheetState: androidx.compose.material3.SheetState,
+    drawerSheetScope: kotlinx.coroutines.CoroutineScope,
+    actions: LauncherActions
+) {
+    if (isAppDrawerOpen) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                actions.drawer.onAppDrawerOpenChange(false)
+            },
+            sheetState = drawerSheetState,
+            sheetMaxWidth = Dp.Unspecified,
+            shape = RectangleShape,
+            dragHandle = null,
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+        ) {
+            AppDrawerOverlay(
+                uiState = appDrawerUiState,
+                onDismiss = {
+                    drawerSheetScope.launch {
+                        drawerSheetState.hide()
+                        actions.drawer.onAppDrawerOpenChange(false)
+                    }
+                },
+                onSortModeSelected = actions.drawer.onDrawerSortModeSelected,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+/**
+ * Hosts widget picker bottom sheet and routes dismissal events through widget contracts.
+ */
+@Composable
+private fun WidgetPickerHost(
+    isWidgetPickerOpen: Boolean,
+    widgetHostManager: WidgetHostManager?,
+    actions: LauncherActions
+) {
+    if (isWidgetPickerOpen && widgetHostManager != null) {
+        WidgetPickerBottomSheet(
+            onDismiss = { actions.widget.onWidgetPickerOpenChange(false) },
+            widgetHostManager = widgetHostManager,
+            onExternalDragStarted = {
+                // Close immediately so drop targets are visible on the home grid.
+                actions.widget.onWidgetPickerOpenChange(false)
+            }
         )
     }
 }
