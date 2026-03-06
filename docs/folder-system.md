@@ -23,6 +23,7 @@ The focus of this version is correctness and maintainability:
 8. [Main Transaction Flows](#main-transaction-flows)
 9. [Files and Responsibilities](#files-and-responsibilities)
 10. [Manual Validation Matrix](#manual-validation-matrix)
+11. [Contract Tests](#contract-tests)
 
 ---
 

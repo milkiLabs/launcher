@@ -151,6 +151,46 @@ The home grid (`DraggablePinnedItemsGrid`) now:
 3. Uses `detectDragGesture(...)` per item
 4. On `Moved` result, emits `onItemMove(itemId, to)`
 
+### Layer split inside `DraggablePinnedItemsGrid` (March 2026)
+
+To reduce change coupling and make drag behavior easier to reason about, the
+home grid now uses four explicit layers while the top-level composable only
+owns shared state + wiring.
+
+Files:
+
+- `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt`
+        - top-level state holder and dependency wiring only
+- `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGridLayers.kt`
+        - behavior/rendering layers listed below
+
+Layers:
+
+1. `InternalGridDragLayer`
+         - Renders pinned items and handles internal drag lifecycle.
+         - Routes internal-drop outcomes: move vs folder-add/create/merge.
+         - Hosts item/widget context-menu entry points.
+
+2. `ExternalDropRoutingLayer`
+         - Owns `AppExternalDropTargetOverlay` callbacks.
+         - Handles external payload routing for app/file/contact, folder-child,
+                 and widget payloads.
+         - Keeps platform drag event handling separate from visual code.
+
+3. `WidgetOverlayLayer`
+         - Owns widget resize-mode overlay lifecycle and confirmation wiring.
+
+4. `DropHighlightLayer`
+         - Owns internal-drag target + floating preview rendering.
+         - Owns external-drag hover highlight rendering.
+
+Shared occupancy helper:
+
+- `List<HomeItem>.findOccupantAt(position, excludeItemId)` is now used as the
+        common span-aware occupant query for drop routing and highlight logic.
+- This prevents top-left-only checks from misclassifying widget-occupied cells
+        as empty when the pointer is over a non-anchor widget cell.
+
 ### External payload drops from search dialog
 
 The home grid also acts as a platform drag-and-drop target for launcher payloads.

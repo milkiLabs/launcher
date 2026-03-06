@@ -5,14 +5,6 @@ Scope: internal grid drag, external payload drops, folder drag-out, drop routing
 
 ## Findings
 
-### P1) `DraggablePinnedItemsGrid` is carrying too many responsibilities
-- Evidence: `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt:126`, `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt:888`, `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt:1100`
-- Problem: One composable owns internal drag, external drag target overlay, folder routing, widget routing, highlights, widget move/resize overlays, and context menus.
-- Risk: Very high change coupling and bug surface.
-- Recommendation:
-1. Split into `InternalGridDragLayer`, `ExternalDropRoutingLayer`, `WidgetOverlayLayer`, `DropHighlightLayer`.
-2. Keep only composition/wiring in the top-level grid composable.
-
 ### P1) External drop occupant detection is inconsistent with span-aware occupancy rules
 - Evidence: `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt:926`, `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt:1077`, `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt:1081`
 - Problem: some external-drop routing uses `items.find { it.position == dropPosition }` (top-left match), while widget occupancy in repository is span-aware.

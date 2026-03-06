@@ -1,0 +1,925 @@
+package com.milki.launcher.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.dragdrop.AppDragDropController
+import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.ui.components.dragdrop.AppDragDropResult
+import com.milki.launcher.ui.components.dragdrop.AppExternalDropTargetOverlay
+import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
+import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
+import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.components.grid.animateDragVisuals
+import com.milki.launcher.ui.components.grid.detectDragGesture
+import com.milki.launcher.ui.components.widget.HomeScreenWidgetView
+import com.milki.launcher.ui.theme.CornerRadius
+import com.milki.launcher.ui.theme.IconSize
+import com.milki.launcher.ui.theme.Spacing
+import kotlin.math.roundToInt
+
+/**
+ * InternalGridDragLayer owns on-grid item rendering and internal drag gesture handling.
+ *
+ * RESPONSIBILITIES:
+ * - Empty-grid long-press handling
+ * - Icon/widget rendering
+ * - Internal drag move/folder routing decisions
+ * - Item-level context menus
+ */
+@Composable
+internal fun InternalGridDragLayer(
+    items: List<HomeItem>,
+    config: GridConfig,
+    dragController: AppDragDropController<HomeItem>,
+    layoutMetrics: AppDragDropLayoutMetrics,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    maxVisibleRows: Int,
+    isExternalDragActive: Boolean,
+    widgetHostManager: WidgetHostManager?,
+    menuShownForItemId: String?,
+    onMenuShownForItemIdChange: (String?) -> Unit,
+    isMenuGestureActive: Boolean,
+    onMenuGestureActiveChange: (Boolean) -> Unit,
+    onResizeModeRequested: (String?) -> Unit,
+    onItemClick: (HomeItem) -> Unit,
+    onItemLongPress: (HomeItem) -> Unit,
+    onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
+    onEmptyAreaLongPress: (Offset) -> Unit,
+    onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
+    onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
+    onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit,
+    onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit,
+    hapticLongPress: () -> Unit,
+    hapticDragActivate: () -> Unit,
+    hapticConfirm: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(items, cellWidthPx, cellHeightPx, config.columns, maxVisibleRows) {
+                detectTapGestures(
+                    onLongPress = { longPressOffset ->
+                        if (isExternalDragActive) return@detectTapGestures
+                        if (dragController.session != null) return@detectTapGestures
+
+                        val pressedCell = layoutMetrics.pixelToCell(longPressOffset)
+                        val isCellOccupied = items.findOccupantAt(pressedCell) != null
+                        if (!isCellOccupied) {
+                            hapticLongPress()
+                            onEmptyAreaLongPress(longPressOffset)
+                        }
+                    }
+                )
+            }
+    ) {
+        if (items.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Tap to search",
+                    color = Color.White.copy(alpha = 0.3f),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+
+        items.forEach { item ->
+            key(item.id, item.position.row, item.position.column) {
+                val isBeingDragged = dragController.isDraggingItem(item.id)
+                val visuals = animateDragVisuals(isBeingDragged, config)
+                val basePosition = dragController.resolveBasePosition(item.id, item.position)
+                val span = (item as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+
+                Box(
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                x = (basePosition.column * cellWidthPx).roundToInt(),
+                                y = (basePosition.row * cellHeightPx).roundToInt()
+                            )
+                        }
+                        .size(
+                            width = with(LocalDensity.current) { (cellWidthPx * span.columns).toDp() },
+                            height = with(LocalDensity.current) { (cellHeightPx * span.rows).toDp() }
+                        )
+                        .padding(Spacing.smallMedium)
+                        .zIndex(visuals.zIndex)
+                        .graphicsLayer {
+                            scaleX = visuals.scale
+                            scaleY = visuals.scale
+                            alpha = visuals.alpha
+                        }
+                        .detectDragGesture(
+                            key = "${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}",
+                            dragThreshold = config.dragThresholdPx,
+                            onTap = {
+                                if (item is HomeItem.WidgetItem) return@detectDragGesture
+                                if (dragController.session == null) {
+                                    onItemClick(item)
+                                }
+                            },
+                            onLongPress = {
+                                if (item is HomeItem.WidgetItem) return@detectDragGesture
+                                if (dragController.session == null) {
+                                    hapticLongPress()
+                                    onMenuShownForItemIdChange(item.id)
+                                    onMenuGestureActiveChange(true)
+                                    onItemLongPress(item)
+                                }
+                            },
+                            onLongPressRelease = {
+                                if (item is HomeItem.WidgetItem) return@detectDragGesture
+                                onMenuGestureActiveChange(false)
+                            },
+                            onDragStart = {
+                                if (item is HomeItem.WidgetItem) return@detectDragGesture
+                                hapticDragActivate()
+                                onMenuShownForItemIdChange(null)
+                                onMenuGestureActiveChange(false)
+                                dragController.startDrag(
+                                    item = item,
+                                    itemId = item.id,
+                                    startPosition = item.position
+                                )
+                            },
+                            onDrag = { change, dragAmount ->
+                                if (item is HomeItem.WidgetItem) return@detectDragGesture
+                                if (dragController.isDraggingItem(item.id)) {
+                                    change.consume()
+                                    dragController.updateDrag(dragAmount, layoutMetrics)
+                                }
+                            },
+                            onDragEnd = {
+                                if (item is HomeItem.WidgetItem) return@detectDragGesture
+                                val result = dragController.endDrag(layoutMetrics)
+                                if (result is AppDragDropResult.Moved && result.itemId == item.id) {
+                                    val occupant = items.findOccupantForDroppedSpan(
+                                        excludeItemId = item.id,
+                                        draggedSpan = (item as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE,
+                                        droppedAt = result.to
+                                    )
+
+                                    if (occupant == null) {
+                                        hapticConfirm()
+                                        onItemMove(result.itemId, result.to)
+                                    } else {
+                                        when {
+                                            item is HomeItem.WidgetItem || occupant is HomeItem.WidgetItem -> {
+                                                // Widgets cannot participate in folder operations.
+                                            }
+                                            item is HomeItem.FolderItem && occupant is HomeItem.FolderItem -> {
+                                                hapticConfirm()
+                                                onMergeFolders(item.id, occupant.id)
+                                            }
+                                            item is HomeItem.FolderItem -> {
+                                                // Folder dropped onto non-folder is invalid.
+                                            }
+                                            occupant is HomeItem.FolderItem -> {
+                                                hapticConfirm()
+                                                onAddItemToFolder(occupant.id, item)
+                                            }
+                                            else -> {
+                                                hapticConfirm()
+                                                onCreateFolder(item, occupant, occupant.position)
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            onDragCancel = {
+                                if (item is HomeItem.WidgetItem) return@detectDragGesture
+                                dragController.cancelDrag()
+                                onMenuGestureActiveChange(false)
+                            }
+                        )
+                ) {
+                    if (item is HomeItem.WidgetItem && widgetHostManager != null) {
+                        HomeScreenWidgetView(
+                            appWidgetId = item.appWidgetId,
+                            widgetHostManager = widgetHostManager,
+                            widthPx = (cellWidthPx * span.columns).toInt(),
+                            heightPx = (cellHeightPx * span.rows).toInt(),
+                            onWidgetLongPress = {
+                                if (dragController.session == null) {
+                                    hapticLongPress()
+                                    onMenuShownForItemIdChange(item.id)
+                                    onMenuGestureActiveChange(true)
+                                    onItemLongPress(item)
+                                }
+                            },
+                            onWidgetLongPressRelease = {
+                                onMenuGestureActiveChange(false)
+                            },
+                            onWidgetDragStart = {
+                                if (dragController.session == null) {
+                                    hapticDragActivate()
+                                    onMenuShownForItemIdChange(null)
+                                    onMenuGestureActiveChange(false)
+                                    dragController.startDrag(
+                                        item = item,
+                                        itemId = item.id,
+                                        startPosition = item.position
+                                    )
+                                }
+                            },
+                            onWidgetDrag = { dragAmount ->
+                                if (dragController.isDraggingItem(item.id)) {
+                                    dragController.updateDrag(dragAmount, layoutMetrics)
+                                }
+                            },
+                            onWidgetDragEnd = {
+                                val result = dragController.endDrag(layoutMetrics)
+                                if (result is AppDragDropResult.Moved && result.itemId == item.id) {
+                                    val occupant = items.findOccupantForDroppedSpan(
+                                        excludeItemId = item.id,
+                                        draggedSpan = item.span,
+                                        droppedAt = result.to
+                                    )
+                                    if (occupant == null) {
+                                        hapticConfirm()
+                                        onItemMove(result.itemId, result.to)
+                                    }
+                                }
+                            },
+                            onWidgetDragCancel = {
+                                dragController.cancelDrag()
+                                onMenuGestureActiveChange(false)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+
+                        WidgetContextMenu(
+                            expanded = menuShownForItemId == item.id,
+                            onDismiss = {
+                                onMenuShownForItemIdChange(null)
+                                onMenuGestureActiveChange(false)
+                            },
+                            focusable = !isMenuGestureActive,
+                            onResize = {
+                                onMenuShownForItemIdChange(null)
+                                onMenuGestureActiveChange(false)
+                                onResizeModeRequested(item.id)
+                            },
+                            onRemove = {
+                                onMenuShownForItemIdChange(null)
+                                onMenuGestureActiveChange(false)
+                                onRemoveWidget(item.id, item.appWidgetId)
+                            },
+                            hapticConfirm = hapticConfirm
+                        )
+                    } else {
+                        PinnedItem(
+                            item = item,
+                            onClick = {},
+                            onLongClick = {},
+                            handleLongPress = false,
+                            showMenu = menuShownForItemId == item.id,
+                            onMenuDismiss = {
+                                onMenuShownForItemIdChange(null)
+                                onMenuGestureActiveChange(false)
+                            },
+                            menuFocusable = !isMenuGestureActive
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * WidgetOverlayLayer is isolated so widget resize behavior can evolve without
+ * touching the general grid drag/drop and external routing code.
+ */
+@Composable
+internal fun WidgetOverlayLayer(
+    items: List<HomeItem>,
+    resizingWidgetId: String?,
+    onResizeModeRequested: (String?) -> Unit,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    gridColumns: Int,
+    onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit
+) {
+    resizingWidgetId?.let { widgetId ->
+        val widgetItem = items.filterIsInstance<HomeItem.WidgetItem>()
+            .find { it.id == widgetId }
+
+        if (widgetItem != null) {
+            WidgetResizeOverlay(
+                widgetItem = widgetItem,
+                cellWidthPx = cellWidthPx,
+                cellHeightPx = cellHeightPx,
+                gridColumns = gridColumns,
+                items = items,
+                onConfirmResize = { newSpan ->
+                    onResizeModeRequested(null)
+                    onResizeWidget(widgetItem.id, newSpan)
+                }
+            )
+        } else {
+            onResizeModeRequested(null)
+        }
+    }
+}
+
+/**
+ * DropHighlightLayer renders both internal-drag and external-drag highlights.
+ *
+ * SPLIT BENEFIT:
+ * Rendering-heavy visual logic is now decoupled from routing callbacks.
+ */
+@Composable
+internal fun DropHighlightLayer(
+    items: List<HomeItem>,
+    config: GridConfig,
+    dragController: AppDragDropController<HomeItem>,
+    layoutMetrics: AppDragDropLayoutMetrics,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    maxVisibleRows: Int,
+    dragTargetOccupant: HomeItem?,
+    isExternalDragActive: Boolean,
+    externalDragTargetPosition: GridPosition?,
+    externalDragItem: ExternalDragDropItem?
+) {
+    dragController.session?.let { activeSession ->
+        val target = dragController.targetPosition ?: activeSession.startPosition
+        val previewBaseOffset = layoutMetrics.cellToPixel(activeSession.startPosition)
+        val previewOffset = previewBaseOffset + activeSession.currentOffset
+        val previewSpan = (activeSession.item as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+
+        val isDraggingFolder = activeSession.item is HomeItem.FolderItem
+        val isInvalidDrop = isDraggingFolder && dragTargetOccupant != null && dragTargetOccupant !is HomeItem.FolderItem
+
+        if (!isInvalidDrop) {
+            val isFolderMerge = dragTargetOccupant != null
+            val highlightColor = if (isFolderMerge) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+            val highlightShape = RoundedCornerShape(CornerRadius.medium)
+
+            Box(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            x = (target.column * cellWidthPx).roundToInt(),
+                            y = (target.row * cellHeightPx).roundToInt()
+                        )
+                    }
+                    .size(
+                        width = with(LocalDensity.current) { (cellWidthPx * previewSpan.columns).toDp() },
+                        height = with(LocalDensity.current) { (cellHeightPx * previewSpan.rows).toDp() }
+                    )
+                    .padding(Spacing.smallMedium)
+                    .alpha(config.dropHighlightAlpha)
+                    .graphicsLayer {
+                        val scale = if (activeSession.item is HomeItem.WidgetItem) {
+                            1f
+                        } else if (isFolderMerge) {
+                            config.dropHighlightScale * 1.05f
+                        } else {
+                            config.dropHighlightScale
+                        }
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .then(
+                        if (isFolderMerge) {
+                            Modifier.border(
+                                width = Spacing.extraSmall,
+                                color = highlightColor.copy(alpha = 0.5f),
+                                shape = highlightShape
+                            )
+                        } else {
+                            Modifier
+                        }
+                    )
+            ) {
+                if (activeSession.item is HomeItem.WidgetItem) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${previewSpan.columns} × ${previewSpan.rows}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                } else {
+                    PinnedItem(
+                        item = dragTargetOccupant ?: activeSession.item,
+                        onClick = {},
+                        onLongClick = {},
+                        handleLongPress = false
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .offset {
+                    IntOffset(
+                        x = previewOffset.x.roundToInt(),
+                        y = previewOffset.y.roundToInt()
+                    )
+                }
+                .size(
+                    width = with(LocalDensity.current) { (cellWidthPx * previewSpan.columns).toDp() },
+                    height = with(LocalDensity.current) { (cellHeightPx * previewSpan.rows).toDp() }
+                )
+                .padding(Spacing.smallMedium)
+                .zIndex(config.previewZIndex)
+                .graphicsLayer {
+                    scaleX = config.previewScale
+                    scaleY = config.previewScale
+                    alpha = config.previewAlpha
+                    shadowElevation = config.shadowElevation
+                }
+        ) {
+            if (activeSession.item is HomeItem.WidgetItem) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            shape = RoundedCornerShape(CornerRadius.medium)
+                        )
+                        .border(
+                            width = Spacing.extraSmall,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                            shape = RoundedCornerShape(CornerRadius.medium)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${previewSpan.columns} × ${previewSpan.rows}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                }
+            } else {
+                PinnedItem(
+                    item = activeSession.item,
+                    onClick = {},
+                    onLongClick = {},
+                    handleLongPress = false
+                )
+            }
+        }
+    }
+
+    if (isExternalDragActive) {
+        externalDragTargetPosition?.let { targetPosition ->
+            val currentExternalItem = externalDragItem ?: return@let
+            val rawDragSpan = (currentExternalItem as? ExternalDragItem.Widget)?.span ?: GridSpan.SINGLE
+            val dragSpan = normalizeWidgetSpanForHomeGrid(rawSpan = rawDragSpan, gridColumns = config.columns)
+
+            val clampedTarget = GridPosition(
+                row = targetPosition.row.coerceIn(0, (maxVisibleRows - dragSpan.rows).coerceAtLeast(0)),
+                column = targetPosition.column.coerceIn(0, (config.columns - dragSpan.columns).coerceAtLeast(0))
+            )
+
+            val spanCells = dragSpan.occupiedPositions(clampedTarget)
+            val hasCollision = items.any { existingItem ->
+                val existingSpan = (existingItem as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+                val existingCells = existingSpan.occupiedPositions(existingItem.position)
+                existingCells.any { it in spanCells }
+            }
+
+            val highlightColor = if (hasCollision) {
+                Color(0xFFFF5252)
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+
+            val highlightShape = RoundedCornerShape(CornerRadius.medium)
+            Box(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            x = (clampedTarget.column * cellWidthPx).roundToInt(),
+                            y = (clampedTarget.row * cellHeightPx).roundToInt()
+                        )
+                    }
+                    .size(
+                        width = with(LocalDensity.current) { (cellWidthPx * dragSpan.columns).toDp() },
+                        height = with(LocalDensity.current) { (cellHeightPx * dragSpan.rows).toDp() }
+                    )
+                    .padding(Spacing.smallMedium)
+                    .zIndex(config.dragZIndex)
+                    .shadow(
+                        elevation = Spacing.smallMedium,
+                        shape = highlightShape,
+                        ambientColor = highlightColor.copy(alpha = 0.6f),
+                        spotColor = highlightColor.copy(alpha = 0.6f)
+                    )
+                    .background(
+                        color = highlightColor.copy(alpha = 0.15f),
+                        shape = highlightShape
+                    )
+                    .border(
+                        width = Spacing.extraSmall,
+                        color = highlightColor.copy(alpha = 0.4f),
+                        shape = highlightShape
+                    )
+                    .graphicsLayer {
+                        val highlightScale = if (currentExternalItem is ExternalDragItem.Widget) {
+                            1f
+                        } else {
+                            config.dropHighlightScale
+                        }
+                        scaleX = highlightScale
+                        scaleY = highlightScale
+                    }
+            ) {
+                val previewItem = currentExternalItem.toPreviewHomeItem()
+                if (previewItem != null) {
+                    Box(modifier = Modifier.alpha(config.dropHighlightAlpha)) {
+                        PinnedItem(
+                            item = previewItem,
+                            onClick = {},
+                            onLongClick = {},
+                            handleLongPress = false
+                        )
+                    }
+                } else if (currentExternalItem is ExternalDragItem.Widget) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${dragSpan.columns} × ${dragSpan.rows}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ExternalDropRoutingLayer isolates platform drag callbacks and routing decisions.
+ *
+ * BEHAVIOR GUARANTEE:
+ * All external payload branches (folder child, widget, regular home-item preview)
+ * are still handled in one place, but no longer intermixed with internal drag UI.
+ */
+@Composable
+internal fun ExternalDropRoutingLayer(
+    items: List<HomeItem>,
+    config: GridConfig,
+    layoutMetrics: AppDragDropLayoutMetrics,
+    maxVisibleRows: Int,
+    widgetHostManager: WidgetHostManager?,
+    isExternalDragActive: Boolean,
+    externalDragTargetPosition: GridPosition?,
+    onExternalDragActiveChange: (Boolean) -> Unit,
+    onExternalTargetPositionChange: (GridPosition?) -> Unit,
+    onExternalDragItemChange: (ExternalDragDropItem?) -> Unit,
+    onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit,
+    onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
+    onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
+    onFolderItemExtracted: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit,
+    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit,
+    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit,
+    onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit,
+    hapticConfirm: () -> Unit
+) {
+    AppExternalDropTargetOverlay(
+        onDragStarted = {
+            onExternalDragActiveChange(true)
+            onExternalTargetPositionChange(null)
+            onExternalDragItemChange(null)
+        },
+        onDragMoved = { localOffset, item ->
+            onExternalTargetPositionChange(layoutMetrics.pixelToCell(localOffset))
+            if (item != null) {
+                onExternalDragItemChange(item)
+            }
+        },
+        onDragEnded = {
+            onExternalDragActiveChange(false)
+            onExternalTargetPositionChange(null)
+            onExternalDragItemChange(null)
+        },
+        onItemDropped = { item, localOffset ->
+            val dropPosition = if (isExternalDragActive && externalDragTargetPosition != null) {
+                externalDragTargetPosition
+            } else {
+                layoutMetrics.pixelToCell(localOffset)
+            }
+
+            onExternalTargetPositionChange(dropPosition)
+            onExternalDragItemChange(item)
+            val homeItem = item.toPreviewHomeItem()
+
+            if (item is ExternalDragItem.FolderChild) {
+                val occupantAtDrop = items.findOccupantAt(dropPosition)
+                when {
+                    occupantAtDrop is HomeItem.FolderItem && occupantAtDrop.id == item.folderId -> {
+                        return@AppExternalDropTargetOverlay true
+                    }
+                    occupantAtDrop is HomeItem.FolderItem -> {
+                        onMoveFolderItemToFolder(item.folderId, item.childItem.id, occupantAtDrop.id)
+                        hapticConfirm()
+                        return@AppExternalDropTargetOverlay true
+                    }
+                    occupantAtDrop is HomeItem.WidgetItem -> {
+                        // Folder merge/extract routes are not valid when target occupant is widget.
+                        return@AppExternalDropTargetOverlay true
+                    }
+                    occupantAtDrop != null -> {
+                        onFolderChildDroppedOnItem(
+                            item.folderId,
+                            item.childItem,
+                            occupantAtDrop,
+                            dropPosition
+                        )
+                        hapticConfirm()
+                        return@AppExternalDropTargetOverlay true
+                    }
+                    else -> {
+                        onFolderItemExtracted(item.folderId, item.childItem.id, dropPosition)
+                        hapticConfirm()
+                        return@AppExternalDropTargetOverlay true
+                    }
+                }
+            }
+
+            if (item is ExternalDragItem.Widget) {
+                val normalizedSpan = normalizeWidgetSpanForHomeGrid(
+                    rawSpan = item.span,
+                    gridColumns = config.columns
+                )
+
+                val clampedDrop = GridPosition(
+                    row = dropPosition.row.coerceIn(0, (maxVisibleRows - normalizedSpan.rows).coerceAtLeast(0)),
+                    column = dropPosition.column.coerceIn(0, (config.columns - normalizedSpan.columns).coerceAtLeast(0))
+                )
+
+                val occupiedCells = mutableSetOf<GridPosition>()
+                for (existingItem in items) {
+                    if (existingItem is HomeItem.WidgetItem) {
+                        occupiedCells.addAll(existingItem.span.occupiedPositions(existingItem.position))
+                    } else {
+                        occupiedCells.add(existingItem.position)
+                    }
+                }
+                val spanCells = normalizedSpan.occupiedPositions(clampedDrop)
+                val hasCollision = spanCells.any { it in occupiedCells }
+
+                if (!hasCollision) {
+                    val resolvedProviderInfo = item.providerInfo
+                        ?: widgetHostManager?.findInstalledProvider(item.providerComponent)
+
+                    if (resolvedProviderInfo != null) {
+                        onWidgetDroppedToHome(resolvedProviderInfo, normalizedSpan, clampedDrop)
+                        hapticConfirm()
+                    }
+                }
+                return@AppExternalDropTargetOverlay true
+            }
+
+            if (homeItem == null) return@AppExternalDropTargetOverlay false
+
+            val occupantAtDrop = items.findOccupantAt(dropPosition)
+            when {
+                occupantAtDrop is HomeItem.FolderItem -> {
+                    onAddItemToFolder(occupantAtDrop.id, homeItem)
+                    hapticConfirm()
+                }
+                occupantAtDrop is HomeItem.WidgetItem -> {
+                    // Creating folders with widgets is intentionally disallowed.
+                    return@AppExternalDropTargetOverlay true
+                }
+                occupantAtDrop != null -> {
+                    onCreateFolder(homeItem, occupantAtDrop, occupantAtDrop.position)
+                    hapticConfirm()
+                }
+                else -> {
+                    onItemDroppedToHome(homeItem, dropPosition)
+                    hapticConfirm()
+                }
+            }
+            true
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(config.previewZIndex + 1f)
+    )
+}
+
+/**
+ * Context menu shown when a widget is long-pressed.
+ */
+@Composable
+private fun WidgetContextMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    focusable: Boolean,
+    onResize: () -> Unit,
+    onRemove: () -> Unit,
+    hapticConfirm: () -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = focusable)
+    ) {
+        DropdownMenuItem(
+            text = { Text("Resize") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.AspectRatio,
+                    contentDescription = null
+                )
+            },
+            onClick = {
+                hapticConfirm()
+                onResize()
+            }
+        )
+        DropdownMenuItem(
+            text = { Text("Remove") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = null
+                )
+            },
+            onClick = {
+                hapticConfirm()
+                onRemove()
+            }
+        )
+    }
+}
+
+/**
+ * Widget resize overlay used by WidgetOverlayLayer.
+ */
+@Composable
+private fun WidgetResizeOverlay(
+    widgetItem: HomeItem.WidgetItem,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    gridColumns: Int,
+    items: List<HomeItem>,
+    onConfirmResize: (GridSpan) -> Unit
+) {
+    var previewSpan by remember(widgetItem.id) { mutableStateOf(widgetItem.span) }
+
+    val occupiedCells = remember(items, widgetItem.id) {
+        val cells = mutableSetOf<GridPosition>()
+        for (item in items) {
+            if (item.id == widgetItem.id) continue
+            if (item is HomeItem.WidgetItem) {
+                cells.addAll(item.span.occupiedPositions(item.position))
+            } else {
+                cells.add(item.position)
+            }
+        }
+        cells
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(50f)
+            .background(Color.Black.copy(alpha = 0.5f))
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    onConfirmResize(previewSpan)
+                }
+            }
+    )
+
+    val originX = (widgetItem.position.column * cellWidthPx).roundToInt()
+    val originY = (widgetItem.position.row * cellHeightPx).roundToInt()
+    val frameWidth = (previewSpan.columns * cellWidthPx).roundToInt()
+    val frameHeight = (previewSpan.rows * cellHeightPx).roundToInt()
+
+    Box(
+        modifier = Modifier
+            .offset { IntOffset(originX, originY) }
+            .size(
+                width = with(LocalDensity.current) { frameWidth.toFloat().toDp() },
+                height = with(LocalDensity.current) { frameHeight.toFloat().toDp() }
+            )
+            .zIndex(51f)
+            .border(
+                width = Spacing.extraSmall,
+                color = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(CornerRadius.small)
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = Spacing.smallMedium, y = Spacing.smallMedium)
+                .size(IconSize.standard)
+                .background(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = CircleShape
+                )
+                .zIndex(52f)
+                .pointerInput(widgetItem.id) {
+                    var accumulatedDragX = 0f
+                    var accumulatedDragY = 0f
+
+                    detectDragGestures(
+                        onDragStart = {
+                            accumulatedDragX = 0f
+                            accumulatedDragY = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            accumulatedDragX += dragAmount.x
+                            accumulatedDragY += dragAmount.y
+
+                            val newCols = (widgetItem.span.columns + (accumulatedDragX / cellWidthPx).roundToInt())
+                                .coerceIn(1, gridColumns - widgetItem.position.column)
+                            val newRows = (widgetItem.span.rows + (accumulatedDragY / cellHeightPx).roundToInt())
+                                .coerceAtLeast(1)
+
+                            val candidateSpan = GridSpan(columns = newCols, rows = newRows)
+                            val candidateCells = candidateSpan.occupiedPositions(widgetItem.position)
+                            val hasCollision = candidateCells.any { it in occupiedCells }
+
+                            if (!hasCollision) {
+                                previewSpan = candidateSpan
+                            }
+                        },
+                        onDragEnd = {
+                            // Confirmation happens on scrim tap.
+                        }
+                    )
+                }
+        )
+    }
+}
+
+/**
+ * Finds the first occupant that intersects the dragged span at drop target.
+ */
+private fun List<HomeItem>.findOccupantForDroppedSpan(
+    excludeItemId: String,
+    draggedSpan: GridSpan,
+    droppedAt: GridPosition
+): HomeItem? {
+    val draggedTargetCells = draggedSpan.occupiedPositions(droppedAt)
+    return firstOrNull { other ->
+        if (other.id == excludeItemId) return@firstOrNull false
+        val otherSpan = (other as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+        val otherCells = otherSpan.occupiedPositions(other.position)
+        otherCells.any { it in draggedTargetCells }
+    }
+}
