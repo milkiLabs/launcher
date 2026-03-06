@@ -14,7 +14,7 @@
  * 1. Makes the feature boundary explicit (drawer UI logic is isolated).
  * 2. Follows the same pattern as other feature modules for consistency.
  * 3. Provides a natural place to add drawer-specific use cases in the future
- *    (e.g., app categorization, usage-based sorting).
+ *    (e.g., app categorization, section headers, or fast-jump navigation).
  *
  * DEPENDENCIES ON OTHER MODULES:
  * This module depends on coreModule for:
@@ -47,12 +47,12 @@ val drawerModule = module {
     // ========================================================================
 
     /**
-     * AppDrawerViewModel - Manages the app drawer's app list and sorting state.
+    * AppDrawerViewModel - Manages the app drawer's app list and loading state.
      *
      * Handles:
      * - Loading the full list of installed apps from AppRepository
-     * - Sorting apps alphabetically or by usage
-     * - Filtering the app list based on drawer search
+    * - Exposing a stable app list snapshot to the drawer UI
+    * - Tracking loading state for initial render
      *
      * LIFECYCLE: Scoped to the Activity/Composable that requests it.
      *            Survives configuration changes (screen rotation).

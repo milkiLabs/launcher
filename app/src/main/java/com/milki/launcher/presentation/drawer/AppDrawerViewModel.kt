@@ -4,12 +4,12 @@
  * This ViewModel is intentionally focused on one feature only: the app drawer.
  * It owns:
  * - The full installed-app list loaded from AppRepository
- * - The selected sorting mode for drawer rendering
- * - The sorted projection consumed by the drawer composable
+ * - The drawer loading state used to render progress UI
+ * - A UI-ready app list consumed directly by the drawer composable
  *
  * WHY A DEDICATED VIEWMODEL (INSTEAD OF REUSING SearchViewModel):
  * - SearchViewModel is optimized for dialog search workflows and prefix providers.
- * - Drawer requirements are different (always show all apps, local sort options,
+ * - Drawer requirements are different (always show all apps with one stable order,
  *   open/close controlled by launcher gestures).
  * - Keeping drawer state separate avoids coupling the drawer lifecycle to search
  *   internals and keeps both features easier to reason about for new contributors.
@@ -21,51 +21,51 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-
-/**
- * Drawer sort options visible in the app-drawer dropdown.
- *
- * USER-FACING REQUIREMENTS COVERED:
- * - Alphabetical sorting with both directions (A→Z and Z→A)
- * - Last update date sorting
- */
-enum class AppDrawerSortMode(val displayName: String) {
-    ALPHABETICAL_ASC("Alphabetical (A → Z)"),
-    ALPHABETICAL_DESC("Alphabetical (Z → A)"),
-    LAST_UPDATED_DESC("Last update date (Newest first)")
-}
 
 /**
  * UI state consumed by the app drawer composable.
  *
- * NOTE: Only the sorted projection is exposed here — the raw unsorted list is an
- * internal concern of the ViewModel. This keeps the UI state object lightweight
- * and avoids duplicating the full app list across state snapshots.
- *
  * @property isLoading Whether the repository load is still in progress.
- * @property sortMode Currently selected sorting mode.
- * @property sortedApps Final list presented by the drawer after sorting.
+ * @property apps Final list presented by the drawer.
  */
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
-    val sortMode: AppDrawerSortMode = AppDrawerSortMode.ALPHABETICAL_ASC,
-    val sortedApps: List<AppInfo> = emptyList()
+    val apps: List<AppInfo> = emptyList()
 )
 
 /**
- * ViewModel for app-drawer state and sorting.
+ * ViewModel for app-drawer state.
+ *
+ * PERFORMANCE RATIONALE:
+ * - The repository already emits apps in stable alphabetical order.
+ * - The drawer now renders that list directly, which removes runtime sorting work
+ *   and avoids extra recompositions caused by sort-mode changes.
+ * - This keeps open/close interactions lightweight and consistent.
  */
 class AppDrawerViewModel(
     private val appRepository: AppRepository
 ) : ViewModel() {
+
+    /**
+     * Shared installed-app stream scoped to this ViewModel.
+     *
+     * WHY THIS EXISTS EVEN THOUGH THE REPOSITORY IS ALREADY SHARED:
+     * - The repository already guarantees a single upstream PackageManager scan path
+     *   for all feature consumers (search + drawer).
+     * - This local stateIn adds a stable replay point inside the drawer feature so
+     *   additional internal collectors can fan out without re-subscribing directly.
+     * - Keeping drawer/search patterns aligned makes maintenance easier for new contributors.
+     */
+    private val installedAppsStream = appRepository.observeInstalledApps().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = emptyList()
+    )
 
     /**
      * Source of truth for repository-provided app list.
@@ -78,41 +78,20 @@ class AppDrawerViewModel(
     private val isLoading = MutableStateFlow(true)
 
     /**
-     * Current drawer sorting mode selected by user from dropdown.
-     */
-    private val sortMode = MutableStateFlow(AppDrawerSortMode.ALPHABETICAL_ASC)
-
-    /**
      * Public state observed by Compose.
      *
-     * We combine raw inputs and compute sortedApps in one place so UI remains
-     * stateless and easy to test.
+     * We combine loading + app list into one immutable state object so the UI
+     * remains simple and stateless.
      */
     val uiState = combine(
         isLoading,
-        installedApps,
-        sortMode
-    ) { loading, apps, mode ->
-        Triple(loading, apps, mode)
+        installedApps
+    ) { loading, apps ->
+        AppDrawerUiState(
+            isLoading = loading,
+            apps = apps
+        )
     }
-        .mapLatest { (loading, apps, mode) ->
-            val sortedApps = withContext(Dispatchers.Default) {
-                when (mode) {
-                    // AppRepository already returns alphabetical ascending order.
-                    AppDrawerSortMode.ALPHABETICAL_ASC -> apps
-                    // Reversed view is cheaper than a full re-sort for descending alpha.
-                    AppDrawerSortMode.ALPHABETICAL_DESC -> apps.asReversed()
-                    // Last-update ordering is not precomputed, so we sort on background thread.
-                    AppDrawerSortMode.LAST_UPDATED_DESC -> apps.sortedByDescending { it.lastUpdatedTimestamp }
-                }
-            }
-
-            AppDrawerUiState(
-                isLoading = loading,
-                sortMode = mode,
-                sortedApps = sortedApps
-            )
-        }
         .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -137,23 +116,10 @@ class AppDrawerViewModel(
      */
     private fun observeInstalledApps() {
         viewModelScope.launch {
-            appRepository.observeInstalledApps().collect { apps ->
+            installedAppsStream.collect { apps ->
                 installedApps.value = apps
                 isLoading.value = false
             }
         }
-    }
-
-    /**
-     * Update selected sort mode from the drawer dropdown.
-     *
-     * Re-selecting the currently active mode is ignored to prevent unnecessary
-     * recomposition and sort recomputation.
-     */
-    fun setSortMode(mode: AppDrawerSortMode) {
-        if (sortMode.value == mode) {
-            return
-        }
-        sortMode.value = mode
     }
 }

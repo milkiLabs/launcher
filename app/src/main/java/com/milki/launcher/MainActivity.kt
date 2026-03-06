@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
     private val homeViewModel: HomeViewModel by viewModel()
 
     /**
-     * AppDrawerViewModel manages drawer app list + sort mode state.
+     * AppDrawerViewModel manages drawer app list and loading state.
      */
     private val appDrawerViewModel: AppDrawerViewModel by viewModel()
 
@@ -205,8 +205,7 @@ class MainActivity : ComponentActivity() {
                             drawer = DrawerActions(
                                 onAppDrawerOpenChange = { isOpen ->
                                     surfaceStateCoordinator.updateAppDrawerOpen(isOpen)
-                                },
-                                onDrawerSortModeSelected = appDrawerViewModel::setSortMode
+                                }
                             ),
                             home = HomeActions(
                                 onHomeSwipeUp = {

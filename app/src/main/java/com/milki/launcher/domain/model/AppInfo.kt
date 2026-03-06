@@ -18,21 +18,7 @@ data class AppInfo(
     val name: String,
     val packageName: String,
     val activityName: String = packageName,
-    val launchIntent: Intent?,
-    /**
-     * Epoch timestamp (milliseconds) of the package's last update time.
-     *
-     * WHY THIS FIELD EXISTS:
-     * The homescreen app drawer needs to support sorting by "last update date".
-     * PackageManager already exposes this timestamp through PackageInfo, so we
-     * persist it in the domain model once during repository mapping instead of
-     * re-querying PackageManager from UI code.
-     *
-     * DEFAULT VALUE:
-     * We keep a default of 0L so existing constructor call sites remain source-
-     * compatible while migration happens incrementally.
-     */
-    val lastUpdatedTimestamp: Long = 0L
+    val launchIntent: Intent?
 ) {
     /**
      * Cached lowercase version of the app name.

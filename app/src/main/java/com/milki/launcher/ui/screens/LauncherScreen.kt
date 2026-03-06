@@ -78,7 +78,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.presentation.drawer.AppDrawerSortMode
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.home.HomeUiState
 import com.milki.launcher.presentation.search.SearchUiState
@@ -152,11 +151,10 @@ data class WidgetActions(
 )
 
 /**
- * App drawer lifecycle and sorting interactions.
+ * App drawer lifecycle interactions.
  */
 data class DrawerActions(
-    val onAppDrawerOpenChange: (Boolean) -> Unit = {},
-    val onDrawerSortModeSelected: (AppDrawerSortMode) -> Unit = {}
+    val onAppDrawerOpenChange: (Boolean) -> Unit = {}
 )
 
 /**
@@ -499,7 +497,6 @@ private fun DrawerHost(
                         actions.drawer.onAppDrawerOpenChange(false)
                     }
                 },
-                onSortModeSelected = actions.drawer.onDrawerSortModeSelected,
                 modifier = Modifier.fillMaxSize()
             )
         }

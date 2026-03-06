@@ -68,7 +68,7 @@ Key behavior:
 Owns:
 
 - `ModalBottomSheet` wrapper for `AppDrawerOverlay`
-- Drawer dismiss and sort mode routing through `DrawerActions`
+- Drawer visibility and dismiss routing through `DrawerActions`
 
 Key behavior:
 

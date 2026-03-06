@@ -9,11 +9,6 @@ The launcher now supports a full-screen app drawer overlay with the following be
 - Swipe up on homescreen opens the drawer **only** when `SwipeUpAction` is set to `OPEN_APP_DRAWER`.
 - Drawer open and close use Material bottom-sheet motion/gesture behavior.
 - Drawer shows all installed launcher activities from `AppRepository`.
-- Drawer can be sorted from a dropdown menu using:
-  - `Alphabetical (A → Z)`
-  - `Alphabetical (Z → A)`
-  - `Last update date (Newest first)`
-- When sort mode changes, drawer immediately snaps back to the top row so the new ordering appears without delay.
 - Long-pressing an app icon in drawer shows the same action menu pattern as search/home app items.
 - If drag starts from a drawer icon:
   - The icon menu closes (existing `AppGridItem` behavior).
@@ -29,14 +24,13 @@ The launcher now supports a full-screen app drawer overlay with the following be
 
 - `AppDrawerViewModel` (`presentation/drawer/AppDrawerViewModel.kt`)
   - Collects installed apps reactively from `AppRepository.observeInstalledApps()`.
-  - Holds selected sort mode.
-  - Exposes sorted list via `AppDrawerUiState`.
+  - Exposes one stable app list via `AppDrawerUiState`.
 
 ### UI
 
 - `AppDrawerOverlay` (`ui/components/AppDrawerOverlay.kt`)
   - Full-screen drawer composable.
-  - Header with sort dropdown (checkmark indicates active mode).
+  - Header title plus `LazyVerticalGrid` app content.
   - `LazyVerticalGrid` with adaptive columns (`GridCells.Adaptive`) that adjusts
     column count for phones, foldables, and tablets.
   - Applies `statusBarsPadding()` and `navigationBarsPadding()` so content never
@@ -85,21 +79,16 @@ This avoids introducing a new drag/drop mechanism and keeps behavior consistent 
 
 ---
 
-## Sorting Data Source
+## Drawer Data Source
 
-`AppInfo` now includes:
+The drawer now uses the repository's pre-sorted alphabetical installed-app stream directly.
 
-- `lastUpdatedTimestamp: Long`
+### Performance notes for smoothness
 
-`AppRepositoryImpl` populates this using `PackageManager.getPackageInfo(...).lastUpdateTime` via a compatibility helper (`getPackageInfoCompat`) so it works across API levels.
-
-The drawer ViewModel sorts against this field for “Last update date (Newest first)”.
-
-### Performance notes for sorting
-
-- Drawer sort computation runs on a background dispatcher to avoid blocking the main thread during mode changes.
-- Alphabetical descending uses `asReversed()` (cheap view) instead of a full resort.
-- Re-selecting the currently active sort mode is ignored to prevent unnecessary recomputation.
+- The drawer no longer recomputes sorting in ViewModel state updates.
+- Sort menu state and sort-mode state transitions were removed, reducing header recomposition work.
+- Package metadata lookups used only for sort-by-update were removed from app-list mapping.
+- Drawer open/close and grid scroll performance are now driven by one stable app list stream.
 
 ### Performance notes for app loading
 
@@ -164,7 +153,6 @@ Drawer UI uses existing theme primitives and spacing tokens:
 
 Potential future improvements (out of current scope):
 
-- Persist drawer sort mode in `SettingsRepository`.
 - Add optional section headers (A/B/C…) for large app lists.
 - Add search inside drawer if product direction requires it.
 - Fine-tune drawer open/close animation timings after broader UX testing.

@@ -43,7 +43,7 @@ This audit reviews the current codebase across architecture, design quality, rel
 ## Top 5 Immediate Actions
 
 1. Replace single `pendingWidget` state with a robust widget-placement session model to prevent overwrites and wrong-result routing (`app/src/main/java/com/milki/launcher/presentation/home/HomeViewModel.kt:645`).
-2. Remove duplicate initial app-loading paths and centralize installed-app stream sharing to prevent repeated heavy `PackageManager` scans (`app/src/main/java/com/milki/launcher/presentation/search/SearchViewModel.kt:123`, `app/src/main/java/com/milki/launcher/presentation/drawer/AppDrawerViewModel.kt:140`).
+2. [Done] Duplicate initial app-loading paths were removed and installed-app stream sharing was centralized in repository-owned hot snapshot flow (single upstream scan path for drawer + search) (`app/src/main/java/com/milki/launcher/data/repository/AppRepositoryImpl.kt:220`, `app/src/main/java/com/milki/launcher/data/repository/AppRepositoryImpl.kt:376`).
 3. Stop silently dropping malformed home items on deserialize; add corruption telemetry and recovery UX (`app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:880`, `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:888`).
 4. Close permission UX gap for permanently denied states (`app/src/main/java/com/milki/launcher/handlers/PermissionHandler.kt:264`).
 5. Enforce UI design-system rules (Spacing + AutoMirrored icons) and remove current violations (`app/src/main/java/com/milki/launcher/ui/components/FolderPopupDialog.kt:371`, `app/src/main/java/com/milki/launcher/ui/screens/LauncherScreen.kt:355`).

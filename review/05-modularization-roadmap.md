@@ -63,7 +63,7 @@
 
 1. Move home-item persistence from newline JSON to typed schema (Proto/Data model).
 2. Add repository mutation queue for deterministic ordering and easier replay tests.
-3. Share installed-app stream in repository (`stateIn`) and consume from both search/drawer.
+3. [Done] Share installed-app state in repository via hot trigger + cached snapshot flow (`shareIn` + `MutableStateFlow`) and consume from both search/drawer.
 
 ### Phase 4 (Standards and Tooling)
 
