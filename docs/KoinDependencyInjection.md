@@ -118,56 +118,82 @@ dependencies {
 
 ## Koin Module Definition
 
-### Location: `di/AppModule.kt`
+### Location: `di/` package
 
-The Koin module defines all dependencies in one place:
+Dependencies are split across **feature-specific modules** rather than defined in a single monolithic module.
+Each module groups the dependencies that belong to one feature, and `AppModule.kt` aggregates them
+into an `allModules` list that the Application class loads at startup.
+
+### Module Structure
+
+```
+di/
+├── AppModule.kt       ← Aggregator: combines all feature modules into allModules
+├── CoreModule.kt      ← Shared repositories (AppRepository, SettingsRepository)
+├── SearchModule.kt    ← Search feature (ContactsRepo, FilesRepo, providers, use cases, SearchVM)
+├── HomeModule.kt      ← Home screen feature (HomeRepository, HomeViewModel)
+├── WidgetModule.kt    ← Widget infrastructure (WidgetHostManager)
+├── SettingsModule.kt  ← Settings feature (SettingsViewModel)
+└── DrawerModule.kt    ← App drawer feature (AppDrawerViewModel)
+```
+
+### Dependency Direction Rules
+
+```
+Feature modules ──→ coreModule   (allowed: features read shared repos)
+coreModule ──→ feature modules   (NEVER: would create circular dependency)
+Feature ──→ another feature      (NEVER: use coreModule as intermediary)
+```
+
+All modules follow the architecture rule: **presentation → domain → data**.
+
+### Example: CoreModule (shared dependencies)
 
 ```kotlin
-val appModule = module {
-    
-    // Repositories (singletons)
-    single<AppRepository> { AppRepositoryImpl(get()) }
+// di/CoreModule.kt
+val coreModule = module {
+    // Shared repositories used by 2+ features
+    single<AppRepository> { AppRepositoryImpl(get()) }      // used by search + drawer
+    single<SettingsRepository> { SettingsRepositoryImpl(get()) } // used by search + settings
+}
+```
+
+### Example: SearchModule (feature-specific dependencies)
+
+```kotlin
+// di/SearchModule.kt
+val searchModule = module {
+    // Search-only repositories
     single<ContactsRepository> { ContactsRepositoryImpl(get()) }
     single<FilesRepository> { FilesRepositoryImpl(get()) }
-    single<SettingsRepository> { SettingsRepositoryImpl(get()) }
-    
-    // Search Providers (singletons)
-    single { WebSearchProvider() }
-    single { YouTubeSearchProvider() }
+
+    // Search providers
     single { ContactsSearchProvider(get()) }
     single { FilesSearchProvider(get()) }
-    
-    // Registry (singleton)
-    single {
-        SearchProviderRegistry(
-            initialProviders = listOf(
-                get<WebSearchProvider>(),
-                get<ContactsSearchProvider>(),
-                get<FilesSearchProvider>(),
-                get<YouTubeSearchProvider>()
-            )
-        )
-    }
-    
-    // Use Cases (singletons)
+    single { SearchProviderRegistry(initialProviders = listOf(get<ContactsSearchProvider>(), get<FilesSearchProvider>())) }
+
+    // Use cases
     single { FilterAppsUseCase() }
     single { UrlHandlerResolver(get()) }
-    
-    // ViewModels (scoped to lifecycle)
-    viewModel {
-        SearchViewModel(
-            appRepository = get(),
-            contactsRepository = get(),
-            providerRegistry = get(),
-            filterAppsUseCase = get(),
-            urlHandlerResolver = get()
-        )
-    }
-    
-    viewModel {
-        SettingsViewModel(settingsRepository = get())
-    }
+    single { ClipboardSuggestionResolver(context = get(), urlHandlerResolver = get()) }
+
+    // ViewModel (gets AppRepository + SettingsRepository from coreModule via get())
+    viewModel { SearchViewModel(appRepository = get(), contactsRepository = get(), settingsRepository = get(), ...) }
 }
+```
+
+### Aggregator: AppModule.kt
+
+```kotlin
+// di/AppModule.kt
+val allModules = listOf(
+    coreModule,      // shared repositories (foundation)
+    searchModule,    // search feature
+    homeModule,      // home screen feature
+    widgetModule,    // widget infrastructure
+    settingsModule,  // settings feature
+    drawerModule     // app drawer feature
+)
 ```
 
 ---
@@ -179,7 +205,7 @@ val appModule = module {
 Koin is initialized in the Application class before any Activity is created:
 
 ```kotlin
-class LauncherApplication : Application(), ImageLoaderFactory {
+class LauncherApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
@@ -195,12 +221,11 @@ class LauncherApplication : Application(), ImageLoaderFactory {
             // Enable Koin's Android logger for debugging
             androidLogger(Level.ERROR)
             
-            // Load our dependency modules
-            modules(appModule)
+            // Load all feature modules (aggregated in AppModule.kt)
+            // allModules = listOf(coreModule, searchModule, homeModule, widgetModule, settingsModule, drawerModule)
+            modules(allModules)
         }
     }
-    
-    // ... Coil configuration
 }
 ```
 
@@ -208,7 +233,7 @@ class LauncherApplication : Application(), ImageLoaderFactory {
 
 1. **Creates Koin's internal container**: Where all dependencies are stored
 2. **Registers the Android context**: So dependencies can request Context
-3. **Loads modules**: All dependencies defined in `appModule` become available
+3. **Loads modules**: All dependencies from all feature modules become available
 4. **Sets up logging**: Shows dependency resolution in Logcat
 
 ---
@@ -382,7 +407,7 @@ class SearchViewModelTest {
                 // Override real repository with mock
                 single<AppRepository> { MockAppRepository() }
                 // Use real module for other dependencies
-            } + appModule
+            } + allModules  // allModules aggregates all feature modules
         )
     }
     
@@ -390,6 +415,20 @@ class SearchViewModelTest {
     fun testSearch() {
         val viewModel: SearchViewModel by viewModel()
         // Test with mock repository
+    }
+}
+```
+
+### Testing a Single Feature Module
+
+Because dependencies are split by feature, you can load only the modules you need:
+
+```kotlin
+// Test only the search feature — load coreModule + searchModule
+class SearchFeatureTest {
+    @get:Rule
+    val koinTestRule = KoinTestRule.create {
+        modules(coreModule, searchModule)
     }
 }
 ```
@@ -462,32 +501,46 @@ val dependency: SomeScopedDependency by inject()
 
 ## Module Organization
 
-For larger projects, split modules by feature:
+The launcher splits dependencies by **feature** rather than by **layer**. Each feature module
+contains all layers (data, domain, presentation) for that feature, while shared/cross-cutting
+dependencies live in `coreModule`.
+
+### Current Module Layout
+
+| Module | Contents | Depends On |
+|--------|----------|------------|
+| `coreModule` | AppRepository, SettingsRepository | — (foundation) |
+| `searchModule` | ContactsRepo, FilesRepo, search providers, registry, use cases, SearchVM | coreModule |
+| `homeModule` | HomeRepository, HomeViewModel | — (standalone) |
+| `widgetModule` | WidgetHostManager | — (standalone) |
+| `settingsModule` | SettingsViewModel | coreModule |
+| `drawerModule` | AppDrawerViewModel | coreModule |
+
+### Adding a New Feature Module
+
+To add a new feature module:
+
+1. Create a new file in `di/` (e.g., `NotificationsModule.kt`).
+2. Define the module's repositories, use cases, and ViewModels inside a `module { }` block.
+3. Add the new module to `allModules` in `AppModule.kt`.
 
 ```kotlin
-// Core module (repositories, data sources)
-val coreModule = module {
-    single<AppRepository> { AppRepositoryImpl(get()) }
-    single<SettingsRepository> { SettingsRepositoryImpl(get()) }
+// di/NotificationsModule.kt
+val notificationsModule = module {
+    single<NotificationsRepository> { NotificationsRepositoryImpl(get()) }
+    viewModel { NotificationsViewModel(notificationsRepository = get()) }
 }
 
-// Search module (search providers, use cases)
-val searchModule = module {
-    single { WebSearchProvider() }
-    single { SearchProviderRegistry(getAll()) }
-    single { FilterAppsUseCase() }
-}
-
-// Presentation module (ViewModels)
-val presentationModule = module {
-    viewModel { SearchViewModel(get(), get(), ...) }
-    viewModel { SettingsViewModel(get()) }
-}
-
-// Load all modules
-startKoin {
-    modules(coreModule, searchModule, presentationModule)
-}
+// di/AppModule.kt — add to the list
+val allModules = listOf(
+    coreModule,
+    searchModule,
+    homeModule,
+    widgetModule,
+    settingsModule,
+    drawerModule,
+    notificationsModule  // ← new module
+)
 ```
 
 ---
@@ -506,4 +559,4 @@ startKoin {
 | **startKoin** | Initialize Koin in Application class |
 | **androidContext** | Provide Android Context to Koin |
 
-Koin makes dependency injection in Android simple, readable, and testable. The launcher uses a single module (`appModule`) that defines all repositories, providers, use cases, and ViewModels in one place, making the dependency graph easy to understand and maintain.
+Koin makes dependency injection in Android simple, readable, and testable. The launcher splits dependencies across feature-specific modules (`coreModule`, `searchModule`, `homeModule`, `widgetModule`, `settingsModule`, `drawerModule`) that are aggregated into `allModules` in `AppModule.kt`. Each feature module owns its own dependencies, while shared repositories live in `coreModule`. This keeps the dependency graph organized, testable, and ready for future growth.

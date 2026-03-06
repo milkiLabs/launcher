@@ -25,7 +25,7 @@ import android.app.Application
 // ============================================================================
 // IMPORTS - Koin (Dependency Injection)
 // ============================================================================
-import com.milki.launcher.di.appModule
+import com.milki.launcher.di.allModules
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin
@@ -102,8 +102,10 @@ class LauncherApplication : Application() {
             androidLogger(Level.ERROR)
             
             // Load our dependency modules
-            // appModule contains all repositories, providers, use cases, and ViewModels
-            modules(appModule)
+            // allModules aggregates all feature modules: core, search, home, widget, settings, drawer
+            // Each module defines dependencies for its own feature, keeping the DI graph organized.
+            // See AppModule.kt for the full module list and docs/KoinDependencyInjection.md for details.
+            modules(allModules)
         }
     }
 }

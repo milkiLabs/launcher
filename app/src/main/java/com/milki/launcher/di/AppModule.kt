@@ -1,352 +1,87 @@
 /**
- * AppModule.kt - Koin Dependency Injection Module
+ * AppModule.kt - Koin Dependency Injection Module Aggregator
  *
- * This file defines the Koin module that provides all dependencies for the app.
- * It replaces the manual AppContainer approach with Koin's DSL for dependency injection.
+ * This file aggregates all feature-specific Koin modules into a single list
+ * that can be loaded by the Application class. Instead of defining all
+ * dependencies in one monolithic module, dependencies are now split by feature:
  *
- * WHY KOIN?
- * - Declarative dependency definitions using DSL
- * - Automatic lifecycle management (singletons, factories)
- * - Easy testing with module overrides
- * - No annotation processing (faster builds than Hilt/Dagger)
- * - Simple and readable code
+ * MODULE STRUCTURE (after split):
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │                     allModules (aggregator)                        │
+ * │                                                                    │
+ * │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │
+ * │  │ coreModule   │  │ searchModule │  │ homeModule   │             │
+ * │  │ AppRepository│  │ ContactsRepo │  │ HomeRepo     │             │
+ * │  │ SettingsRepo │  │ FilesRepo    │  │ HomeViewModel│             │
+ * │  │              │  │ Providers    │  │              │             │
+ * │  │              │  │ UseCases     │  │              │             │
+ * │  │              │  │ SearchVM     │  │              │             │
+ * │  └──────────────┘  └──────────────┘  └──────────────┘             │
+ * │                                                                    │
+ * │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │
+ * │  │ widgetModule │  │ settingsModule│ │ drawerModule │             │
+ * │  │ WidgetHost   │  │ SettingsVM   │  │ DrawerVM     │             │
+ * │  │   Manager    │  │              │  │              │             │
+ * │  └──────────────┘  └──────────────┘  └──────────────┘             │
+ * └─────────────────────────────────────────────────────────────────────┘
  *
- * MODULE STRUCTURE:
- * ┌─────────────────────────────────────────────────────────────┐
- * │                     AppModule                               │
- * │                                                             │
- * │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
- * │  │ Repositories    │  │ SearchProviders │  │ UseCases    │ │
- * │  │ - AppRepository │  │ - WebProvider   │  │ - FilterApps│ │
- * │  │ - ContactsRepo  │  │ - YouTube       │  │             │ │
- * │  │                 │  │ - Contacts      │  │             │ │
- * │  └─────────────────┘  └─────────────────┘  └─────────────┘ │
- * │                                                             │
- * │  ┌─────────────────────────────────────────────────────┐   │
- * │  │              SearchProviderRegistry                  │   │
- * │  └─────────────────────────────────────────────────────┘   │
- * │                                                             │
- * │  ┌─────────────────────────────────────────────────────┐   │
- * │  │              ViewModels (viewModel)                  │   │
- * │  └─────────────────────────────────────────────────────┘   │
- * └─────────────────────────────────────────────────────────────┘
+ * WHY SPLIT INTO MULTIPLE MODULES?
+ * 1. Feature isolation: Each feature's dependencies are defined together.
+ * 2. Clear dependency direction: Feature modules depend on coreModule, never the reverse.
+ * 3. Easier testing: Load only the modules you need for a specific test.
+ * 4. Better onboarding: New developers can understand one feature module at a time.
+ * 5. Future-proof: Prepares for multi-module Gradle project if the app grows.
  *
- * SINGLETON vs FACTORY:
- * - single { }: Creates ONE instance for the entire app (singleton pattern)
- * - factory { }: Creates a NEW instance every time it's requested
- * - viewModel { }: Creates a ViewModel scoped to the lifecycle (Koin manages this)
+ * DEPENDENCY DIRECTION RULES:
+ * - Feature modules (search, home, settings, drawer, widget) → coreModule (allowed)
+ * - coreModule → any feature module (NEVER — would create circular dependency)
+ * - Feature module → another feature module (NEVER — use coreModule as intermediary)
+ * - All modules follow: presentation → domain → data
  *
- * DEPENDENCY RESOLUTION:
- * When a dependency needs another dependency, we use get() to retrieve it:
- *   single { ContactsSearchProvider(get()) }  // get() returns ContactsRepository
- *
- * Koin automatically resolves the dependency graph and provides instances
- * in the correct order based on the dependency chain.
- */
-
-package com.milki.launcher.di
-
-import com.milki.launcher.data.repository.AppRepositoryImpl
-import com.milki.launcher.data.repository.ContactsRepositoryImpl
-import com.milki.launcher.data.repository.FilesRepositoryImpl
-import com.milki.launcher.data.repository.HomeRepositoryImpl
-import com.milki.launcher.data.repository.SettingsRepositoryImpl
-import com.milki.launcher.data.search.ContactsSearchProvider
-import com.milki.launcher.data.search.FilesSearchProvider
-import com.milki.launcher.data.widget.WidgetHostManager
-import com.milki.launcher.domain.repository.AppRepository
-import com.milki.launcher.domain.repository.ContactsRepository
-import com.milki.launcher.domain.repository.FilesRepository
-import com.milki.launcher.domain.repository.HomeRepository
-import com.milki.launcher.domain.repository.SettingsRepository
-import com.milki.launcher.domain.search.FilterAppsUseCase
-import com.milki.launcher.domain.search.ClipboardSuggestionResolver
-import com.milki.launcher.domain.search.SearchProviderRegistry
-import com.milki.launcher.domain.search.UrlHandlerResolver
-import com.milki.launcher.presentation.drawer.AppDrawerViewModel
-import com.milki.launcher.presentation.home.HomeViewModel
-import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.presentation.settings.SettingsViewModel
-import org.koin.core.module.dsl.viewModel
-import org.koin.dsl.module
-
-/**
- * The main Koin module for the application.
- *
- * This module defines all dependencies needed by the app:
- * - Repositories (data layer)
- * - Search providers (data layer)
- * - Use cases (domain layer)
- * - ViewModels (presentation layer)
+ * MODULE FILES:
+ * - CoreModule.kt     → Shared repositories (AppRepository, SettingsRepository)
+ * - SearchModule.kt   → Search feature (ContactsRepo, FilesRepo, providers, use cases, SearchVM)
+ * - HomeModule.kt     → Home screen feature (HomeRepository, HomeViewModel)
+ * - WidgetModule.kt   → Widget infrastructure (WidgetHostManager)
+ * - SettingsModule.kt → Settings feature (SettingsViewModel)
+ * - DrawerModule.kt   → App drawer feature (AppDrawerViewModel)
  *
  * USAGE:
  * ```kotlin
  * // In LauncherApplication
  * startKoin {
  *     androidContext(this@LauncherApplication)
- *     modules(appModule)
+ *     modules(allModules)
  * }
- *
- * // In Activity or Composable
- * val viewModel: SearchViewModel by viewModel()
- * val repository: AppRepository by inject()
  * ```
+ *
+ * For a full explanation of Koin concepts, see: docs/KoinDependencyInjection.md
  */
-val appModule = module {
 
-    // ========================================================================
-    // REPOSITORIES - SINGLETONS
-    // ========================================================================
-    // Repositories are singletons because they hold data and state
-    // that should persist for the entire app session.
-    // We want the same instance everywhere in the app.
+package com.milki.launcher.di
 
-    /**
-     * AppRepository - Provides access to installed apps and recent apps.
-     *
-     * SINGLETON: Yes - we want one cache of installed apps and one recent apps list.
-     *
-     * DEPENDENCY: Android Context (provided by Koin's androidContext())
-     */
-    single<AppRepository> {
-        // AppRepositoryImpl needs the Application context
-        // get() retrieves the Context that was set in startKoin { androidContext() }
-        AppRepositoryImpl(get())
-    }
-
-    /**
-     * ContactsRepository - Provides access to contacts and recent contacts.
-     *
-     * SINGLETON: Yes - we want one recent contacts list across the app.
-     *
-     * DEPENDENCY: Android Context (for ContentResolver and DataStore)
-     */
-    single<ContactsRepository> {
-        ContactsRepositoryImpl(get())
-    }
-
-    /**
-     * FilesRepository - Provides access to document files.
-     *
-     * SINGLETON: Yes - we want consistent file search behavior.
-     *
-     * DEPENDENCY: Android Context (for MediaStore)
-     */
-    single<FilesRepository> {
-        FilesRepositoryImpl(get())
-    }
-
-    /**
-     * SettingsRepository - Provides access to launcher settings.
-     *
-     * SINGLETON: Yes - we want one source of truth for settings.
-     *
-     * DEPENDENCY: Android Context (for DataStore)
-     */
-    single<SettingsRepository> {
-        SettingsRepositoryImpl(get())
-    }
-
-    /**
-     * HomeRepository - Provides access to pinned home screen items.
-     *
-     * SINGLETON: Yes - we want one source of truth for pinned items.
-     *
-     * DEPENDENCY: Android Context (for DataStore)
-     */
-    single<HomeRepository> {
-        HomeRepositoryImpl(get())
-    }
-
-    // ========================================================================
-    // WIDGET INFRASTRUCTURE - SINGLETON
-    // ========================================================================
-
-    /**
-     * WidgetHostManager - Wraps Android's AppWidgetHost framework.
-     *
-     * SINGLETON: Yes - there should be exactly one AppWidgetHost per launcher app.
-     * AppWidgetHost manages widget IDs, creates widget views, and receives widget
-     * update broadcasts. Having multiple hosts would cause ID conflicts and
-     * duplicate update handling.
-     *
-     * DEPENDENCY: Android Context (for creating AppWidgetHost and getting AppWidgetManager)
-     */
-    single {
-        WidgetHostManager(get())
-    }
-
-    // ========================================================================
-    // SEARCH PROVIDERS - SINGLETONS
-    // ========================================================================
-    // Search providers are singletons because they don't hold state
-    // that needs to be different per request.
-
-    /**
-     * ContactsSearchProvider - Handles "c" prefix searches.
-     *
-     * SINGLETON: Yes - uses ContactsRepository which is already a singleton.
-     *
-     * DEPENDENCY: ContactsRepository (resolved via get())
-     */
-    single {
-        // get() retrieves the ContactsRepository singleton defined above
-        ContactsSearchProvider(get())
-    }
-
-    /**
-     * FilesSearchProvider - Handles "f" prefix searches.
-     *
-     * SINGLETON: Yes - uses FilesRepository which is already a singleton.
-     *
-     * DEPENDENCY: FilesRepository (resolved via get())
-     */
-    single {
-        // get() retrieves the FilesRepository singleton defined above
-        FilesSearchProvider(get())
-    }
-
-    // ========================================================================
-    // REGISTRY - SINGLETON
-    // ========================================================================
-
-    /**
-     * SearchProviderRegistry - Registry of all search providers.
-     *
-     * SINGLETON: Yes - we want one registry with all providers.
-     *
-     * DEPENDENCY: All search providers (resolved via get())
-     */
-    single {
-        // get() retrieves each search provider singleton defined above
-        // Koin automatically provides the correct type for each get() call
-        SearchProviderRegistry(
-            initialProviders = listOf(
-                get<ContactsSearchProvider>(),
-                get<FilesSearchProvider>()
-            )
-        )
-    }
-
-    // ========================================================================
-    // USE CASES - SINGLETONS
-    // ========================================================================
-    // Use cases are singletons because they're stateless - they just
-    // contain business logic that operates on their inputs.
-
-    /**
-     * FilterAppsUseCase - Filters apps based on query.
-     *
-     * SINGLETON: Yes - stateless, just business logic.
-     *
-     * DEPENDENCY: None
-     */
-    single {
-        FilterAppsUseCase()
-    }
-
-    /**
-     * UrlHandlerResolver - Determines which apps can handle URLs.
-     *
-     * SINGLETON: Yes - uses PackageManager which is always available.
-     *
-     * DEPENDENCY: Android Context (for PackageManager)
-     */
-    single {
-        UrlHandlerResolver(get())
-    }
-
-    /**
-     * ClipboardSuggestionResolver - Reads clipboard once and maps content to one suggested action.
-     *
-     * SINGLETON: Yes - stateless between calls and depends only on context + UrlHandlerResolver.
-     *
-     * DEPENDENCIES:
-     * - Android Context (clipboard service access)
-     * - UrlHandlerResolver (URL deep-link resolution)
-     */
-    single {
-        ClipboardSuggestionResolver(
-            context = get(),
-            urlHandlerResolver = get()
-        )
-    }
-
-    // ========================================================================
-    // VIEWMODELS - MANAGED BY KOIN
-    // ========================================================================
-    // ViewModels are declared using viewModel { } which:
-    // 1. Creates a new instance when first requested by a lifecycle owner
-    // 2. Survives configuration changes (screen rotation)
-    // 3. Is cleared when the lifecycle owner is destroyed
-    // 4. Can be injected in Activities with by viewModel() or in Compose with koinViewModel()
-
-    /**
-     * SearchViewModel - Manages search state and coordinates search providers.
-     *
-     * LIFECYCLE: Scoped to the Activity/Composable that requests it.
-     *
-     * DEPENDENCIES:
-     * - AppRepository (for installed apps and recent apps)
-     * - ContactsRepository (for recent contacts)
-     * - SettingsRepository (for prefix configurations)
-     * - SearchProviderRegistry (for search providers)
-     * - FilterAppsUseCase (for filtering apps)
-     * - UrlHandlerResolver (for URL handling)
-     */
-    viewModel {
-        // get() retrieves each dependency from Koin's container
-        // Koin automatically provides the correct type based on the parameter
-        SearchViewModel(
-            appRepository = get(),
-            contactsRepository = get(),
-            settingsRepository = get(),
-            providerRegistry = get(),
-            filterAppsUseCase = get(),
-            urlHandlerResolver = get(),
-            clipboardSuggestionResolver = get()
-        )
-    }
-
-    /**
-     * SettingsViewModel - Manages settings state.
-     *
-     * LIFECYCLE: Scoped to the Activity/Composable that requests it.
-     *
-     * DEPENDENCIES:
-     * - SettingsRepository (for reading/writing settings)
-     */
-    viewModel {
-        SettingsViewModel(
-            settingsRepository = get()
-        )
-    }
-
-    /**
-     * HomeViewModel - Manages home screen pinned items.
-     *
-     * LIFECYCLE: Scoped to the Activity/Composable that requests it.
-     *
-     * DEPENDENCIES:
-     * - HomeRepository (for reading/writing pinned items)
-     */
-    viewModel {
-        HomeViewModel(
-            homeRepository = get()
-        )
-    }
-
-    /**
-     * AppDrawerViewModel - Manages app drawer app list and sorting state.
-     *
-     * LIFECYCLE: Scoped to the Activity/Composable that requests it.
-     *
-     * DEPENDENCIES:
-     * - AppRepository (for installed apps list)
-     */
-    viewModel {
-        AppDrawerViewModel(
-            appRepository = get()
-        )
-    }
-}
+/**
+ * All Koin modules aggregated into a single list for convenient loading.
+ *
+ * This is the only thing that LauncherApplication needs to import.
+ * The order does not matter — Koin resolves dependencies lazily when they
+ * are first requested, not at module registration time. However, we list
+ * coreModule first for readability since it provides the foundation that
+ * other modules build on.
+ *
+ * LOADING ORDER (for readability, not dependency resolution):
+ * 1. coreModule     — shared repositories (foundation layer)
+ * 2. searchModule   — search feature (depends on coreModule)
+ * 3. homeModule     — home screen feature (standalone)
+ * 4. widgetModule   — widget infrastructure (standalone)
+ * 5. settingsModule — settings feature (depends on coreModule)
+ * 6. drawerModule   — app drawer feature (depends on coreModule)
+ */
+val allModules = listOf(
+    coreModule,
+    searchModule,
+    homeModule,
+    widgetModule,
+    settingsModule,
+    drawerModule
+)
