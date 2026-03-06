@@ -196,7 +196,15 @@ class WidgetHostManager(
      *         false if the user needs to grant permission first.
      */
     fun bindWidget(widgetId: Int, provider: ComponentName): Boolean {
-        return appWidgetManager.bindAppWidgetIdIfAllowed(widgetId, provider)
+        return try {
+            appWidgetManager.bindAppWidgetIdIfAllowed(widgetId, provider)
+        } catch (e: Exception) {
+            // Certain provider/profile combinations can throw here instead of
+            // returning false. Treat as "not bound" so caller can continue via
+            // bind-permission flow or graceful cancel path.
+            Log.e(TAG, "Failed to bind widgetId=$widgetId provider=$provider", e)
+            false
+        }
     }
 
     /**

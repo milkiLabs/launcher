@@ -338,6 +338,10 @@ Benefits:
 - No launch callback wiring in business logic.
 - Easier maintenance and safer future edits.
 - Keeps widget ID cleanup behavior centralized with placement failure handling.
+- Provider-specific launch failures are now crash-safe:
+        - If bind-permission intent launch throws, flow is treated as canceled.
+        - If configure-activity launch throws, flow is treated as canceled.
+        - In both cases pending widget IDs are cleaned up via ViewModel result handlers.
 
 ## Widget long-press reliability (March 2026)
 

@@ -1,6 +1,8 @@
 package com.milki.launcher.presentation.main
 
+import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +43,10 @@ class ActivityWidgetPlacementCoordinator(
     private val homeViewModel: HomeViewModel,
     private val widgetHostManagerProvider: () -> WidgetHostManager
 ) : WidgetPlacementCoordinator {
+
+    companion object {
+        private const val TAG = "WidgetPlacementCoord"
+    }
 
     /**
      * Launcher for the system bind-permission activity.
@@ -83,11 +89,39 @@ class ActivityWidgetPlacementCoordinator(
     override fun execute(command: HomeViewModel.WidgetPlacementCommand) {
         when (command) {
             is HomeViewModel.WidgetPlacementCommand.LaunchBindPermission -> {
-                widgetBindLauncher.launch(command.intent)
+                runCatching {
+                    widgetBindLauncher.launch(command.intent)
+                }.onFailure { throwable ->
+                    // Some OEM/provider combinations can throw while launching the
+                    // bind permission flow. Treat this as a canceled bind so the
+                    // pending widget id is released instead of crashing Activity.
+                    Log.e(TAG, "Failed to launch widget bind permission flow", throwable)
+                    val followUp = homeViewModel.handleWidgetBindResult(
+                        resultCode = Activity.RESULT_CANCELED,
+                        widgetHostManager = widgetHostManagerProvider()
+                    )
+                    if (followUp !is HomeViewModel.WidgetPlacementCommand.NoOp) {
+                        execute(followUp)
+                    }
+                }
             }
 
             is HomeViewModel.WidgetPlacementCommand.LaunchConfigure -> {
-                widgetConfigureLauncher.launch(command.intent)
+                runCatching {
+                    widgetConfigureLauncher.launch(command.intent)
+                }.onFailure { throwable ->
+                    // A subset of widgets declares configure activities that are
+                    // unavailable/unlaunchable on some devices. Convert the failure
+                    // into a canceled configure result so cleanup runs consistently.
+                    Log.e(TAG, "Failed to launch widget configure activity", throwable)
+                    val followUp = homeViewModel.handleWidgetConfigureResult(
+                        resultCode = Activity.RESULT_CANCELED,
+                        widgetHostManager = widgetHostManagerProvider()
+                    )
+                    if (followUp !is HomeViewModel.WidgetPlacementCommand.NoOp) {
+                        execute(followUp)
+                    }
+                }
             }
 
             HomeViewModel.WidgetPlacementCommand.NoOp -> Unit
