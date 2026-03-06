@@ -2,24 +2,9 @@
 
 ## P0-P1 Findings
 
-### 1) Duplicate heavy app-list loading paths at startup
-- Evidence: `app/src/main/java/com/milki/launcher/presentation/search/SearchViewModel.kt:123`, `app/src/main/java/com/milki/launcher/presentation/search/SearchViewModel.kt:144`, `app/src/main/java/com/milki/launcher/presentation/search/SearchViewModel.kt:167`
-- Problem: Search loads installed apps both by one-shot `getInstalledApps()` and by collecting `observeInstalledApps()`.
-- Impact: Extra full `PackageManager` scan and icon preload work during cold start.
-- Recommendation:
-1. Keep only one startup path.
-2. Prefer `observeInstalledApps()` with `stateIn` and a replayed shared stream.
-3. If one-shot warm start is kept, gate it to avoid duplicate first emission.
+### 1) 
 
-### 2) Multiple collectors trigger repeated full app scans
-- Evidence: `app/src/main/java/com/milki/launcher/presentation/search/SearchViewModel.kt:167`, `app/src/main/java/com/milki/launcher/presentation/drawer/AppDrawerViewModel.kt:140`, `app/src/main/java/com/milki/launcher/data/repository/AppRepositoryImpl.kt:300`, `app/src/main/java/com/milki/launcher/data/repository/AppRepositoryImpl.kt:302`
-- Problem: `observeInstalledApps()` currently recalculates via `mapLatest { getInstalledApps() }` per collector.
-- Impact: Search and drawer can each trigger expensive app enumeration.
-- Recommendation:
-1. Convert repository stream to shared hot flow with `shareIn`/`stateIn` at repository scope.
-2. Cache app-list snapshot + timestamp; refresh only on package signals.
-3. Return immutable cached list to all consumers.
-
+### 2) 
 ### 3) Oversized files increase regression and review cost
 - Evidence:
 - `app/src/main/java/com/milki/launcher/ui/components/DraggablePinnedItemsGrid.kt` (~1496 lines)
@@ -42,14 +27,7 @@
 2. Emit structured logs with action context and identifiers.
 3. Keep user-friendly fallback but preserve real failure reason in logs/telemetry.
 
-### 5) HomeRepository repeatedly deserializes full dataset for each operation
-- Evidence: repeated `deserializeItems(preferences)` calls across operations, e.g. `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:169`, `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:325`, `app/src/main/java/com/milki/launcher/data/repository/HomeRepositoryImpl.kt:764`
-- Problem: Full parse/write for every mutation scales poorly with more home items/widgets/folders.
-- Impact: Potential jank during burst operations and higher battery/CPU.
-- Recommendation:
-1. Move to typed Proto DataStore schema for structured updates.
-2. Introduce in-memory snapshot + single-writer mutation queue.
-3. Diff-based writes instead of full newline-JSON rewrite.
+### 5)
 
 ## Reliability Gaps
 

@@ -40,11 +40,13 @@ interface AppRepository {
      * SearchViewModel collect this flow to stay up-to-date without manual
      * refresh logic.
      *
-     * IMPLEMENTATION CONTRACT:
-     * - The flow must never complete (it stays active for the lifetime of the
-     *   collecting scope).
-     * - Rapid package changes (e.g. bulk updates) should result in only one
-     *   reload reaching collectors, not one per broadcast.
+        * IMPLEMENTATION CONTRACT:
+        * - Multiple collectors should observe a shared upstream stream rather than
+        *   triggering independent full app enumerations.
+        * - The flow must never complete (it stays active for the lifetime of the
+        *   collecting scope).
+        * - Rapid package changes (e.g. bulk updates) should result in only one
+        *   reload reaching collectors, not one per broadcast.
      *
      * @return Flow that emits sorted List<AppInfo> on every package change
      */

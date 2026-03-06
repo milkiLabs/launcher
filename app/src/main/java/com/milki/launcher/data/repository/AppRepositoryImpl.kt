@@ -25,18 +25,24 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.data.icon.AppIconMemoryCache
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.ConcurrentHashMap
 
 // ============================================================================
@@ -156,6 +162,20 @@ class AppRepositoryImpl(
 ) : AppRepository {
 
     // ============================================================================
+    // REPOSITORY SCOPE
+    // ============================================================================
+
+    /**
+     * Dedicated coroutine scope for long-lived repository streams.
+     *
+     * WHY A REPOSITORY SCOPE:
+     * - AppRepositoryImpl is a process-lifetime singleton in DI.
+     * - We need one shared hot stream for installed apps that all collectors can reuse.
+     * - SupervisorJob keeps unrelated child failures isolated.
+     */
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // ============================================================================
     // PACKAGE CHANGE OBSERVATION
     // ============================================================================
 
@@ -164,12 +184,12 @@ class AppRepositoryImpl(
      * change broadcast is received.
      *
      * WHY SharedFlow:
-     * - replay = 0: We don't need late collectors to see old signals — they get
-     *   the current app list from the initial flowOf(Unit) in observeInstalledApps().
+     * - replay = 0: Signal events are only triggers; we don't persist old triggers.
      * - extraBufferCapacity = 1 + DROP_OLDEST: If the previous reload is still
      *   in-flight when a new broadcast arrives, we keep only the latest signal.
-     *   Combined with mapLatest in observeInstalledApps(), this means rapid
-     *   package changes (e.g. batch updates) naturally coalesce into a single reload.
+     *   Combined with collectLatest in the repository refresh loop, this means
+     *   rapid package changes (e.g. batch updates) naturally coalesce into
+     *   one final completed reload.
      */
     private val packageChangeSignal = MutableSharedFlow<Unit>(
         replay = 0,
@@ -177,8 +197,72 @@ class AppRepositoryImpl(
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
+    /**
+     * Last successful installed-app snapshot refresh timestamp.
+     *
+     * TIMING SOURCE:
+     * We use wall-clock millis because the value is only used for coarse freshness
+     * checks and diagnostics inside this repository, not for elapsed-time math.
+     */
+    private val installedAppsSnapshotTimestampMillis = AtomicLong(0L)
+
+    /**
+     * Internal mutable snapshot state.
+     *
+     * IMPORTANT:
+     * - Every emission is a detached immutable copy (`toList()`).
+     * - Collectors should treat it as read-only data.
+     */
+    private val installedAppsSnapshot = MutableStateFlow<List<AppInfo>>(emptyList())
+
+    /**
+     * Shared hot trigger stream that drives repository cache refreshes.
+     *
+     * WHY THIS FIXES REPEATED SCANS:
+     * - Before: each collector independently ran mapLatest { getInstalledApps() }.
+     * - Now: one repository-level stream performs refreshes and fans out results.
+     * - Search + Drawer now share one upstream PackageManager scan path.
+     *
+     * REFRESH POLICY:
+     * - Initial refresh happens once when this shared stream starts.
+     * - Subsequent refreshes happen only when packageChangeSignal emits.
+     * - collectLatest cancels stale in-flight refresh if a newer signal arrives.
+     */
+    private val installedAppsRefreshTrigger: SharedFlow<Unit> = packageChangeSignal
+        .onStart { emit(Unit) }
+        .shareIn(
+            scope = repositoryScope,
+            started = SharingStarted.Eagerly,
+            replay = 1
+        )
+
     init {
         registerPackageChangeReceiver()
+        startInstalledAppsCacheRefreshLoop()
+    }
+
+    /**
+     * Starts the long-lived refresh loop that keeps installedAppsSnapshot current.
+     */
+    private fun startInstalledAppsCacheRefreshLoop() {
+        repositoryScope.launch {
+            installedAppsRefreshTrigger.collectLatest {
+                refreshInstalledAppsSnapshot()
+            }
+        }
+    }
+
+    /**
+     * Performs one full installed-app scan and updates the cached snapshot.
+     *
+     * IMPORTANT BEHAVIOR:
+     * - The emitted list is always copied with toList() to prevent accidental mutation.
+     * - Timestamp updates only after a successful refresh.
+     */
+    private suspend fun refreshInstalledAppsSnapshot() {
+        val latestApps = getInstalledApps().toList()
+        installedAppsSnapshot.value = latestApps
+        installedAppsSnapshotTimestampMillis.set(System.currentTimeMillis())
     }
 
     /**
@@ -208,8 +292,9 @@ class AppRepositoryImpl(
     private fun registerPackageChangeReceiver() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                // Fire-and-forget signal. mapLatest in observeInstalledApps()
-                // ensures only the latest reload completes if signals pile up.
+                // Fire-and-forget trigger. The repository refresh loop uses
+                // collectLatest, so only the newest pending refresh completes
+                // if multiple signals arrive rapidly.
                 packageChangeSignal.tryEmit(Unit)
             }
         }
@@ -280,26 +365,16 @@ class AppRepositoryImpl(
     // ============================================================================
 
     /**
-     * Returns a reactive Flow of all installed launcher apps.
+     * Returns the shared installed-app stream for all consumers.
      *
-     * HOW IT WORKS:
-     * 1. flowOf(Unit) provides the initial trigger so the first collection
-     *    immediately queries PackageManager and emits the current app list.
-     * 2. packageChangeSignal merges in subsequent triggers whenever a
-     *    PACKAGE_ADDED / REMOVED / REPLACED / CHANGED broadcast arrives.
-     * 3. mapLatest ensures that if a new signal arrives while a previous
-     *    getInstalledApps() call is still in-flight, the old call is cancelled
-     *    and a fresh one starts — so rapid package changes naturally coalesce
-     *    into a single final reload.
-     *
-     * THREADING:
-     * getInstalledApps() already uses withContext(limitedDispatcher) internally,
-     * so this flow is safe to collect from any dispatcher including Main.
+     * CONTRACT:
+     * - All collectors observe the same repository-owned snapshot stream.
+     * - Collecting this Flow never triggers an additional per-collector scan.
+     * - Snapshot refresh is driven by package signals and the repository's
+     *   startup refresh, not by collector count.
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeInstalledApps(): Flow<List<AppInfo>> {
-        return merge(flowOf(Unit), packageChangeSignal)
-            .mapLatest { getInstalledApps() }
+        return installedAppsSnapshot
     }
 
     // ============================================================================

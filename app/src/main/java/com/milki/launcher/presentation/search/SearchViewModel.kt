@@ -52,6 +52,8 @@ import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -93,6 +95,21 @@ class SearchViewModel(
 ) : ViewModel() {
     private val stateHolder = SearchViewModelStateHolder(viewModelScope)
 
+    /**
+     * Shared installed-app stream scoped to this ViewModel.
+     *
+     * WHY stateIn HERE:
+     * - Replays the latest app list to any future collector immediately.
+     * - Prevents repeated upstream collection setup if this ViewModel grows
+     *   additional internal collectors in the future.
+     * - Keeps startup/app-update behavior deterministic in one hot stream.
+     */
+    private val installedAppsStream = appRepository.observeInstalledApps().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = emptyList()
+    )
+
     private val settingsAdapter = SearchViewModelSettingsAdapter(
         settingsRepository = settingsRepository,
         providerRegistry = providerRegistry
@@ -120,7 +137,6 @@ class SearchViewModel(
             searchSources = stateHolder.searchSources,
             existingOutput = stateHolder.searchOutput
         )
-        loadInstalledApps()
         observeInstalledApps()
         observeRecentApps()
         settingsAdapter.bind(
@@ -136,35 +152,24 @@ class SearchViewModel(
     // ========================================================================
 
     /**
-     * Load all installed apps from the repository.
-        * This runs once at startup and populates stateHolder.installedApps.
-     */
-    private fun loadInstalledApps() {
-        viewModelScope.launch {
-            stateHolder.installedApps.value = appRepository.getInstalledApps()
-        }
-    }
-
-    /**
      * Observes installed apps from the repository's reactive stream.
      *
      * HOW THIS WORKS:
-     * After the initial one-shot load above (which populates results as fast as
-     * possible for first render), this flow takes over and keeps the app list
-     * up-to-date whenever packages are installed, uninstalled, or updated.
+     * This is now the ONLY startup path for installed app data in SearchViewModel.
+     * We intentionally do not perform a separate one-shot getInstalledApps() call.
      *
-     * WHY BOTH loadInstalledApps() AND observeInstalledApps():
-     * The one-shot load returns results immediately via suspend. The flow's
-     * first emission goes through the same path but may arrive slightly later
-     * due to flow collection setup. Having both means the UI gets data as fast
-     * as possible at startup, and stays reactive afterwards. Because
-     * stateHolder.installedApps is a StateFlow, duplicate identical emissions
-     * are harmless — downstream combine/mapLatest only recomputes when the
-     * value actually changes.
+     * WHY SINGLE PATH:
+     * - observeInstalledApps() already emits an initial full app list.
+     * - Keeping one path avoids duplicate PackageManager scans at cold start.
+     * - Keeping one path also avoids duplicate icon preload passes for the same list.
+     *
+     * RUNTIME BEHAVIOR:
+     * After the initial emission, this collector stays active and receives updates
+     * whenever packages are installed, removed, replaced, or changed.
      */
     private fun observeInstalledApps() {
         viewModelScope.launch {
-            appRepository.observeInstalledApps().collect { apps ->
+            installedAppsStream.collect { apps ->
                 stateHolder.installedApps.value = apps
             }
         }

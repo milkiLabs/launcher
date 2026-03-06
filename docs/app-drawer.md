@@ -118,14 +118,12 @@ Both the app drawer and the search dialog automatically reflect package changes
    and `ACTION_PACKAGE_CHANGED`.
 2. Each broadcast fires a signal into a `MutableSharedFlow<Unit>` with
    `DROP_OLDEST` overflow — rapid signals coalesce naturally.
-3. `observeInstalledApps()` merges an initial `flowOf(Unit)` (for first-collection
-   data) with the broadcast signal flow, then uses `mapLatest` to call
-   `getInstalledApps()`. If a new broadcast arrives while a reload is in-flight,
-   the stale reload is cancelled and only the latest one completes.
-4. `AppDrawerViewModel` collects `observeInstalledApps()` to keep the drawer grid
-   current.
-5. `SearchViewModel` collects `observeInstalledApps()` to keep search results
-   current (alongside its existing one-shot `loadInstalledApps()` for fast startup).
+3. `AppRepositoryImpl` owns a repository-scope hot trigger stream (`shareIn`) that
+   emits once at startup and then on package change broadcasts.
+4. The repository refresh loop performs the heavy `getInstalledApps()` scan once,
+   updates an immutable cached snapshot, and records the refresh timestamp.
+5. `observeInstalledApps()` returns that shared cached snapshot flow, so multiple
+   collectors (drawer + search) read the same data without per-collector rescans.
 
 ---
 
