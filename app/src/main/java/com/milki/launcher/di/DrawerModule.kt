@@ -29,6 +29,8 @@
 
 package com.milki.launcher.di
 
+import com.milki.launcher.domain.drawer.DrawerAppStore
+import com.milki.launcher.presentation.drawer.DrawerListAssembler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -41,6 +43,14 @@ import org.koin.dsl.module
  * from the drawer feature's perspective.
  */
 val drawerModule = module {
+
+    single {
+        DrawerAppStore()
+    }
+
+    single {
+        DrawerListAssembler()
+    }
 
     // ========================================================================
     // VIEWMODEL - MANAGED BY KOIN
@@ -62,7 +72,9 @@ val drawerModule = module {
      */
     viewModel {
         AppDrawerViewModel(
-            appRepository = get()
+            appRepository = get(),
+            drawerAppStore = get(),
+            drawerListAssembler = get()
         )
     }
 }

@@ -3,6 +3,8 @@ package com.milki.launcher.presentation.main
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.milki.launcher.presentation.drawer.DrawerSurfaceController
+import com.milki.launcher.presentation.drawer.DrawerTransitionState
 
 /**
  * SurfaceStateCoordinator.kt - Centralized orchestration for layered launcher surfaces.
@@ -32,6 +34,9 @@ interface SurfaceStateCoordinatorContract {
      * Whether the app drawer bottom sheet is currently visible.
      */
     val isAppDrawerOpen: Boolean
+
+    /** Current drawer transition state from drawer controller. */
+    val drawerTransitionState: DrawerTransitionState
 
     /**
      * Whether the widget picker bottom sheet is currently visible.
@@ -96,6 +101,8 @@ class SurfaceStateCoordinator(
     private val closeFolder: () -> Unit
 ) : SurfaceStateCoordinatorContract {
 
+    private val drawerSurfaceController = DrawerSurfaceController()
+
     /**
      * Compose-observed state for homescreen menu visibility.
      */
@@ -107,6 +114,9 @@ class SurfaceStateCoordinator(
      */
     override var isAppDrawerOpen by mutableStateOf(false)
         private set
+
+    override val drawerTransitionState: DrawerTransitionState
+        get() = drawerSurfaceController.state.value
 
     /**
      * Compose-observed state for widget picker visibility.
@@ -125,7 +135,12 @@ class SurfaceStateCoordinator(
      * Updates app drawer visibility.
      */
     override fun updateAppDrawerOpen(isOpen: Boolean) {
-        isAppDrawerOpen = isOpen
+        if (isOpen) {
+            drawerSurfaceController.requestOpen()
+        } else {
+            drawerSurfaceController.requestClose()
+        }
+        isAppDrawerOpen = drawerSurfaceController.isVisible()
     }
 
     /**
@@ -142,7 +157,8 @@ class SurfaceStateCoordinator(
         isHomescreenMenuOpen = false
         hideSearch()
         closeFolder()
-        isAppDrawerOpen = true
+        drawerSurfaceController.requestOpen()
+        isAppDrawerOpen = drawerSurfaceController.isVisible()
     }
 
     /**
@@ -157,7 +173,8 @@ class SurfaceStateCoordinator(
      */
     override fun consumeHomePressForLayeredSurface(): Boolean {
         if (isAppDrawerOpen) {
-            isAppDrawerOpen = false
+            drawerSurfaceController.requestClose()
+            isAppDrawerOpen = drawerSurfaceController.isVisible()
             return true
         }
 
@@ -192,7 +209,8 @@ class SurfaceStateCoordinator(
         }
 
         if (isAppDrawerOpen) {
-            isAppDrawerOpen = false
+            drawerSurfaceController.requestClose()
+            isAppDrawerOpen = drawerSurfaceController.isVisible()
             return true
         }
 
@@ -217,7 +235,8 @@ class SurfaceStateCoordinator(
      * reset drawer/picker and closed folder on stop.
      */
     override fun onStop() {
-        isAppDrawerOpen = false
+        drawerSurfaceController.requestClose()
+        isAppDrawerOpen = drawerSurfaceController.isVisible()
         isWidgetPickerOpen = false
         closeFolder()
     }

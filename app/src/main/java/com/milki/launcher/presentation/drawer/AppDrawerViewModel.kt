@@ -19,6 +19,8 @@ package com.milki.launcher.presentation.drawer
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.domain.drawer.DrawerAppStore
+import com.milki.launcher.domain.drawer.DrawerModelFlags
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +37,10 @@ import kotlinx.coroutines.launch
  */
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
-    val apps: List<AppInfo> = emptyList()
+    val apps: List<AppInfo> = emptyList(),
+    val adapterItems: List<DrawerAdapterItem> = emptyList(),
+    val sections: List<DrawerSection> = emptyList(),
+    val query: String = ""
 )
 
 /**
@@ -48,7 +53,9 @@ data class AppDrawerUiState(
  * - This keeps open/close interactions lightweight and consistent.
  */
 class AppDrawerViewModel(
-    private val appRepository: AppRepository
+    private val appRepository: AppRepository,
+    private val drawerAppStore: DrawerAppStore,
+    private val drawerListAssembler: DrawerListAssembler
 ) : ViewModel() {
 
     /**
@@ -68,14 +75,12 @@ class AppDrawerViewModel(
     )
 
     /**
-     * Source of truth for repository-provided app list.
-     */
-    private val installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
-
-    /**
      * Tracks whether the initial load is running.
      */
     private val isLoading = MutableStateFlow(true)
+
+    /** Current drawer query (reserved for future in-drawer search). */
+    private val query = MutableStateFlow("")
 
     /**
      * Public state observed by Compose.
@@ -85,11 +90,21 @@ class AppDrawerViewModel(
      */
     val uiState = combine(
         isLoading,
-        installedApps
-    ) { loading, apps ->
+        drawerAppStore.apps,
+        query
+    ) { loading, apps, searchQuery ->
+        val assembly = if (searchQuery.isBlank()) {
+            drawerListAssembler.assembleNormal(apps)
+        } else {
+            drawerListAssembler.assembleSearch(apps, searchQuery)
+        }
+
         AppDrawerUiState(
             isLoading = loading,
-            apps = apps
+            apps = apps,
+            adapterItems = assembly.items,
+            sections = assembly.sections,
+            query = searchQuery
         )
     }
         .stateIn(
@@ -117,9 +132,16 @@ class AppDrawerViewModel(
     private fun observeInstalledApps() {
         viewModelScope.launch {
             installedAppsStream.collect { apps ->
-                installedApps.value = apps
+                drawerAppStore.setApps(
+                    apps = apps,
+                    flags = DrawerModelFlags(source = "repository")
+                )
                 isLoading.value = false
             }
         }
+    }
+
+    fun updateQuery(query: String) {
+        this.query.value = query
     }
 }

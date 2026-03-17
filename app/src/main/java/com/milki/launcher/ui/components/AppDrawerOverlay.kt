@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -45,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
+import com.milki.launcher.presentation.drawer.DrawerAdapterItem
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.IconSize
@@ -118,24 +120,56 @@ fun AppDrawerOverlay(
                     verticalArrangement = Arrangement.spacedBy(Spacing.small)
                 ) {
                     items(
-                        items = uiState.apps,
-                        key = { "${it.packageName}/${it.activityName}" },
-                        contentType = { "drawer_app_item" }
-                    ) { appInfo ->
-                        AppGridItem(
-                            appInfo = appInfo,
-                            onClick = {
-                                // Reuse the same action pipeline as search results so app
-                                // launching behavior stays centralized in ActionExecutor.
-                                actionHandler(SearchResultAction.Tap(AppSearchResult(appInfo)))
-                                onDismiss()
-                            },
-                            onExternalDragStarted = {
-                                // Required UX: when drawer drag starts, close drawer first,
-                                // then user can drop icon on homescreen target.
-                                onDismiss()
+                        items = uiState.adapterItems,
+                        key = { item ->
+                            when (item) {
+                                is DrawerAdapterItem.SectionHeader -> "header:${item.sectionKey}"
+                                is DrawerAdapterItem.AppEntry -> "app:${item.app.packageName}/${item.app.activityName}"
                             }
-                        )
+                        },
+                        span = { item ->
+                            when (item) {
+                                is DrawerAdapterItem.SectionHeader -> GridItemSpan(maxLineSpan)
+                                is DrawerAdapterItem.AppEntry -> GridItemSpan(1)
+                            }
+                        },
+                        contentType = { item ->
+                            when (item) {
+                                is DrawerAdapterItem.SectionHeader -> "drawer_section_header"
+                                is DrawerAdapterItem.AppEntry -> "drawer_app_item"
+                            }
+                        }
+                    ) { item ->
+                        when (item) {
+                            is DrawerAdapterItem.SectionHeader -> {
+                                Text(
+                                    text = item.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = Spacing.small, bottom = Spacing.extraSmall)
+                                )
+                            }
+
+                            is DrawerAdapterItem.AppEntry -> {
+                                val appInfo = item.app
+                                AppGridItem(
+                                    appInfo = appInfo,
+                                    onClick = {
+                                        // Reuse the same action pipeline as search results so app
+                                        // launching behavior stays centralized in ActionExecutor.
+                                        actionHandler(SearchResultAction.Tap(AppSearchResult(appInfo)))
+                                        onDismiss()
+                                    },
+                                    onExternalDragStarted = {
+                                        // Required UX: when drawer drag starts, close drawer first,
+                                        // then user can drop icon on homescreen target.
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }
