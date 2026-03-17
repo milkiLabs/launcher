@@ -1,18 +1,10 @@
 /**
- * MainActivity.kt - The main entry point of the Milki Launcher
- *
  * This Activity serves as the launcher's home screen. It:
  * - Displays the pinned items grid
  * - Handles search functionality
  * - Manages permission requests
  * - Coordinates between ViewModels and UI
- *
- * ARCHITECTURE:
- * This Activity follows the MVVM pattern:
- * - ViewModels provide state via StateFlow
- * - UI renders state via Compose
- * - User actions flow through callbacks and LocalSearchActionHandler
- *
+
  * The Activity is kept minimal - most logic is in ViewModels and UseCases.
  */
 
@@ -65,8 +57,6 @@ import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 /**
- * MainActivity - The launcher's home screen Activity.
- *
  * This is the main entry point when the user presses the home button.
  * It displays the pinned items grid and provides access to search functionality.
  */
@@ -369,21 +359,10 @@ class MainActivity : ComponentActivity() {
     // ========================================================================
 
     /**
-     * Configures launcher-specific back button behavior.
-     *
-     * UX REQUIREMENT:
-     * When the user is on the launcher home screen, pressing back should
-     * keep them on home instead of navigating to previous apps / recents.
-     *
-     * IMPLEMENTATION NOTES:
-     * - We register an always-enabled OnBackPressedCallback at Activity level.
-     * - If search dialog is visible, back closes search (expected UX).
-     * - If search is not visible, we intentionally consume back and do nothing.
-     *
-     * WHY ACTIVITY-LEVEL CALLBACK:
-     * This guarantees the launcher remains a stable "root" surface.
-     * Without this callback, Android's default back behavior may navigate
-     * away from launcher into previous tasks.
+     * Fixes the launcher as the root surface by intercepting the back button.
+     * * Logic:
+     * 1. If search is active, the coordinator closes it.
+     * 2. Otherwise, back is consumed to prevent navigating away from Home.
      */
     private fun initializeBackButtonBehavior() {
         onBackPressedDispatcher.addCallback(
@@ -392,8 +371,7 @@ class MainActivity : ComponentActivity() {
                 override fun handleOnBackPressed() {
                     val uiState = searchViewModel.uiState.value
 
-                    // Delegate layered back behavior to coordinator so Activity
-                    // does not own per-surface close ordering logic.
+                    // Delegate UI-specific closing logic to the coordinator
                     surfaceStateCoordinator.handleBackPressed(
                         isSearchVisible = uiState.isSearchVisible
                     )

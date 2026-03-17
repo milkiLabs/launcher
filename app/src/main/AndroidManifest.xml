@@ -2,32 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permission to read contacts for contacts search feature -->
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    
     <uses-permission android:name="android.permission.CALL_PHONE" />
 
-    <!--
-      Permission to bind app widgets to our launcher's AppWidgetHost.
-      
-      This allows us to host widgets on the home screen. When we call
-      AppWidgetManager.bindAppWidgetIdIfAllowed(), the system checks if
-      we have this permission. If not, we launch a system dialog that
-      asks the user to grant widget binding for each provider.
-      
-      Note: This is a signature-level permission that is normally only
-      granted to system apps. For third-party launchers, the system will
-      prompt the user with a permission dialog per widget provider.
-    -->
+    <!-- Required to bind app widgets to the launcher -->
     <uses-permission android:name="android.permission.BIND_APPWIDGET" />
     
-    <!--
-      Storage permissions for file search feature:
-      - READ_EXTERNAL_STORAGE: For Android 10 (API 29) and below
-      - READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_MEDIA_AUDIO: For Android 13+ (API 33+)
-        These replace READ_EXTERNAL_STORAGE on newer Android versions
-      - MANAGE_EXTERNAL_STORAGE: For Android 11+ (API 30+) to access ALL files
-    -->
+    <!-- Storage permissions for file search -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -36,40 +18,15 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
 
-    <!--
-      The <queries> element declares what other apps our app needs to interact with.
-      By default, apps can no longer see all installed apps. We must declare which apps we need to query.
-    -->
-
+    <!-- Package visibility declarations -->
     <queries>
-        <!-- 
-          Query apps that have MAIN action in their intent filter.
-          This matches all apps that have launcher icons 
-          
-          Alternative approaches:
-          1. Query specific packages: <package android:name="com.example.app" />
-          2. Query all packages (requires special permission): 
-             <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-          
-          Our approach is best - only query what we need (launcher apps).
-        -->
+        <!-- Detect installed apps for launcher functionality -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
         </intent>
         
         <!--
           Query apps that can handle http/https URLs.
-          This allows us to detect which apps can open specific URLs.
-          
-          WHY THIS IS NEEDED:
-          When a user types "youtube.com", we want to know if YouTube app
-          is installed so we can show "Open in YouTube" instead of just
-          "Open in browser".
-          
-          This query matches:
-          - Browsers (Chrome, Firefox, etc.)
-          - Apps with deep links (YouTube, Twitter, Maps, etc.)
-          - Any app that can handle web URLs
         -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -81,25 +38,6 @@
         </intent>
     </queries>
 
-    <!--
-      Custom Application class for app-wide initialization.
-      Points to com.milki.launcher.LauncherApplication
-      
-      This is REQUIRED for our custom Coil configuration to work.
-      Without this, Android uses default Application class and our
-      ImageLoaderFactory implementation wont be called.
-      
-      android:allowBackup="true" - Allow Android's auto-backup feature.
-      When enabled, app data is backed up to Google Drive and restored
-      on new devices or after reinstallation.
-      What gets backed up: DataStore files (our recent apps list!)
-      
-      android:dataExtractionRules - Configuration for device-to-device data transfers.
-      Points to XML file defining what data can be transferred.
-      
-      android:fullBackupContent - Configuration for cloud backup (Google Drive).
-      Points to XML file defining what data to backup.
-    -->
     <application
         android:name=".LauncherApplication"
         android:allowBackup="true"
@@ -112,16 +50,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Launcher">
         
-        <!--
-          Special configuration for launcher apps:
-          1. launchMode="singleTask" - Only one instance exists
-          2. Intent filter with HOME category - Makes it a home screen
-          3. exported="true" - Required for system to launch it
-          
-          android:exported="true" - Allow other apps (including the system) to launch this Activity.
-          REQUIRED for launcher activities - the system needs to start it
-          when user presses Home button.
-        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -130,35 +58,14 @@
           android:resizeableActivity="true"
             android:theme="@style/Theme.Launcher">
             
-            <!--
-              This intent filter is what makes our app a home screen replacement.
-              
-              Required combination for launcher:
-              - action MAIN: Entry point of the app
-              - category HOME: Identifies as home screen
-              - category DEFAULT: Can handle implicit intents
-              - category LAUNCHER: Shows in app drawer
-              
-              When user presses Home button, system sends ACTION_MAIN with
-              CATEGORY_HOME. Our Activity handles this and becomes the home screen.
-            -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                
-                <!-- Without this, it's just a regular app. -->
                 <category android:name="android.intent.category.HOME" />
-                
-                <!-- Default category for implicit intents -->
                 <category android:name="android.intent.category.DEFAULT" />
-                
-                <!-- Shows app icon in system launcher. -->
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!--
-          A separate entry point for launcher settings.
-        -->
         <activity
             android:name=".SettingsActivity"
           android:exported="false"
