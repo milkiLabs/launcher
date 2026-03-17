@@ -40,7 +40,7 @@
 package com.milki.launcher.di
 
 import com.milki.launcher.data.repository.AppRepositoryImpl
-import com.milki.launcher.data.repository.SettingsRepositoryImpl
+import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import org.koin.dsl.module

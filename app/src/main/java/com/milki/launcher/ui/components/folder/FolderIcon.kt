@@ -30,7 +30,7 @@
  * - Corner radius:         [CornerRadius.medium] = 12dp
  */
 
-package com.milki.launcher.ui.components
+package com.milki.launcher.ui.components.folder
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.AppIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing

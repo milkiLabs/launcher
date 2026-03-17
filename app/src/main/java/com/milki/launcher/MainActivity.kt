@@ -42,15 +42,15 @@ import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.ui.screens.DrawerActions
-import com.milki.launcher.ui.screens.FolderActions
-import com.milki.launcher.ui.screens.HomeActions
-import com.milki.launcher.ui.screens.LauncherScreen
-import com.milki.launcher.ui.screens.LauncherActions
-import com.milki.launcher.ui.screens.MenuActions
-import com.milki.launcher.ui.screens.SearchActions
-import com.milki.launcher.ui.screens.WidgetActions
-import com.milki.launcher.ui.screens.openPinnedItem
+import com.milki.launcher.ui.screens.launcher.DrawerActions
+import com.milki.launcher.ui.screens.launcher.FolderActions
+import com.milki.launcher.ui.screens.launcher.HomeActions
+import com.milki.launcher.ui.screens.launcher.LauncherScreen
+import com.milki.launcher.ui.screens.launcher.LauncherActions
+import com.milki.launcher.ui.screens.launcher.MenuActions
+import com.milki.launcher.ui.screens.launcher.SearchActions
+import com.milki.launcher.ui.screens.launcher.WidgetActions
+import com.milki.launcher.ui.screens.launcher.openPinnedItem
 import com.milki.launcher.ui.theme.LauncherTheme
 import com.milki.launcher.domain.model.HomeItem
 import org.koin.android.ext.android.inject
@@ -387,7 +387,7 @@ class MainActivity : ComponentActivity() {
         // Initialize permission handler
         permissionHandler = PermissionHandler(this, searchViewModel)
         permissionHandler.setup()
-        
+
         // Initialize action executor
         actionExecutor = ActionExecutor(this, contactsRepository, homeViewModel, lifecycleScope)
 

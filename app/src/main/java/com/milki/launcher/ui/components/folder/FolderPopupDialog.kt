@@ -98,7 +98,7 @@
  * @param onRemoveItemFromFolder    Called when the user uses the context menu to remove an icon.
  */
 
-package com.milki.launcher.ui.components
+package com.milki.launcher.ui.components.folder
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -160,6 +160,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.PinnedItem
 import com.milki.launcher.ui.components.dragdrop.startExternalFolderItemDrag
 import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius

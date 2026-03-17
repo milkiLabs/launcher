@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -112,11 +113,11 @@ fun PinnedItem(
 ) {
     /**
      * Haptic feedback controller for providing tactile response on long-press.
-     * 
+     *
      * When handleLongPress is true (standalone usage), this component handles
      * the long-press gesture internally and provides haptic feedback to confirm
      * the action was recognized.
-     * 
+     *
      * When handleLongPress is false (used in DraggablePinnedItemsGrid), the
      * parent component is responsible for haptic feedback.
      */
