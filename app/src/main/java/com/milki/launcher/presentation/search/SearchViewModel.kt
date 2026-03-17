@@ -50,11 +50,14 @@ import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
+import com.milki.launcher.domain.search.QuerySuggestionResolver
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for the search feature.
@@ -83,6 +86,7 @@ import kotlinx.coroutines.launch
  * @property filterAppsUseCase Use case for filtering apps
  * @property urlHandlerResolver Resolver for URL handler apps
  * @property clipboardSuggestionResolver Resolver that classifies clipboard text into one smart action suggestion
+ * @property querySuggestionResolver Resolver that classifies query text into one smart action suggestion
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
@@ -91,7 +95,8 @@ class SearchViewModel(
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
     private val urlHandlerResolver: UrlHandlerResolver,
-    private val clipboardSuggestionResolver: ClipboardSuggestionResolver
+    private val clipboardSuggestionResolver: ClipboardSuggestionResolver,
+    private val querySuggestionResolver: QuerySuggestionResolver
 ) : ViewModel() {
     private val stateHolder = SearchViewModelStateHolder(viewModelScope)
 
@@ -138,6 +143,7 @@ class SearchViewModel(
         )
         observeInstalledApps()
         observeRecentApps()
+        observeQueryForSuggestions()
         settingsAdapter.bind(
             scope = viewModelScope,
             prefixConfigurations = stateHolder.prefixConfigurations,
@@ -186,6 +192,36 @@ class SearchViewModel(
         }
     }
 
+    /**
+     * Observe query changes and resolve query suggestions.
+     *
+     * HOW THIS WORKS:
+     * When the user types in the search field, we analyze the query text and
+     * determine what kind of action the user might want to take. This provides
+     * a quick-action chip at the bottom of the search dialog.
+     *
+     * WHY ASYNC:
+     * The QuerySuggestionResolver performs I/O operations (URL handler resolution)
+     * which should not block the main thread. We launch a coroutine on
+     * Dispatchers.Default to run the resolution on a background thread.
+     *
+     * EXAMPLE SUGGESTIONS:
+     * - "youtube.com" → "Open in YouTube"
+     * - "+1234567890" → "Call +1234567890"
+     * - "user@example.com" → "Email user@example.com"
+     * - "how to make pasta" → "Search with Google"
+     */
+    private fun observeQueryForSuggestions() {
+        viewModelScope.launch {
+            stateHolder.query.collect { currentQuery ->
+                val suggestion = withContext(Dispatchers.Default) {
+                    querySuggestionResolver.resolveFromQuery(currentQuery)
+                }
+                stateHolder.querySuggestion.value = suggestion
+            }
+        }
+    }
+
     // ========================================================================
     // PUBLIC API - Called from UI
     // ========================================================================
@@ -216,6 +252,7 @@ class SearchViewModel(
         stateHolder.isSearchVisible.value = false
         stateHolder.query.value = ""
         stateHolder.clipboardSuggestion.value = null
+        stateHolder.querySuggestion.value = null
     }
 
     /**

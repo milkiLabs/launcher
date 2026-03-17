@@ -29,6 +29,7 @@ package com.milki.launcher.presentation.search
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.search.ClipboardSuggestion
+import com.milki.launcher.domain.search.QuerySuggestion
 
 /**
  * Complete UI state for the search screen.
@@ -57,6 +58,7 @@ import com.milki.launcher.domain.search.ClipboardSuggestion
  * @property activeProviderConfig Configuration of the active provider (null for app search)
  * @property isLoading Whether a search is in progress
  * @property clipboardSuggestion Optional single clipboard-driven suggestion
+ * @property querySuggestion Optional single query-driven suggestion (shown when typing)
  */
 data class SearchUiState(
     val query: String = "",
@@ -65,6 +67,7 @@ data class SearchUiState(
     val activeProviderConfig: SearchProviderConfig? = null,
     val isLoading: Boolean = false,
     val clipboardSuggestion: ClipboardSuggestion? = null,
+    val querySuggestion: QuerySuggestion? = null,
     val providerAccentColorById: Map<String, String> = emptyMap()
 ) {
     /**
@@ -80,13 +83,35 @@ data class SearchUiState(
      * UX RULES:
      * - Show only while dialog is visible
      * - Show only in default app-search mode (no provider prefix)
-    * - Show only when query is blank and we have a clipboard suggestion
+     * - Show only when query is blank and we have a clipboard suggestion
      */
     val shouldShowClipboardSuggestion: Boolean
         get() = isSearchVisible &&
             activeProviderConfig == null &&
             query.isBlank() &&
             clipboardSuggestion != null
+
+    /**
+     * Controls query suggestion chip visibility.
+     *
+     * UX RULES:
+     * - Show only while dialog is visible
+     * - Show only in default app-search mode (no provider prefix)
+     * - Show only when query is NOT blank (user is typing)
+     * - Show only when we have a valid query suggestion
+     *
+     * MUTUAL EXCLUSIVITY:
+     * This chip and the clipboard chip are mutually exclusive:
+     * - Clipboard chip shows when query is BLANK
+     * - Query chip shows when query is NOT BLANK
+     *
+     * This prevents UI clutter and provides a clear, focused suggestion.
+     */
+    val shouldShowQuerySuggestion: Boolean
+        get() = isSearchVisible &&
+            activeProviderConfig == null &&
+            query.isNotBlank() &&
+            querySuggestion != null
 
     /**
      * Placeholder text for the search field.

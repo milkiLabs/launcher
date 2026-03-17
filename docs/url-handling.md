@@ -18,6 +18,51 @@ The same URL handling stack is also reused by the clipboard smart suggestion fea
 - The UI shows a bottom chip (`From clipboard`) with the resolved action
 - Tapping the chip launches handler app or browser fallback
 
+## Query Suggestion Feature
+
+In addition to clipboard suggestions, the launcher also provides **query suggestions** when the user starts typing in the search field. This provides a consistent UX with the clipboard chip, but applies to the actively typed query instead of past clipboard content.
+
+### How It Works
+
+1. User types in the search field
+2. Query text is analyzed in real-time
+3. If the query matches a pattern (URL, phone, email, location), a suggestion chip appears
+4. The chip shows a quick action: "Open in YouTube", "Call +123456", "Email user@example.com", etc.
+5. For plain text queries, the chip shows "Search with Google"
+
+### Mutual Exclusivity
+
+The clipboard chip and query chip are mutually exclusive:
+
+| Condition | Chip Shown |
+|-----------|------------|
+| Query is BLANK | Clipboard chip (if clipboard has content) |
+| Query is NOT BLANK | Query suggestion chip |
+
+This prevents UI clutter and provides a clear, focused suggestion.
+
+### Suggestion Types
+
+The `QuerySuggestionResolver` classifies query text into one of these types:
+
+1. **OpenUrl**: Query looks like a URL (e.g., "youtube.com" → "Open in YouTube")
+2. **DialNumber**: Query looks like a phone number (e.g., "+1234567890" → "Call +1234567890")
+3. **ComposeEmail**: Query looks like an email address (e.g., "user@example.com" → "Email user@example.com")
+4. **OpenMapLocation**: Query looks like a location (e.g., "1600 Amphitheatre Parkway" → "Open in maps")
+5. **SearchWeb**: Query is plain text (e.g., "how to make pasta" → "Search with Google")
+
+### Priority Order
+
+Suggestions are resolved in priority order (highest to lowest):
+
+1. URL detection (most specific, indicates intent to visit a website)
+2. Phone number detection (strong signal for calling)
+3. Email address detection (clear intent to send email)
+4. Map/location heuristics (could be an address or coordinates)
+5. Plain text search (fallback for everything else)
+
+This ensures the most likely intended action is suggested.
+
 ## Architecture
 
 ```
@@ -200,6 +245,42 @@ Behavior details:
 
 Important: this resolver does **not** subscribe to clipboard change events.
 
+### 4.2 QuerySuggestionResolver (Real-time Query Analysis)
+
+Location: `domain/search/QuerySuggestionResolver.kt`
+
+This resolver analyzes the current search query and provides actionable suggestions.
+
+Behavior details:
+
+1. Observe query changes in real-time
+2. Run the same classification logic as clipboard (URL, phone, email, location, web search)
+3. Resolve URL handler apps through PackageManager
+4. Return a typed query suggestion used by bottom chip UI
+
+The resolver is similar to `ClipboardSuggestionResolver` but:
+- Takes the query text as input (not clipboard)
+- Called on every query change (not just on dialog open)
+- Returns `QuerySuggestion` instead of `ClipboardSuggestion`
+
+### 4.3 QuerySuggestion (Data Model)
+
+Location: `domain/search/QuerySuggestion.kt`
+
+Sealed class representing different types of query suggestions:
+
+```kotlin
+sealed class QuerySuggestion {
+    abstract val rawQuery: String
+    
+    data class OpenUrl(val urlResult: UrlSearchResult, ...) : QuerySuggestion()
+    data class DialNumber(val phoneNumber: String, ...) : QuerySuggestion()
+    data class ComposeEmail(val emailAddress: String, ...) : QuerySuggestion()
+    data class OpenMapLocation(val locationQuery: String, ...) : QuerySuggestion()
+    data class SearchWeb(val searchQuery: String, ...) : QuerySuggestion()
+}
+```
+
 ### 5. SearchAction Updates
 
 Location: `presentation/search/SearchAction.kt`
@@ -283,6 +364,18 @@ Clipboard contains: `youtube.com/watch?v=dQw4w9WgXcQ`
 3. URL is normalized and deep-link handler is resolved
 4. Bottom chip appears: `From clipboard` + `Open in YouTube`
 5. User taps chip → YouTube app opens (or browser fallback)
+
+### Scenario 0.5: Query Suggestion While Typing
+
+User types: `youtube.com/watch?v=dQw4w9WgXcQ`
+
+1. User opens search dialog (clipboard chip shows if applicable)
+2. User starts typing the URL
+3. Clipboard chip disappears (query is not blank)
+4. Query suggestion chip appears: `Suggested action` + `Open in YouTube`
+5. User taps chip → YouTube app opens (or browser fallback)
+
+This provides a seamless experience: whether the user pastes from clipboard or types manually, they get the same smart suggestion.
 
 ### Scenario 1: YouTube URL
 

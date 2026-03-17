@@ -52,6 +52,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.search.ClipboardSuggestion
+import com.milki.launcher.domain.search.QuerySuggestion
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
@@ -226,8 +227,13 @@ fun AppSearchDialog(
                 }
 
                 /**
-                 * Clipboard suggestion chip is intentionally placed at the bottom of
+                 * Suggestion chips are intentionally placed at the bottom of
                  * the dialog, below recent apps/results, as requested.
+                 *
+                 * MUTUAL EXCLUSIVITY:
+                 * - Clipboard chip shows when query is BLANK
+                 * - Query chip shows when query is NOT BLANK
+                 * - They never both appear at the same time
                  */
                 if (uiState.shouldShowClipboardSuggestion) {
                     val suggestionToShow = uiState.clipboardSuggestion
@@ -237,6 +243,35 @@ fun AppSearchDialog(
                             suggestion = suggestionToShow,
                             onSearchTextInBrowser = { queryText ->
                                 val encodedQuery = Uri.encode(queryText)
+                                val url = "https://www.google.com/search?q=$encodedQuery"
+                                actionHandler(
+                                    SearchResultAction.OpenUrlInBrowser(
+                                        url = url
+                                    )
+                                )
+                            },
+                            onOpenUrl = { urlResult ->
+                                actionHandler(SearchResultAction.Tap(urlResult))
+                            },
+                            onOpenDialer = { phoneNumber ->
+                                actionHandler(SearchResultAction.OpenDialer(phoneNumber))
+                            },
+                            onComposeEmail = { emailAddress ->
+                                actionHandler(SearchResultAction.ComposeEmail(emailAddress))
+                            },
+                            onOpenMapLocation = { locationQuery ->
+                                actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
+                            }
+                        )
+                    }
+                } else if (uiState.shouldShowQuerySuggestion) {
+                    val suggestionToShow = uiState.querySuggestion
+
+                    if (suggestionToShow != null) {
+                        QuerySuggestionBottomChip(
+                            suggestion = suggestionToShow,
+                            onSearchWeb = { searchQuery ->
+                                val encodedQuery = Uri.encode(searchQuery)
                                 val url = "https://www.google.com/search?q=$encodedQuery"
                                 actionHandler(
                                     SearchResultAction.OpenUrlInBrowser(

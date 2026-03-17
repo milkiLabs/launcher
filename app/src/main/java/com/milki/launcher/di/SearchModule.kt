@@ -46,6 +46,7 @@ import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
+import com.milki.launcher.domain.search.QuerySuggestionResolver
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.presentation.search.SearchViewModel
@@ -206,6 +207,25 @@ val searchModule = module {
         )
     }
 
+    /**
+     * QuerySuggestionResolver - Analyzes the current query and creates a suggestion.
+     *
+     * When the user types in the search bar, this analyzes the query text
+     * and suggests relevant actions (open URL, call number, search web).
+     *
+     * This is similar to ClipboardSuggestionResolver but analyzes the actively
+     * typed query instead of clipboard content.
+     *
+     * SINGLETON: Yes — stateless between calls.
+     *
+     * DEPENDENCY: UrlHandlerResolver (to resolve URLs to handler apps)
+     */
+    single {
+        QuerySuggestionResolver(
+            urlHandlerResolver = get()
+        )
+    }
+
     // ========================================================================
     // VIEWMODEL - MANAGED BY KOIN
     // ========================================================================
@@ -218,6 +238,7 @@ val searchModule = module {
      * - Provider-based search (via SearchProviderRegistry for contacts, files, etc.)
      * - URL handling (via UrlHandlerResolver)
      * - Clipboard suggestions (via ClipboardSuggestionResolver)
+     * - Query suggestions (via QuerySuggestionResolver)
      * - Recent items (via AppRepository, ContactsRepository)
      * - Settings-driven behavior (via SettingsRepository for prefix configs)
      *
@@ -225,7 +246,7 @@ val searchModule = module {
      *            Survives configuration changes (screen rotation).
      *            Cleared when the lifecycle owner is destroyed.
      *
-     * DEPENDENCIES (7 total):
+     * DEPENDENCIES (8 total):
      * - AppRepository (from coreModule — installed apps and recent apps)
      * - ContactsRepository (from this module — recent contacts)
      * - SettingsRepository (from coreModule — prefix configurations)
@@ -233,6 +254,7 @@ val searchModule = module {
      * - FilterAppsUseCase (from this module — app filtering logic)
      * - UrlHandlerResolver (from this module — URL handler resolution)
      * - ClipboardSuggestionResolver (from this module — clipboard suggestions)
+     * - QuerySuggestionResolver (from this module — query suggestions)
      */
     viewModel {
         // Each get() call resolves a dependency from Koin's global container.
@@ -245,7 +267,8 @@ val searchModule = module {
             providerRegistry = get(),
             filterAppsUseCase = get(),
             urlHandlerResolver = get(),
-            clipboardSuggestionResolver = get()
+            clipboardSuggestionResolver = get(),
+            querySuggestionResolver = get()
         )
     }
 }
