@@ -30,6 +30,7 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
@@ -81,6 +82,8 @@ data class HomeUiState(
 class HomeViewModel(
     private val homeRepository: HomeRepository
 ) : ViewModel(), HomeMutationHandler {
+
+    private val modelWriter = HomeModelWriter()
 
     /**
      * Number of currently running position-update operations.
@@ -152,6 +155,25 @@ class HomeViewModel(
         }
     }
 
+    private suspend fun applyWriterCommand(
+        command: HomeModelWriter.Command,
+        onApplied: suspend (items: List<HomeItem>) -> Unit = {}
+    ): Boolean {
+        return when (
+            val result = modelWriter.apply(
+                currentItems = uiState.value.pinnedItems,
+                command = command
+            )
+        ) {
+            is HomeModelWriter.Result.Applied -> {
+                homeRepository.replacePinnedItems(result.items)
+                onApplied(result.items)
+                true
+            }
+            is HomeModelWriter.Result.Rejected -> false
+        }
+    }
+
     /**
      * UI state derived from source streams.
      *
@@ -206,14 +228,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Target position is occupied or item no longer exists"
         ) {
-            // PERFORMANCE OPTIMIZATION:
-            // We intentionally avoid pre-reading pinnedItems from Flow here.
-            // Repository moveItemToPositionIfEmpty already validates:
-            // - item exists
-            // - destination occupancy
-            // - no-op when destination is unchanged
-            // This prevents duplicate deserialize cycles during drag operations.
-            homeRepository.moveItemToPositionIfEmpty(itemId, newPosition)
+            applyWriterCommand(
+                command = HomeModelWriter.Command.MoveTopLevelItem(
+                    itemId = itemId,
+                    newPosition = newPosition
+                )
+            )
         }
     }
 
@@ -248,12 +268,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Target position is occupied"
         ) {
-            val wasApplied = homeRepository.pinOrMoveItemToPosition(
-                item = item,
-                targetPosition = dropPosition
+            applyWriterCommand(
+                command = HomeModelWriter.Command.PinOrMoveToPosition(
+                    item = item,
+                    targetPosition = dropPosition
+                )
             )
-
-            wasApplied
         }
     }
 
@@ -265,11 +285,7 @@ class HomeViewModel(
             fallbackErrorMessage = "Failed to pin app"
         ) {
             val pinnedApp = HomeItem.PinnedApp.fromAppInfo(appInfo)
-            // PERFORMANCE OPTIMIZATION:
-            // Skip pre-read duplicate check here. Repository addPinnedItem already
-            // performs duplicate detection inside one edit transaction.
-            homeRepository.addPinnedItem(pinnedApp)
-            true
+            applyWriterCommand(command = HomeModelWriter.Command.AddPinnedItem(item = pinnedApp))
         }
     }
 
@@ -281,10 +297,7 @@ class HomeViewModel(
             fallbackErrorMessage = "Failed to pin file"
         ) {
             val pinnedFile = HomeItem.PinnedFile.fromFileDocument(file)
-            // PERFORMANCE OPTIMIZATION:
-            // Repository-level duplicate protection makes pre-read unnecessary.
-            homeRepository.addPinnedItem(pinnedFile)
-            true
+            applyWriterCommand(command = HomeModelWriter.Command.AddPinnedItem(item = pinnedFile))
         }
     }
 
@@ -296,10 +309,7 @@ class HomeViewModel(
             fallbackErrorMessage = "Failed to pin contact"
         ) {
             val pinnedContact = HomeItem.PinnedContact.fromContact(contact)
-            // PERFORMANCE OPTIMIZATION:
-            // Repository-level duplicate protection makes pre-read unnecessary.
-            homeRepository.addPinnedItem(pinnedContact)
-            true
+            applyWriterCommand(command = HomeModelWriter.Command.AddPinnedItem(item = pinnedContact))
         }
     }
 
@@ -310,8 +320,7 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Failed to remove item"
         ) {
-            homeRepository.removePinnedItem(itemId)
-            true
+            applyWriterCommand(command = HomeModelWriter.Command.RemoveItemById(itemId = itemId))
         }
     }
 
@@ -373,8 +382,13 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not create folder"
         ) {
-            val folder = homeRepository.createFolder(item1, item2, atPosition)
-            folder != null
+            applyWriterCommand(
+                command = HomeModelWriter.Command.CreateFolder(
+                    item1 = item1,
+                    item2 = item2,
+                    atPosition = atPosition
+                )
+            )
         }
     }
 
@@ -392,7 +406,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not add item to folder"
         ) {
-            homeRepository.addItemToFolder(folderId = folderId, item = item)
+            applyWriterCommand(
+                command = HomeModelWriter.Command.AddItemToFolder(
+                    folderId = folderId,
+                    item = item
+                )
+            )
         }
     }
 
@@ -414,12 +433,17 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not remove item from folder"
         ) {
-            val remaining = homeRepository.removeItemFromFolder(folderId, itemId)
-            // Close the popup if the folder was deleted (remaining == null).
-            if (remaining == null) {
-                openFolderIdFlow.value = null
-            }
-            true
+            applyWriterCommand(
+                command = HomeModelWriter.Command.RemoveItemFromFolder(
+                    folderId = folderId,
+                    itemId = itemId
+                ),
+                onApplied = { items ->
+                    if (items.none { it.id == folderId }) {
+                        openFolderIdFlow.value = null
+                    }
+                }
+            )
         }
     }
 
@@ -435,7 +459,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not reorder folder items"
         ) {
-            homeRepository.reorderFolderItems(folderId, newChildren)
+            applyWriterCommand(
+                command = HomeModelWriter.Command.ReorderFolderItems(
+                    folderId = folderId,
+                    newChildren = newChildren
+                )
+            )
         }
     }
 
@@ -470,12 +499,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not move item between folders"
         ) {
-            // Single atomic repository transaction: remove from source, apply source
-            // cleanup policy, then insert into target folder children.
-            homeRepository.moveItemBetweenFolders(
-                sourceFolderId = sourceFolderId,
-                targetFolderId = targetFolderId,
-                itemId = itemId
+            applyWriterCommand(
+                command = HomeModelWriter.Command.MoveItemBetweenFolders(
+                    sourceFolderId = sourceFolderId,
+                    targetFolderId = targetFolderId,
+                    itemId = itemId
+                )
             )
         }
     }
@@ -528,17 +557,14 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not create folder from drag"
         ) {
-            // Single atomic repository transaction:
-            // 1) remove child from source folder + apply cleanup policy
-            // 2) remove occupant from top-level cell
-            // 3) create new folder at the occupied cell
-            val folder = homeRepository.extractFolderChildOntoItem(
-                sourceFolderId = sourceFolderId,
-                childItemId = childItem.id,
-                occupantItem = occupantItem,
-                atPosition = atPosition
+            applyWriterCommand(
+                command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
+                    sourceFolderId = sourceFolderId,
+                    childItemId = childItem.id,
+                    occupantItem = occupantItem,
+                    atPosition = atPosition
+                )
             )
-            folder != null
         }
     }
 
@@ -555,7 +581,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not merge folders"
         ) {
-            homeRepository.mergeFolders(sourceFolderId, targetFolderId)
+            applyWriterCommand(
+                command = HomeModelWriter.Command.MergeFolders(
+                    sourceFolderId = sourceFolderId,
+                    targetFolderId = targetFolderId
+                )
+            )
         }
     }
 
@@ -571,7 +602,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not rename folder"
         ) {
-            homeRepository.renameFolder(folderId, newName)
+            applyWriterCommand(
+                command = HomeModelWriter.Command.RenameFolder(
+                    folderId = folderId,
+                    newName = newName
+                )
+            )
         }
     }
 
@@ -593,21 +629,16 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Target position is occupied"
         ) {
-            val applied = homeRepository.extractItemFromFolder(folderId, itemId, targetPosition)
-            if (applied) {
-                // Always close the popup when a drag-out succeeds.
-                //
-                // WHY NOT RELY ON THE COMBINE:
-                // The combine sets openFolderItem=null only when the folder is no longer
-                // present in pinnedItems (i.e. cleanup policy deleted/unwrapped it because
-                // ≤1 child remained). If the folder still has 2+ children after the
-                // drag-out, it stays in pinnedItems and the combine never closes the popup.
-                //
-                // The drag-out gesture ends the folder interaction regardless of how many
-                // children remain, so we always dismiss here.
-                openFolderIdFlow.value = null
-            }
-            applied
+            applyWriterCommand(
+                command = HomeModelWriter.Command.ExtractItemFromFolder(
+                    folderId = folderId,
+                    itemId = itemId,
+                    targetPosition = targetPosition
+                ),
+                onApplied = {
+                    openFolderIdFlow.value = null
+                }
+            )
         }
     }
 
@@ -632,6 +663,7 @@ class HomeViewModel(
      * complete the flow.
      */
     private data class PendingWidget(
+        val sessionId: String,
         val appWidgetId: Int,
         val providerComponent: ComponentName,
         val providerLabel: String,
@@ -640,9 +672,15 @@ class HomeViewModel(
     )
 
     /**
-     * The widget currently going through the bind/configure flow, or null.
+     * Active widget placement sessions by sessionId.
      */
-    private var pendingWidget: PendingWidget? = null
+    private val pendingWidgets = linkedMapOf<String, PendingWidget>()
+
+    /**
+     * Most recently started placement session used as a safe fallback when
+     * legacy call paths do not provide explicit session IDs.
+     */
+    private var activeWidgetSessionId: String? = null
 
     /**
      * Result command returned by widget placement state-machine functions.
@@ -651,8 +689,8 @@ class HomeViewModel(
      * ActivityResult contract. `NoOp` means no further UI-side action is needed.
      */
     sealed interface WidgetPlacementCommand {
-        data class LaunchBindPermission(val intent: Intent) : WidgetPlacementCommand
-        data class LaunchConfigure(val intent: Intent) : WidgetPlacementCommand
+        data class LaunchBindPermission(val sessionId: String, val intent: Intent) : WidgetPlacementCommand
+        data class LaunchConfigure(val sessionId: String, val intent: Intent) : WidgetPlacementCommand
         data object NoOp : WidgetPlacementCommand
     }
 
@@ -670,13 +708,17 @@ class HomeViewModel(
         widgetHostManager: WidgetHostManager
     ): WidgetPlacementCommand {
         val appWidgetId = widgetHostManager.allocateWidgetId()
-        pendingWidget = PendingWidget(
+        val sessionId = "widget-session:$appWidgetId:${System.currentTimeMillis()}"
+        val pending = PendingWidget(
+            sessionId = sessionId,
             appWidgetId = appWidgetId,
             providerComponent = providerInfo.provider,
             providerLabel = widgetHostManager.loadProviderLabel(providerInfo),
             targetPosition = targetPosition,
             span = span
         )
+        pendingWidgets[sessionId] = pending
+        activeWidgetSessionId = sessionId
 
         val boundImmediately = widgetHostManager.bindWidget(
             appWidgetId = appWidgetId,
@@ -684,9 +726,10 @@ class HomeViewModel(
         )
 
         return if (boundImmediately) {
-            resolvePostBindCommand(widgetHostManager)
+            resolvePostBindCommand(sessionId, widgetHostManager)
         } else {
             WidgetPlacementCommand.LaunchBindPermission(
+                sessionId = sessionId,
                 widgetHostManager.createBindPermissionIntent(
                     appWidgetId = appWidgetId,
                     providerInfo = providerInfo
@@ -703,14 +746,15 @@ class HomeViewModel(
      */
     fun handleWidgetBindResult(
         resultCode: Int,
-        widgetHostManager: WidgetHostManager
+        widgetHostManager: WidgetHostManager,
+        sessionId: String? = null
     ): WidgetPlacementCommand {
-        val pending = pendingWidget ?: return WidgetPlacementCommand.NoOp
+        val resolvedSessionId = sessionId ?: activeWidgetSessionId ?: return WidgetPlacementCommand.NoOp
+        val pending = pendingWidgets[resolvedSessionId] ?: return WidgetPlacementCommand.NoOp
         if (resultCode == Activity.RESULT_OK) {
-            return resolvePostBindCommand(widgetHostManager)
+            return resolvePostBindCommand(resolvedSessionId, widgetHostManager)
         } else {
-            widgetHostManager.deallocateWidgetId(pending.appWidgetId)
-            pendingWidget = null
+            cancelPendingWidgetSession(resolvedSessionId, widgetHostManager, pending)
             return WidgetPlacementCommand.NoOp
         }
     }
@@ -723,17 +767,30 @@ class HomeViewModel(
      */
     fun handleWidgetConfigureResult(
         resultCode: Int,
-        widgetHostManager: WidgetHostManager
+        widgetHostManager: WidgetHostManager,
+        sessionId: String? = null
     ): WidgetPlacementCommand {
-        val pending = pendingWidget ?: return WidgetPlacementCommand.NoOp
+        val resolvedSessionId = sessionId ?: activeWidgetSessionId ?: return WidgetPlacementCommand.NoOp
+        val pending = pendingWidgets[resolvedSessionId] ?: return WidgetPlacementCommand.NoOp
 
         return if (resultCode == Activity.RESULT_OK) {
-            persistWidget(pending, widgetHostManager)
+            persistWidget(resolvedSessionId, pending, widgetHostManager)
             WidgetPlacementCommand.NoOp
         } else {
-            widgetHostManager.deallocateWidgetId(pending.appWidgetId)
-            pendingWidget = null
+            cancelPendingWidgetSession(resolvedSessionId, widgetHostManager, pending)
             WidgetPlacementCommand.NoOp
+        }
+    }
+
+    private fun cancelPendingWidgetSession(
+        sessionId: String,
+        widgetHostManager: WidgetHostManager,
+        pending: PendingWidget
+    ) {
+        widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+        pendingWidgets.remove(sessionId)
+        if (activeWidgetSessionId == sessionId) {
+            activeWidgetSessionId = pendingWidgets.keys.lastOrNull()
         }
     }
 
@@ -742,15 +799,16 @@ class HomeViewModel(
      * and either launch it or place the widget directly.
      */
     private fun resolvePostBindCommand(
+        sessionId: String,
         widgetHostManager: WidgetHostManager
     ): WidgetPlacementCommand {
-        val pending = pendingWidget ?: return WidgetPlacementCommand.NoOp
+        val pending = pendingWidgets[sessionId] ?: return WidgetPlacementCommand.NoOp
 
         val configureIntent = widgetHostManager.createConfigureIntent(pending.appWidgetId)
         return if (configureIntent != null) {
-            WidgetPlacementCommand.LaunchConfigure(configureIntent)
+            WidgetPlacementCommand.LaunchConfigure(sessionId = sessionId, intent = configureIntent)
         } else {
-            persistWidget(pending, widgetHostManager)
+            persistWidget(sessionId, pending, widgetHostManager)
             WidgetPlacementCommand.NoOp
         }
     }
@@ -761,7 +819,11 @@ class HomeViewModel(
      * Creates a [HomeItem.WidgetItem] from the pending state and adds it
      * through the serialized mutation path.
      */
-    private fun persistWidget(pending: PendingWidget, widgetHostManager: WidgetHostManager) {
+    private fun persistWidget(
+        sessionId: String,
+        pending: PendingWidget,
+        widgetHostManager: WidgetHostManager
+    ) {
         val widgetItem = HomeItem.WidgetItem.create(
             appWidgetId = pending.appWidgetId,
             providerPackage = pending.providerComponent.packageName,
@@ -771,21 +833,24 @@ class HomeViewModel(
             span = pending.span
         )
 
-        pendingWidget = null
+        pendingWidgets.remove(sessionId)
+        if (activeWidgetSessionId == sessionId) {
+            activeWidgetSessionId = pendingWidgets.keys.lastOrNull()
+        }
 
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not place widget"
         ) {
-            val placed = homeRepository.addWidget(widgetItem)
-
-            // If placement fails (for example due to a race where cells became
-            // occupied between drag hover and repository write), release the
-            // allocated appWidgetId so we don't leak orphan widget IDs in host.
-            if (!placed) {
+            val applied = applyWriterCommand(
+                command = HomeModelWriter.Command.PinOrMoveToPosition(
+                    item = widgetItem,
+                    targetPosition = pending.targetPosition
+                )
+            )
+            if (!applied) {
                 widgetHostManager.deallocateWidgetId(pending.appWidgetId)
             }
-
-            placed
+            applied
         }
     }
 
@@ -806,10 +871,12 @@ class HomeViewModel(
                 .substringAfter(delimiter = "widget:", missingDelimiterValue = "")
                 .toIntOrNull()
                 ?: return@launchSerializedHomeMutation false
-
-            homeRepository.removeWidget(widgetId)
-            widgetHostManager.deallocateWidgetId(appWidgetId)
-            true
+            applyWriterCommand(
+                command = HomeModelWriter.Command.RemoveItemById(itemId = widgetId),
+                onApplied = {
+                    widgetHostManager.deallocateWidgetId(appWidgetId)
+                }
+            )
         }
     }
 
@@ -825,10 +892,12 @@ class HomeViewModel(
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Cannot resize — cells are occupied"
         ) {
-            if (newSpan.columns < 1 || newSpan.rows < 1) {
-                return@launchSerializedHomeMutation false
-            }
-            homeRepository.updateWidgetSpan(widgetId, newSpan)
+            applyWriterCommand(
+                command = HomeModelWriter.Command.UpdateWidgetSpan(
+                    widgetId = widgetId,
+                    newSpan = newSpan
+                )
+            )
         }
     }
 }

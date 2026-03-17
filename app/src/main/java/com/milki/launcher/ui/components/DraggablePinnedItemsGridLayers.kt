@@ -92,6 +92,18 @@ internal fun InternalGridDragLayer(
     hapticDragActivate: () -> Unit,
     hapticConfirm: () -> Unit
 ) {
+    val internalDropDispatcher = InternalHomeDropDispatcher(
+        gridColumns = config.columns,
+        gridRows = maxVisibleRows,
+        callbacks = InternalDropRoutingCallbacks(
+            onItemMove = onItemMove,
+            onCreateFolder = onCreateFolder,
+            onAddItemToFolder = onAddItemToFolder,
+            onMergeFolders = onMergeFolders,
+            onConfirmDrop = hapticConfirm
+        )
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -194,37 +206,11 @@ internal fun InternalGridDragLayer(
                                 if (item is HomeItem.WidgetItem) return@detectDragGesture
                                 val result = dragController.endDrag(layoutMetrics)
                                 if (result is AppDragDropResult.Moved && result.itemId == item.id) {
-                                    val occupant = items.findOccupantForDroppedSpan(
-                                        excludeItemId = item.id,
-                                        draggedSpan = (item as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE,
-                                        droppedAt = result.to
+                                    internalDropDispatcher.dispatch(
+                                        draggedItem = item,
+                                        dropPosition = result.to,
+                                        items = items
                                     )
-
-                                    if (occupant == null) {
-                                        hapticConfirm()
-                                        onItemMove(result.itemId, result.to)
-                                    } else {
-                                        when {
-                                            item is HomeItem.WidgetItem || occupant is HomeItem.WidgetItem -> {
-                                                // Widgets cannot participate in folder operations.
-                                            }
-                                            item is HomeItem.FolderItem && occupant is HomeItem.FolderItem -> {
-                                                hapticConfirm()
-                                                onMergeFolders(item.id, occupant.id)
-                                            }
-                                            item is HomeItem.FolderItem -> {
-                                                // Folder dropped onto non-folder is invalid.
-                                            }
-                                            occupant is HomeItem.FolderItem -> {
-                                                hapticConfirm()
-                                                onAddItemToFolder(occupant.id, item)
-                                            }
-                                            else -> {
-                                                hapticConfirm()
-                                                onCreateFolder(item, occupant, occupant.position)
-                                            }
-                                        }
-                                    }
                                 }
                             },
                             onDragCancel = {
@@ -271,15 +257,11 @@ internal fun InternalGridDragLayer(
                             onWidgetDragEnd = {
                                 val result = dragController.endDrag(layoutMetrics)
                                 if (result is AppDragDropResult.Moved && result.itemId == item.id) {
-                                    val occupant = items.findOccupantForDroppedSpan(
-                                        excludeItemId = item.id,
-                                        draggedSpan = item.span,
-                                        droppedAt = result.to
+                                    internalDropDispatcher.dispatch(
+                                        draggedItem = item,
+                                        dropPosition = result.to,
+                                        items = items
                                     )
-                                    if (occupant == null) {
-                                        hapticConfirm()
-                                        onItemMove(result.itemId, result.to)
-                                    }
                                 }
                             },
                             onWidgetDragCancel = {
@@ -380,12 +362,15 @@ internal fun DropHighlightLayer(
     cellHeightPx: Float,
     maxVisibleRows: Int,
     dragTargetOccupant: HomeItem?,
+    resolvedInternalPreviewPosition: GridPosition?,
     isExternalDragActive: Boolean,
     externalDragTargetPosition: GridPosition?,
     externalDragItem: ExternalDragDropItem?
 ) {
     dragController.session?.let { activeSession ->
-        val target = dragController.targetPosition ?: activeSession.startPosition
+        val target = resolvedInternalPreviewPosition
+            ?: dragController.targetPosition
+            ?: activeSession.startPosition
         val previewBaseOffset = layoutMetrics.cellToPixel(activeSession.startPosition)
         val previewOffset = previewBaseOffset + activeSession.currentOffset
         val previewSpan = (activeSession.item as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
@@ -635,6 +620,22 @@ internal fun ExternalDropRoutingLayer(
     onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit,
     hapticConfirm: () -> Unit
 ) {
+    val dropDispatcher = ExternalHomeDropDispatcher(
+        gridColumns = config.columns,
+        maxVisibleRows = maxVisibleRows,
+        widgetHostManager = widgetHostManager,
+        callbacks = ExternalDropRoutingCallbacks(
+            onItemDroppedToHome = onItemDroppedToHome,
+            onCreateFolder = onCreateFolder,
+            onAddItemToFolder = onAddItemToFolder,
+            onFolderItemExtracted = onFolderItemExtracted,
+            onMoveFolderItemToFolder = onMoveFolderItemToFolder,
+            onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
+            onWidgetDroppedToHome = onWidgetDroppedToHome,
+            onConfirmDrop = hapticConfirm
+        )
+    )
+
     AppExternalDropTargetOverlay(
         onDragStarted = {
             onExternalDragActiveChange(true)
@@ -661,97 +662,12 @@ internal fun ExternalDropRoutingLayer(
 
             onExternalTargetPositionChange(dropPosition)
             onExternalDragItemChange(item)
-            val homeItem = item.toPreviewHomeItem()
 
-            if (item is ExternalDragItem.FolderChild) {
-                val occupantAtDrop = items.findOccupantAt(dropPosition)
-                when {
-                    occupantAtDrop is HomeItem.FolderItem && occupantAtDrop.id == item.folderId -> {
-                        return@AppExternalDropTargetOverlay true
-                    }
-                    occupantAtDrop is HomeItem.FolderItem -> {
-                        onMoveFolderItemToFolder(item.folderId, item.childItem.id, occupantAtDrop.id)
-                        hapticConfirm()
-                        return@AppExternalDropTargetOverlay true
-                    }
-                    occupantAtDrop is HomeItem.WidgetItem -> {
-                        // Folder merge/extract routes are not valid when target occupant is widget.
-                        return@AppExternalDropTargetOverlay true
-                    }
-                    occupantAtDrop != null -> {
-                        onFolderChildDroppedOnItem(
-                            item.folderId,
-                            item.childItem,
-                            occupantAtDrop,
-                            dropPosition
-                        )
-                        hapticConfirm()
-                        return@AppExternalDropTargetOverlay true
-                    }
-                    else -> {
-                        onFolderItemExtracted(item.folderId, item.childItem.id, dropPosition)
-                        hapticConfirm()
-                        return@AppExternalDropTargetOverlay true
-                    }
-                }
-            }
-
-            if (item is ExternalDragItem.Widget) {
-                val normalizedSpan = normalizeWidgetSpanForHomeGrid(
-                    rawSpan = item.span,
-                    gridColumns = config.columns
-                )
-
-                val clampedDrop = GridPosition(
-                    row = dropPosition.row.coerceIn(0, (maxVisibleRows - normalizedSpan.rows).coerceAtLeast(0)),
-                    column = dropPosition.column.coerceIn(0, (config.columns - normalizedSpan.columns).coerceAtLeast(0))
-                )
-
-                val occupiedCells = mutableSetOf<GridPosition>()
-                for (existingItem in items) {
-                    if (existingItem is HomeItem.WidgetItem) {
-                        occupiedCells.addAll(existingItem.span.occupiedPositions(existingItem.position))
-                    } else {
-                        occupiedCells.add(existingItem.position)
-                    }
-                }
-                val spanCells = normalizedSpan.occupiedPositions(clampedDrop)
-                val hasCollision = spanCells.any { it in occupiedCells }
-
-                if (!hasCollision) {
-                    val resolvedProviderInfo = item.providerInfo
-                        ?: widgetHostManager?.findInstalledProvider(item.providerComponent)
-
-                    if (resolvedProviderInfo != null) {
-                        onWidgetDroppedToHome(resolvedProviderInfo, normalizedSpan, clampedDrop)
-                        hapticConfirm()
-                    }
-                }
-                return@AppExternalDropTargetOverlay true
-            }
-
-            if (homeItem == null) return@AppExternalDropTargetOverlay false
-
-            val occupantAtDrop = items.findOccupantAt(dropPosition)
-            when {
-                occupantAtDrop is HomeItem.FolderItem -> {
-                    onAddItemToFolder(occupantAtDrop.id, homeItem)
-                    hapticConfirm()
-                }
-                occupantAtDrop is HomeItem.WidgetItem -> {
-                    // Creating folders with widgets is intentionally disallowed.
-                    return@AppExternalDropTargetOverlay true
-                }
-                occupantAtDrop != null -> {
-                    onCreateFolder(homeItem, occupantAtDrop, occupantAtDrop.position)
-                    hapticConfirm()
-                }
-                else -> {
-                    onItemDroppedToHome(homeItem, dropPosition)
-                    hapticConfirm()
-                }
-            }
-            true
+            dropDispatcher.dispatch(
+                item = item,
+                dropPosition = dropPosition,
+                items = items
+            )
         },
         modifier = Modifier
             .fillMaxSize()
@@ -909,19 +825,3 @@ private fun WidgetResizeOverlay(
     }
 }
 
-/**
- * Finds the first occupant that intersects the dragged span at drop target.
- */
-private fun List<HomeItem>.findOccupantForDroppedSpan(
-    excludeItemId: String,
-    draggedSpan: GridSpan,
-    droppedAt: GridPosition
-): HomeItem? {
-    val draggedTargetCells = draggedSpan.occupiedPositions(droppedAt)
-    return firstOrNull { other ->
-        if (other.id == excludeItemId) return@firstOrNull false
-        val otherSpan = (other as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
-        val otherCells = otherSpan.occupiedPositions(other.position)
-        otherCells.any { it in draggedTargetCells }
-    }
-}

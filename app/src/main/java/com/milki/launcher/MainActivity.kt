@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.data.widget.WidgetHostFacade
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.ContactsRepository
@@ -111,6 +112,8 @@ class MainActivity : ComponentActivity() {
      * Provided as a singleton by Koin DI.
      */
     private val widgetHostManager: WidgetHostManager by inject()
+
+    private val widgetHostFacade: WidgetHostFacade by inject()
 
     // ========================================================================
     // HANDLERS
@@ -466,8 +469,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        widgetHostFacade.setActivityResumed(true)
+        widgetHostFacade.setStateIsNormal(true)
         permissionHandler.updateStates()
         homeIntentCoordinator.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        widgetHostFacade.setActivityResumed(false)
     }
 
     /**
@@ -480,17 +490,14 @@ class MainActivity : ComponentActivity() {
      */
     override fun onStart() {
         super.onStart()
-        widgetHostManager.startListening()
+        widgetHostFacade.setActivityStarted(true)
     }
 
     override fun onStop() {
         super.onStop()
+        widgetHostFacade.setActivityStarted(false)
         homeIntentCoordinator.onStop()
         surfaceStateCoordinator.onStop()
-        // Stop listening for widget updates when the launcher is not visible.
-        // This saves battery by telling the system to stop sending widget
-        // update broadcasts to this host.
-        widgetHostManager.stopListening()
     }
 
     /**

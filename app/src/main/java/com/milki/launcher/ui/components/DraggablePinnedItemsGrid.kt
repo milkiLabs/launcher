@@ -14,6 +14,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.drag.reorder.GridReorderEngine
+import com.milki.launcher.domain.drag.reorder.ReorderInput
+import com.milki.launcher.domain.drag.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -59,6 +62,7 @@ fun DraggablePinnedItemsGrid(
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val dragController = rememberAppDragDropController<HomeItem>(config)
+    val reorderEngine = remember { GridReorderEngine() }
 
     // Menu state is shared between icon and widget surfaces.
     var menuShownForItemId by remember { mutableStateOf<String?>(null) }
@@ -76,16 +80,6 @@ fun DraggablePinnedItemsGrid(
     var externalDragTargetPosition by remember { mutableStateOf<GridPosition?>(null) }
     var isExternalDragActive by remember { mutableStateOf(false) }
     var externalDragItem by remember { mutableStateOf<ExternalDragDropItem?>(null) }
-
-    // Internal drag target occupant is derived in one place and passed to the
-    // highlight layer to keep visuals deterministic.
-    val dragTargetOccupant by remember(items, dragController.session, dragController.targetPosition) {
-        derivedStateOf {
-            val session = dragController.session ?: return@derivedStateOf null
-            val target = dragController.targetPosition ?: return@derivedStateOf null
-            items.findOccupantAt(position = target, excludeItemId = session.itemId)
-        }
-    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val cellWidthPx = with(LocalDensity.current) { maxWidth.toPx() / config.columns }
@@ -106,6 +100,50 @@ fun DraggablePinnedItemsGrid(
                 columns = config.columns,
                 rows = maxVisibleRows
             )
+        }
+
+        // Widget preview should use the same reorder planner as commit so users
+        // see the final resolved anchor while dragging.
+        val resolvedInternalPreviewPosition by remember(
+            items,
+            dragController.session,
+            dragController.targetPosition,
+            config.columns,
+            maxVisibleRows
+        ) {
+            derivedStateOf {
+                val session = dragController.session ?: return@derivedStateOf null
+                val target = dragController.targetPosition ?: return@derivedStateOf null
+                val draggedWidget = session.item as? HomeItem.WidgetItem ?: return@derivedStateOf target
+
+                val reorderPlan = reorderEngine.compute(
+                    ReorderInput(
+                        items = items,
+                        preferredCell = target,
+                        draggedSpan = draggedWidget.span,
+                        gridColumns = config.columns,
+                        gridRows = maxVisibleRows,
+                        excludeItemId = session.itemId,
+                        mode = ReorderMode.Preview
+                    )
+                )
+                if (reorderPlan.isValid) reorderPlan.anchorCell else target
+            }
+        }
+
+        val dragTargetOccupant by remember(
+            items,
+            dragController.session,
+            dragController.targetPosition,
+            resolvedInternalPreviewPosition
+        ) {
+            derivedStateOf {
+                val session = dragController.session ?: return@derivedStateOf null
+                val target = resolvedInternalPreviewPosition
+                    ?: dragController.targetPosition
+                    ?: return@derivedStateOf null
+                items.findOccupantAt(position = target, excludeItemId = session.itemId)
+            }
         }
 
         InternalGridDragLayer(
@@ -155,6 +193,7 @@ fun DraggablePinnedItemsGrid(
             cellHeightPx = cellHeightPx,
             maxVisibleRows = maxVisibleRows,
             dragTargetOccupant = dragTargetOccupant,
+            resolvedInternalPreviewPosition = resolvedInternalPreviewPosition,
             isExternalDragActive = isExternalDragActive,
             externalDragTargetPosition = externalDragTargetPosition,
             externalDragItem = externalDragItem
@@ -199,6 +238,24 @@ internal fun List<HomeItem>.findOccupantAt(
         if (excludeItemId != null && candidate.id == excludeItemId) return@firstOrNull false
         val candidateSpan = (candidate as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
         position in candidateSpan.occupiedPositions(candidate.position)
+    }
+}
+
+/**
+ * Finds the first top-level item whose occupied cells intersect [draggedSpan]
+ * anchored at [droppedAt].
+ */
+internal fun List<HomeItem>.findOccupantForDroppedSpan(
+    excludeItemId: String,
+    draggedSpan: GridSpan,
+    droppedAt: GridPosition
+): HomeItem? {
+    val draggedTargetCells = draggedSpan.occupiedPositions(droppedAt)
+    return firstOrNull { other ->
+        if (other.id == excludeItemId) return@firstOrNull false
+        val otherSpan = (other as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
+        val otherCells = otherSpan.occupiedPositions(other.position)
+        otherCells.any { it in draggedTargetCells }
     }
 }
 

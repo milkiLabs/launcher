@@ -58,6 +58,9 @@ class ActivityWidgetPlacementCoordinator(
      */
     private lateinit var widgetConfigureLauncher: ActivityResultLauncher<Intent>
 
+    private var pendingBindSessionId: String? = null
+    private var pendingConfigureSessionId: String? = null
+
     /**
      * Registers launcher callbacks and links them back into HomeViewModel command flow.
      */
@@ -65,9 +68,12 @@ class ActivityWidgetPlacementCoordinator(
         widgetBindLauncher = activity.registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
+            val sessionId = pendingBindSessionId
+            pendingBindSessionId = null
             val command = homeViewModel.handleWidgetBindResult(
                 resultCode = result.resultCode,
-                widgetHostManager = widgetHostManagerProvider()
+                widgetHostManager = widgetHostManagerProvider(),
+                sessionId = sessionId
             )
             execute(command)
         }
@@ -75,9 +81,12 @@ class ActivityWidgetPlacementCoordinator(
         widgetConfigureLauncher = activity.registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
+            val sessionId = pendingConfigureSessionId
+            pendingConfigureSessionId = null
             val command = homeViewModel.handleWidgetConfigureResult(
                 resultCode = result.resultCode,
-                widgetHostManager = widgetHostManagerProvider()
+                widgetHostManager = widgetHostManagerProvider(),
+                sessionId = sessionId
             )
             execute(command)
         }
@@ -90,6 +99,7 @@ class ActivityWidgetPlacementCoordinator(
         when (command) {
             is HomeViewModel.WidgetPlacementCommand.LaunchBindPermission -> {
                 runCatching {
+                    pendingBindSessionId = command.sessionId
                     widgetBindLauncher.launch(command.intent)
                 }.onFailure { throwable ->
                     // Some OEM/provider combinations can throw while launching the
@@ -98,7 +108,8 @@ class ActivityWidgetPlacementCoordinator(
                     Log.e(TAG, "Failed to launch widget bind permission flow", throwable)
                     val followUp = homeViewModel.handleWidgetBindResult(
                         resultCode = Activity.RESULT_CANCELED,
-                        widgetHostManager = widgetHostManagerProvider()
+                        widgetHostManager = widgetHostManagerProvider(),
+                        sessionId = command.sessionId
                     )
                     if (followUp !is HomeViewModel.WidgetPlacementCommand.NoOp) {
                         execute(followUp)
@@ -108,6 +119,7 @@ class ActivityWidgetPlacementCoordinator(
 
             is HomeViewModel.WidgetPlacementCommand.LaunchConfigure -> {
                 runCatching {
+                    pendingConfigureSessionId = command.sessionId
                     widgetConfigureLauncher.launch(command.intent)
                 }.onFailure { throwable ->
                     // A subset of widgets declares configure activities that are
@@ -116,7 +128,8 @@ class ActivityWidgetPlacementCoordinator(
                     Log.e(TAG, "Failed to launch widget configure activity", throwable)
                     val followUp = homeViewModel.handleWidgetConfigureResult(
                         resultCode = Activity.RESULT_CANCELED,
-                        widgetHostManager = widgetHostManagerProvider()
+                        widgetHostManager = widgetHostManagerProvider(),
+                        sessionId = command.sessionId
                     )
                     if (followUp !is HomeViewModel.WidgetPlacementCommand.NoOp) {
                         execute(followUp)
