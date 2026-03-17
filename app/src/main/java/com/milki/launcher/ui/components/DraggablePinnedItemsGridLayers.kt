@@ -349,8 +349,14 @@ internal fun WidgetOverlayLayer(
 /**
  * DropHighlightLayer renders both internal-drag and external-drag highlights.
  *
+ * UNIFIED APPROACH:
+ * Both internal (homescreen-to-homescreen) and external (folder/search/drawer)
+ * drags use the same [DropTargetHighlightBox] composable for the blue-glow
+ * highlight at the target cell, and the same [DropPreviewContent] for the
+ * dimmed icon or widget-size text inside the box.
+ *
  * SPLIT BENEFIT:
- * Rendering-heavy visual logic is now decoupled from routing callbacks.
+ * Rendering-heavy visual logic is decoupled from routing callbacks.
  */
 @Composable
 internal fun DropHighlightLayer(
@@ -367,6 +373,7 @@ internal fun DropHighlightLayer(
     externalDragTargetPosition: GridPosition?,
     externalDragItem: ExternalDragDropItem?
 ) {
+    // ── Internal drag highlight + floating preview ────────────────────────
     dragController.session?.let { activeSession ->
         val target = resolvedInternalPreviewPosition
             ?: dragController.targetPosition
@@ -385,14 +392,45 @@ internal fun DropHighlightLayer(
             } else {
                 MaterialTheme.colorScheme.primary
             }
-            val highlightShape = RoundedCornerShape(CornerRadius.medium)
+            val highlightScale = when {
+                activeSession.item is HomeItem.WidgetItem -> 1f
+                isFolderMerge -> config.dropHighlightScale * 1.05f
+                else -> config.dropHighlightScale
+            }
 
+            DropTargetHighlightBox(
+                column = target.column,
+                row = target.row,
+                cellWidthPx = cellWidthPx,
+                cellHeightPx = cellHeightPx,
+                spanColumns = previewSpan.columns,
+                spanRows = previewSpan.rows,
+                highlightColor = highlightColor,
+                highlightScale = highlightScale,
+                zIndex = config.dragZIndex
+            ) {
+                val previewItem = if (activeSession.item is HomeItem.WidgetItem) null
+                    else (dragTargetOccupant ?: activeSession.item)
+                val widgetSpan = if (activeSession.item is HomeItem.WidgetItem) previewSpan else null
+
+                DropPreviewContent(
+                    item = previewItem,
+                    highlightAlpha = config.dropHighlightAlpha,
+                    widgetSpan = widgetSpan
+                )
+            }
+        }
+
+        // Floating preview that follows the finger (internal drag only;
+        // external drags use the platform drag shadow instead).
+        // For widgets, we do NOT show a floating preview — only the drop target highlight.
+        if (activeSession.item !is HomeItem.WidgetItem) {
             Box(
                 modifier = Modifier
                     .offset {
                         IntOffset(
-                            x = (target.column * cellWidthPx).roundToInt(),
-                            y = (target.row * cellHeightPx).roundToInt()
+                            x = previewOffset.x.roundToInt(),
+                            y = previewOffset.y.roundToInt()
                         )
                     }
                     .size(
@@ -400,95 +438,14 @@ internal fun DropHighlightLayer(
                         height = with(LocalDensity.current) { (cellHeightPx * previewSpan.rows).toDp() }
                     )
                     .padding(Spacing.smallMedium)
-                    .alpha(config.dropHighlightAlpha)
+                    .zIndex(config.previewZIndex)
                     .graphicsLayer {
-                        val scale = if (activeSession.item is HomeItem.WidgetItem) {
-                            1f
-                        } else if (isFolderMerge) {
-                            config.dropHighlightScale * 1.05f
-                        } else {
-                            config.dropHighlightScale
-                        }
-                        scaleX = scale
-                        scaleY = scale
+                        scaleX = config.previewScale
+                        scaleY = config.previewScale
+                        alpha = config.previewAlpha
+                        shadowElevation = config.shadowElevation
                     }
-                    .then(
-                        if (isFolderMerge) {
-                            Modifier.border(
-                                width = Spacing.extraSmall,
-                                color = highlightColor.copy(alpha = 0.5f),
-                                shape = highlightShape
-                            )
-                        } else {
-                            Modifier
-                        }
-                    )
             ) {
-                if (activeSession.item is HomeItem.WidgetItem) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${previewSpan.columns} × ${previewSpan.rows}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                } else {
-                    PinnedItem(
-                        item = dragTargetOccupant ?: activeSession.item,
-                        onClick = {},
-                        onLongClick = {},
-                        handleLongPress = false
-                    )
-                }
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .offset {
-                    IntOffset(
-                        x = previewOffset.x.roundToInt(),
-                        y = previewOffset.y.roundToInt()
-                    )
-                }
-                .size(
-                    width = with(LocalDensity.current) { (cellWidthPx * previewSpan.columns).toDp() },
-                    height = with(LocalDensity.current) { (cellHeightPx * previewSpan.rows).toDp() }
-                )
-                .padding(Spacing.smallMedium)
-                .zIndex(config.previewZIndex)
-                .graphicsLayer {
-                    scaleX = config.previewScale
-                    scaleY = config.previewScale
-                    alpha = config.previewAlpha
-                    shadowElevation = config.shadowElevation
-                }
-        ) {
-            if (activeSession.item is HomeItem.WidgetItem) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                            shape = RoundedCornerShape(CornerRadius.medium)
-                        )
-                        .border(
-                            width = Spacing.extraSmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                            shape = RoundedCornerShape(CornerRadius.medium)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "${previewSpan.columns} × ${previewSpan.rows}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
-                }
-            } else {
                 PinnedItem(
                     item = activeSession.item,
                     onClick = {},
@@ -499,11 +456,10 @@ internal fun DropHighlightLayer(
         }
     }
 
+    // ── External drag highlight ──────────────────────────────────────────
     if (isExternalDragActive) {
         externalDragTargetPosition?.let { targetPosition ->
-            // Render external highlight only when payload is resolved.
-            // This keeps widget drags span-accurate and avoids dual-box visuals.
-            val currentExternalItem = externalDragItem ?: return@let
+            val currentExternalItem = externalDragItem
             val rawDragSpan = (currentExternalItem as? ExternalDragItem.Widget)?.span ?: GridSpan.SINGLE
             val dragSpan = normalizeWidgetSpanForHomeGrid(rawSpan = rawDragSpan, gridColumns = config.columns)
 
@@ -519,76 +475,137 @@ internal fun DropHighlightLayer(
                 existingCells.any { it in spanCells }
             }
 
-            val highlightColor = if (hasCollision) {
-                Color(0xFFFF5252)
-            } else {
-                MaterialTheme.colorScheme.primary
-            }
+            val highlightColor = if (hasCollision) Color(0xFFFF5252) else MaterialTheme.colorScheme.primary
+            val highlightScale = if (currentExternalItem is ExternalDragItem.Widget) 1f else config.dropHighlightScale
 
-            val highlightShape = RoundedCornerShape(CornerRadius.medium)
-            Box(
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            x = (clampedTarget.column * cellWidthPx).roundToInt(),
-                            y = (clampedTarget.row * cellHeightPx).roundToInt()
-                        )
-                    }
-                    .size(
-                        width = with(LocalDensity.current) { (cellWidthPx * dragSpan.columns).toDp() },
-                        height = with(LocalDensity.current) { (cellHeightPx * dragSpan.rows).toDp() }
-                    )
-                    .padding(Spacing.smallMedium)
-                    .zIndex(config.dragZIndex)
-                    .shadow(
-                        elevation = Spacing.smallMedium,
-                        shape = highlightShape,
-                        ambientColor = highlightColor.copy(alpha = 0.6f),
-                        spotColor = highlightColor.copy(alpha = 0.6f)
-                    )
-                    .background(
-                        color = highlightColor.copy(alpha = 0.15f),
-                        shape = highlightShape
-                    )
-                    .border(
-                        width = Spacing.extraSmall,
-                        color = highlightColor.copy(alpha = 0.4f),
-                        shape = highlightShape
-                    )
-                    .graphicsLayer {
-                        val highlightScale = if (currentExternalItem is ExternalDragItem.Widget) {
-                            1f
-                        } else {
-                            config.dropHighlightScale
-                        }
-                        scaleX = highlightScale
-                        scaleY = highlightScale
-                    }
+            DropTargetHighlightBox(
+                column = clampedTarget.column,
+                row = clampedTarget.row,
+                cellWidthPx = cellWidthPx,
+                cellHeightPx = cellHeightPx,
+                spanColumns = dragSpan.columns,
+                spanRows = dragSpan.rows,
+                highlightColor = highlightColor,
+                highlightScale = highlightScale,
+                zIndex = config.dragZIndex
             ) {
-                val previewItem = currentExternalItem.toPreviewHomeItem()
-                if (previewItem != null) {
-                    Box(modifier = Modifier.alpha(config.dropHighlightAlpha)) {
-                        PinnedItem(
-                            item = previewItem,
-                            onClick = {},
-                            onLongClick = {},
-                            handleLongPress = false
-                        )
-                    }
-                } else if (currentExternalItem is ExternalDragItem.Widget) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${dragSpan.columns} × ${dragSpan.rows}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                }
+                val previewItem = currentExternalItem?.toPreviewHomeItem()
+                val widgetSpan = if (currentExternalItem is ExternalDragItem.Widget) dragSpan else null
+
+                DropPreviewContent(
+                    item = previewItem,
+                    highlightAlpha = config.dropHighlightAlpha,
+                    widgetSpan = widgetSpan
+                )
             }
         }
+    }
+}
+
+// ── Shared drop-target visual composables ─────────────────────────────────
+
+/**
+ * Shared blue-glow drop-target highlight box.
+ *
+ * Used by BOTH internal (homescreen-to-homescreen) and external (folder/search/drawer)
+ * drag paths to ensure consistent visuals.
+ *
+ * Renders a rounded box at the given grid cell with:
+ * - Colored shadow (glow effect)
+ * - Semi-transparent background fill
+ * - Colored border
+ * - Scaled via graphicsLayer
+ */
+@Composable
+private fun DropTargetHighlightBox(
+    column: Int,
+    row: Int,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    spanColumns: Int,
+    spanRows: Int,
+    highlightColor: Color,
+    highlightScale: Float,
+    zIndex: Float,
+    content: @Composable () -> Unit
+) {
+    val highlightShape = RoundedCornerShape(CornerRadius.medium)
+    Box(
+        modifier = Modifier
+            .offset {
+                IntOffset(
+                    x = (column * cellWidthPx).roundToInt(),
+                    y = (row * cellHeightPx).roundToInt()
+                )
+            }
+            .size(
+                width = with(LocalDensity.current) { (cellWidthPx * spanColumns).toDp() },
+                height = with(LocalDensity.current) { (cellHeightPx * spanRows).toDp() }
+            )
+            .padding(Spacing.smallMedium)
+            .zIndex(zIndex)
+            .shadow(
+                elevation = Spacing.smallMedium,
+                shape = highlightShape,
+                ambientColor = highlightColor.copy(alpha = 0.6f),
+                spotColor = highlightColor.copy(alpha = 0.6f)
+            )
+            .background(
+                color = highlightColor.copy(alpha = 0.15f),
+                shape = highlightShape
+            )
+            .border(
+                width = Spacing.extraSmall,
+                color = highlightColor.copy(alpha = 0.4f),
+                shape = highlightShape
+            )
+            .graphicsLayer {
+                scaleX = highlightScale
+                scaleY = highlightScale
+            }
+    ) {
+        content()
+    }
+}
+
+/**
+ * Shared drop-target preview content.
+ *
+ * Renders the appropriate content inside a [DropTargetHighlightBox]:
+ * - Dimmed [PinnedItem] when a [HomeItem] preview is available
+ * - Widget span text (e.g. "4 × 2") for widget drags
+ * - Empty (just the glow box) when neither is available
+ */
+@Composable
+private fun DropPreviewContent(
+    item: HomeItem?,
+    highlightAlpha: Float,
+    widgetSpan: GridSpan? = null
+) {
+    when {
+        item != null -> {
+            Box(modifier = Modifier.alpha(highlightAlpha)) {
+                PinnedItem(
+                    item = item,
+                    onClick = {},
+                    onLongClick = {},
+                    handleLongPress = false
+                )
+            }
+        }
+        widgetSpan != null -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${widgetSpan.columns} × ${widgetSpan.rows}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+            }
+        }
+        // else: empty — just the glow box (e.g., when item is unknown)
     }
 }
 

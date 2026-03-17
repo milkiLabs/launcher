@@ -5,6 +5,7 @@ import android.view.View
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.Offset
 import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
+import com.milki.launcher.ui.components.dragdrop.ExternalDragItemCache
 
 /**
  * ExternalAppDragDropCoordinator.kt - Reusable platform drag/drop bridge coordinator.
@@ -55,6 +56,7 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
                     callbacks.onStarted()
 
                     activeDragItem = ExternalDragPayloadCodec.decodeDragItem(event)
+                        ?: ExternalDragItemCache.currentItem
                     true
                 }
 
@@ -101,6 +103,7 @@ class DefaultExternalAppDragDropCoordinator : ExternalAppDragDropCoordinator {
 
                     activeDragItem = null
                     hasActiveSession = false
+                    ExternalDragItemCache.clear()
                     true
                 }
 
