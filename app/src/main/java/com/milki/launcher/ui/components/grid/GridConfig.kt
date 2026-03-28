@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.dp
  * The default values are optimized for typical phone screens.
  * For tablets or accessibility, create instances with different values.
  *
- * @property columns Number of columns in the grid (default: 4)
+ * @property columns Number of columns in the grid (default: 5)
  * @property extraRows Additional rows beyond the highest item for visual padding
  * @property dragThresholdPx Minimum movement in pixels to start drag after long-press
  * @property dragScale Scale factor applied to item being dragged
@@ -61,7 +61,7 @@ import androidx.compose.ui.unit.dp
  * @property shadowElevation Shadow elevation for dragged item
  */
 data class GridConfig(
-    val columns: Int = 4,
+    val columns: Int = 5,
     val extraRows: Int = 4,
     val maxRows: Int = 100,
     
@@ -90,7 +90,7 @@ data class GridConfig(
     companion object {
         /**
          * Default configuration for standard phone screens.
-         * Uses 4 columns which is common for launchers.
+         * Uses 5 columns which is common for launchers.
          */
         val Default = GridConfig()
         
