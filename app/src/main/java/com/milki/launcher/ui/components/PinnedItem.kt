@@ -226,7 +226,7 @@ private fun PinnedItemContent(item: HomeItem) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
+            .padding(vertical = Spacing.extraSmall, horizontal = Spacing.none),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

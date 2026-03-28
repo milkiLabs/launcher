@@ -66,8 +66,8 @@ fun PinnedItemsGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.smallMedium),
-            verticalArrangement = Arrangement.spacedBy(Spacing.smallMedium)
+            horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
         ) {
             items(
                 items = items,

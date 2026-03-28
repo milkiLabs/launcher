@@ -155,7 +155,7 @@ internal fun InternalGridDragLayer(
                             width = with(LocalDensity.current) { (cellWidthPx * span.columns).toDp() },
                             height = with(LocalDensity.current) { (cellHeightPx * span.rows).toDp() }
                         )
-                        .padding(Spacing.smallMedium)
+                        .padding(Spacing.extraSmall)
                         .zIndex(visuals.zIndex)
                         .graphicsLayer {
                             scaleX = visuals.scale
@@ -437,7 +437,7 @@ internal fun DropHighlightLayer(
                         width = with(LocalDensity.current) { (cellWidthPx * previewSpan.columns).toDp() },
                         height = with(LocalDensity.current) { (cellHeightPx * previewSpan.rows).toDp() }
                     )
-                    .padding(Spacing.smallMedium)
+                    .padding(Spacing.extraSmall)
                     .zIndex(config.previewZIndex)
                     .graphicsLayer {
                         scaleX = config.previewScale
@@ -542,7 +542,7 @@ private fun DropTargetHighlightBox(
                 width = with(LocalDensity.current) { (cellWidthPx * spanColumns).toDp() },
                 height = with(LocalDensity.current) { (cellHeightPx * spanRows).toDp() }
             )
-            .padding(Spacing.smallMedium)
+            .padding(Spacing.extraSmall)
             .zIndex(zIndex)
             .shadow(
                 elevation = Spacing.smallMedium,

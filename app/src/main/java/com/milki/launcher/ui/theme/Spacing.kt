@@ -185,11 +185,11 @@ object IconSize {
     val appLarge: Dp = 48.dp
 
     /**
-     * 56dp - Extra large app icons
+     * 72dp - Extra large app icons
      * Used for: App icons in grid view
      * Example: AppGridItem icon size
      */
-    val appGrid: Dp = 56.dp
+    val appGrid: Dp = 72.dp
 }
 
 /**
