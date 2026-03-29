@@ -46,7 +46,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -105,15 +107,9 @@ fun AppSearchDialog(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     /**
-     * Window focus information for the current Compose window.
-     *
-     * Dialogs are rendered in a separate window. The key reliability issue is:
-     * requesting text-field focus BEFORE this dialog window actually has focus
-     * can be ignored by the platform.
-     *
-     * By reacting to window focus state, we remove brittle timing assumptions.
+     * Lifecycle owner to react to resume events for focus requests.
      */
-    val windowInfo = LocalWindowInfo.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     /**
      * BackHandler intercepts the system back button.
@@ -298,24 +294,28 @@ fun AppSearchDialog(
         }
     }
 
-    /**
-     * Request focus only after the dialog window actually becomes focused.
-     *
-     * WHY THIS IS BETTER THAN delay(...):
-     * - Event-driven: tied to real window-focus state, not guessed timing
-     * - More reliable across slow/fast devices and OEM variants
-     * - Avoids unnecessary waiting when focus is ready immediately
-     *
-     * WHY withFrameNanos:
-     * Even after window focus changes to true, waiting one frame ensures
-     * the TextField node is fully attached/measured before requesting focus.
-     */
-    LaunchedEffect(windowInfo.isWindowFocused) {
-        if (windowInfo.isWindowFocused) {
-            withFrameNanos { /* wait one composition frame */ }
+    LaunchedEffect(Unit) {
+        try {
             focusRequester.requestFocus()
             keyboardController?.show()
+        } catch (e: Exception) {
+            // Ignore if layout isn't ready
         }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                try {
+                    focusRequester.requestFocus()
+                    keyboardController?.show()
+                } catch (e: Exception) {
+                    // Ignore if layout isn't ready
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 }
 
