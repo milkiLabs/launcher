@@ -33,7 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
@@ -106,7 +106,7 @@ fun LauncherScreen(
             ) {
                 awaitPointerEventScope {
                     while (true) {
-                        val down = awaitPointerEvent(PointerEventPass.Initial)
+                        val down = awaitPointerEvent(PointerEventPass.Main)
                             .changes
                             .firstOrNull() ?: continue
 
@@ -125,14 +125,18 @@ fun LauncherScreen(
                         var hasTriggeredOpen = false
 
                         while (!hasTriggeredOpen) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val event = awaitPointerEvent(PointerEventPass.Main)
                             val change = event.changes.firstOrNull { it.id == activePointerId } ?: break
 
                             if (change.changedToUpIgnoreConsumed()) {
                                 break
                             }
 
-                            val delta = change.positionChangeIgnoreConsumed()
+                            if (change.isConsumed) {
+                                break
+                            }
+
+                            val delta = change.positionChange()
                             totalDragY += delta.y
                             totalDragX += delta.x
 
