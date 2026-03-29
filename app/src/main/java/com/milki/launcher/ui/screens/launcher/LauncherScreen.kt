@@ -21,6 +21,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.gestures.Orientation
@@ -32,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -76,6 +78,7 @@ fun LauncherScreen(
     val widgetPickerSheetState = rememberLauncherSheetState()
     val scope = rememberCoroutineScope()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
+    val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
 
     // Sync from ViewModel state to Drawer sheet state
     LaunchedEffect(isAppDrawerOpen) {
@@ -156,6 +159,9 @@ fun LauncherScreen(
                 homeUiState = homeUiState,
                 actions = actions,
                 onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
+                onItemBoundsMeasured = { itemId, boundsInWindow ->
+                    homeItemBoundsById[itemId] = boundsInWindow
+                },
                 widgetHostManager = widgetHostManager,
                 modifier = Modifier
                     .fillMaxSize()
@@ -179,7 +185,10 @@ fun LauncherScreen(
 
         FolderOverlayHost(
             homeUiState = homeUiState,
-            actions = actions
+            actions = actions,
+            anchorBounds = homeUiState.openFolderItem?.let { folder ->
+                homeItemBoundsById[folder.id]
+            }
         )
 
         DrawerHost(
@@ -271,6 +280,7 @@ private fun HomeSurface(
     homeUiState: HomeUiState,
     actions: LauncherActions,
     onMenuAnchorChanged: (Offset) -> Unit,
+    onItemBoundsMeasured: (String, Rect) -> Unit,
     widgetHostManager: WidgetHostManager?,
     modifier: Modifier = Modifier
 ) {
@@ -297,6 +307,7 @@ private fun HomeSurface(
         onRemoveWidget = actions.widget.onRemoveWidget,
         onResizeWidget = actions.widget.onResizeWidget,
         onWidgetDroppedToHome = actions.widget.onWidgetDroppedToHome,
+        onItemBoundsMeasured = onItemBoundsMeasured,
         modifier = modifier.padding(Spacing.mediumLarge)
     )
 }
@@ -307,12 +318,14 @@ private fun HomeSurface(
 @Composable
 private fun FolderOverlayHost(
     homeUiState: HomeUiState,
-    actions: LauncherActions
+    actions: LauncherActions,
+    anchorBounds: Rect?
 ) {
     homeUiState.openFolderItem?.let { folder ->
         key(folder.id) {
             FolderPopupDialog(
                 folder = folder,
+                anchorBounds = anchorBounds,
                 onClose = actions.folder.onFolderClose,
                 onRenameFolder = { newName ->
                     actions.folder.onFolderRename(folder.id, newName)

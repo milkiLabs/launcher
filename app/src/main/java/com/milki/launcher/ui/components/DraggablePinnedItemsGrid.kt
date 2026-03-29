@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -58,6 +59,7 @@ fun DraggablePinnedItemsGrid(
     onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
     onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit = { _, _ -> },
     onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit = { _, _, _ -> },
+    onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -171,7 +173,8 @@ fun DraggablePinnedItemsGrid(
             onRemoveWidget = onRemoveWidget,
             hapticLongPress = { hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress) },
             hapticDragActivate = { hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) },
-            hapticConfirm = { hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm) }
+            hapticConfirm = { hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm) },
+            onItemBoundsMeasured = onItemBoundsMeasured
         )
 
         WidgetOverlayLayer(

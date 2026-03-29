@@ -30,9 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
@@ -90,7 +92,8 @@ internal fun InternalGridDragLayer(
     onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit,
     hapticLongPress: () -> Unit,
     hapticDragActivate: () -> Unit,
-    hapticConfirm: () -> Unit
+    hapticConfirm: () -> Unit,
+    onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit
 ) {
     val internalDropDispatcher = InternalHomeDropDispatcher(
         gridColumns = config.columns,
@@ -161,6 +164,18 @@ internal fun InternalGridDragLayer(
                             scaleX = visuals.scale
                             scaleY = visuals.scale
                             alpha = visuals.alpha
+                        }
+                        .onGloballyPositioned { coords ->
+                            val topLeft = coords.localToWindow(Offset.Zero)
+                            onItemBoundsMeasured(
+                                item.id,
+                                Rect(
+                                    left = topLeft.x,
+                                    top = topLeft.y,
+                                    right = topLeft.x + coords.size.width,
+                                    bottom = topLeft.y + coords.size.height
+                                )
+                            )
                         }
                         .detectDragGesture(
                             key = "${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}",
@@ -841,4 +856,3 @@ private fun WidgetResizeOverlay(
         )
     }
 }
-

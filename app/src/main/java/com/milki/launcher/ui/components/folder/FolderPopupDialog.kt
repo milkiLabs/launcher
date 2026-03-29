@@ -1,111 +1,15 @@
-/**
- * FolderPopupDialog.kt - Popup dialog for viewing and managing a folder's contents
- *
- * This composable is shown when the user taps a [HomeItem.FolderItem] on the home screen.
- * It overlays the home grid as a centered card and lets the user:
- *
- *   1. VIEW: See all icons inside the folder in a 3-column scrollable grid.
- *   2. TAP: Tap any icon to launch it (same as tapping it on the home screen).
- *   3. RENAME: Tap the folder name at the top to edit it inline.
- *   4. INTERNAL DRAG: Long-press + drag an icon to reorder it within the popup.
- *   5. DRAG-OUT: Long-press + drag an icon outside the popup bounds to move it
- *                back to the home screen grid.
- *   6. REMOVE: Long-press → context menu → "Remove from folder".
- *
- * ============================================================================
- * INTERNAL DRAG-AND-DROP REORDERING
- * ============================================================================
- *
- * Each icon in the 3-column grid supports the same long-press → drag gesture used
- * on the home screen ([DraggablePinnedItemsGrid]). During a drag inside the popup:
- *
- *   - The dragged icon becomes a ghost (mostly transparent at its original slot).
- *   - A floating preview follows the user's finger.
- *   - When the finger is released, the icon is placed at the closest slot.
- *   - [onReorderFolderItems] is called with the new order.
- *
- * ============================================================================
- * DRAG-OUT MECHANISM
- * ============================================================================
- *
- * "Drag-out" refers to dragging an icon outside the popup card onto the home grid.
- * The popup uses Android's platform drag-and-drop ([View.startDragAndDrop]) so the
- * native OS shadow follows the finger automatically — no manual coordinate forwarding
- * is needed and no floating preview is rendered in LauncherScreen.
- *
- *   1. User long-presses an icon inside the popup → Compose detectDragGesture starts.
- *   2. Accumulated drag deltas tracked in [onDragDelta] via [dragOffset].
- *   3. When the computed pointer position exits [popupWindowRect], the popup calls
- *      [startExternalFolderItemDrag] with an [ExternalDragItem.FolderChild] payload.
- *   4. [onClose] is called immediately — the folder popup is dismissed.
- *   5. The OS animates a shadow icon under the finger until the user releases.
- *   6. [AppExternalDropTargetOverlay] on the home grid receives ACTION_DROP and
- *      calls [onFolderItemExtracted] → ViewModel [extractItemFromFolder].
- *
- * ============================================================================
- * COORDINATE SYSTEM
- * ============================================================================
- *
- * This popup uses window-relative pixel coordinates for drag tracking:
- *
- *   - [LayoutCoordinates.localToWindow(Offset.Zero)] gives each item's window-relative
- *     top-left corner. Stored in [itemWindowOffsets] map, updated by `onGloballyPositioned`.
- *   - Accumulated drag deltas from [detectDragGesture] are in the local coordinate space
- *     of the item's [pointerInput]. Since no transforms (scale/rotation) are applied to
- *     the popup items or popup card, window-relative position ≈ local position + item offset.
- *   - The popup card's window rect is similarly captured and stored in [popupWindowRect].
- *
- * ============================================================================
- * CALLBACKS
- * ============================================================================
- *
- * ============================================================================
- * DRAG-OUT (UPDATED MECHANISM)
- * ============================================================================
- *
- * Drag-out now uses Android's platform drag-and-drop ([View.startDragAndDrop])
- * rather than manual window-coordinate forwarding.  This gives us the native
- * shadow that follows the finger automatically — no manual floating preview is
- * needed in [LauncherScreen].
- *
- * FLOW:
- *   1. User starts dragging an icon inside the popup (Compose detectDragGesture).
- *   2. As the accumulated pointer position exits [popupWindowRect], we call
- *      [startExternalFolderItemDrag], which starts a platform DnD session with
- *      an [ExternalDragItem.FolderChild] payload.
- *   3. We immediately call [onClose] — the popup is dismissed.
- *   4. The platform shadow follows the finger automatically.
- *   5. When the user releases over the home grid, [AppExternalDropTargetOverlay]
- *      receives the DragEvent and calls its [onFolderItemExtracted] → ViewModel
- *      [extractItemFromFolder].
- *
- * Because the popup is closed as soon as the drag-out starts, NONE of the old
- * "onItemDraggedOutside / onItemDroppedOutside" callbacks are needed anymore.
- *
- * ============================================================================
- * CALLBACKS
- * ============================================================================
- *
- * @param folder                    The folder to display. Passed down from the ViewModel's
- *                                  derived [HomeUiState.openFolderItem]. Changes here
- *                                  (e.g. item added by another drag) automatically recompose.
- * @param onClose                   Called when the user taps the scrim, back button, OR when
- *                                  a drag-out starts (the popup is dismissed immediately).
- * @param onRenameFolder            Called when the user confirms a new folder name via
- *                                  the editable title at the top of the popup.
- * @param onItemClick               Called when the user taps an icon to launch it.
- * @param onReorderFolderItems      Called when internal drag-drop changes the children order.
- * @param onRemoveItemFromFolder    Called when the user uses the context menu to remove an icon.
- */
-
 package com.milki.launcher.ui.components.folder
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -113,14 +17,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -143,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -150,69 +56,63 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.PinnedItem
 import com.milki.launcher.ui.components.dragdrop.startExternalFolderItemDrag
 import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius
-import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
-// ============================================================================
-// PUBLIC COMPOSABLE
-// ============================================================================
-
-/**
- * FolderPopupDialog - The popup shown when the user opens a folder on the home screen.
- *
- * See the file-level documentation above for a full description of the features,
- * drag-out mechanism, and coordinate system used.
- */
 @Composable
 fun FolderPopupDialog(
     folder: HomeItem.FolderItem,
+    anchorBounds: Rect?,
     onClose: () -> Unit,
     onRenameFolder: (newName: String) -> Unit,
     onItemClick: (HomeItem) -> Unit,
     onReorderFolderItems: (newChildren: List<HomeItem>) -> Unit,
     onRemoveItemFromFolder: (itemId: String) -> Unit
 ) {
-
-    // =========================================================================
-    // LOCAL STATE
-    // =========================================================================
-
-    /**
-     * Local (optimistic) copy of the folder's children list.
-     *
-     * WHY LOCAL COPY:
-     * The [folder] parameter is updated from the ViewModel's StateFlow.
-     * If we only used [folder.children] directly in the UI, a pending async
-     * reorder write could cause the displayed order to briefly revert while the
-     * DataStore write is in flight, producing a visual "blink".
-     *
-     * By maintaining a local copy and applying reorders to it immediately,
-     * the UI stays stable. The [LaunchedEffect] below keeps it in sync whenever
-     * the authoritative list changes (and no drag is active).
-     */
     var localChildren by remember(folder.id) { mutableStateOf(folder.children) }
-
-    /**
-     * Sync the local children list with the repository's list whenever there is
-     * no active drag (to avoid overwriting mid-drag state).
-     */
     var isDraggingInternally by remember { mutableStateOf(false) }
+    var editingName by remember(folder.id) { mutableStateOf(folder.name) }
+    var isEditingName by remember { mutableStateOf(false) }
+    val nameFocusRequester = remember { FocusRequester() }
+
+    var menuShownForItemId by remember { mutableStateOf<String?>(null) }
+    var draggedItemId by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var dragStartWindowPos by remember { mutableStateOf(Offset.Zero) }
+    var dragProbeOffset by remember { mutableStateOf(Offset.Zero) }
+    var dragOutItem by remember { mutableStateOf<HomeItem?>(null) }
+    var isDraggingOut by remember { mutableStateOf(false) }
+    var popupWindowRect by remember { mutableStateOf(Rect.Zero) }
+    var gridWindowRect by remember { mutableStateOf(Rect.Zero) }
+    var hoveredSlot by remember { mutableStateOf<FolderDropSlot?>(null) }
+    var pendingAutoPage by remember { mutableStateOf<Int?>(null) }
+    var isAutoPaging by remember { mutableStateOf(false) }
+    var isPlatformDragActive by remember { mutableStateOf(false) }
+    val itemWindowOffsets = remember { mutableStateMapOf<String, Offset>() }
+
+    val hapticFeedback = LocalHapticFeedback.current
+    val hostView = LocalView.current
+    val density = LocalDensity.current
 
     LaunchedEffect(folder.children) {
         if (!isDraggingInternally) {
@@ -220,450 +120,398 @@ fun FolderPopupDialog(
         }
     }
 
-    /**
-     * The current folder name as displayed in the editable title.
-     * Starts with [folder.name] and is updated locally as the user types.
-     */
-    var editingName by remember(folder.id) { mutableStateOf(folder.name) }
+    LaunchedEffect(folder.name) {
+        if (!isEditingName) {
+            editingName = folder.name
+        }
+    }
 
-    /**
-     * Whether the folder name text field is currently in edit mode (showing cursor).
-     * Toggled by tapping the title row.
-     */
-    var isEditingName by remember { mutableStateOf(false) }
+    val layout = remember(localChildren.size) {
+        folderGridLayoutForItemCount(localChildren.size)
+    }
+    val pagerState = rememberPagerState(initialPage = 0) { layout.pageCount }
 
-    /** FocusRequester used to programmatically request focus on the name field. */
-    val nameFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(layout.pageCount) {
+        val lastPage = (layout.pageCount - 1).coerceAtLeast(0)
+        if (pagerState.currentPage > lastPage) {
+            pagerState.scrollToPage(lastPage)
+        }
+    }
 
-    // -------------------------------------------------------------------------
-    // Context menu state (long-press on item → remove from folder)
-    // -------------------------------------------------------------------------
+    LaunchedEffect(pendingAutoPage, draggedItemId) {
+        val targetPage = pendingAutoPage ?: return@LaunchedEffect
+        if (draggedItemId == null) return@LaunchedEffect
 
-    /** The ID of the item whose context menu is currently shown, or null. */
-    var menuShownForItemId by remember { mutableStateOf<String?>(null) }
+        kotlinx.coroutines.delay(FOLDER_AUTO_PAGE_DELAY_MS)
+        if (pendingAutoPage == targetPage && pagerState.currentPage != targetPage) {
+            isAutoPaging = true
+            pagerState.animateScrollToPage(targetPage)
+            pagerState.scrollToPage(targetPage)
+            isAutoPaging = false
+        }
+        if (pendingAutoPage == targetPage) {
+            pendingAutoPage = null
+        }
+    }
 
-    // -------------------------------------------------------------------------
-    // Internal drag-and-drop state
-    // -------------------------------------------------------------------------
+    var isEntering by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isEntering = true
+    }
+    val openProgress by animateFloatAsState(
+        targetValue = if (isEntering) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = FOLDER_OPEN_ANIMATION_MS,
+            easing = FastOutSlowInEasing
+        ),
+        label = "folderOpenProgress"
+    )
 
-    /**
-     * The ID of the item currently being dragged (null when no drag is active).
-     */
-    var draggedItemId by remember { mutableStateOf<String?>(null) }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val metrics = remember(
+            localChildren.size,
+            layout,
+            maxWidth,
+            maxHeight,
+            density
+        ) {
+            FolderSurfaceMetrics.create(
+                density = density,
+                layout = layout,
+                pageCount = layout.pageCount,
+                maxWidth = maxWidth,
+                maxHeight = maxHeight
+                )
+        }
 
-    /**
-     * Accumulated drag offset from the start of the drag gesture.
-     * Updated every frame inside [onDrag].
-     */
-    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+        val targetBoundsPx = remember(
+            anchorBounds,
+            metrics.surfaceWidth,
+            metrics.surfaceHeight,
+            maxWidth,
+            maxHeight,
+            density
+        ) {
+            resolveFolderTargetBounds(
+                density = density,
+                surfaceWidth = metrics.surfaceWidth,
+                surfaceHeight = metrics.surfaceHeight,
+                maxWidth = maxWidth,
+                maxHeight = maxHeight,
+                anchorBounds = anchorBounds
+            )
+        }
 
-    /**
-     * The window-relative position of the dragged item's top-left corner at
-     * the moment the drag started.  Set once per drag in [onDragStart].
-     */
-    var dragStartWindowPos by remember { mutableStateOf(Offset.Zero) }
+        val fallbackAnchorBounds = remember(targetBoundsPx) { targetBoundsPx }
+        val resolvedAnchorBounds = anchorBounds ?: fallbackAnchorBounds
+        val anchorCenter = resolvedAnchorBounds.center()
+        val targetCenter = targetBoundsPx.center()
 
-    /**
-     * Whether the current drag has exited the popup card's bounds.
-     * When true, [onItemDragMovedOutside] is called instead of doing internal reorder.
-     *
-     * The dragged item rendering in the grid switches to ghost mode (alpha 0.2) while
-     * this is true, signalling visually that the item has "escaped" the folder.
-     */
-    var isDraggingOut by remember { mutableStateOf(false) }
+        val startScaleX = (resolvedAnchorBounds.width / targetBoundsPx.width)
+            .takeIf { it.isFinite() && it > 0f }
+            ?.coerceAtLeast(FOLDER_MIN_START_SCALE)
+            ?: 1f
+        val startScaleY = (resolvedAnchorBounds.height / targetBoundsPx.height)
+            .takeIf { it.isFinite() && it > 0f }
+            ?.coerceAtLeast(FOLDER_MIN_START_SCALE)
+            ?: 1f
 
-    /**
-     * The item currently being dragged out (cached at drag-start to avoid null checks
-     * inside the gesture callbacks).
-     */
-    var dragOutItem by remember { mutableStateOf<HomeItem?>(null) }
-
-    // -------------------------------------------------------------------------
-    // Layout coordinates (updated by onGloballyPositioned)
-    // -------------------------------------------------------------------------
-
-    /**
-     * Bounding rect of the popup card in window-relative pixel coordinates.
-     *
-     * Used to determine whether the drag pointer has exited the popup.
-     * Updated by [onGloballyPositioned] on the Card composable.
-     */
-    var popupWindowRect by remember { mutableStateOf(Rect.Zero) }
-
-    /**
-     * Window-relative top-left position of each home item's grid cell.
-     * Key = [HomeItem.id], Value = [Offset] (window-relative top-left corner).
-     *
-     * Updated by [onGloballyPositioned] on each item's root Box inside the grid.
-     *
-     * WHY NOT UsE LayoutCoordinates DIRECTLY:
-     * [LayoutCoordinates] instances from [onGloballyPositioned] may be stale by
-     * the time a drag gesture callback fires. Converting to [Offset] immediately
-     * (via [LayoutCoordinates.localToWindow]) ensures we use a snapshot at the
-     * time of the most recent composition pass.
-     */
-    val itemWindowOffsets = remember { mutableStateMapOf<String, Offset>() }
-
-    /** Approximate cell size in window pixels (used for drop-target computation). */
-    var cellSizePx by remember { mutableStateOf(0f) }
-
-    val hapticFeedback = LocalHapticFeedback.current
-
-    /**
-     * The Android View that owns our Compose content.  Needed to call
-     * [startExternalFolderItemDrag], which requires a [android.view.View] to
-     * start the platform drag-and-drop session.
-     *
-     * [LocalView.current] always returns the nearest View that hosts the
-     * current Compose hierarchy — safe to capture here and pass to platform APIs.
-     */
-    val hostView = LocalView.current
-
-    /**
-     * Tracks whether we have already started a platform DnD session for the
-     * current drag.  Set to true the moment [startExternalFolderItemDrag] is
-     * called; reset to false in [onDragEnd] / [onDragCancel].
-     *
-     * PURPOSE:
-     * After calling [startExternalFolderItemDrag]+[onClose] the popup may still
-     * be alive for one or two frames while Compose processes the state change.
-     * During that window, the Compose gesture dispatcher might still deliver
-     * [onDragDelta] calls.  The guard prevents us from starting a second
-     * platform drag or calling [onClose] again.
-     */
-    var isPlatformDragActive by remember { mutableStateOf(false) }
-
-    // =========================================================================
-    // ROOT LAYOUT: Full-screen scrim → centered card
-    // =========================================================================
-
-    /**
-     * Full-screen Box that captures the scrim tap (closes the popup) and hosts
-     * both the popup card and the drag-out floating preview.
-     *
-     * Z-ORDER:
-     * 1. Scrim (bottom — entire screen)
-     * 2. Popup card (center — fixed size)
-     * 3. Drag floating preview (top — follows finger)
-     */
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        // ─── Scrim ───────────────────────────────────────────────────────────
-        // Semi-transparent overlay that dims the home screen content behind the popup.
-        // Tapping the scrim closes the folder.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.45f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onClose
-                )
-        )
-
-        // ─── Popup card ──────────────────────────────────────────────────────
-        Card(
-            modifier = Modifier
-                .align(Alignment.Center)
-                // Max width prevents the dialog from being too wide on large screens.
-                .widthIn(max = 360.dp)
-                .fillMaxWidth(0.88f)
-                // Capture the card's window-relative bounding rect for drag-out detection.
-                .onGloballyPositioned { coords ->
-                    popupWindowRect = coords.windowRect()
-                }
-                // Prevent tapping the card itself from closing the popup (the scrim
-                // click listener is below this card in the Z-order, but the Box takes
-                // up the full size — we block propagation with a no-op click handler).
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { /* Consume clicks inside the card, don't close. */ }
-                ),
-            shape = RoundedCornerShape(CornerRadius.extraLarge),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = Spacing.smallMedium)
         ) {
-            Column(
-                modifier = Modifier.padding(Spacing.extraLarge),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.18f + (0.34f * openProgress)))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClose
+                    )
+            )
 
-                // ─── Editable folder name ─────────────────────────────────────
-                FolderNameHeader(
-                    name = editingName,
-                    isEditing = isEditingName,
-                    focusRequester = nameFocusRequester,
-                    onNameChange = { editingName = it },
-                    onEditingChanged = { newEditing ->
-                        isEditingName = newEditing
-                        if (!newEditing) {
-                            // User stopped editing → persist the new name.
-                            onRenameFolder(editingName)
-                        }
-                    },
-                    onEditRequested = {
-                        isEditingName = true
+            Card(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            x = targetBoundsPx.left.roundToInt(),
+                            y = targetBoundsPx.top.roundToInt()
+                        )
                     }
-                )
-
-                Spacer(modifier = Modifier.height(Spacing.mediumLarge))
-
-                // ─── Icon grid ────────────────────────────────────────────────
-                // 3 columns, scrollable, max height = 70% of a typical screen.
-                // Each cell is one-third of the popup card's width in size.
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(FOLDER_POPUP_COLUMNS),
+                    .size(
+                        width = metrics.surfaceWidth,
+                        height = metrics.surfaceHeight
+                    )
+                    .graphicsLayer {
+                        val startTranslation = anchorCenter - targetCenter
+                        translationX = startTranslation.x * (1f - openProgress)
+                        translationY = startTranslation.y * (1f - openProgress)
+                        scaleX = lerp(startScaleX, 1f, openProgress)
+                        scaleY = lerp(startScaleY, 1f, openProgress)
+                        alpha = lerp(0.82f, 1f, openProgress)
+                    }
+                    .shadow(
+                        elevation = Spacing.mediumLarge,
+                        shape = RoundedCornerShape(CornerRadius.large),
+                        ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                        spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                    )
+                    .onGloballyPositioned { coords ->
+                        popupWindowRect = coords.windowRect()
+                    }
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { }
+                    ),
+                shape = RoundedCornerShape(CornerRadius.large),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = Spacing.none)
+            ) {
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 340.dp),
-                    contentPadding = PaddingValues(Spacing.none),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.none),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.none)
+                        .fillMaxSize()
+                        .padding(
+                            horizontal = metrics.horizontalPadding,
+                            vertical = metrics.verticalPadding
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    itemsIndexed(
-                        items = localChildren,
-                        key = { _, item -> item.id }
-                    ) { index, item ->
-                        // The per-item box needs:
-                        // 1. onGloballyPositioned: capture its window position
-                        // 2. detectDragGesture: handle long-press + drag
-                        // 3. Visual: ghost when dragged, normal otherwise
-                        FolderPopupItem(
-                            item = item,
-                            itemIndex = index,
-                            isDragged = item.id == draggedItemId,
-                            isDraggingOut = isDraggingOut && item.id == draggedItemId,
-                            showMenu = menuShownForItemId == item.id,
-                            onMenuDismiss = { menuShownForItemId = null },
-                            onTap = { onItemClick(item) },
-                            onLongPress = {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                menuShownForItemId = item.id
-                            },
-                            onRemoveFromFolder = {
-                                menuShownForItemId = null
-                                onRemoveItemFromFolder(item.id)
-                            },
-                            onCellSizeMeasured = { sizePx -> cellSizePx = sizePx },
-                            onWindowPositionMeasured = { windowOffset ->
-                                itemWindowOffsets[item.id] = windowOffset
-                            },
-                            onDragStart = {
-                                isDraggingInternally = true
-                                draggedItemId = item.id
-                                dragOutItem = item
-                                dragOffset = Offset.Zero
-                                dragStartWindowPos = itemWindowOffsets[item.id] ?: Offset.Zero
-                                isDraggingOut = false
-                                // Dismiss any open context menu as soon as drag threshold is
-                                // exceeded — mirrors the same behaviour on the home grid.
-                                menuShownForItemId = null
-                                hapticFeedback.performHapticFeedback(
-                                    HapticFeedbackType.GestureThresholdActivate
-                                )
-                            },
-                            onDragDelta = { delta ->
-                                dragOffset += delta
+                    FolderNameHeader(
+                        name = editingName,
+                        isEditing = isEditingName,
+                        focusRequester = nameFocusRequester,
+                        itemCount = localChildren.size,
+                        onNameChange = { editingName = it },
+                        onEditingChanged = { isEditing ->
+                            val wasEditing = isEditingName
+                            isEditingName = isEditing
+                            if (wasEditing && !isEditing) {
+                                onRenameFolder(editingName)
+                            }
+                        },
+                        onEditRequested = { isEditingName = true }
+                    )
 
-                                // ----------------------------------------------------------------
-                                // Drag-out detection
-                                // ----------------------------------------------------------------
-                                // If a platform drag is already active we do nothing here.
-                                // The native shadow already follows the finger; Compose just stops
-                                // delivering meaningful pointer updates at this point anyway.
-                                if (isPlatformDragActive) return@FolderPopupItem
+                    Spacer(modifier = Modifier.height(metrics.headerBottomSpacing))
 
-                                // Compute where the pointer is RIGHT NOW in window coordinates.
-                                // dragStartWindowPos is the item top-left captured in onDragStart;
-                                // dragOffset is the accumulated Compose-local delta since then.
-                                val absolutePointerPos = dragStartWindowPos + dragOffset
+                    Box(
+                        modifier = Modifier
+                            .width(metrics.gridWidth)
+                            .height(metrics.gridHeight)
+                    ) {
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(0.dp),
+                            beyondViewportPageCount = 1,
+                            userScrollEnabled = draggedItemId == null && layout.pageCount > 1
+                        ) { page ->
+                            FolderGridPage(
+                                page = page,
+                                layout = layout,
+                                localChildren = localChildren,
+                                cellWidth = metrics.cellWidth,
+                                cellHeight = metrics.cellHeight,
+                                cellSpacing = metrics.cellSpacing,
+                                draggedItemId = draggedItemId,
+                                hoveredSlot = hoveredSlot,
+                                menuShownForItemId = menuShownForItemId,
+                                onGridBoundsMeasured = { pageBounds ->
+                                    if (page == pagerState.currentPage) {
+                                        gridWindowRect = pageBounds
+                                    }
+                                },
+                                onMenuDismiss = { menuShownForItemId = null },
+                                onTap = { item -> onItemClick(item) },
+                                onLongPress = { itemId ->
+                                    menuShownForItemId = itemId
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                                onRemoveFromFolder = { itemId ->
+                                    menuShownForItemId = null
+                                    onRemoveItemFromFolder(itemId)
+                                },
+                                onWindowPositionMeasured = { itemId, windowOffset ->
+                                    itemWindowOffsets[itemId] = windowOffset
+                                },
+                                onDragStart = { item ->
+                                    isDraggingInternally = true
+                                    draggedItemId = item.id
+                                    dragOutItem = item
+                                    dragOffset = Offset.Zero
+                                    dragStartWindowPos = itemWindowOffsets[item.id] ?: Offset.Zero
+                                    dragProbeOffset = with(density) {
+                                        Offset(
+                                            x = metrics.cellWidth.toPx() * 0.5f,
+                                            y = metrics.cellHeight.toPx() * 0.5f
+                                        )
+                                    }
+                                    isDraggingOut = false
+                                    isPlatformDragActive = false
+                                    hoveredSlot = FolderDropSlot(
+                                        page = page,
+                                        slotIndex = slotIndexForPageItem(
+                                            itemIndex = localChildren.indexOfFirst { it.id == item.id },
+                                            pageSize = layout.pageSize
+                                        )
+                                    )
+                                    menuShownForItemId = null
+                                    hapticFeedback.performHapticFeedback(
+                                        HapticFeedbackType.GestureThresholdActivate
+                                    )
+                                },
+                                onDragDelta = { delta ->
+                                    dragOffset += delta
 
-                                val wasOutside = isDraggingOut
-                                val isNowOutside = !popupWindowRect.contains(absolutePointerPos)
+                                    if (isPlatformDragActive) return@FolderGridPage
 
-                                when {
-                                    isNowOutside && !wasOutside -> {
-                                        // ---- Pointer just crossed the popup boundary ----
-                                        // 1. Mark dragging-out visually (item goes ghost).
+                                    val dragProbePos = dragStartWindowPos + dragProbeOffset + dragOffset
+                                    val isNowOutside = !popupWindowRect.contains(dragProbePos)
+
+                                    if (isNowOutside) {
                                         isDraggingOut = true
-
-                                        // 2. Hand off to the Android platform drag-and-drop
-                                        //    system.  The native shadow will follow the finger
-                                        //    automatically — no manual coordinate tracking needed.
                                         val escapedItem = dragOutItem
                                         if (escapedItem != null) {
                                             isPlatformDragActive = true
-                                            // Start the platform drag session.  This creates a
-                                            // shadow icon that the OS moves under the user's
-                                            // finger until they release or cancel.
                                             startExternalFolderItemDrag(
-                                                hostView  = hostView,
-                                                folderId  = folder.id,
-                                                item      = escapedItem
+                                                hostView = hostView,
+                                                folderId = folder.id,
+                                                item = escapedItem
                                             )
-                                            // Close the popup immediately.  The platform drag
-                                            // session is now independent of this composable;
-                                            // AppExternalDropTargetOverlay on the home grid will
-                                            // receive the drop event.
                                             onClose()
                                         }
+                                        return@FolderGridPage
                                     }
-                                    isNowOutside && wasOutside -> {
-                                        // Still outside bounds but no platform drag (shouldn't
-                                        // happen due to the guard above, but leave as no-op).
-                                    }
-                                    !isNowOutside && wasOutside -> {
-                                        // Re-entered popup bounds (only if platform drag never
-                                        // started — user moved back inside very quickly).
-                                        isDraggingOut = false
-                                    }
-                                    // else: still inside, do nothing
-                                }
-                            },
-                            onDragEnd = {
-                                val currentDraggedItem = localChildren.find { it.id == draggedItemId }
 
-                                if (isPlatformDragActive) {
-                                    // The platform DnD session has already taken over and this
-                                    // popup is closing.  Nothing to do here — the drop is handled
-                                    // by AppExternalDropTargetOverlay on the home grid.
-                                    draggedItemId = null
-                                    dragOffset = Offset.Zero
                                     isDraggingOut = false
-                                    dragOutItem = null
-                                    isPlatformDragActive = false
-                                    isDraggingInternally = false
-                                } else if (isDraggingOut && currentDraggedItem != null) {
-                                    // Drag released outside but platform DnD was not started
-                                    // (e.g. startDragAndDrop returned false).  Drop is lost —
-                                    // just reset state so the popup returns to normal.
-                                    draggedItemId = null
-                                    dragOffset = Offset.Zero
-                                    isDraggingOut = false
-                                    dragOutItem = null
-                                    isPlatformDragActive = false
-                                    isDraggingInternally = false
-                                } else if (currentDraggedItem != null) {
-                                    // ---- Drag released INSIDE popup: reorder ----
-                                    val absoluteDropPos = dragStartWindowPos + dragOffset
-                                    val targetIndex = findClosestItemIndex(
-                                        dropWindowPos = absoluteDropPos,
-                                        children = localChildren,
-                                        itemWindowOffsets = itemWindowOffsets,
-                                        cellSizePx = cellSizePx
+                                    hoveredSlot = resolveHoveredSlot(
+                                        pointer = dragProbePos,
+                                        currentPage = pagerState.currentPage,
+                                        layout = layout,
+                                        gridWindowRect = gridWindowRect,
+                                        cellSpacingPx = with(density) { metrics.cellSpacing.toPx() }
                                     )
-                                    if (targetIndex != null && targetIndex != index) {
-                                        // Move the dragged item to the target index.
-                                        val reordered = localChildren.toMutableList().apply {
-                                            remove(currentDraggedItem)
-                                            add(
-                                                targetIndex.coerceIn(0, size),
-                                                currentDraggedItem
-                                            )
-                                        }
-                                        localChildren = reordered
-                                        onReorderFolderItems(reordered)
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
+                                    if (!isAutoPaging) {
+                                        pendingAutoPage = resolveAutoPageTarget(
+                                            pointer = dragProbePos,
+                                            popupBounds = popupWindowRect,
+                                            currentPage = pagerState.currentPage,
+                                            pageCount = layout.pageCount,
+                                            edgeThresholdPx = with(density) {
+                                                FOLDER_AUTO_PAGE_EDGE_THRESHOLD.toPx()
+                                            }
+                                        )
                                     }
-                                }
+                                },
+                                onDragEnd = {
+                                    val draggedItem = dragOutItem
 
-                                // Reset drag state.
-                                draggedItemId = null
-                                dragOffset = Offset.Zero
-                                isDraggingOut = false
-                                dragOutItem = null
-                                isPlatformDragActive = false
-                                isDraggingInternally = false
-                            },
-                            onDragCancel = {
-                                // Gesture was cancelled (e.g. another pointer event stole focus).
-                                // Reset all drag state.  The platform drag (if one was started)
-                                // will be cancelled by the OS independently.
-                                draggedItemId = null
-                                dragOffset = Offset.Zero
-                                isDraggingOut = false
-                                dragOutItem = null
-                                isPlatformDragActive = false
-                                isDraggingInternally = false
-                            }
+                                    if (!isPlatformDragActive && draggedItem != null) {
+                                        val dropSlot = hoveredSlot ?: resolveHoveredSlot(
+                                            pointer = dragStartWindowPos + dragProbeOffset + dragOffset,
+                                            currentPage = pagerState.currentPage,
+                                            layout = layout,
+                                            gridWindowRect = gridWindowRect,
+                                            cellSpacingPx = with(density) { metrics.cellSpacing.toPx() }
+                                        )
+                                        val fromIndex = localChildren.indexOfFirst { it.id == draggedItem.id }
+
+                                        if (dropSlot != null && fromIndex >= 0) {
+                                            val targetIndex = resolveFolderDropIndex(
+                                                targetPage = dropSlot.page,
+                                                slotIndex = dropSlot.slotIndex,
+                                                pageSize = layout.pageSize
+                                            )
+                                            val reordered = reorderFolderItemsForDrop(
+                                                items = localChildren,
+                                                fromIndex = fromIndex,
+                                                targetIndex = targetIndex
+                                            )
+
+                                            if (reordered != localChildren) {
+                                                localChildren = reordered
+                                                onReorderFolderItems(reordered)
+                                                hapticFeedback.performHapticFeedback(
+                                                    HapticFeedbackType.Confirm
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    draggedItemId = null
+                                    dragOffset = Offset.Zero
+                                    dragProbeOffset = Offset.Zero
+                                    dragOutItem = null
+                                    isDraggingOut = false
+                                    isDraggingInternally = false
+                                    isPlatformDragActive = false
+                                    hoveredSlot = null
+                                    pendingAutoPage = null
+                                    isAutoPaging = false
+                                },
+                                onDragCancel = {
+                                    draggedItemId = null
+                                    dragOffset = Offset.Zero
+                                    dragProbeOffset = Offset.Zero
+                                    dragOutItem = null
+                                    isDraggingOut = false
+                                    isDraggingInternally = false
+                                    isPlatformDragActive = false
+                                    hoveredSlot = null
+                                    pendingAutoPage = null
+                                    isAutoPaging = false
+                                }
+                            )
+                        }
+                    }
+
+                    if (layout.pageCount > 1) {
+                        Spacer(modifier = Modifier.height(metrics.indicatorTopSpacing))
+                        FolderPagerIndicator(
+                            pageCount = layout.pageCount,
+                            currentPage = pagerState.currentPage
                         )
                     }
                 }
             }
-        }
 
-        // ─── Internal floating drag preview ──────────────────────────────────
-        // While dragging INSIDE the popup, a floating PinnedItem ghost follows
-        // the user's finger to show where the icon will land.
-        //
-        // NOTE: Once a drag-out starts we call onClose() immediately, so this
-        // preview will never be rendered during a cross-boundary drag.  The
-        // platform DnD shadow handles the visual for that case.
-        val draggedItem = localChildren.find { it.id == draggedItemId }
-        if (draggedItem != null && draggedItemId != null && !isDraggingOut) {
-            // The floating preview is positioned in window coordinates.
-            // We offset it so the icon center sits under the user's finger.
-            val previewOffset = dragStartWindowPos + dragOffset
-
-            Box(
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            x = previewOffset.x.roundToInt(),
-                            y = previewOffset.y.roundToInt()
-                        )
-                    }
-                    .size(with(androidx.compose.ui.platform.LocalDensity.current) {
-                        cellSizePx.toDp()
-                    })
-                    .zIndex(FOLDER_DRAG_PREVIEW_Z_INDEX)
-                    .alpha(FOLDER_PREVIEW_ALPHA)
-            ) {
-                PinnedItem(
-                    item = draggedItem,
-                    onClick = {},
-                    onLongClick = {},
-                    handleLongPress = false
-                )
+            val draggedItem = dragOutItem
+            if (draggedItem != null && draggedItemId != null && !isDraggingOut) {
+                val previewOffset = dragStartWindowPos + dragOffset
+                Box(
+                    modifier = Modifier
+                        .offset {
+                            IntOffset(
+                                x = previewOffset.x.roundToInt(),
+                                y = previewOffset.y.roundToInt()
+                            )
+                        }
+                        .size(metrics.cellWidth, metrics.cellHeight)
+                        .zIndex(FOLDER_DRAG_PREVIEW_Z_INDEX)
+                        .alpha(FOLDER_PREVIEW_ALPHA)
+                ) {
+                    PinnedItem(
+                        item = draggedItem,
+                        onClick = {},
+                        onLongClick = {},
+                        handleLongPress = false
+                    )
+                }
             }
         }
     }
 }
 
-// ============================================================================
-// FOLDER NAME HEADER
-// ============================================================================
-
-/**
- * FolderNameHeader - Editable text field showing the folder's name at the top of the popup.
- *
- * BEHAVIOR:
- * - In normal state: displays the name as plain text (no cursor).
- * - When [isEditing] is true: shows a cursor and allows the user to type.
- * - Tapping the name header switches to edit mode ([onEditRequested]).
- * - Losing focus ([onEditingChanged] with false) commits the change.
- *
- * A thin bottom border appears only when in edit mode to clearly indicate
- * the field is interactive while keeping the popup uncluttered when not.
- *
- * @param name Current folder name text.
- * @param isEditing Whether the field is in edit/cursor mode.
- * @param focusRequester Used to programmatically focus the field.
- * @param onNameChange Called on every keystroke.
- * @param onEditingChanged Called with true when focus is gained; false when focus is lost.
- * @param onEditRequested Called when the user taps the non-editing title to start editing.
- */
 @Composable
 private fun FolderNameHeader(
     name: String,
     isEditing: Boolean,
     focusRequester: FocusRequester,
+    itemCount: Int,
     onNameChange: (String) -> Unit,
     onEditingChanged: (Boolean) -> Unit,
     onEditRequested: () -> Unit
@@ -672,7 +520,6 @@ private fun FolderNameHeader(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Wrapper that captures tap for entering edit mode.
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -689,7 +536,7 @@ private fun FolderNameHeader(
                 textStyle = LocalTextStyle.current.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = MaterialTheme.typography.titleMedium.fontSize,
-                    fontWeight = MaterialTheme.typography.titleMedium.fontWeight,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 ),
                 singleLine = true,
@@ -700,24 +547,29 @@ private fun FolderNameHeader(
                     .onFocusChanged { focusState ->
                         onEditingChanged(focusState.isFocused)
                     },
-                // Show a subtle cursor only in edit mode.
                 readOnly = !isEditing
             )
         }
 
-        // Thin underline hint that appears only when in edit mode.
+        Spacer(modifier = Modifier.height(Spacing.extraSmall))
+        Text(
+            text = if (itemCount == 1) "1 item" else "$itemCount items",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+        )
+
         if (isEditing) {
             Spacer(modifier = Modifier.height(Spacing.extraSmall))
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.5f)
+                    .widthIn(max = 140.dp)
+                    .fillMaxWidth(0.45f)
                     .height(Spacing.hairline)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.65f))
             )
         }
     }
 
-    // Request focus programmatically when edit mode is activated.
     LaunchedEffect(isEditing) {
         if (isEditing) {
             focusRequester.requestFocus()
@@ -725,92 +577,155 @@ private fun FolderNameHeader(
     }
 }
 
-// ============================================================================
-// FOLDER POPUP ITEM
-// ============================================================================
+@Composable
+private fun FolderGridPage(
+    page: Int,
+    layout: FolderGridLayout,
+    localChildren: List<HomeItem>,
+    cellWidth: Dp,
+    cellHeight: Dp,
+    cellSpacing: Dp,
+    draggedItemId: String?,
+    hoveredSlot: FolderDropSlot?,
+    menuShownForItemId: String?,
+    onGridBoundsMeasured: (Rect) -> Unit,
+    onMenuDismiss: () -> Unit,
+    onTap: (HomeItem) -> Unit,
+    onLongPress: (String) -> Unit,
+    onRemoveFromFolder: (String) -> Unit,
+    onWindowPositionMeasured: (String, Offset) -> Unit,
+    onDragStart: (HomeItem) -> Unit,
+    onDragDelta: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit
+) {
+    val pageStart = page * layout.pageSize
+    val pageItems = localChildren.drop(pageStart).take(layout.pageSize)
+    val slots = List(layout.pageSize) { slotIndex ->
+        pageItems.getOrNull(slotIndex)
+    }
 
-/**
- * FolderPopupItem - A single icon  cell inside the folder popup grid.
- *
- * Renders a [PinnedItem] for the given [HomeItem] with:
- * - A ghost appearance when it is the currently dragged item.
- * - A [detectDragGesture] modifier for long-press + drag interaction.
- * - A context menu (shown via long-press) with a "Remove from folder" option.
- * - A drop-target highlight (subtle border) when another item is being dragged
- *   close to this slot (indicated by being the closest target slot).
- *
- * GESTURE ROUTING:
- * The gesture lifecycle is:
- *   onTap         → [onTap] (launches the item)
- *   onLongPress   → [onLongPress] (shows context menu)
- *   onDragStart   → [onDragStart]
- *   onDrag        → [onDragDelta] (called with each incremental movement)
- *   onDragEnd     → [onDragEnd]
- *   onDragCancel  → [onDragCancel]
- *
- * @param item The home item displayed in this slot.
- * @param itemIndex The 0-based index of this item in [folder.children].
- * @param isDragged Whether THIS item is the one being dragged (ghost appearance).
- * @param isDraggingOut Whether the drag has exited popup bounds (more ghost = 0.2 alpha).
- * @param showMenu Whether the long-press context menu is currently visible.
- * @param onMenuDismiss Called when the context menu is dismissed.
- * @param onTap Called when the user taps.
- * @param onLongPress Called when the user long-presses without dragging.
- * @param onRemoveFromFolder Called from the context menu "Remove from folder" option.
- * @param onCellSizeMeasured Callback with the cell's pixel width (used for drop-target math).
- * @param onWindowPositionMeasured Callback with the cell's window-relative top-left Offset.
- * @param onDragStart Called when the drag threshold is exceeded.
- * @param onDragDelta Called with each incremental [Offset] during the drag.
- * @param onDragEnd Called when the drag gesture ends (pointer released).
- * @param onDragCancel Called when the drag is cancelled.
- */
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onGloballyPositioned { coords ->
+                onGridBoundsMeasured(coords.windowRect())
+            }
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(cellSpacing)
+        ) {
+            repeat(layout.rows) { row ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(cellSpacing)
+                ) {
+                    repeat(layout.columns) { column ->
+                        val slotIndex = (row * layout.columns) + column
+                        val item = slots.getOrNull(slotIndex)
+
+                        Box(
+                            modifier = Modifier
+                                .size(width = cellWidth, height = cellHeight)
+                                .then(
+                                    if (hoveredSlot == FolderDropSlot(page, slotIndex)) {
+                                        Modifier
+                                            .clip(RoundedCornerShape(CornerRadius.medium))
+                                            .background(
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                            )
+                                            .border(
+                                                width = Spacing.hairline,
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
+                                                shape = RoundedCornerShape(CornerRadius.medium)
+                                            )
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        ) {
+                            if (item != null) {
+                                FolderPopupItem(
+                                    item = item,
+                                    isDragged = item.id == draggedItemId,
+                                    showMenu = menuShownForItemId == item.id,
+                                    onMenuDismiss = onMenuDismiss,
+                                    onTap = { onTap(item) },
+                                    onLongPress = { onLongPress(item.id) },
+                                    onRemoveFromFolder = { onRemoveFromFolder(item.id) },
+                                    onWindowPositionMeasured = { offset ->
+                                        onWindowPositionMeasured(item.id, offset)
+                                    },
+                                    onDragStart = { onDragStart(item) },
+                                    onDragDelta = onDragDelta,
+                                    onDragEnd = onDragEnd,
+                                    onDragCancel = onDragCancel,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FolderPagerIndicator(
+    pageCount: Int,
+    currentPage: Int
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.smallMedium),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(pageCount) { page ->
+            val isSelected = page == currentPage
+            Box(
+                modifier = Modifier
+                    .size(
+                        width = if (isSelected) 18.dp else 8.dp,
+                        height = 8.dp
+                    )
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
+                        }
+                    )
+            )
+        }
+    }
+}
+
 @Composable
 private fun FolderPopupItem(
     item: HomeItem,
-    itemIndex: Int,
     isDragged: Boolean,
-    isDraggingOut: Boolean,
     showMenu: Boolean,
     onMenuDismiss: () -> Unit,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onRemoveFromFolder: () -> Unit,
-    onCellSizeMeasured: (sizePx: Float) -> Unit,
-    onWindowPositionMeasured: (windowOffset: Offset) -> Unit,
+    onWindowPositionMeasured: (Offset) -> Unit,
     onDragStart: () -> Unit,
     onDragDelta: (Offset) -> Unit,
     onDragEnd: () -> Unit,
-    onDragCancel: () -> Unit
+    onDragCancel: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    // Visual alpha: dragged items are shown as ghosts.
-    // - isDraggingOut=true  → very faint (0.2) to signal the item has left the popup.
-    // - isDragged=true       → semi-transparent (0.4) while dragging inside.
-    // - normal               → fully opaque (1.0).
-    val alpha = when {
-        isDragged && isDraggingOut -> FOLDER_DRAG_OUT_GHOST_ALPHA
-        isDragged -> FOLDER_DRAG_IN_GHOST_ALPHA
-        else -> 1f
-    }
-
-    // Whether a context menu gesture is in progress (finger still down after long-press).
-    // When true we set menuFocusable=false on the PinnedItem so touches still
-    // reach the gesture detector for potential drag start.
     var isLongPressGestureActive by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier
-            // Capture this cell's pixel size and window-relative position.
+        modifier = modifier
             .onGloballyPositioned { coords ->
-                onCellSizeMeasured(coords.size.width.toFloat())
                 onWindowPositionMeasured(coords.localToWindow(Offset.Zero))
             }
-            // Ghost appearance while dragging.
-            .alpha(alpha)
-            // Attach the long-press → drag gesture detector.
+            .alpha(if (isDragged) FOLDER_DRAG_GHOST_ALPHA else 1f)
             .detectDragGesture(
-                // Use the item id + index as the key so the detector is invalidated
-                // when the item moves to a different slot (after a reorder).
-                key = "${item.id}-$itemIndex",
+                key = item.id,
                 dragThreshold = FOLDER_DRAG_THRESHOLD_PX,
                 onTap = { onTap() },
                 onLongPress = {
@@ -818,8 +733,6 @@ private fun FolderPopupItem(
                     onLongPress()
                 },
                 onLongPressRelease = {
-                    // Finger lifted after long-press without dragging.
-                    // Restore the menu to focusable so its items are tappable.
                     isLongPressGestureActive = false
                 },
                 onDragStart = {
@@ -830,31 +743,25 @@ private fun FolderPopupItem(
                     change.consume()
                     onDragDelta(dragAmount)
                 },
-                onDragEnd = { onDragEnd() },
+                onDragEnd = onDragEnd,
                 onDragCancel = {
                     isLongPressGestureActive = false
                     onDragCancel()
                 }
             )
     ) {
-        // ── Render the icon ──────────────────────────────────────────────────
         PinnedItem(
             item = item,
-            onClick = {},          // Gestures are handled above by detectDragGesture.
+            onClick = {},
             onLongClick = {},
             handleLongPress = false,
-            showMenu = showMenu,
-            onMenuDismiss = onMenuDismiss,
-            menuFocusable = !isLongPressGestureActive
+            showMenu = false
         )
 
-        // ── Context menu ─────────────────────────────────────────────────────
-        // A minimal DropdownMenu providing only the "Remove from folder" action.
-        // (The standard ItemActionMenu is not used here because UnpinItem would
-        //  remove the item from the home screen entirely rather than from the folder.)
         DropdownMenu(
             expanded = showMenu,
-            onDismissRequest = onMenuDismiss
+            onDismissRequest = onMenuDismiss,
+            properties = PopupProperties(focusable = !isLongPressGestureActive)
         ) {
             DropdownMenuItem(
                 text = { Text("Remove from folder") },
@@ -870,120 +777,246 @@ private fun FolderPopupItem(
     }
 }
 
-// ============================================================================
-// DRAG-AND-DROP MATH UTILITIES
-// ============================================================================
+private data class FolderDropSlot(
+    val page: Int,
+    val slotIndex: Int
+)
 
-/**
- * Finds the index in [children] whose icon center is closest to [dropWindowPos].
- *
- * Used by [FolderPopupDialog]'s drag-end handler to determine where to insert
- * the dragged item. The resulting index is the slot to which the dragged item
- * should be moved.
- *
- * DISTANCE METRIC:
- * Euclidean distance between the center of each item's window-relative rect and
- * [dropWindowPos]. The item with the smallest distance wins.
- *
- * @param dropWindowPos    The window-relative position where the pointer was released.
- * @param children         The current ordered children list.
- * @param itemWindowOffsets Map of item ID → window-relative top-left Offset.
- * @param cellSizePx       Width (= height) of each cell in pixels.
- * @return The index of the closest item, or null if no positions are tracked yet.
- */
-private fun findClosestItemIndex(
-    dropWindowPos: Offset,
-    children: List<HomeItem>,
-    itemWindowOffsets: Map<String, Offset>,
-    cellSizePx: Float
-): Int? {
-    if (cellSizePx <= 0f) return null
+private data class FolderSurfaceMetrics(
+    val cellWidth: Dp,
+    val cellHeight: Dp,
+    val cellSpacing: Dp,
+    val gridWidth: Dp,
+    val gridHeight: Dp,
+    val surfaceWidth: Dp,
+    val surfaceHeight: Dp,
+    val horizontalPadding: Dp,
+    val verticalPadding: Dp,
+    val headerBottomSpacing: Dp,
+    val indicatorTopSpacing: Dp
+) {
+    companion object {
+        fun create(
+            density: Density,
+            layout: FolderGridLayout,
+            pageCount: Int,
+            maxWidth: Dp,
+            maxHeight: Dp
+        ): FolderSurfaceMetrics {
+            with(density) {
+                val safeMaxWidthPx = maxWidth.toPx()
+                val safeMaxHeightPx = maxHeight.toPx()
+                val edgeMarginPx = FOLDER_EDGE_MARGIN.toPx()
 
-    var bestIndex: Int? = null
-    var bestDistanceSq = Float.MAX_VALUE
+                val baseGridWidthPx = (
+                    (FOLDER_BASE_CELL_WIDTH * layout.columns) +
+                        (FOLDER_CELL_SPACING * (layout.columns - 1).coerceAtLeast(0))
+                    ).toPx()
+                val baseGridHeightPx = (
+                    (FOLDER_BASE_CELL_HEIGHT * layout.rows) +
+                        (FOLDER_CELL_SPACING * (layout.rows - 1).coerceAtLeast(0))
+                    ).toPx()
+                val baseSurfaceWidthPx = (
+                    baseGridWidthPx +
+                        (FOLDER_HORIZONTAL_PADDING * 2).toPx()
+                    )
+                val baseSurfaceHeightPx = (
+                    baseGridHeightPx +
+                        (FOLDER_VERTICAL_PADDING * 2).toPx() +
+                        FOLDER_HEADER_HEIGHT.toPx() +
+                        FOLDER_HEADER_BOTTOM_SPACING.toPx() +
+                        if (pageCount > 1) {
+                            FOLDER_INDICATOR_TOP_SPACING.toPx() + FOLDER_INDICATOR_HEIGHT.toPx()
+                        } else {
+                            0f
+                        }
+                    )
 
-    children.forEachIndexed { index, item ->
-        val topLeft = itemWindowOffsets[item.id] ?: return@forEachIndexed
-        // Compute the center of this cell.
-        val centerX = topLeft.x + cellSizePx * 0.5f
-        val centerY = topLeft.y + cellSizePx * 0.5f
+                val fitScale = minOf(
+                    1f,
+                    (safeMaxWidthPx - (edgeMarginPx * 2)) / baseSurfaceWidthPx,
+                    (safeMaxHeightPx - (edgeMarginPx * 2)) / baseSurfaceHeightPx
+                ).coerceAtMost(1f)
 
-        // Squared Euclidean distance (no sqrt needed for comparison).
-        val dx = dropWindowPos.x - centerX
-        val dy = dropWindowPos.y - centerY
-        val distSq = dx * dx + dy * dy
+                val cellWidth = FOLDER_BASE_CELL_WIDTH * fitScale
+                val cellHeight = FOLDER_BASE_CELL_HEIGHT * fitScale
+                val cellSpacing = FOLDER_CELL_SPACING * fitScale
+                val horizontalPadding = FOLDER_HORIZONTAL_PADDING * fitScale
+                val verticalPadding = FOLDER_VERTICAL_PADDING * fitScale
+                val headerBottomSpacing = FOLDER_HEADER_BOTTOM_SPACING * fitScale
+                val indicatorTopSpacing = FOLDER_INDICATOR_TOP_SPACING * fitScale
+                val headerHeight = FOLDER_HEADER_HEIGHT * fitScale
+                val indicatorHeight = FOLDER_INDICATOR_HEIGHT * fitScale
 
-        if (distSq < bestDistanceSq) {
-            bestDistanceSq = distSq
-            bestIndex = index
+                val gridWidth = (cellWidth * layout.columns) + (cellSpacing * (layout.columns - 1).coerceAtLeast(0))
+                val gridHeight = (cellHeight * layout.rows) + (cellSpacing * (layout.rows - 1).coerceAtLeast(0))
+                val surfaceWidth = gridWidth + (horizontalPadding * 2)
+                val surfaceHeight = gridHeight +
+                    (verticalPadding * 2) +
+                    headerHeight +
+                    headerBottomSpacing +
+                    if (pageCount > 1) indicatorTopSpacing + indicatorHeight else 0.dp
+
+                return FolderSurfaceMetrics(
+                    cellWidth = cellWidth,
+                    cellHeight = cellHeight,
+                    cellSpacing = cellSpacing,
+                    gridWidth = gridWidth,
+                    gridHeight = gridHeight,
+                    surfaceWidth = surfaceWidth,
+                    surfaceHeight = surfaceHeight,
+                    horizontalPadding = horizontalPadding,
+                    verticalPadding = verticalPadding,
+                    headerBottomSpacing = headerBottomSpacing,
+                    indicatorTopSpacing = indicatorTopSpacing
+                )
+            }
+        }
+    }
+}
+
+private fun slotIndexForPageItem(
+    itemIndex: Int,
+    pageSize: Int
+): Int {
+    if (itemIndex < 0) return 0
+    return itemIndex % pageSize.coerceAtLeast(1)
+}
+
+private fun resolveHoveredSlot(
+    pointer: Offset,
+    currentPage: Int,
+    layout: FolderGridLayout,
+    gridWindowRect: Rect,
+    cellSpacingPx: Float
+): FolderDropSlot? {
+    if (gridWindowRect == Rect.Zero) return null
+
+    var closestSlotIndex = 0
+    var closestDistance = Float.MAX_VALUE
+    val spacingX = if (layout.columns > 1) cellSpacingPx else 0f
+    val spacingY = if (layout.rows > 1) cellSpacingPx else 0f
+    val cellWidth = (
+        gridWindowRect.width - (spacingX * (layout.columns - 1).coerceAtLeast(0))
+        ) / layout.columns.coerceAtLeast(1)
+    val cellHeight = (
+        gridWindowRect.height - (spacingY * (layout.rows - 1).coerceAtLeast(0))
+        ) / layout.rows.coerceAtLeast(1)
+
+    repeat(layout.pageSize) { slotIndex ->
+        val row = slotIndex / layout.columns
+        val column = slotIndex % layout.columns
+        val centerX = gridWindowRect.left + (column * (cellWidth + spacingX)) + (cellWidth * 0.5f)
+        val centerY = gridWindowRect.top + (row * (cellHeight + spacingY)) + (cellHeight * 0.5f)
+        val dx = pointer.x - centerX
+        val dy = pointer.y - centerY
+        val distance = (dx * dx) + (dy * dy)
+
+        if (distance < closestDistance) {
+            closestDistance = distance
+            closestSlotIndex = slotIndex
         }
     }
 
-    return bestIndex
-}
-
-// ============================================================================
-// LAYOUT COORDINATES HELPER
-// ============================================================================
-
-/**
- * Computes a [Rect] in window-relative pixel coordinates from a [LayoutCoordinates].
- *
- * The Rect's bounds are:
- *   left   = window-relative X of the composable's top-left corner
- *   top    = window-relative Y of the composable's top-left corner
- *   right  = left + composable width in pixels
- *   bottom = top  + composable height in pixels
- *
- * @receiver LayoutCoordinates captured by an `onGloballyPositioned` modifier.
- * @return A [Rect] in window-pixel coordinates.
- */
-private fun LayoutCoordinates.windowRect(): Rect {
-    val topLeft = this.localToWindow(Offset.Zero)
-    return Rect(
-        left = topLeft.x,
-        top = topLeft.y,
-        right = topLeft.x + this.size.width,
-        bottom = topLeft.y + this.size.height
+    return FolderDropSlot(
+        page = currentPage,
+        slotIndex = closestSlotIndex
     )
 }
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
+private fun resolveFolderTargetBounds(
+    density: Density,
+    surfaceWidth: Dp,
+    surfaceHeight: Dp,
+    maxWidth: Dp,
+    maxHeight: Dp,
+    anchorBounds: Rect?
+): Rect {
+    with(density) {
+        val surfaceWidthPx = surfaceWidth.toPx()
+        val surfaceHeightPx = surfaceHeight.toPx()
+        val maxWidthPx = maxWidth.toPx()
+        val maxHeightPx = maxHeight.toPx()
+        val edgeMarginPx = FOLDER_EDGE_MARGIN.toPx()
 
-/**
- * Number of columns in the folder popup grid.
- * Chosen by the user in the initial design discussion.
- */
-private const val FOLDER_POPUP_COLUMNS = 3
+        val anchorCenter = anchorBounds?.center() ?: Offset(
+            x = maxWidthPx * 0.5f,
+            y = maxHeightPx * 0.5f
+        )
 
-/**
- * Minimum drag distance (in pixels) to initiate a drag gesture inside the folder popup.
- *
- * This intentionally matches [GridConfig.dragThresholdPx] (20f) so the UX feel is
- * the same as dragging on the home screen.
- */
+        val unclampedLeft = anchorCenter.x - (surfaceWidthPx * 0.5f)
+        val unclampedTop = anchorCenter.y - (surfaceHeightPx * 0.5f)
+        val left = unclampedLeft.coerceIn(
+            minimumValue = edgeMarginPx,
+            maximumValue = (maxWidthPx - surfaceWidthPx - edgeMarginPx).coerceAtLeast(edgeMarginPx)
+        )
+        val top = unclampedTop.coerceIn(
+            minimumValue = edgeMarginPx,
+            maximumValue = (maxHeightPx - surfaceHeightPx - edgeMarginPx).coerceAtLeast(edgeMarginPx)
+        )
+
+        return Rect(
+            left = left,
+            top = top,
+            right = left + surfaceWidthPx,
+            bottom = top + surfaceHeightPx
+        )
+    }
+}
+
+private fun resolveAutoPageTarget(
+    pointer: Offset,
+    popupBounds: Rect,
+    currentPage: Int,
+    pageCount: Int,
+    edgeThresholdPx: Float
+): Int? {
+    if (pageCount <= 1 || popupBounds == Rect.Zero) return null
+
+    return when {
+        pointer.x <= popupBounds.left + edgeThresholdPx && currentPage > 0 -> currentPage - 1
+        pointer.x >= popupBounds.right - edgeThresholdPx && currentPage < pageCount - 1 -> currentPage + 1
+        else -> null
+    }
+}
+
+private fun LayoutCoordinates.windowRect(): Rect {
+    val topLeft = localToWindow(Offset.Zero)
+    return Rect(
+        left = topLeft.x,
+        top = topLeft.y,
+        right = topLeft.x + size.width,
+        bottom = topLeft.y + size.height
+    )
+}
+
+private fun Rect.center(): Offset {
+    return Offset(
+        x = (left + right) * 0.5f,
+        y = (top + bottom) * 0.5f
+    )
+}
+
+private fun lerp(start: Float, end: Float, progress: Float): Float {
+    return start + ((end - start) * progress)
+}
+
+private val FOLDER_BASE_CELL_WIDTH = 108.dp
+private val FOLDER_BASE_CELL_HEIGHT = 112.dp
+private val FOLDER_CELL_SPACING = Spacing.smallMedium
+private val FOLDER_HORIZONTAL_PADDING = Spacing.mediumLarge
+private val FOLDER_VERTICAL_PADDING = Spacing.mediumLarge
+private val FOLDER_HEADER_HEIGHT = 44.dp
+private val FOLDER_HEADER_BOTTOM_SPACING = Spacing.medium
+private val FOLDER_INDICATOR_TOP_SPACING = Spacing.medium
+private val FOLDER_INDICATOR_HEIGHT = 8.dp
+private val FOLDER_EDGE_MARGIN = Spacing.mediumLarge
+private val FOLDER_AUTO_PAGE_EDGE_THRESHOLD = 52.dp
+
 private const val FOLDER_DRAG_THRESHOLD_PX = 20f
-
-/**
- * Alpha applied to the dragged item while dragging INSIDE the popup.
- * Low enough to indicate "this is moving" without making it invisible.
- */
-private const val FOLDER_DRAG_IN_GHOST_ALPHA = 0.35f
-
-/**
- * Alpha applied to the dragged item while dragging OUTSIDE the popup bounds.
- * Very low to communicate "this item has left the folder".
- */
-private const val FOLDER_DRAG_OUT_GHOST_ALPHA = 0.15f
-
-/**
- * Alpha for the floating preview that follows the user's finger during an internal drag.
- */
-private const val FOLDER_PREVIEW_ALPHA = 0.88f
-
-/**
- * Z-index for the floating preview so it is rendered above all grid items.
- */
-private const val FOLDER_DRAG_PREVIEW_Z_INDEX = 100f
+private const val FOLDER_DRAG_GHOST_ALPHA = 0.18f
+private const val FOLDER_PREVIEW_ALPHA = 0.92f
+private const val FOLDER_DRAG_PREVIEW_Z_INDEX = 12f
+private const val FOLDER_MIN_START_SCALE = 0.28f
+private const val FOLDER_OPEN_ANIMATION_MS = 240
+private const val FOLDER_AUTO_PAGE_DELAY_MS = 170L
