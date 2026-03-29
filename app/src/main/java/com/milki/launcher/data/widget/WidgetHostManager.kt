@@ -37,15 +37,25 @@
 
 package com.milki.launcher.data.widget
 
+import android.app.Activity
 import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
+import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL
+import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE
+import android.content.pm.PackageManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.content.pm.PackageManager
+import android.os.Bundle
 import android.util.Log
+import android.util.SizeF
+import android.view.WindowManager
+import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.ui.components.grid.GridConfig
+import kotlin.math.roundToInt
 
 class WidgetHostManager(
     private val context: Context
@@ -211,8 +221,35 @@ class WidgetHostManager(
      * Convenience overload that takes an [AppWidgetProviderInfo] instead of a
      * raw [ComponentName].  Extracts the provider component automatically.
      */
-    fun bindWidget(appWidgetId: Int, providerInfo: AppWidgetProviderInfo): Boolean {
-        return bindWidget(appWidgetId, providerInfo.provider)
+    fun bindWidget(
+        appWidgetId: Int,
+        providerInfo: AppWidgetProviderInfo,
+        options: Bundle? = null
+    ): Boolean {
+        return try {
+            if (options != null) {
+                appWidgetManager.bindAppWidgetIdIfAllowed(
+                    appWidgetId,
+                    providerInfo.profile,
+                    providerInfo.provider,
+                    options
+                )
+            } else {
+                appWidgetManager.bindAppWidgetIdIfAllowed(
+                    appWidgetId,
+                    providerInfo.profile,
+                    providerInfo.provider,
+                    Bundle.EMPTY
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "Failed to bind widgetId=$appWidgetId provider=${providerInfo.provider} profile=${providerInfo.profile}",
+                e
+            )
+            false
+        }
     }
 
     /**
@@ -230,11 +267,16 @@ class WidgetHostManager(
      */
     fun createBindPermissionIntent(
         appWidgetId: Int,
-        providerInfo: AppWidgetProviderInfo
+        providerInfo: AppWidgetProviderInfo,
+        options: Bundle? = null
     ): Intent {
         return Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, providerInfo.provider)
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, providerInfo.profile)
+            if (options != null) {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_OPTIONS, options)
+            }
         }
     }
 
@@ -251,12 +293,34 @@ class WidgetHostManager(
      */
     fun createConfigureIntent(appWidgetId: Int): Intent? {
         val providerInfo = getProviderInfo(appWidgetId) ?: return null
+        if (!needsInitialConfigure(providerInfo)) return null
         val configureActivity = providerInfo.configure ?: return null
 
         return Intent().apply {
             component = configureActivity
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }
+    }
+
+    /**
+     * Starts the provider's configuration Activity using the host helper.
+     *
+     * This mirrors Launcher3's approach and is more reliable than launching the
+     * configure Activity directly, especially for cross-profile or restricted providers.
+     */
+    fun startConfigureActivityForResult(
+        activity: Activity,
+        appWidgetId: Int,
+        requestCode: Int,
+        options: Bundle? = null
+    ) {
+        appWidgetHost.startAppWidgetConfigureActivityForResult(
+            activity,
+            appWidgetId,
+            0,
+            requestCode,
+            options
+        )
     }
 
     /**
@@ -316,6 +380,45 @@ class WidgetHostManager(
      */
     fun findInstalledProvider(provider: ComponentName): AppWidgetProviderInfo? {
         return appWidgetManager.installedProviders.firstOrNull { it.provider == provider }
+    }
+
+    /**
+     * Builds the initial options bundle used when binding a widget for a given span.
+     *
+     * This gives providers accurate size information from the start instead of
+     * waiting for the first host-view layout pass.
+     */
+    fun createBindOptions(span: GridSpan): Bundle {
+        val (widthPx, heightPx) = estimateWidgetSizePx(span)
+        return createWidgetSizeOptions(widthPx = widthPx, heightPx = heightPx)
+    }
+
+    /**
+     * Updates a hosted widget with its exact rendered size.
+     */
+    fun updateWidgetSize(
+        hostView: AppWidgetHostView,
+        widthPx: Int,
+        heightPx: Int
+    ) {
+        val sizeOptions = createWidgetSizeOptions(widthPx = widthPx, heightPx = heightPx)
+        val widthDp = pxToDp(widthPx)
+        val heightDp = pxToDp(heightPx)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            hostView.updateAppWidgetSize(
+                sizeOptions,
+                listOf(SizeF(widthDp.toFloat(), heightDp.toFloat()))
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            hostView.updateAppWidgetSize(
+                sizeOptions,
+                widthDp,
+                heightDp,
+                widthDp,
+                heightDp
+            )
+        }
     }
 
     /**
@@ -388,5 +491,56 @@ class WidgetHostManager(
      */
     private fun dpToCells(dp: Int): Int {
         return ((dp - 30) / 70 + 1).coerceAtLeast(1)
+    }
+
+    private fun needsInitialConfigure(providerInfo: AppWidgetProviderInfo): Boolean {
+        val configureActivity = providerInfo.configure ?: return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            return true
+        }
+
+        val featureFlags = providerInfo.widgetFeatures
+        val isOptionalConfiguration =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                (featureFlags and WIDGET_FEATURE_CONFIGURATION_OPTIONAL) != 0 &&
+                (featureFlags and WIDGET_FEATURE_RECONFIGURABLE) != 0
+
+        return !isOptionalConfiguration
+    }
+
+    private fun createWidgetSizeOptions(widthPx: Int, heightPx: Int): Bundle {
+        val widthDp = pxToDp(widthPx)
+        val heightDp = pxToDp(heightPx)
+        return Bundle().apply {
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp)
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp)
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                putParcelableArrayList(
+                    AppWidgetManager.OPTION_APPWIDGET_SIZES,
+                    arrayListOf(SizeF(widthDp.toFloat(), heightDp.toFloat()))
+                )
+            }
+        }
+    }
+
+    private fun estimateWidgetSizePx(span: GridSpan): Pair<Int, Int> {
+        val displayMetrics = context.resources.displayMetrics
+        val windowWidthPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val windowManager = context.getSystemService(WindowManager::class.java)
+            windowManager?.currentWindowMetrics?.bounds?.width() ?: displayMetrics.widthPixels
+        } else {
+            displayMetrics.widthPixels
+        }
+
+        val cellSizePx = windowWidthPx.toFloat() / GridConfig.Default.columns
+        val widthPx = (cellSizePx * span.columns).roundToInt().coerceAtLeast(1)
+        val heightPx = (cellSizePx * span.rows).roundToInt().coerceAtLeast(1)
+        return widthPx to heightPx
+    }
+
+    private fun pxToDp(px: Int): Int {
+        return (px / context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1)
     }
 }

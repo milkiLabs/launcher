@@ -33,6 +33,13 @@ interface WidgetPlacementCoordinator {
      * Executes a command emitted by HomeViewModel.
      */
     fun execute(command: HomeViewModel.WidgetPlacementCommand)
+
+    /**
+     * Routes legacy Activity result callbacks used by AppWidgetHost config flows.
+     *
+     * @return true when the request code belonged to widget placement and was handled.
+     */
+    fun onActivityResult(requestCode: Int, resultCode: Int): Boolean
 }
 
 /**
@@ -46,17 +53,13 @@ class ActivityWidgetPlacementCoordinator(
 
     companion object {
         private const val TAG = "WidgetPlacementCoord"
+        private const val REQUEST_CONFIGURE_APPWIDGET = 10_401
     }
 
     /**
      * Launcher for the system bind-permission activity.
      */
     private lateinit var widgetBindLauncher: ActivityResultLauncher<Intent>
-
-    /**
-     * Launcher for widget provider configuration activity.
-     */
-    private lateinit var widgetConfigureLauncher: ActivityResultLauncher<Intent>
 
     private var pendingBindSessionId: String? = null
     private var pendingConfigureSessionId: String? = null
@@ -78,18 +81,6 @@ class ActivityWidgetPlacementCoordinator(
             execute(command)
         }
 
-        widgetConfigureLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            val sessionId = pendingConfigureSessionId
-            pendingConfigureSessionId = null
-            val command = homeViewModel.handleWidgetConfigureResult(
-                resultCode = result.resultCode,
-                widgetHostManager = widgetHostManagerProvider(),
-                sessionId = sessionId
-            )
-            execute(command)
-        }
     }
 
     /**
@@ -120,7 +111,11 @@ class ActivityWidgetPlacementCoordinator(
             is HomeViewModel.WidgetPlacementCommand.LaunchConfigure -> {
                 runCatching {
                     pendingConfigureSessionId = command.sessionId
-                    widgetConfigureLauncher.launch(command.intent)
+                    widgetHostManagerProvider().startConfigureActivityForResult(
+                        activity = activity,
+                        appWidgetId = command.appWidgetId,
+                        requestCode = REQUEST_CONFIGURE_APPWIDGET
+                    )
                 }.onFailure { throwable ->
                     // A subset of widgets declares configure activities that are
                     // unavailable/unlaunchable on some devices. Convert the failure
@@ -139,5 +134,19 @@ class ActivityWidgetPlacementCoordinator(
 
             HomeViewModel.WidgetPlacementCommand.NoOp -> Unit
         }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int): Boolean {
+        if (requestCode != REQUEST_CONFIGURE_APPWIDGET) return false
+
+        val sessionId = pendingConfigureSessionId
+        pendingConfigureSessionId = null
+        val command = homeViewModel.handleWidgetConfigureResult(
+            resultCode = resultCode,
+            widgetHostManager = widgetHostManagerProvider(),
+            sessionId = sessionId
+        )
+        execute(command)
+        return true
     }
 }

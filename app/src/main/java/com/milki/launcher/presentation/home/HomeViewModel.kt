@@ -27,6 +27,7 @@ import android.app.Activity
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Bundle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.data.widget.WidgetHostManager
@@ -668,7 +669,8 @@ class HomeViewModel(
         val providerComponent: ComponentName,
         val providerLabel: String,
         val targetPosition: GridPosition,
-        val span: GridSpan
+        val span: GridSpan,
+        val bindOptions: Bundle
     )
 
     /**
@@ -690,7 +692,7 @@ class HomeViewModel(
      */
     sealed interface WidgetPlacementCommand {
         data class LaunchBindPermission(val sessionId: String, val intent: Intent) : WidgetPlacementCommand
-        data class LaunchConfigure(val sessionId: String, val intent: Intent) : WidgetPlacementCommand
+        data class LaunchConfigure(val sessionId: String, val appWidgetId: Int) : WidgetPlacementCommand
         data object NoOp : WidgetPlacementCommand
     }
 
@@ -709,20 +711,23 @@ class HomeViewModel(
     ): WidgetPlacementCommand {
         val appWidgetId = widgetHostManager.allocateWidgetId()
         val sessionId = "widget-session:$appWidgetId:${System.currentTimeMillis()}"
+        val bindOptions = widgetHostManager.createBindOptions(span)
         val pending = PendingWidget(
             sessionId = sessionId,
             appWidgetId = appWidgetId,
             providerComponent = providerInfo.provider,
             providerLabel = widgetHostManager.loadProviderLabel(providerInfo),
             targetPosition = targetPosition,
-            span = span
+            span = span,
+            bindOptions = bindOptions
         )
         pendingWidgets[sessionId] = pending
         activeWidgetSessionId = sessionId
 
         val boundImmediately = widgetHostManager.bindWidget(
             appWidgetId = appWidgetId,
-            providerInfo = providerInfo
+            providerInfo = providerInfo,
+            options = bindOptions
         )
 
         return if (boundImmediately) {
@@ -732,7 +737,8 @@ class HomeViewModel(
                 sessionId = sessionId,
                 widgetHostManager.createBindPermissionIntent(
                     appWidgetId = appWidgetId,
-                    providerInfo = providerInfo
+                    providerInfo = providerInfo,
+                    options = bindOptions
                 )
             )
         }
@@ -803,10 +809,18 @@ class HomeViewModel(
         widgetHostManager: WidgetHostManager
     ): WidgetPlacementCommand {
         val pending = pendingWidgets[sessionId] ?: return WidgetPlacementCommand.NoOp
+        val boundProviderInfo = widgetHostManager.getProviderInfo(pending.appWidgetId)
+        if (boundProviderInfo == null) {
+            cancelPendingWidgetSession(sessionId, widgetHostManager, pending)
+            return WidgetPlacementCommand.NoOp
+        }
 
         val configureIntent = widgetHostManager.createConfigureIntent(pending.appWidgetId)
         return if (configureIntent != null) {
-            WidgetPlacementCommand.LaunchConfigure(sessionId = sessionId, intent = configureIntent)
+            WidgetPlacementCommand.LaunchConfigure(
+                sessionId = sessionId,
+                appWidgetId = pending.appWidgetId
+            )
         } else {
             persistWidget(sessionId, pending, widgetHostManager)
             WidgetPlacementCommand.NoOp

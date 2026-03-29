@@ -29,9 +29,7 @@
 package com.milki.launcher.ui.components.widget
 
 import android.appwidget.AppWidgetHostView
-import android.appwidget.AppWidgetManager
 import android.content.Context
-import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
@@ -43,9 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.milki.launcher.data.widget.WidgetHostManager
 import kotlin.math.abs
@@ -275,7 +270,6 @@ fun HomeScreenWidgetView(
     onWidgetDragCancel: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val density = LocalDensity.current
     val currentOnWidgetLongPress = rememberUpdatedState(onWidgetLongPress)
     val currentOnWidgetLongPressRelease = rememberUpdatedState(onWidgetLongPressRelease)
     val currentOnWidgetDragStart = rememberUpdatedState(onWidgetDragStart)
@@ -303,10 +297,6 @@ fun HomeScreenWidgetView(
 
     if (hostView == null) return
 
-    // Convert pixel dimensions to dp for the size update bundle.
-    val widthDp = with(density) { widthPx.toDp() }
-    val heightDp = with(density) { heightPx.toDp() }
-
     AndroidView(
         factory = { context ->
             // Wrap in a dedicated touch-aware FrameLayout so long-press detection
@@ -326,36 +316,31 @@ fun HomeScreenWidgetView(
                 hostView.layoutParams = layoutParams
             }
 
-            // Tell the widget provider about the new size so it can send
-            // appropriately-sized RemoteViews.
-            val sizeBundle = Bundle().apply {
-                putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp.value.toInt())
-                putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp.value.toInt())
-                putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp.value.toInt())
-                putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp.value.toInt())
-            }
-            hostView.updateAppWidgetSize(sizeBundle, widthDp.value.toInt(), heightDp.value.toInt(), widthDp.value.toInt(), heightDp.value.toInt())
+            // Tell the provider about the current exact rendered size.
+            widgetHostManager.updateWidgetSize(
+                hostView = hostView,
+                widthPx = widthPx,
+                heightPx = heightPx
+            )
 
             // Keep callback updated for the current composition lambda.
-            if (frameLayout is WidgetLongPressFrameLayout) {
-                frameLayout.onWidgetLongPress = {
-                    currentOnWidgetLongPress.value.invoke()
-                }
-                frameLayout.onWidgetLongPressRelease = {
-                    currentOnWidgetLongPressRelease.value.invoke()
-                }
-                frameLayout.onWidgetDragStart = {
-                    currentOnWidgetDragStart.value.invoke()
-                }
-                frameLayout.onWidgetDrag = { delta ->
-                    currentOnWidgetDrag.value.invoke(delta)
-                }
-                frameLayout.onWidgetDragEnd = {
-                    currentOnWidgetDragEnd.value.invoke()
-                }
-                frameLayout.onWidgetDragCancel = {
-                    currentOnWidgetDragCancel.value.invoke()
-                }
+            frameLayout.onWidgetLongPress = {
+                currentOnWidgetLongPress.value.invoke()
+            }
+            frameLayout.onWidgetLongPressRelease = {
+                currentOnWidgetLongPressRelease.value.invoke()
+            }
+            frameLayout.onWidgetDragStart = {
+                currentOnWidgetDragStart.value.invoke()
+            }
+            frameLayout.onWidgetDrag = { delta ->
+                currentOnWidgetDrag.value.invoke(delta)
+            }
+            frameLayout.onWidgetDragEnd = {
+                currentOnWidgetDragEnd.value.invoke()
+            }
+            frameLayout.onWidgetDragCancel = {
+                currentOnWidgetDragCancel.value.invoke()
             }
         },
         modifier = modifier

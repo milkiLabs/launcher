@@ -501,6 +501,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @Deprecated("Required for AppWidgetHost configuration flows")
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (widgetPlacementCoordinator.onActivityResult(requestCode, resultCode)) {
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
     /**
      * Host-level helper that classifies whether an Intent is a HOME-button return.
      *
