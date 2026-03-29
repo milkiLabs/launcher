@@ -21,8 +21,6 @@
 
 package com.milki.launcher.di
 
-import com.milki.launcher.data.widget.DefaultWidgetHostFacade
-import com.milki.launcher.data.widget.WidgetHostFacade
 import com.milki.launcher.data.widget.WidgetHostManager
 import org.koin.dsl.module
 
@@ -65,7 +63,4 @@ val widgetModule = module {
         WidgetHostManager(get())
     }
 
-    single<WidgetHostFacade> {
-        DefaultWidgetHostFacade(widgetHostManager = get())
-    }
 }

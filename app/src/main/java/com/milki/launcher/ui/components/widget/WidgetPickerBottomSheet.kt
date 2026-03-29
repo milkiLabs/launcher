@@ -49,7 +49,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -58,12 +57,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -73,7 +69,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.core.graphics.drawable.toBitmap
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.GridSpan
@@ -130,7 +125,6 @@ data class WidgetAppGroup(
  *                              The sheet should close immediately so the drag can continue
  *                              to the home grid underneath.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WidgetPickerBottomSheet(
     onDismiss: () -> Unit,
@@ -150,19 +144,17 @@ fun WidgetPickerBottomSheet(
         // Map each provider to a WidgetPickerEntry with resolved labels.
         val entries = allProviders.map { info ->
             val (minCols, minRows) = widgetHostManager.calculateMinSpan(info)
+            val widgetLabel = info.loadLabel(packageManager) ?: info.provider.shortClassName
+            val appLabel = try {
+                val appInfo = packageManager.getApplicationInfo(info.provider.packageName, 0)
+                packageManager.getApplicationLabel(appInfo).toString()
+            } catch (_: Exception) {
+                info.provider.packageName
+            }
             WidgetPickerEntry(
                 providerInfo = info,
-                label = info.loadLabel(packageManager) ?: info.provider.shortClassName,
-                appLabel = info.loadLabel(packageManager)?.let {
-                    // loadLabel returns the widget label, not the app label.
-                    // We need the app label from the PackageManager.
-                    try {
-                        val appInfo = packageManager.getApplicationInfo(info.provider.packageName, 0)
-                        packageManager.getApplicationLabel(appInfo).toString()
-                    } catch (_: Exception) {
-                        info.provider.packageName
-                    }
-                } ?: info.provider.packageName,
+                label = widgetLabel,
+                appLabel = appLabel,
                 appIcon = try {
                     packageManager.getApplicationIcon(info.provider.packageName)
                 } catch (_: Exception) {

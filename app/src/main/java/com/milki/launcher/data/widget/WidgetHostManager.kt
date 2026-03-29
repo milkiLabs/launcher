@@ -17,12 +17,9 @@
  * - Makes it easy to inject via Koin and test in isolation
  *
  * LIFECYCLE REQUIREMENTS:
- * AppWidgetHost.startListening() must be called when the launcher Activity is visible,
- * and stopListening() when it's not. This tells Android to start/stop sending widget
- * update broadcasts to this host. Without this, widgets won't update their content.
- *
- * The caller (MainActivity) is responsible for calling startListening() in onStart()
- * and stopListening() in onStop().
+ * The launcher must start listening while its main surface is visible/resumed and
+ * stop listening when it is not. This tells Android when to deliver widget updates.
+ * Without this, widgets can appear blank or stale.
  *
  * WIDGET ID ALLOCATION:
  * Each widget on the home screen gets a unique integer ID from the system. These IDs
@@ -44,10 +41,10 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
 import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL
 import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE
-import android.content.pm.PackageManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -109,6 +106,10 @@ class WidgetHostManager(
      * go through this property instead.
      */
     private val packageManager: PackageManager = context.packageManager
+    private var activityStarted = false
+    private var activityResumed = false
+    private var stateIsNormal = false
+    private var isListening = false
 
     /**
      * Resolves the user-facing label for a widget provider.
@@ -120,17 +121,22 @@ class WidgetHostManager(
         return providerInfo.loadLabel(packageManager) ?: providerInfo.provider.shortClassName
     }
 
-    /**
-     * Starts listening for widget updates from the system.
-     *
-     * MUST be called when the launcher Activity becomes visible (in onStart()).
-     * After this call, the system will send widget update broadcasts to this host,
-     * and any AppWidgetHostView created by this host will start receiving content
-     * updates from their respective widget providers.
-     *
-     * If this is not called, widgets will appear blank or show stale content.
-     */
-    fun startListening() {
+    fun setActivityStarted(started: Boolean) {
+        activityStarted = started
+        syncListeningState()
+    }
+
+    fun setActivityResumed(resumed: Boolean) {
+        activityResumed = resumed
+        syncListeningState()
+    }
+
+    fun setStateIsNormal(isNormal: Boolean) {
+        stateIsNormal = isNormal
+        syncListeningState()
+    }
+
+    private fun startListening() {
         try {
             appWidgetHost.startListening()
         } catch (e: Exception) {
@@ -140,18 +146,28 @@ class WidgetHostManager(
         }
     }
 
-    /**
-     * Stops listening for widget updates from the system.
-     *
-     * MUST be called when the launcher Activity is no longer visible (in onStop()).
-     * This tells the system to stop sending widget update broadcasts, which saves
-     * battery and CPU when the launcher is in the background.
-     */
-    fun stopListening() {
+    private fun stopListening() {
         try {
             appWidgetHost.stopListening()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop widget host listening", e)
+        }
+    }
+
+    private fun syncListeningState() {
+        val shouldListen = activityStarted && activityResumed && stateIsNormal
+        if (shouldListen == isListening) return
+
+        runCatching {
+            if (shouldListen) {
+                startListening()
+            } else {
+                stopListening()
+            }
+        }.onSuccess {
+            isListening = shouldListen
+        }.onFailure { throwable ->
+            Log.e(TAG, "Failed to sync listening state shouldListen=$shouldListen", throwable)
         }
     }
 
@@ -187,40 +203,6 @@ class WidgetHostManager(
         }
     }
 
-    /**
-     * Attempts to bind a widget ID to a specific widget provider.
-     *
-     * "Binding" means associating the allocated widget ID with the app's widget
-     * provider class. After binding, the system knows which app should provide
-     * content for this widget.
-     *
-     * PERMISSION FLOW:
-     * On first bind for a given provider, this may return false because the user
-     * hasn't granted the BIND_APPWIDGET permission yet. When this happens, the
-     * caller should launch the system's bind permission dialog using
-     * Intent(AppWidgetManager.ACTION_APPWIDGET_BIND) with the widget ID and provider.
-     *
-     * @param widgetId The allocated widget ID to bind.
-     * @param provider The ComponentName of the widget provider (package + class).
-     * @return true if binding succeeded immediately (permission already granted);
-     *         false if the user needs to grant permission first.
-     */
-    fun bindWidget(widgetId: Int, provider: ComponentName): Boolean {
-        return try {
-            appWidgetManager.bindAppWidgetIdIfAllowed(widgetId, provider)
-        } catch (e: Exception) {
-            // Certain provider/profile combinations can throw here instead of
-            // returning false. Treat as "not bound" so caller can continue via
-            // bind-permission flow or graceful cancel path.
-            Log.e(TAG, "Failed to bind widgetId=$widgetId provider=$provider", e)
-            false
-        }
-    }
-
-    /**
-     * Convenience overload that takes an [AppWidgetProviderInfo] instead of a
-     * raw [ComponentName].  Extracts the provider component automatically.
-     */
     fun bindWidget(
         appWidgetId: Int,
         providerInfo: AppWidgetProviderInfo,
@@ -280,26 +262,9 @@ class WidgetHostManager(
         }
     }
 
-    /**
-     * Creates an Intent for the widget's configure Activity, if one exists.
-     *
-     * Some widgets require initial user configuration (e.g., pick a city for weather,
-     * select a clock style). The configure Activity is declared in the widget's
-     * AppWidgetProviderInfo metadata.
-     *
-     * @param appWidgetId The widget ID that the configure Activity should set up.
-     * @return An Intent to launch the configure Activity, or null if the widget
-     *         has no configure Activity.
-     */
-    fun createConfigureIntent(appWidgetId: Int): Intent? {
-        val providerInfo = getProviderInfo(appWidgetId) ?: return null
-        if (!needsInitialConfigure(providerInfo)) return null
-        val configureActivity = providerInfo.configure ?: return null
-
-        return Intent().apply {
-            component = configureActivity
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-        }
+    fun needsConfigure(appWidgetId: Int): Boolean {
+        val providerInfo = getProviderInfo(appWidgetId) ?: return false
+        return needsInitialConfigure(providerInfo)
     }
 
     /**
@@ -494,7 +459,7 @@ class WidgetHostManager(
     }
 
     private fun needsInitialConfigure(providerInfo: AppWidgetProviderInfo): Boolean {
-        val configureActivity = providerInfo.configure ?: return false
+        if (providerInfo.configure == null) return false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
             return true
         }

@@ -27,7 +27,6 @@ import android.app.Activity
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import android.content.Intent
-import android.os.Bundle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.data.widget.WidgetHostManager
@@ -664,25 +663,14 @@ class HomeViewModel(
      * complete the flow.
      */
     private data class PendingWidget(
-        val sessionId: String,
         val appWidgetId: Int,
         val providerComponent: ComponentName,
         val providerLabel: String,
         val targetPosition: GridPosition,
-        val span: GridSpan,
-        val bindOptions: Bundle
+        val span: GridSpan
     )
 
-    /**
-     * Active widget placement sessions by sessionId.
-     */
-    private val pendingWidgets = linkedMapOf<String, PendingWidget>()
-
-    /**
-     * Most recently started placement session used as a safe fallback when
-     * legacy call paths do not provide explicit session IDs.
-     */
-    private var activeWidgetSessionId: String? = null
+    private val pendingWidgets = linkedMapOf<Int, PendingWidget>()
 
     /**
      * Result command returned by widget placement state-machine functions.
@@ -691,17 +679,16 @@ class HomeViewModel(
      * ActivityResult contract. `NoOp` means no further UI-side action is needed.
      */
     sealed interface WidgetPlacementCommand {
-        data class LaunchBindPermission(val sessionId: String, val intent: Intent) : WidgetPlacementCommand
-        data class LaunchConfigure(val sessionId: String, val appWidgetId: Int) : WidgetPlacementCommand
+        data class LaunchBindPermission(val appWidgetId: Int, val intent: Intent) : WidgetPlacementCommand
+        data class LaunchConfigure(val appWidgetId: Int) : WidgetPlacementCommand
         data object NoOp : WidgetPlacementCommand
     }
 
     /**
      * Starts bind → configure → place for a newly dropped widget.
      *
-     * This method intentionally returns a command instead of taking callback
-     * lambdas. That keeps widget flow logic self-contained and makes MainActivity
-     * a thin dispatcher.
+     * This method returns a command instead of taking callbacks so the Activity
+     * stays a thin dispatcher for bind/configure UI work.
      */
     fun startWidgetPlacement(
         providerInfo: AppWidgetProviderInfo,
@@ -710,19 +697,15 @@ class HomeViewModel(
         widgetHostManager: WidgetHostManager
     ): WidgetPlacementCommand {
         val appWidgetId = widgetHostManager.allocateWidgetId()
-        val sessionId = "widget-session:$appWidgetId:${System.currentTimeMillis()}"
         val bindOptions = widgetHostManager.createBindOptions(span)
         val pending = PendingWidget(
-            sessionId = sessionId,
             appWidgetId = appWidgetId,
             providerComponent = providerInfo.provider,
             providerLabel = widgetHostManager.loadProviderLabel(providerInfo),
             targetPosition = targetPosition,
-            span = span,
-            bindOptions = bindOptions
+            span = span
         )
-        pendingWidgets[sessionId] = pending
-        activeWidgetSessionId = sessionId
+        pendingWidgets[appWidgetId] = pending
 
         val boundImmediately = widgetHostManager.bindWidget(
             appWidgetId = appWidgetId,
@@ -731,10 +714,10 @@ class HomeViewModel(
         )
 
         return if (boundImmediately) {
-            resolvePostBindCommand(sessionId, widgetHostManager)
+            resolvePostBindCommand(appWidgetId, widgetHostManager)
         } else {
             WidgetPlacementCommand.LaunchBindPermission(
-                sessionId = sessionId,
+                appWidgetId = appWidgetId,
                 widgetHostManager.createBindPermissionIntent(
                     appWidgetId = appWidgetId,
                     providerInfo = providerInfo,
@@ -753,14 +736,13 @@ class HomeViewModel(
     fun handleWidgetBindResult(
         resultCode: Int,
         widgetHostManager: WidgetHostManager,
-        sessionId: String? = null
+        appWidgetId: Int
     ): WidgetPlacementCommand {
-        val resolvedSessionId = sessionId ?: activeWidgetSessionId ?: return WidgetPlacementCommand.NoOp
-        val pending = pendingWidgets[resolvedSessionId] ?: return WidgetPlacementCommand.NoOp
+        val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
         if (resultCode == Activity.RESULT_OK) {
-            return resolvePostBindCommand(resolvedSessionId, widgetHostManager)
+            return resolvePostBindCommand(appWidgetId, widgetHostManager)
         } else {
-            cancelPendingWidgetSession(resolvedSessionId, widgetHostManager, pending)
+            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
             return WidgetPlacementCommand.NoOp
         }
     }
@@ -774,30 +756,26 @@ class HomeViewModel(
     fun handleWidgetConfigureResult(
         resultCode: Int,
         widgetHostManager: WidgetHostManager,
-        sessionId: String? = null
+        appWidgetId: Int
     ): WidgetPlacementCommand {
-        val resolvedSessionId = sessionId ?: activeWidgetSessionId ?: return WidgetPlacementCommand.NoOp
-        val pending = pendingWidgets[resolvedSessionId] ?: return WidgetPlacementCommand.NoOp
+        val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
 
         return if (resultCode == Activity.RESULT_OK) {
-            persistWidget(resolvedSessionId, pending, widgetHostManager)
+            persistWidget(appWidgetId, pending, widgetHostManager)
             WidgetPlacementCommand.NoOp
         } else {
-            cancelPendingWidgetSession(resolvedSessionId, widgetHostManager, pending)
+            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
             WidgetPlacementCommand.NoOp
         }
     }
 
-    private fun cancelPendingWidgetSession(
-        sessionId: String,
+    private fun cancelPendingWidget(
+        appWidgetId: Int,
         widgetHostManager: WidgetHostManager,
         pending: PendingWidget
     ) {
         widgetHostManager.deallocateWidgetId(pending.appWidgetId)
-        pendingWidgets.remove(sessionId)
-        if (activeWidgetSessionId == sessionId) {
-            activeWidgetSessionId = pendingWidgets.keys.lastOrNull()
-        }
+        pendingWidgets.remove(appWidgetId)
     }
 
     /**
@@ -805,24 +783,20 @@ class HomeViewModel(
      * and either launch it or place the widget directly.
      */
     private fun resolvePostBindCommand(
-        sessionId: String,
+        appWidgetId: Int,
         widgetHostManager: WidgetHostManager
     ): WidgetPlacementCommand {
-        val pending = pendingWidgets[sessionId] ?: return WidgetPlacementCommand.NoOp
+        val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
         val boundProviderInfo = widgetHostManager.getProviderInfo(pending.appWidgetId)
         if (boundProviderInfo == null) {
-            cancelPendingWidgetSession(sessionId, widgetHostManager, pending)
+            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
             return WidgetPlacementCommand.NoOp
         }
 
-        val configureIntent = widgetHostManager.createConfigureIntent(pending.appWidgetId)
-        return if (configureIntent != null) {
-            WidgetPlacementCommand.LaunchConfigure(
-                sessionId = sessionId,
-                appWidgetId = pending.appWidgetId
-            )
+        return if (widgetHostManager.needsConfigure(pending.appWidgetId)) {
+            WidgetPlacementCommand.LaunchConfigure(appWidgetId = pending.appWidgetId)
         } else {
-            persistWidget(sessionId, pending, widgetHostManager)
+            persistWidget(appWidgetId, pending, widgetHostManager)
             WidgetPlacementCommand.NoOp
         }
     }
@@ -834,7 +808,7 @@ class HomeViewModel(
      * through the serialized mutation path.
      */
     private fun persistWidget(
-        sessionId: String,
+        appWidgetId: Int,
         pending: PendingWidget,
         widgetHostManager: WidgetHostManager
     ) {
@@ -847,10 +821,7 @@ class HomeViewModel(
             span = pending.span
         )
 
-        pendingWidgets.remove(sessionId)
-        if (activeWidgetSessionId == sessionId) {
-            activeWidgetSessionId = pendingWidgets.keys.lastOrNull()
-        }
+        pendingWidgets.remove(appWidgetId)
 
         launchSerializedHomeMutation(
             fallbackErrorMessage = "Could not place widget"

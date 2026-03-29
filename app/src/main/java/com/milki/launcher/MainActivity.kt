@@ -21,7 +21,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.data.widget.WidgetHostManager
-import com.milki.launcher.data.widget.WidgetHostFacade
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.ContactsRepository
@@ -29,7 +28,6 @@ import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
-import com.milki.launcher.presentation.main.ActivityWidgetPlacementCoordinator
 import com.milki.launcher.presentation.main.HomeButtonPolicy
 import com.milki.launcher.presentation.main.HomeIntentCoordinator
 import com.milki.launcher.presentation.main.HomeIntentCoordinatorContract
@@ -102,8 +100,6 @@ class MainActivity : ComponentActivity() {
      * Provided as a singleton by Koin DI.
      */
     private val widgetHostManager: WidgetHostManager by inject()
-
-    private val widgetHostFacade: WidgetHostFacade by inject()
 
     // ========================================================================
     // HANDLERS
@@ -434,10 +430,10 @@ class MainActivity : ComponentActivity() {
             }
         )
 
-        widgetPlacementCoordinator = ActivityWidgetPlacementCoordinator(
+        widgetPlacementCoordinator = WidgetPlacementCoordinator(
             activity = this,
             homeViewModel = homeViewModel,
-            widgetHostManagerProvider = { widgetHostManager }
+            widgetHostManager = widgetHostManager
         )
     }
 
@@ -447,15 +443,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        widgetHostFacade.setActivityResumed(true)
-        widgetHostFacade.setStateIsNormal(true)
+        widgetHostManager.setActivityResumed(true)
+        widgetHostManager.setStateIsNormal(true)
         permissionHandler.updateStates()
         homeIntentCoordinator.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        widgetHostFacade.setActivityResumed(false)
+        widgetHostManager.setActivityResumed(false)
     }
 
     /**
@@ -468,12 +464,12 @@ class MainActivity : ComponentActivity() {
      */
     override fun onStart() {
         super.onStart()
-        widgetHostFacade.setActivityStarted(true)
+        widgetHostManager.setActivityStarted(true)
     }
 
     override fun onStop() {
         super.onStop()
-        widgetHostFacade.setActivityStarted(false)
+        widgetHostManager.setActivityStarted(false)
         homeIntentCoordinator.onStop()
         surfaceStateCoordinator.onStop()
     }
