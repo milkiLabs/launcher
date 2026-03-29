@@ -184,16 +184,11 @@ fun WidgetPickerBottomSheet(
             .sortedBy { it.appLabel.lowercase() }
     }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        sheetMaxWidth = Dp.Unspecified,
-        dragHandle = null,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
+    // Sheet content: title bar + scrollable list of widget groups.
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        // Sheet content: title bar + scrollable list of widget groups.
         Column(
             modifier = Modifier
                 .fillMaxSize()

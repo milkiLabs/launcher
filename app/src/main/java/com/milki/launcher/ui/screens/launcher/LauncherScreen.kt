@@ -23,6 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -30,10 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
@@ -46,6 +45,8 @@ import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.components.folder.FolderPopupDialog
 import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
+import com.milki.launcher.ui.components.LauncherSheet
+import com.milki.launcher.ui.components.rememberLauncherSheetState
 import com.milki.launcher.ui.theme.Spacing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -71,9 +72,28 @@ fun LauncherScreen(
     widgetHostManager: WidgetHostManager? = null,
 ) {
     val density = LocalDensity.current
-    val drawerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val drawerSheetScope = rememberCoroutineScope()
+    val appDrawerSheetState = rememberLauncherSheetState()
+    val widgetPickerSheetState = rememberLauncherSheetState()
+    val scope = rememberCoroutineScope()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
+
+    // Sync from ViewModel state to Drawer sheet state
+    LaunchedEffect(isAppDrawerOpen) {
+        if (isAppDrawerOpen) {
+            appDrawerSheetState.animateToExpanded()
+        } else {
+            appDrawerSheetState.animateToHidden()
+        }
+    }
+
+    // Sync from ViewModel state to Widget Picker sheet state
+    LaunchedEffect(isWidgetPickerOpen) {
+        if (isWidgetPickerOpen) {
+            widgetPickerSheetState.animateToExpanded()
+        } else {
+            widgetPickerSheetState.animateToHidden()
+        }
+    }
 
     LaunchedEffect(searchUiState.isSearchVisible) {
         if (searchUiState.isSearchVisible) {
@@ -96,59 +116,7 @@ fun LauncherScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Transparent)
-            .pointerInput(
-                searchUiState.isSearchVisible,
-                homeUiState.openFolderItem?.id,
-                isHomescreenMenuOpen,
-                isAppDrawerOpen,
-                swipeOpenThresholdPx
-            ) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val down = awaitPointerEvent(PointerEventPass.Main)
-                            .changes
-                            .firstOrNull() ?: continue
-
-                        if (
-                            searchUiState.isSearchVisible ||
-                            homeUiState.openFolderItem != null ||
-                            isHomescreenMenuOpen ||
-                            isAppDrawerOpen
-                        ) {
-                            continue
-                        }
-
-                        val activePointerId = down.id
-                        var totalDragY = 0f
-                        var totalDragX = 0f
-                        var hasTriggeredOpen = false
-
-                        while (!hasTriggeredOpen) {
-                            val event = awaitPointerEvent(PointerEventPass.Main)
-                            val change = event.changes.firstOrNull { it.id == activePointerId } ?: break
-
-                            if (change.changedToUpIgnoreConsumed()) {
-                                break
-                            }
-
-                            if (change.isConsumed) {
-                                break
-                            }
-
-                            val delta = change.positionChange()
-                            totalDragY += delta.y
-                            totalDragX += delta.x
-
-                            val isPredominantlyVertical = abs(totalDragY) > abs(totalDragX) * 1.2f
-                            if (isPredominantlyVertical && totalDragY < -swipeOpenThresholdPx) {
-                                hasTriggeredOpen = true
-                                actions.home.onHomeSwipeUp()
-                            }
-                        }
-                    }
-                }
-            },
+            .background(Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
         HomescreenMenuScrim(
@@ -156,15 +124,44 @@ fun LauncherScreen(
             onDismiss = { actions.menu.onHomescreenMenuOpenChange(false) }
         )
 
-        HomeSurface(
-            homeUiState = homeUiState,
-            actions = actions,
-            onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
-            widgetHostManager = widgetHostManager,
+        // Instead of overriding pointer input for the whole box with abrupt threshold,
+        // we map home gestures natively by piping nested scrolls if we wanted,
+        // but it is simpler to just let the drawer box catch drags or add a background draggable.
+        // For a full-screen launcher drawer feel, we wrap HomeSurface such that dragging empty space
+        // is captured by LauncherSheet's native NestedScroll tracking. Actually, HomeSurface 
+        // doesn't scroll vertically natively except DraggablePinnedItemsGrid which is fixed size.
+        // We'll catch unhandled drags in HomeSurface via an overlay or let LauncherSheet handle it directly
+        // by making the drawer fill the box and catch drags anywhere that the list underneath doesn't consume.
+        
+        // Wrap HomeSurface and overlay it with a draggable anchor that feeds the drawer
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .align(Alignment.Center)
-        )
+                .draggable(
+                    state = rememberDraggableState { delta ->
+                        if (!isWidgetPickerOpen && !searchUiState.isSearchVisible && homeUiState.openFolderItem == null) {
+                            appDrawerSheetState.onDragDelta(delta)
+                        }
+                    },
+                    orientation = Orientation.Vertical,
+                    onDragStopped = { velocity: Float -> 
+                        scope.launch {
+                            val settledExpanded = appDrawerSheetState.onDragStopped(velocity)
+                            actions.drawer.onAppDrawerOpenChange(settledExpanded)
+                        }
+                    }
+                )
+        ) {
+            HomeSurface(
+                homeUiState = homeUiState,
+                actions = actions,
+                onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
+                widgetHostManager = widgetHostManager,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .align(Alignment.Center)
+            )
+        }
 
         HomescreenMenu(
             expanded = isHomescreenMenuOpen,
@@ -186,15 +183,13 @@ fun LauncherScreen(
         )
 
         DrawerHost(
-            isAppDrawerOpen = isAppDrawerOpen,
+            appDrawerSheetState = appDrawerSheetState,
             appDrawerUiState = appDrawerUiState,
-            drawerSheetState = drawerSheetState,
-            drawerSheetScope = drawerSheetScope,
             actions = actions
         )
 
         WidgetPickerHost(
-            isWidgetPickerOpen = isWidgetPickerOpen,
+            widgetPickerSheetState = widgetPickerSheetState,
             widgetHostManager = widgetHostManager,
             actions = actions
         )
@@ -337,37 +332,31 @@ private fun FolderOverlayHost(
 /**
  * Hosts app drawer bottom sheet and keeps drawer-specific UI isolated.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DrawerHost(
-    isAppDrawerOpen: Boolean,
+    appDrawerSheetState: com.milki.launcher.ui.components.LauncherSheetState,
     appDrawerUiState: AppDrawerUiState,
-    drawerSheetState: androidx.compose.material3.SheetState,
-    drawerSheetScope: CoroutineScope,
     actions: LauncherActions
 ) {
-    if (!isAppDrawerOpen) return
-
-    ModalBottomSheet(
-        onDismissRequest = {
-            actions.drawer.onAppDrawerOpenChange(false)
-        },
-        sheetState = drawerSheetState,
-        sheetMaxWidth = Dp.Unspecified,
-        shape = RectangleShape,
-        dragHandle = null,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
-    ) {
-        AppDrawerOverlay(
-            uiState = appDrawerUiState,
-            onDismiss = {
-                drawerSheetScope.launch {
-                    drawerSheetState.hide()
-                    actions.drawer.onAppDrawerOpenChange(false)
-                }
-            },
+    val scope = rememberCoroutineScope()
+    
+    // Only intercept touches / capture focus when visible
+    if (appDrawerSheetState.expandedFraction > 0f || !appDrawerSheetState.isHidden) {
+        LauncherSheet(
+            state = appDrawerSheetState,
             modifier = Modifier.fillMaxSize()
-        )
+        ) {
+            AppDrawerOverlay(
+                uiState = appDrawerUiState,
+                onDismiss = {
+                    scope.launch {
+                        appDrawerSheetState.animateToHidden()
+                        actions.drawer.onAppDrawerOpenChange(false)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }
 
@@ -376,19 +365,33 @@ private fun DrawerHost(
  */
 @Composable
 private fun WidgetPickerHost(
-    isWidgetPickerOpen: Boolean,
+    widgetPickerSheetState: com.milki.launcher.ui.components.LauncherSheetState,
     widgetHostManager: WidgetHostManager?,
     actions: LauncherActions
 ) {
-    if (!isWidgetPickerOpen || widgetHostManager == null) return
+    if (widgetHostManager == null) return
+    val scope = rememberCoroutineScope()
 
-    WidgetPickerBottomSheet(
-        onDismiss = { actions.widget.onWidgetPickerOpenChange(false) },
-        widgetHostManager = widgetHostManager,
-        onExternalDragStarted = {
-            actions.widget.onWidgetPickerOpenChange(false)
+    if (widgetPickerSheetState.expandedFraction > 0f || !widgetPickerSheetState.isHidden) {
+        LauncherSheet(
+            state = widgetPickerSheetState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            WidgetPickerBottomSheet(
+                onDismiss = {
+                    scope.launch {
+                        widgetPickerSheetState.animateToHidden()
+                        actions.widget.onWidgetPickerOpenChange(false)
+                    }
+                },
+                widgetHostManager = widgetHostManager,
+                onExternalDragStarted = {
+                    scope.launch { widgetPickerSheetState.snapToHidden() }
+                    actions.widget.onWidgetPickerOpenChange(false)
+                }
+            )
         }
-    )
+    }
 }
 
 @Composable
