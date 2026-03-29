@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.milki.launcher.data.widget.WidgetHostManager
 import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * Touch-aware wrapper for hosted widget views that provides reliable long-press
@@ -77,6 +78,9 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
 
     /** Callback invoked when an active widget drag is cancelled. */
     var onWidgetDragCancel: (() -> Unit)? = null
+
+    /** Additional drag threshold so widget drags match icon drag behavior. */
+    var dragStartThresholdPx: Float = 0f
 
     /** Platform long-press timeout used to match Android gesture expectations. */
     private val longPressTimeoutMs: Long = ViewConfiguration.getLongPressTimeout().toLong()
@@ -175,8 +179,10 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
                     if (!isDragActive) {
                         accumulatedDragX += deltaX
                         accumulatedDragY += deltaY
+                        val dragThresholdPx = max(touchSlopPx.toFloat(), dragStartThresholdPx)
                         val crossedDragThreshold =
-                            abs(accumulatedDragX) > touchSlopPx || abs(accumulatedDragY) > touchSlopPx
+                            abs(accumulatedDragX) > dragThresholdPx ||
+                                abs(accumulatedDragY) > dragThresholdPx
                         if (crossedDragThreshold) {
                             isDragActive = true
                             onWidgetDragStart?.invoke()
@@ -262,6 +268,7 @@ fun HomeScreenWidgetView(
     widgetHostManager: WidgetHostManager,
     widthPx: Int,
     heightPx: Int,
+    dragStartThresholdPx: Float = 0f,
     onWidgetLongPress: () -> Unit = {},
     onWidgetLongPressRelease: () -> Unit = {},
     onWidgetDragStart: () -> Unit = {},
@@ -342,6 +349,7 @@ fun HomeScreenWidgetView(
             frameLayout.onWidgetDragCancel = {
                 currentOnWidgetDragCancel.value.invoke()
             }
+            frameLayout.dragStartThresholdPx = dragStartThresholdPx
         },
         modifier = modifier
     )

@@ -4,10 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
@@ -15,28 +13,22 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
@@ -50,9 +42,7 @@ import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.LauncherSheet
 import com.milki.launcher.ui.components.rememberLauncherSheetState
 import com.milki.launcher.ui.theme.Spacing
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 /**
  * Main launcher surface.
@@ -73,10 +63,8 @@ fun LauncherScreen(
     isWidgetPickerOpen: Boolean = false,
     widgetHostManager: WidgetHostManager? = null,
 ) {
-    val density = LocalDensity.current
     val appDrawerSheetState = rememberLauncherSheetState()
     val widgetPickerSheetState = rememberLauncherSheetState()
-    val scope = rememberCoroutineScope()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
     val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
 
@@ -114,8 +102,6 @@ fun LauncherScreen(
         }
     }
 
-    val swipeOpenThresholdPx = with(density) { Spacing.mediumLarge.toPx() }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -127,47 +113,24 @@ fun LauncherScreen(
             onDismiss = { actions.menu.onHomescreenMenuOpenChange(false) }
         )
 
-        // Instead of overriding pointer input for the whole box with abrupt threshold,
-        // we map home gestures natively by piping nested scrolls if we wanted,
-        // but it is simpler to just let the drawer box catch drags or add a background draggable.
-        // For a full-screen launcher drawer feel, we wrap HomeSurface such that dragging empty space
-        // is captured by LauncherSheet's native NestedScroll tracking. Actually, HomeSurface 
-        // doesn't scroll vertically natively except DraggablePinnedItemsGrid which is fixed size.
-        // We'll catch unhandled drags in HomeSurface via an overlay or let LauncherSheet handle it directly
-        // by making the drawer fill the box and catch drags anywhere that the list underneath doesn't consume.
-        
-        // Wrap HomeSurface and overlay it with a draggable anchor that feeds the drawer
-        Box(
+        HomeSurface(
+            homeUiState = homeUiState,
+            actions = actions,
+            canOpenDrawerFromSwipe =
+                !isHomescreenMenuOpen &&
+                    !isAppDrawerOpen &&
+                    !isWidgetPickerOpen &&
+                    !searchUiState.isSearchVisible &&
+                    homeUiState.openFolderItem == null,
+            onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
+            onItemBoundsMeasured = { itemId, boundsInWindow ->
+                homeItemBoundsById[itemId] = boundsInWindow
+            },
+            widgetHostManager = widgetHostManager,
             modifier = Modifier
                 .fillMaxSize()
-                .draggable(
-                    state = rememberDraggableState { delta ->
-                        if (!isWidgetPickerOpen && !searchUiState.isSearchVisible && homeUiState.openFolderItem == null) {
-                            appDrawerSheetState.onDragDelta(delta)
-                        }
-                    },
-                    orientation = Orientation.Vertical,
-                    onDragStopped = { velocity: Float -> 
-                        scope.launch {
-                            val settledExpanded = appDrawerSheetState.onDragStopped(velocity)
-                            actions.drawer.onAppDrawerOpenChange(settledExpanded)
-                        }
-                    }
-                )
-        ) {
-            HomeSurface(
-                homeUiState = homeUiState,
-                actions = actions,
-                onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
-                onItemBoundsMeasured = { itemId, boundsInWindow ->
-                    homeItemBoundsById[itemId] = boundsInWindow
-                },
-                widgetHostManager = widgetHostManager,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .align(Alignment.Center)
-            )
-        }
+                .align(Alignment.Center)
+        )
 
         HomescreenMenu(
             expanded = isHomescreenMenuOpen,
@@ -279,6 +242,7 @@ private fun HomescreenMenu(
 private fun HomeSurface(
     homeUiState: HomeUiState,
     actions: LauncherActions,
+    canOpenDrawerFromSwipe: Boolean,
     onMenuAnchorChanged: (Offset) -> Unit,
     onItemBoundsMeasured: (String, Rect) -> Unit,
     widgetHostManager: WidgetHostManager?,
@@ -307,6 +271,8 @@ private fun HomeSurface(
         onRemoveWidget = actions.widget.onRemoveWidget,
         onResizeWidget = actions.widget.onResizeWidget,
         onWidgetDroppedToHome = actions.widget.onWidgetDroppedToHome,
+        onHomeSwipeUp = actions.home.onHomeSwipeUp,
+        canOpenDrawerFromSwipe = canOpenDrawerFromSwipe,
         onItemBoundsMeasured = onItemBoundsMeasured,
         modifier = modifier.padding(Spacing.mediumLarge)
     )

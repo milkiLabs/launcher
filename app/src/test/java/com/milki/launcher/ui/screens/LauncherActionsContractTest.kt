@@ -2,6 +2,10 @@ package com.milki.launcher.ui.screens
 
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.screens.launcher.FolderActions
+import com.milki.launcher.ui.screens.launcher.HomeActions
+import com.milki.launcher.ui.screens.launcher.LauncherActions
+import com.milki.launcher.ui.screens.launcher.SearchActions
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -63,9 +67,6 @@ class LauncherActionsContractTest {
         actions.widget.onResizeWidget("widget-1", sampleWidgetSpan())
 
         actions.drawer.onAppDrawerOpenChange(true)
-        actions.drawer.onDrawerSortModeSelected(
-            com.milki.launcher.presentation.drawer.AppDrawerSortMode.ALPHABETICAL_ASC
-        )
 
         actions.search.onQueryChange("calculator")
         actions.search.onDismissSearch()
