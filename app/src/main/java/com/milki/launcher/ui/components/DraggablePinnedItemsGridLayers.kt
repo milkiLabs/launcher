@@ -52,8 +52,8 @@ import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.Extern
 import com.milki.launcher.ui.components.grid.GridConfig
 import com.milki.launcher.ui.components.grid.animateDragVisuals
 import com.milki.launcher.ui.components.grid.detectDragGesture
+import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.components.grid.detectHomeBackgroundGestures
-import com.milki.launcher.ui.components.grid.HomeBackgroundGesturePolicy
 import com.milki.launcher.ui.components.widget.HomeScreenWidgetView
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -73,29 +73,21 @@ import kotlin.math.roundToInt
 internal fun InternalGridDragLayer(
     items: List<HomeItem>,
     config: GridConfig,
+    interactionController: HomeSurfaceInteractionController,
     dragController: AppDragDropController<HomeItem>,
     layoutMetrics: AppDragDropLayoutMetrics,
     cellWidthPx: Float,
     cellHeightPx: Float,
     maxVisibleRows: Int,
-    isExternalDragActive: Boolean,
     widgetHostManager: WidgetHostManager?,
-    menuShownForItemId: String?,
-    onMenuShownForItemIdChange: (String?) -> Unit,
-    isMenuGestureActive: Boolean,
-    onMenuGestureActiveChange: (Boolean) -> Unit,
-    onResizeModeRequested: (String?) -> Unit,
+    backgroundGestures: HomeBackgroundGestureBindings,
     onItemClick: (HomeItem) -> Unit,
     onItemLongPress: (HomeItem) -> Unit,
     onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    onEmptyAreaLongPress: (Offset) -> Unit,
     onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
     onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
     onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit,
     onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit,
-    onHomeSwipeUp: () -> Unit,
-    canOpenDrawerFromSwipe: Boolean,
-    isResizeModeActive: Boolean,
     hapticLongPress: () -> Unit,
     hapticDragActivate: () -> Unit,
     hapticConfirm: () -> Unit,
@@ -113,43 +105,30 @@ internal fun InternalGridDragLayer(
         )
     )
 
-    val backgroundGesturePolicy = HomeBackgroundGesturePolicy(
-        canStartBackgroundGesture =
-            !isExternalDragActive &&
-                dragController.session == null &&
-                !isResizeModeActive &&
-                menuShownForItemId == null,
-        canSwipeUp = canOpenDrawerFromSwipe
-    )
+    val backgroundGesturePolicy = interactionController.backgroundGesturePolicy(backgroundGestures)
 
     fun showItemMenu(item: HomeItem) {
-        if (dragController.session != null) return
+        if (!interactionController.showItemMenu(item.id)) return
         hapticLongPress()
-        onMenuShownForItemIdChange(item.id)
-        onMenuGestureActiveChange(true)
         onItemLongPress(item)
     }
 
     fun startItemDrag(item: HomeItem) {
-        if (dragController.session != null) return
+        if (!interactionController.startInternalDrag(item)) return
         hapticDragActivate()
-        onMenuShownForItemIdChange(null)
-        onMenuGestureActiveChange(false)
-        dragController.startDrag(
-            item = item,
-            itemId = item.id,
-            startPosition = item.position
-        )
     }
 
     fun updateItemDrag(item: HomeItem, change: PointerInputChange?, dragAmount: Offset) {
-        if (!dragController.isDraggingItem(item.id)) return
-        change?.consume()
-        dragController.updateDrag(dragAmount, layoutMetrics)
+        interactionController.updateInternalDrag(
+            itemId = item.id,
+            change = change,
+            dragAmount = dragAmount,
+            layoutMetrics = layoutMetrics
+        )
     }
 
     fun finishItemDrag(item: HomeItem) {
-        val result = dragController.endDrag(layoutMetrics)
+        val result = interactionController.finishInternalDrag(item, layoutMetrics) ?: return
         if (result is AppDragDropResult.Moved && result.itemId == item.id) {
             internalDropDispatcher.dispatch(
                 draggedItem = item,
@@ -160,24 +139,24 @@ internal fun InternalGridDragLayer(
     }
 
     fun cancelItemDrag() {
-        dragController.cancelDrag()
-        onMenuGestureActiveChange(false)
+        interactionController.cancelInternalDrag()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .detectHomeBackgroundGestures(
-                key = "background-${items.size}-${menuShownForItemId ?: "none"}-$isExternalDragActive-${dragController.session?.itemId ?: "idle"}-$isResizeModeActive-$canOpenDrawerFromSwipe",
+                key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.resizingWidgetId ?: "none"}-${backgroundGesturePolicy.canSwipeUp}-${backgroundGesturePolicy.canSwipeDown}",
                 items = items,
                 layoutMetrics = layoutMetrics,
                 policy = backgroundGesturePolicy,
-                onEmptyAreaLongPress = { longPressOffset ->
-                    hapticLongPress()
-                    onEmptyAreaLongPress(longPressOffset)
-                },
-                swipeUpThresholdPx = cellHeightPx,
-                onSwipeUp = onHomeSwipeUp
+                bindings = backgroundGestures.copy(
+                    onEmptyAreaLongPress = { longPressOffset ->
+                        hapticLongPress()
+                        backgroundGestures.onEmptyAreaLongPress(longPressOffset)
+                    }
+                ),
+                swipeUpThresholdPx = cellHeightPx
             )
     ) {
         if (items.isEmpty()) {
@@ -244,7 +223,7 @@ internal fun InternalGridDragLayer(
                             },
                             onLongPressRelease = {
                                 if (item is HomeItem.WidgetItem) return@detectDragGesture
-                                onMenuGestureActiveChange(false)
+                                interactionController.updateMenuGestureState(false)
                             },
                             onDragStart = {
                                 if (item is HomeItem.WidgetItem) return@detectDragGesture
@@ -275,7 +254,7 @@ internal fun InternalGridDragLayer(
                                 showItemMenu(item)
                             },
                             onWidgetLongPressRelease = {
-                                onMenuGestureActiveChange(false)
+                                interactionController.updateMenuGestureState(false)
                             },
                             onWidgetDragStart = {
                                 startItemDrag(item)
@@ -293,20 +272,17 @@ internal fun InternalGridDragLayer(
                         )
 
                         WidgetContextMenu(
-                            expanded = menuShownForItemId == item.id,
+                            expanded = interactionController.menuShownForItemId == item.id,
                             onDismiss = {
-                                onMenuShownForItemIdChange(null)
-                                onMenuGestureActiveChange(false)
+                                interactionController.dismissMenu()
                             },
-                            focusable = !isMenuGestureActive,
+                            focusable = !interactionController.isMenuGestureActive,
                             onResize = {
-                                onMenuShownForItemIdChange(null)
-                                onMenuGestureActiveChange(false)
-                                onResizeModeRequested(item.id)
+                                interactionController.dismissMenu()
+                                interactionController.requestResize(item.id)
                             },
                             onRemove = {
-                                onMenuShownForItemIdChange(null)
-                                onMenuGestureActiveChange(false)
+                                interactionController.dismissMenu()
                                 onRemoveWidget(item.id, item.appWidgetId)
                             },
                             hapticConfirm = hapticConfirm
@@ -317,12 +293,11 @@ internal fun InternalGridDragLayer(
                             onClick = {},
                             onLongClick = {},
                             handleLongPress = false,
-                            showMenu = menuShownForItemId == item.id,
+                            showMenu = interactionController.menuShownForItemId == item.id,
                             onMenuDismiss = {
-                                onMenuShownForItemIdChange(null)
-                                onMenuGestureActiveChange(false)
+                                interactionController.dismissMenu()
                             },
-                            menuFocusable = !isMenuGestureActive
+                            menuFocusable = !interactionController.isMenuGestureActive
                         )
                     }
                 }
@@ -390,9 +365,7 @@ internal fun DropHighlightLayer(
     maxVisibleRows: Int,
     dragTargetOccupant: HomeItem?,
     resolvedInternalPreviewPosition: GridPosition?,
-    isExternalDragActive: Boolean,
-    externalDragTargetPosition: GridPosition?,
-    externalDragItem: ExternalDragDropItem?
+    externalDragState: HomeSurfaceExternalDragState
 ) {
     // ── Internal drag highlight + floating preview ────────────────────────
     dragController.session?.let { activeSession ->
@@ -478,9 +451,9 @@ internal fun DropHighlightLayer(
     }
 
     // ── External drag highlight ──────────────────────────────────────────
-    if (isExternalDragActive) {
-        externalDragTargetPosition?.let { targetPosition ->
-            val currentExternalItem = externalDragItem
+    if (externalDragState.isActive) {
+        externalDragState.targetPosition?.let { targetPosition ->
+            val currentExternalItem = externalDragState.item
             val rawDragSpan = (currentExternalItem as? ExternalDragItem.Widget)?.span ?: GridSpan.SINGLE
             val dragSpan = normalizeWidgetSpanForHomeGrid(rawSpan = rawDragSpan, gridColumns = config.columns)
 
@@ -641,14 +614,10 @@ private fun DropPreviewContent(
 internal fun ExternalDropRoutingLayer(
     items: List<HomeItem>,
     config: GridConfig,
+    interactionController: HomeSurfaceInteractionController,
     layoutMetrics: AppDragDropLayoutMetrics,
     maxVisibleRows: Int,
     widgetHostManager: WidgetHostManager?,
-    isExternalDragActive: Boolean,
-    externalDragTargetPosition: GridPosition?,
-    onExternalDragActiveChange: (Boolean) -> Unit,
-    onExternalTargetPositionChange: (GridPosition?) -> Unit,
-    onExternalDragItemChange: (ExternalDragDropItem?) -> Unit,
     onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit,
     onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
     onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
@@ -676,34 +645,40 @@ internal fun ExternalDropRoutingLayer(
 
     AppExternalDropTargetOverlay(
         onDragStarted = {
-            onExternalDragActiveChange(true)
-            onExternalTargetPositionChange(null)
-            onExternalDragItemChange(null)
+            interactionController.onExternalDragStarted()
         },
         onDragMoved = { localOffset, item ->
-            onExternalTargetPositionChange(layoutMetrics.pixelToCell(localOffset))
-            if (item != null) {
-                onExternalDragItemChange(item)
-            }
+            interactionController.onExternalDragMoved(
+                targetPosition = layoutMetrics.pixelToCell(localOffset),
+                item = item
+            )
         },
         onDragEnded = {
-            onExternalDragActiveChange(false)
-            onExternalTargetPositionChange(null)
-            onExternalDragItemChange(null)
+            interactionController.onExternalDragEnded()
         },
         onItemDropped = { item, localOffset ->
-            val dropPosition = if (isExternalDragActive && externalDragTargetPosition != null) {
-                externalDragTargetPosition
+            val externalDragState = interactionController.externalDragState
+            val dropPosition = if (
+                externalDragState.isActive &&
+                externalDragState.targetPosition != null
+            ) {
+                externalDragState.targetPosition
             } else {
                 layoutMetrics.pixelToCell(localOffset)
             }
 
-            onExternalTargetPositionChange(dropPosition)
-            onExternalDragItemChange(item)
+            val resolvedDropPosition = requireNotNull(dropPosition) {
+                "External drop routing requires a resolved grid position."
+            }
+
+            interactionController.onExternalDropCommitted(
+                targetPosition = resolvedDropPosition,
+                item = item
+            )
 
             dropDispatcher.dispatch(
                 item = item,
-                dropPosition = dropPosition,
+                dropPosition = resolvedDropPosition,
                 items = items
             )
         },

@@ -37,6 +37,7 @@ import com.milki.launcher.ui.components.AppDrawerOverlay
 import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.components.folder.FolderPopupDialog
+import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.LauncherSheet
 import com.milki.launcher.ui.components.rememberLauncherSheetState
@@ -237,10 +238,13 @@ private fun HomeSurface(
         onItemClick = actions.home.onPinnedItemClick,
         onItemLongPress = actions.home.onPinnedItemLongPress,
         onItemMove = actions.home.onPinnedItemMove,
-        onEmptyAreaLongPress = { touchOffset ->
-            onMenuAnchorChanged(touchOffset)
-            actions.menu.onHomescreenMenuOpenChange(true)
-        },
+        backgroundGestures = HomeBackgroundGestureBindings(
+            onEmptyAreaLongPress = { touchOffset ->
+                onMenuAnchorChanged(touchOffset)
+                actions.menu.onHomescreenMenuOpenChange(true)
+            },
+            onSwipeUp = if (canOpenDrawerFromSwipe) actions.home.onHomeSwipeUp else null
+        ),
         onItemDroppedToHome = { item, position ->
             actions.home.onItemDroppedToHome(item, position)
             actions.search.onDismissSearch()
@@ -255,8 +259,6 @@ private fun HomeSurface(
         onRemoveWidget = actions.widget.onRemoveWidget,
         onResizeWidget = actions.widget.onResizeWidget,
         onWidgetDroppedToHome = actions.widget.onWidgetDroppedToHome,
-        onHomeSwipeUp = actions.home.onHomeSwipeUp,
-        canOpenDrawerFromSwipe = canOpenDrawerFromSwipe,
         onItemBoundsMeasured = onItemBoundsMeasured,
         modifier = modifier.padding(Spacing.mediumLarge)
     )

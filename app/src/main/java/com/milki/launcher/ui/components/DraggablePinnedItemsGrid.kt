@@ -26,6 +26,7 @@ import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
 import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.components.dragdrop.rememberAppDragDropController
 import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
 import kotlin.math.roundToInt
 
 /**
@@ -47,7 +48,7 @@ fun DraggablePinnedItemsGrid(
     onItemClick: (HomeItem) -> Unit,
     onItemLongPress: (HomeItem) -> Unit,
     onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    onEmptyAreaLongPress: (Offset) -> Unit = {},
+    backgroundGestures: HomeBackgroundGestureBindings = HomeBackgroundGestureBindings(),
     onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit = { _, _ -> },
     onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit = { _, _, _ -> },
     onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
@@ -59,31 +60,13 @@ fun DraggablePinnedItemsGrid(
     onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
     onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit = { _, _ -> },
     onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit = { _, _, _ -> },
-    onHomeSwipeUp: () -> Unit = {},
-    canOpenDrawerFromSwipe: Boolean = true,
     onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val dragController = rememberAppDragDropController<HomeItem>(config)
+    val interactionController = rememberHomeSurfaceInteractionController(dragController)
     val reorderEngine = remember { GridReorderEngine() }
-
-    // Menu state is shared between icon and widget surfaces.
-    var menuShownForItemId by remember { mutableStateOf<String?>(null) }
-
-    // While the long-press finger is still down, keep popup non-focusable so
-    // gesture stream is not interrupted.
-    var isMenuGestureActive by remember { mutableStateOf(false) }
-
-    // If non-null, this widget id is currently shown with resize overlay.
-    var resizingWidgetId by remember { mutableStateOf<String?>(null) }
-
-    // External drag UI state lives here and is consumed by two layers:
-    // - DropHighlightLayer (visuals)
-    // - ExternalDropRoutingLayer (platform drag callbacks + routing)
-    var externalDragTargetPosition by remember { mutableStateOf<GridPosition?>(null) }
-    var isExternalDragActive by remember { mutableStateOf(false) }
-    var externalDragItem by remember { mutableStateOf<ExternalDragDropItem?>(null) }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val cellWidthPx = with(LocalDensity.current) { maxWidth.toPx() / config.columns }
@@ -153,29 +136,21 @@ fun DraggablePinnedItemsGrid(
         InternalGridDragLayer(
             items = items,
             config = config,
+            interactionController = interactionController,
             dragController = dragController,
             layoutMetrics = layoutMetrics,
             cellWidthPx = cellWidthPx,
             cellHeightPx = cellHeightPx,
             maxVisibleRows = maxVisibleRows,
-            isExternalDragActive = isExternalDragActive,
             widgetHostManager = widgetHostManager,
-            menuShownForItemId = menuShownForItemId,
-            onMenuShownForItemIdChange = { menuShownForItemId = it },
-            isMenuGestureActive = isMenuGestureActive,
-            onMenuGestureActiveChange = { isMenuGestureActive = it },
-            onResizeModeRequested = { resizingWidgetId = it },
+            backgroundGestures = backgroundGestures,
             onItemClick = onItemClick,
             onItemLongPress = onItemLongPress,
             onItemMove = onItemMove,
-            onEmptyAreaLongPress = onEmptyAreaLongPress,
             onCreateFolder = onCreateFolder,
             onAddItemToFolder = onAddItemToFolder,
             onMergeFolders = onMergeFolders,
             onRemoveWidget = onRemoveWidget,
-            onHomeSwipeUp = onHomeSwipeUp,
-            canOpenDrawerFromSwipe = canOpenDrawerFromSwipe,
-            isResizeModeActive = resizingWidgetId != null,
             hapticLongPress = { hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress) },
             hapticDragActivate = { hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) },
             hapticConfirm = { hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm) },
@@ -184,8 +159,8 @@ fun DraggablePinnedItemsGrid(
 
         WidgetOverlayLayer(
             items = items,
-            resizingWidgetId = resizingWidgetId,
-            onResizeModeRequested = { resizingWidgetId = it },
+            resizingWidgetId = interactionController.resizingWidgetId,
+            onResizeModeRequested = interactionController::requestResize,
             cellWidthPx = cellWidthPx,
             cellHeightPx = cellHeightPx,
             gridColumns = config.columns,
@@ -202,22 +177,16 @@ fun DraggablePinnedItemsGrid(
             maxVisibleRows = maxVisibleRows,
             dragTargetOccupant = dragTargetOccupant,
             resolvedInternalPreviewPosition = resolvedInternalPreviewPosition,
-            isExternalDragActive = isExternalDragActive,
-            externalDragTargetPosition = externalDragTargetPosition,
-            externalDragItem = externalDragItem
+            externalDragState = interactionController.externalDragState
         )
 
         ExternalDropRoutingLayer(
             items = items,
             config = config,
+            interactionController = interactionController,
             layoutMetrics = layoutMetrics,
             maxVisibleRows = maxVisibleRows,
             widgetHostManager = widgetHostManager,
-            isExternalDragActive = isExternalDragActive,
-            externalDragTargetPosition = externalDragTargetPosition,
-            onExternalDragActiveChange = { isExternalDragActive = it },
-            onExternalTargetPositionChange = { externalDragTargetPosition = it },
-            onExternalDragItemChange = { externalDragItem = it },
             onItemDroppedToHome = onItemDroppedToHome,
             onCreateFolder = onCreateFolder,
             onAddItemToFolder = onAddItemToFolder,

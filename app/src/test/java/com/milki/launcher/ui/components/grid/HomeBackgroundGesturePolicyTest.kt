@@ -29,6 +29,17 @@ class HomeBackgroundGesturePolicyTest {
     }
 
     @Test
+    fun swipe_down_requires_clear_downward_and_vertical_motion() {
+        val swipe = Offset(x = 16f, y = 140f)
+        val tooDiagonal = Offset(x = 120f, y = 140f)
+        val tooShort = Offset(x = 0f, y = 48f)
+
+        assertTrue(swipe.isSwipeDownGesture(minimumDistancePx = 80f))
+        assertFalse(tooDiagonal.isSwipeDownGesture(minimumDistancePx = 80f))
+        assertFalse(tooShort.isSwipeDownGesture(minimumDistancePx = 80f))
+    }
+
+    @Test
     fun touch_slop_detection_rejects_resting_finger_noise() {
         val restingNoise = Offset(x = 4f, y = 6f)
         val realMotion = Offset(x = 0f, y = 18f)

@@ -15,6 +15,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 private enum class BackgroundGestureOutcome {
     Released,
     SwipeUp,
+    SwipeDown,
     Moved,
     Cancelled
 }
@@ -24,9 +25,8 @@ internal fun Modifier.detectHomeBackgroundGestures(
     items: List<HomeItem>,
     layoutMetrics: AppDragDropLayoutMetrics,
     policy: HomeBackgroundGesturePolicy,
-    onEmptyAreaLongPress: (Offset) -> Unit,
     swipeUpThresholdPx: Float,
-    onSwipeUp: () -> Unit
+    bindings: HomeBackgroundGestureBindings
 ): Modifier {
     return pointerInput(key, items, layoutMetrics, policy, swipeUpThresholdPx) {
         awaitEachGesture {
@@ -43,20 +43,26 @@ internal fun Modifier.detectHomeBackgroundGestures(
                 startPosition = down.position,
                 touchSlopPx = viewConfiguration.touchSlop,
                 swipeUpThresholdPx = swipeUpThresholdPx,
-                longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis.toLong(),
-                canSwipeUp = policy.canSwipeUp
+                longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
+                canSwipeUp = policy.canSwipeUp,
+                canSwipeDown = policy.canSwipeDown
             )
 
             when (outcome) {
                 null -> {
                     if (!startCellOccupied) {
-                        onEmptyAreaLongPress(down.position)
+                        bindings.onEmptyAreaLongPress(down.position)
                     }
                     awaitPointerUp(pointerId = down.id)
                 }
 
                 BackgroundGestureOutcome.SwipeUp -> {
-                    onSwipeUp()
+                    bindings.onSwipeUp?.invoke()
+                    consumeUntilPointerUp(pointerId = down.id)
+                }
+
+                BackgroundGestureOutcome.SwipeDown -> {
+                    bindings.onSwipeDown?.invoke()
                     consumeUntilPointerUp(pointerId = down.id)
                 }
 
@@ -74,7 +80,8 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
     touchSlopPx: Float,
     swipeUpThresholdPx: Float,
     longPressTimeoutMillis: Long,
-    canSwipeUp: Boolean
+    canSwipeUp: Boolean,
+    canSwipeDown: Boolean
 ): BackgroundGestureOutcome? {
     var exceededTouchSlop = false
     val slopOutcome = withTimeoutOrNull(longPressTimeoutMillis) {
@@ -90,6 +97,9 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
             val totalDrag = change.position - startPosition
             if (canSwipeUp && totalDrag.isSwipeUpGesture(minimumDistancePx = swipeUpThresholdPx)) {
                 return@withTimeoutOrNull BackgroundGestureOutcome.SwipeUp
+            }
+            if (canSwipeDown && totalDrag.isSwipeDownGesture(minimumDistancePx = swipeUpThresholdPx)) {
+                return@withTimeoutOrNull BackgroundGestureOutcome.SwipeDown
             }
 
             if (totalDrag.exceedsTouchSlop(touchSlopPx = touchSlopPx)) {
@@ -114,7 +124,8 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
     var totalDrag = change.position - startPosition
 
     val isMovingUp = canSwipeUp && totalDrag.isSwipeUpGesture(minimumDistancePx = 0f)
-    if (!isMovingUp) {
+    val isMovingDown = canSwipeDown && totalDrag.isSwipeDownGesture(minimumDistancePx = 0f)
+    if (!isMovingUp && !isMovingDown) {
         return BackgroundGestureOutcome.Moved
     }
 
@@ -129,12 +140,17 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
 
         totalDrag = change.position - startPosition
 
-        if (!totalDrag.isSwipeUpGesture(minimumDistancePx = 0f)) {
+        val stillMovingUp = canSwipeUp && totalDrag.isSwipeUpGesture(minimumDistancePx = 0f)
+        val stillMovingDown = canSwipeDown && totalDrag.isSwipeDownGesture(minimumDistancePx = 0f)
+        if (!stillMovingUp && !stillMovingDown) {
             return BackgroundGestureOutcome.Moved
         }
 
         if (totalDrag.isSwipeUpGesture(minimumDistancePx = swipeUpThresholdPx)) {
             return BackgroundGestureOutcome.SwipeUp
+        }
+        if (totalDrag.isSwipeDownGesture(minimumDistancePx = swipeUpThresholdPx)) {
+            return BackgroundGestureOutcome.SwipeDown
         }
     }
 }
