@@ -39,6 +39,10 @@ class ContactsSearchProvider(
     private val contactsRepository: ContactsRepository
 ) : SearchProvider {
 
+    private companion object {
+        const val MAX_RESULTS = 8
+    }
+
     override val config: SearchProviderConfig = SearchProviderConfig(
         providerId = ProviderId.CONTACTS,
         prefix = "c",
@@ -88,7 +92,10 @@ class ContactsSearchProvider(
 
         // Search contacts and map to results
         // If no contacts found, returns empty list (UI handles empty state)
-        val contacts = contactsRepository.searchContacts(query)
+        val contacts = contactsRepository.searchContacts(
+            query = query,
+            maxItems = MAX_RESULTS
+        )
         return contacts.map { contact ->
             ContactSearchResult(contact = contact)
         }

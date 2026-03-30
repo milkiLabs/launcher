@@ -106,9 +106,13 @@ class FilesRepositoryImpl(
      * @param query The search query (file name to search for)
      * @return List of matching FileDocument objects, sorted by date modified (newest first)
      */
-    override suspend fun searchFiles(query: String): List<FileDocument> {
+    override suspend fun searchFiles(query: String, maxItems: Int): List<FileDocument> {
         if (!hasFilesPermission()) {
             Log.w(TAG, "searchFiles called without permission")
+            return emptyList()
+        }
+
+        if (maxItems <= 0) {
             return emptyList()
         }
 
@@ -128,18 +132,20 @@ class FilesRepositoryImpl(
                     uri = MediaStore.Files.getContentUri("external"),
                     query = query,
                     files = files,
-                    addedFileIds = addedFileIds
+                    addedFileIds = addedFileIds,
+                    maxItems = maxItems
                 )
                 
                 // 2. Query MediaStore.Downloads (downloaded files)
                 // Available on Android 10 (API 29) and above
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && files.size < maxItems) {
                     currentCoroutineContext().ensureActive()
                     queryMediaStoreCollection(
                         uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI,
                         query = query,
                         files = files,
-                        addedFileIds = addedFileIds
+                        addedFileIds = addedFileIds,
+                        maxItems = maxItems
                     )
                 }
                 
@@ -176,10 +182,12 @@ class FilesRepositoryImpl(
         uri: Uri,
         query: String,
         files: MutableList<FileDocument>,
-        addedFileIds: MutableSet<Long>
+        addedFileIds: MutableSet<Long>,
+        maxItems: Int
     ) {
         try {
             currentCoroutineContext().ensureActive()
+            if (files.size >= maxItems) return
             // Build the WHERE clause: find files whose name contains the query
             // The LIKE operator with % wildcards does partial matching
             // %query% means "anything before, then query, then anything after"
@@ -221,6 +229,9 @@ class FilesRepositoryImpl(
                 while (it.moveToNext()) {
                     try {
                         currentCoroutineContext().ensureActive()
+                        if (files.size >= maxItems) {
+                            break
+                        }
 
                         // Extract the file ID
                         // MediaStore uses IDs to uniquely identify files

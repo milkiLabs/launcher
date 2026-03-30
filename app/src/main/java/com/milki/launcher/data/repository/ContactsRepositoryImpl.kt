@@ -57,7 +57,7 @@ class ContactsRepositoryImpl(
     /**
      * Searches contacts by display name with relevance sorting.
      */
-    override suspend fun searchContacts(query: String): List<Contact> {
+    override suspend fun searchContacts(query: String, maxItems: Int): List<Contact> {
         if (!hasContactsPermission()) {
             throw SecurityException("READ_CONTACTS permission not granted")
         }
@@ -69,7 +69,10 @@ class ContactsRepositoryImpl(
         val queryLower = query.trim().lowercase()
 
         return withContext(Dispatchers.IO) {
-            queryLayer.searchContacts(queryLower)
+            queryLayer.searchContacts(
+                queryLower = queryLower,
+                maxItems = maxItems
+            )
         }
     }
 

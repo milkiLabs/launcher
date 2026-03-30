@@ -32,10 +32,11 @@ interface ContactsRepository {
      * Search contacts by name, phone, or email.
      *
      * @param query The search string
+     * @param maxItems Maximum number of matching contacts to return
      * @return List of matching contacts
      * @throws SecurityException if permission is not granted
      */
-    suspend fun searchContacts(query: String): List<Contact>
+    suspend fun searchContacts(query: String, maxItems: Int = 8): List<Contact>
 
     /**
      * Save a phone number to recent contacts.

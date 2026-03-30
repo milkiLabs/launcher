@@ -20,8 +20,9 @@ internal class ContactsQueryLayer(
     /**
      * Executes contact search with one Data-table query and relevance sorting.
      */
-    fun searchContacts(queryLower: String): List<Contact> {
+    fun searchContacts(queryLower: String, maxItems: Int): List<Contact> {
         val aggregates = mutableMapOf<Long, ContactsMappingLayer.MutableContactAggregate>()
+        val rawRowLimit = maxOf(maxItems * 8, 80)
 
         val selection = """
             ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} LIKE ?
@@ -38,7 +39,7 @@ internal class ContactsQueryLayer(
         val sortOrder = """
             ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC,
             ${ContactsContract.Data.MIMETYPE} ASC
-            LIMIT 150
+            LIMIT $rawRowLimit
         """.trimIndent()
 
         contentResolver.query(
@@ -83,7 +84,11 @@ internal class ContactsQueryLayer(
         }
 
         val contacts = mapper.toContacts(aggregates.values)
-        return mapper.sortAndLimitByQueryRelevance(contacts, queryLower)
+        return mapper.sortAndLimitByQueryRelevance(
+            contacts = contacts,
+            queryLower = queryLower,
+            maxItems = maxItems
+        )
     }
 
     /**

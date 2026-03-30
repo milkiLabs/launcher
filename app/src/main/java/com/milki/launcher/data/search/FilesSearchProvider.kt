@@ -32,6 +32,10 @@ class FilesSearchProvider(
     private val filesRepository: FilesRepository
 ) : SearchProvider {
 
+    private companion object {
+        const val MAX_RESULTS = 8
+    }
+
     override val config: SearchProviderConfig = SearchProviderConfig(
         providerId = ProviderId.FILES,
         prefix = "f",
@@ -93,7 +97,10 @@ class FilesSearchProvider(
 
         // Search files and map to results
         // If no files found, returns empty list (UI handles empty state)
-        val files = filesRepository.searchFiles(query)
+        val files = filesRepository.searchFiles(
+            query = query,
+            maxItems = MAX_RESULTS
+        )
         return files.map { file ->
             FileDocumentSearchResult(file = file)
         }
