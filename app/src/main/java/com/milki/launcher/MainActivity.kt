@@ -330,8 +330,12 @@ class MainActivity : ComponentActivity() {
                                         widgetHostManager = widgetHostManager
                                     )
                                 },
-                                onResizeWidget = { widgetId, newSpan ->
-                                    homeViewModel.resizeWidget(widgetId, newSpan)
+                                onUpdateWidgetFrame = { widgetId, newPosition, newSpan ->
+                                    homeViewModel.updateWidgetFrame(
+                                        widgetId = widgetId,
+                                        newPosition = newPosition,
+                                        newSpan = newSpan
+                                    )
                                 },
                                 onWidgetDroppedToHome = { providerInfo, span, dropPosition ->
                                     // The user dragged a widget from the picker and dropped

@@ -101,6 +101,22 @@ class HomeSurfaceInteractionControllerTest {
         assertNull(controller.externalDragState.item)
     }
 
+    @Test
+    fun controller_blocks_menu_while_widget_transform_is_active() {
+        val controller = HomeSurfaceInteractionController(
+            dragController = AppDragDropController(GridConfig.Default)
+        )
+
+        controller.startWidgetTransform("widget:42")
+
+        assertFalse(controller.showItemMenu("app:1"))
+        assertTrue(controller.snapshot.isResizeModeActive)
+
+        controller.finishWidgetTransform()
+
+        assertTrue(controller.showItemMenu("app:1"))
+    }
+
     private fun samplePinnedApp(id: String): HomeItem.PinnedApp {
         return HomeItem.PinnedApp(
             id = id,

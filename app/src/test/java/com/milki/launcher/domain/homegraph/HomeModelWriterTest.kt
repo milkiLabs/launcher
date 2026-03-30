@@ -2,6 +2,7 @@ package com.milki.launcher.domain.homegraph
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -76,5 +77,57 @@ class HomeModelWriterTest {
         val applied = result as HomeModelWriter.Result.Applied
         val placed = applied.items.firstOrNull { it.id == child.id }
         assertEquals(GridPosition(2, 2), placed?.position)
+    }
+
+    @Test
+    fun update_widget_frame_applies_position_and_span_together() {
+        val widget = HomeItem.WidgetItem.create(
+            appWidgetId = 7,
+            providerPackage = "pkg.widget",
+            providerClass = "WidgetProvider",
+            label = "Widget",
+            position = GridPosition(0, 0),
+            span = GridSpan(columns = 2, rows = 2)
+        )
+
+        val result = writer.apply(
+            currentItems = listOf(widget),
+            command = HomeModelWriter.Command.UpdateWidgetFrame(
+                widgetId = widget.id,
+                newPosition = GridPosition(1, 1),
+                newSpan = GridSpan(columns = 3, rows = 1)
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val updated = (result as HomeModelWriter.Result.Applied).items.first() as HomeItem.WidgetItem
+        assertEquals(GridPosition(1, 1), updated.position)
+        assertEquals(GridSpan(columns = 3, rows = 1), updated.span)
+    }
+
+    @Test
+    fun update_widget_frame_rejects_when_new_frame_collides() {
+        val widget = HomeItem.WidgetItem.create(
+            appWidgetId = 8,
+            providerPackage = "pkg.widget",
+            providerClass = "WidgetProvider",
+            label = "Widget",
+            position = GridPosition(0, 0),
+            span = GridSpan(columns = 2, rows = 2)
+        )
+        val blocker = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("B", "pkg.b", "Main", null)
+        ).withPosition(GridPosition(1, 2))
+
+        val result = writer.apply(
+            currentItems = listOf(widget, blocker),
+            command = HomeModelWriter.Command.UpdateWidgetFrame(
+                widgetId = widget.id,
+                newPosition = GridPosition(0, 1),
+                newSpan = GridSpan(columns = 3, rows = 2)
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Rejected)
     }
 }

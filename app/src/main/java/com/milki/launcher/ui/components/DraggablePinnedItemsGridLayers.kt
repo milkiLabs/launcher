@@ -1,10 +1,12 @@
 package com.milki.launcher.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -21,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +43,9 @@ import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.widget.WidgetFrame
+import com.milki.launcher.domain.widget.WidgetTransformHandle
+import com.milki.launcher.domain.widget.applyWidgetTransformHandle
 import com.milki.launcher.ui.components.dragdrop.AppDragDropController
 import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.components.dragdrop.AppDragDropResult
@@ -143,7 +149,7 @@ internal fun InternalGridDragLayer(
         modifier = Modifier
             .fillMaxSize()
             .detectHomeBackgroundGestures(
-                key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.resizingWidgetId ?: "none"}-${backgroundGesturePolicy.canSwipeUp}-${backgroundGesturePolicy.canSwipeDown}",
+                key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.widgetTransformSession?.widgetId ?: "none"}-${backgroundGesturePolicy.canSwipeUp}-${backgroundGesturePolicy.canSwipeDown}",
                 items = items,
                 layoutMetrics = layoutMetrics,
                 policy = backgroundGesturePolicy,
@@ -274,9 +280,8 @@ internal fun InternalGridDragLayer(
                                 interactionController.dismissMenu()
                             },
                             focusable = !interactionController.isMenuGestureActive,
-                            onResize = {
-                                interactionController.dismissMenu()
-                                interactionController.requestResize(item.id)
+                            onEdit = {
+                                interactionController.startWidgetTransform(item.id)
                             },
                             onRemove = {
                                 interactionController.dismissMenu()
@@ -309,16 +314,18 @@ internal fun InternalGridDragLayer(
 @Composable
 internal fun WidgetOverlayLayer(
     items: List<HomeItem>,
-    resizingWidgetId: String?,
-    onResizeModeRequested: (String?) -> Unit,
+    widgetTransformSession: HomeWidgetTransformSession?,
+    onFinishTransform: () -> Unit,
+    onCancelTransform: () -> Unit,
     cellWidthPx: Float,
     cellHeightPx: Float,
     gridColumns: Int,
-    onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit
+    maxVisibleRows: Int,
+    onUpdateWidgetFrame: (widgetId: String, newPosition: GridPosition, newSpan: GridSpan) -> Unit
 ) {
-    resizingWidgetId?.let { widgetId ->
+    widgetTransformSession?.let { session ->
         val widgetItem = items.filterIsInstance<HomeItem.WidgetItem>()
-            .find { it.id == widgetId }
+            .find { it.id == session.widgetId }
 
         if (widgetItem != null) {
             WidgetResizeOverlay(
@@ -326,14 +333,16 @@ internal fun WidgetOverlayLayer(
                 cellWidthPx = cellWidthPx,
                 cellHeightPx = cellHeightPx,
                 gridColumns = gridColumns,
+                maxVisibleRows = maxVisibleRows,
                 items = items,
-                onConfirmResize = { newSpan ->
-                    onResizeModeRequested(null)
-                    onResizeWidget(widgetItem.id, newSpan)
-                }
+                onConfirmTransform = { frame ->
+                    onFinishTransform()
+                    onUpdateWidgetFrame(widgetItem.id, frame.position, frame.span)
+                },
+                onCancelTransform = onCancelTransform
             )
         } else {
-            onResizeModeRequested(null)
+            onCancelTransform()
         }
     }
 }
@@ -692,7 +701,7 @@ private fun WidgetContextMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     focusable: Boolean,
-    onResize: () -> Unit,
+    onEdit: () -> Unit,
     onRemove: () -> Unit
 ) {
     ItemActionMenu(
@@ -701,9 +710,9 @@ private fun WidgetContextMenu(
         focusable = focusable,
         actions = listOf(
             MenuAction(
-                label = "Resize",
+                label = "Edit",
                 icon = Icons.Filled.AspectRatio,
-                onClick = onResize
+                onClick = onEdit
             ),
             MenuAction(
                 label = "Remove",
@@ -716,7 +725,7 @@ private fun WidgetContextMenu(
 }
 
 /**
- * Widget resize overlay used by WidgetOverlayLayer.
+ * Widget transform overlay used by WidgetOverlayLayer.
  */
 @Composable
 private fun WidgetResizeOverlay(
@@ -724,10 +733,25 @@ private fun WidgetResizeOverlay(
     cellWidthPx: Float,
     cellHeightPx: Float,
     gridColumns: Int,
+    maxVisibleRows: Int,
     items: List<HomeItem>,
-    onConfirmResize: (GridSpan) -> Unit
+    onConfirmTransform: (WidgetFrame) -> Unit,
+    onCancelTransform: () -> Unit
 ) {
-    var previewSpan by remember(widgetItem.id) { mutableStateOf(widgetItem.span) }
+    BackHandler(onBack = onCancelTransform)
+
+    val originalFrame = remember(widgetItem.id, widgetItem.position, widgetItem.span) {
+        WidgetFrame(position = widgetItem.position, span = widgetItem.span)
+    }
+    var draftFrame by remember(widgetItem.id, widgetItem.position, widgetItem.span) {
+        mutableStateOf(originalFrame)
+    }
+    var lastValidFrame by remember(widgetItem.id, widgetItem.position, widgetItem.span) {
+        mutableStateOf(originalFrame)
+    }
+    var isDraftValid by remember(widgetItem.id, widgetItem.position, widgetItem.span) {
+        mutableStateOf(true)
+    }
 
     val occupiedCells = remember(items, widgetItem.id) {
         val cells = mutableSetOf<GridPosition>()
@@ -742,6 +766,26 @@ private fun WidgetResizeOverlay(
         cells
     }
 
+    fun isFrameFree(frame: WidgetFrame): Boolean {
+        val occupiedByCandidate = frame.span.occupiedPositions(frame.position)
+        return occupiedByCandidate.none { it in occupiedCells }
+    }
+
+    fun updateDraft(frame: WidgetFrame) {
+        draftFrame = frame
+        isDraftValid = isFrameFree(frame)
+        if (isDraftValid) {
+            lastValidFrame = frame
+        }
+    }
+
+    fun settleDraftAfterGesture() {
+        if (!isDraftValid) {
+            draftFrame = lastValidFrame
+            isDraftValid = true
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -749,15 +793,16 @@ private fun WidgetResizeOverlay(
             .background(Color.Black.copy(alpha = 0.5f))
             .pointerInput(Unit) {
                 detectTapGestures {
-                    onConfirmResize(previewSpan)
+                    onConfirmTransform(draftFrame)
                 }
             }
     )
 
-    val originX = (widgetItem.position.column * cellWidthPx).roundToInt()
-    val originY = (widgetItem.position.row * cellHeightPx).roundToInt()
-    val frameWidth = (previewSpan.columns * cellWidthPx).roundToInt()
-    val frameHeight = (previewSpan.rows * cellHeightPx).roundToInt()
+    val originX = (draftFrame.position.column * cellWidthPx).roundToInt()
+    val originY = (draftFrame.position.row * cellHeightPx).roundToInt()
+    val frameWidth = (draftFrame.span.columns * cellWidthPx).roundToInt()
+    val frameHeight = (draftFrame.span.rows * cellHeightPx).roundToInt()
+    val frameColor = if (isDraftValid) MaterialTheme.colorScheme.primary else Color(0xFFFF6B6B)
 
     Box(
         modifier = Modifier
@@ -767,54 +812,230 @@ private fun WidgetResizeOverlay(
                 height = with(LocalDensity.current) { frameHeight.toFloat().toDp() }
             )
             .zIndex(51f)
+            .background(
+                color = frameColor.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(CornerRadius.small)
+            )
             .border(
                 width = Spacing.extraSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = frameColor,
                 shape = RoundedCornerShape(CornerRadius.small)
             )
     ) {
         Box(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = Spacing.smallMedium, y = Spacing.smallMedium)
-                .size(IconSize.standard)
-                .background(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = CircleShape
-                )
+                .fillMaxSize()
                 .zIndex(52f)
                 .pointerInput(widgetItem.id) {
                     var accumulatedDragX = 0f
                     var accumulatedDragY = 0f
+                    var gestureStartFrame = draftFrame
 
                     detectDragGestures(
                         onDragStart = {
                             accumulatedDragX = 0f
                             accumulatedDragY = 0f
+                            gestureStartFrame = draftFrame
                         },
                         onDrag = { change, dragAmount ->
                             change.consume()
                             accumulatedDragX += dragAmount.x
                             accumulatedDragY += dragAmount.y
-
-                            val newCols = (widgetItem.span.columns + (accumulatedDragX / cellWidthPx).roundToInt())
-                                .coerceIn(1, gridColumns - widgetItem.position.column)
-                            val newRows = (widgetItem.span.rows + (accumulatedDragY / cellHeightPx).roundToInt())
-                                .coerceAtLeast(1)
-
-                            val candidateSpan = GridSpan(columns = newCols, rows = newRows)
-                            val candidateCells = candidateSpan.occupiedPositions(widgetItem.position)
-                            val hasCollision = candidateCells.any { it in occupiedCells }
-
-                            if (!hasCollision) {
-                                previewSpan = candidateSpan
-                            }
+                            updateDraft(
+                                applyWidgetTransformHandle(
+                                    startFrame = gestureStartFrame,
+                                    handle = WidgetTransformHandle.Body,
+                                    columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
+                                    rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
+                                    maxColumns = gridColumns,
+                                    maxRows = maxVisibleRows
+                                )
+                            )
                         },
-                        onDragEnd = {
-                            // Confirmation happens on scrim tap.
-                        }
+                        onDragEnd = { settleDraftAfterGesture() },
+                        onDragCancel = { settleDraftAfterGesture() }
                     )
-                }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "${draftFrame.span.columns} x ${draftFrame.span.rows}",
+                color = frameColor,
+                style = MaterialTheme.typography.titleSmall
+            )
+        }
+
+        WidgetTransformHandleNode(
+            alignment = Alignment.TopStart,
+            handle = WidgetTransformHandle.TopLeft,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
+        )
+        WidgetTransformHandleNode(
+            alignment = Alignment.TopCenter,
+            handle = WidgetTransformHandle.Top,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
+        )
+        WidgetTransformHandleNode(
+            alignment = Alignment.TopEnd,
+            handle = WidgetTransformHandle.TopRight,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
+        )
+        WidgetTransformHandleNode(
+            alignment = Alignment.CenterStart,
+            handle = WidgetTransformHandle.Left,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
+        )
+        WidgetTransformHandleNode(
+            alignment = Alignment.CenterEnd,
+            handle = WidgetTransformHandle.Right,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
+        )
+        WidgetTransformHandleNode(
+            alignment = Alignment.BottomStart,
+            handle = WidgetTransformHandle.BottomLeft,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
+        )
+        WidgetTransformHandleNode(
+            alignment = Alignment.BottomCenter,
+            handle = WidgetTransformHandle.Bottom,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
+        )
+        WidgetTransformHandleNode(
+            alignment = Alignment.BottomEnd,
+            handle = WidgetTransformHandle.BottomRight,
+            frameColor = frameColor,
+            cellWidthPx = cellWidthPx,
+            cellHeightPx = cellHeightPx,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            draftFrame = draftFrame,
+            updateDraft = ::updateDraft,
+            settleDraftAfterGesture = ::settleDraftAfterGesture
         )
     }
+}
+
+@Composable
+private fun BoxScope.WidgetTransformHandleNode(
+    alignment: Alignment,
+    handle: WidgetTransformHandle,
+    frameColor: Color,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    gridColumns: Int,
+    maxVisibleRows: Int,
+    draftFrame: WidgetFrame,
+    updateDraft: (WidgetFrame) -> Unit,
+    settleDraftAfterGesture: () -> Unit
+) {
+    val latestDraftFrame by rememberUpdatedState(draftFrame)
+    val latestUpdateDraft by rememberUpdatedState(updateDraft)
+    val latestSettleDraftAfterGesture by rememberUpdatedState(settleDraftAfterGesture)
+
+    Box(
+        modifier = Modifier
+            .align(alignment)
+            .offset(
+                x = when (alignment) {
+                    Alignment.TopStart, Alignment.CenterStart, Alignment.BottomStart -> -Spacing.smallMedium
+                    Alignment.TopEnd, Alignment.CenterEnd, Alignment.BottomEnd -> Spacing.smallMedium
+                    else -> Spacing.none
+                },
+                y = when (alignment) {
+                    Alignment.TopStart, Alignment.TopCenter, Alignment.TopEnd -> -Spacing.smallMedium
+                    Alignment.BottomStart, Alignment.BottomCenter, Alignment.BottomEnd -> Spacing.smallMedium
+                    else -> Spacing.none
+                }
+            )
+            .size(IconSize.standard)
+            .background(
+                color = frameColor,
+                shape = CircleShape
+            )
+            .border(
+                width = Spacing.hairline,
+                color = Color.White.copy(alpha = 0.7f),
+                shape = CircleShape
+            )
+            .zIndex(53f)
+            .pointerInput(handle, cellWidthPx, cellHeightPx, gridColumns, maxVisibleRows) {
+                var accumulatedDragX = 0f
+                var accumulatedDragY = 0f
+                var gestureStartFrame = latestDraftFrame
+
+                detectDragGestures(
+                    onDragStart = {
+                        accumulatedDragX = 0f
+                        accumulatedDragY = 0f
+                        gestureStartFrame = latestDraftFrame
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        accumulatedDragX += dragAmount.x
+                        accumulatedDragY += dragAmount.y
+                        latestUpdateDraft(
+                            applyWidgetTransformHandle(
+                                startFrame = gestureStartFrame,
+                                handle = handle,
+                                columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
+                                rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
+                                maxColumns = gridColumns,
+                                maxRows = maxVisibleRows
+                            )
+                        )
+                    },
+                    onDragEnd = { latestSettleDraftAfterGesture() },
+                    onDragCancel = { latestSettleDraftAfterGesture() }
+                )
+            }
+    )
 }

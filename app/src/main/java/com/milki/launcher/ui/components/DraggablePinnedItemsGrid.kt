@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -21,13 +19,13 @@ import com.milki.launcher.domain.drag.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
 import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
 import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.components.dragdrop.rememberAppDragDropController
 import com.milki.launcher.ui.components.grid.GridConfig
 import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
-import kotlin.math.roundToInt
 
 /**
  * DraggablePinnedItemsGrid now acts as a composition/wiring root.
@@ -58,7 +56,11 @@ fun DraggablePinnedItemsGrid(
     onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> },
     widgetHostManager: WidgetHostManager? = null,
     onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
-    onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit = { _, _ -> },
+    onUpdateWidgetFrame: (
+        widgetId: String,
+        newPosition: GridPosition,
+        newSpan: GridSpan
+    ) -> Unit = { _, _, _ -> },
     onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit = { _, _, _ -> },
     onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
@@ -159,12 +161,14 @@ fun DraggablePinnedItemsGrid(
 
         WidgetOverlayLayer(
             items = items,
-            resizingWidgetId = interactionController.resizingWidgetId,
-            onResizeModeRequested = interactionController::requestResize,
+            widgetTransformSession = interactionController.widgetTransformSession,
+            onFinishTransform = interactionController::finishWidgetTransform,
+            onCancelTransform = interactionController::cancelWidgetTransform,
             cellWidthPx = cellWidthPx,
             cellHeightPx = cellHeightPx,
             gridColumns = config.columns,
-            onResizeWidget = onResizeWidget
+            maxVisibleRows = maxVisibleRows,
+            onUpdateWidgetFrame = onUpdateWidgetFrame
         )
 
         DropHighlightLayer(
@@ -256,22 +260,18 @@ internal fun ExternalDragDropItem.toPreviewHomeItem(): HomeItem? {
  * Normalizes provider-reported span to a grid-friendly default.
  *
  * Heuristic:
- * 1) Clamp columns into [1, gridColumns].
- * 2) If width shrank, shrink rows proportionally.
- * 3) Cap rows to a practical default (`maxDefaultRows`).
+ * 1) Clamp width to the home grid.
+ * 2) Cap height to a practical default for first placement.
+ * 3) If the result is still too large, trim area while preserving a sensible shape.
  */
 internal fun normalizeWidgetSpanForHomeGrid(
     rawSpan: GridSpan,
     gridColumns: Int,
-    maxDefaultRows: Int = 4
+    maxDefaultRows: Int = 3
 ): GridSpan {
-    val safeRawColumns = rawSpan.columns.coerceAtLeast(1)
-    val safeRawRows = rawSpan.rows.coerceAtLeast(1)
-
-    val normalizedColumns = safeRawColumns.coerceIn(1, gridColumns)
-    val widthScale = normalizedColumns.toFloat() / safeRawColumns.toFloat()
-    val scaledRows = (safeRawRows * widthScale).roundToInt().coerceAtLeast(1)
-    val normalizedRows = scaledRows.coerceIn(1, maxDefaultRows)
-
-    return GridSpan(columns = normalizedColumns, rows = normalizedRows)
+    return recommendWidgetPlacementSpan(
+        rawSpan = rawSpan,
+        gridColumns = gridColumns,
+        maxDefaultRows = maxDefaultRows
+    )
 }

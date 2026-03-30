@@ -866,20 +866,23 @@ class HomeViewModel(
     }
 
     /**
-     * Resizes a widget's span on the home grid.
+     * Updates a widget's full frame on the home grid.
      *
-     * Validates that the new span doesn't overlap other items before applying.
-     *
-     * @param widgetId The [HomeItem.WidgetItem.id]
-     * @param newSpan  The desired new span
+     * This is used by widget edit mode, where moving and resizing are part of
+     * the same interaction and should commit atomically.
      */
-    fun resizeWidget(widgetId: String, newSpan: GridSpan) {
+    fun updateWidgetFrame(
+        widgetId: String,
+        newPosition: GridPosition,
+        newSpan: GridSpan
+    ) {
         launchSerializedHomeMutation(
-            fallbackErrorMessage = "Cannot resize — cells are occupied"
+            fallbackErrorMessage = "Cannot update widget — cells are occupied"
         ) {
             applyWriterCommand(
-                command = HomeModelWriter.Command.UpdateWidgetSpan(
+                command = HomeModelWriter.Command.UpdateWidgetFrame(
                     widgetId = widgetId,
+                    newPosition = newPosition,
                     newSpan = newSpan
                 )
             )

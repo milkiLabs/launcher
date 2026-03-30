@@ -257,7 +257,7 @@ private fun HomeSurface(
         onFolderChildDroppedOnItem = actions.folder.onFolderChildDroppedOnItem,
         widgetHostManager = widgetHostManager,
         onRemoveWidget = actions.widget.onRemoveWidget,
-        onResizeWidget = actions.widget.onResizeWidget,
+        onUpdateWidgetFrame = actions.widget.onUpdateWidgetFrame,
         onWidgetDroppedToHome = actions.widget.onWidgetDroppedToHome,
         onItemBoundsMeasured = onItemBoundsMeasured,
         modifier = modifier.padding(Spacing.mediumLarge)

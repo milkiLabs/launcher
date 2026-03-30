@@ -82,8 +82,9 @@ class HomeModelWriter(
             val targetPosition: GridPosition
         ) : Command
 
-        data class UpdateWidgetSpan(
+        data class UpdateWidgetFrame(
             val widgetId: String,
+            val newPosition: GridPosition,
             val newSpan: GridSpan
         ) : Command
     }
@@ -118,7 +119,7 @@ class HomeModelWriter(
             is Command.MergeFolders -> mergeFolders(currentItems, command)
             is Command.RenameFolder -> renameFolder(currentItems, command)
             is Command.ExtractItemFromFolder -> extractItemFromFolder(currentItems, command)
-            is Command.UpdateWidgetSpan -> updateWidgetSpan(currentItems, command)
+            is Command.UpdateWidgetFrame -> updateWidgetFrame(currentItems, command)
         }
     }
 
@@ -416,9 +417,9 @@ class HomeModelWriter(
         return Result.Applied(mutable)
     }
 
-    private fun updateWidgetSpan(
+    private fun updateWidgetFrame(
         currentItems: List<HomeItem>,
-        command: Command.UpdateWidgetSpan
+        command: Command.UpdateWidgetFrame
     ): Result {
         if (command.newSpan.columns < 1 || command.newSpan.rows < 1) {
             return Result.Rejected(Error.InvalidWidgetOperation)
@@ -431,16 +432,18 @@ class HomeModelWriter(
         val widget = mutable[widgetIndex] as? HomeItem.WidgetItem
             ?: return Result.Rejected(Error.InvalidWidgetOperation)
 
-        if (!isWithinGrid(widget.position, command.newSpan)) {
+        if (!isWithinGrid(command.newPosition, command.newSpan)) {
             return Result.Rejected(Error.OutOfBounds)
         }
 
         val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.widgetId)
-        if (!isSpanFree(widget.position, command.newSpan, occupied)) {
+        if (!isSpanFree(command.newPosition, command.newSpan, occupied)) {
             return Result.Rejected(Error.TargetOccupied)
         }
 
-        mutable[widgetIndex] = widget.withSpan(command.newSpan)
+        mutable[widgetIndex] = widget
+            .withPosition(command.newPosition)
+            .withSpan(command.newSpan)
         return Result.Applied(mutable)
     }
 

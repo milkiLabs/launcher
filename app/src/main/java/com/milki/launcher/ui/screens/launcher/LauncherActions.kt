@@ -55,7 +55,11 @@ data class FolderActions(
 data class WidgetActions(
     val onWidgetPickerOpenChange: (Boolean) -> Unit = {},
     val onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
-    val onResizeWidget: (widgetId: String, newSpan: GridSpan) -> Unit = { _, _ -> },
+    val onUpdateWidgetFrame: (
+        widgetId: String,
+        newPosition: GridPosition,
+        newSpan: GridSpan
+    ) -> Unit = { _, _, _ -> },
     val onWidgetDroppedToHome: (
         providerInfo: android.appwidget.AppWidgetProviderInfo,
         span: GridSpan,

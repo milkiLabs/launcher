@@ -101,7 +101,7 @@ fun WidgetPickerBottomSheet(
     val appGroups: List<WidgetAppGroup> = remember {
         widgetHostManager.getInstalledProviders()
             .map { info ->
-                val (minCols, minRows) = widgetHostManager.calculateMinSpan(info)
+                val recommendedSpan = widgetHostManager.calculateRecommendedPlacementSpan(info)
                 val widgetLabel = (info.loadLabel(packageManager) ?: info.provider.shortClassName).toString()
                 val appLabel = try {
                     val appInfo = packageManager.getApplicationInfo(info.provider.packageName, 0)
@@ -118,7 +118,7 @@ fun WidgetPickerBottomSheet(
                     } catch (_: Exception) {
                         null
                     },
-                    span = GridSpan(columns = minCols, rows = minRows)
+                    span = recommendedSpan
                 )
             }
             .groupBy { it.providerInfo.provider.packageName }

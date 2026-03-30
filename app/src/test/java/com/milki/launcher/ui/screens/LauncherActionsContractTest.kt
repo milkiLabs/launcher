@@ -1,6 +1,7 @@
 package com.milki.launcher.ui.screens
 
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.screens.launcher.FolderActions
 import com.milki.launcher.ui.screens.launcher.HomeActions
@@ -64,7 +65,7 @@ class LauncherActionsContractTest {
 
         actions.widget.onWidgetPickerOpenChange(true)
         actions.widget.onRemoveWidget("widget-1", 101)
-        actions.widget.onResizeWidget("widget-1", sampleWidgetSpan())
+        actions.widget.onUpdateWidgetFrame("widget-1", target, sampleWidgetSpan())
 
         actions.drawer.onAppDrawerOpenChange(true)
 
@@ -160,7 +161,7 @@ class LauncherActionsContractTest {
     /**
      * Produces a stable span fixture for widget callback tests.
      */
-    private fun sampleWidgetSpan(): com.milki.launcher.domain.model.GridSpan {
-        return com.milki.launcher.domain.model.GridSpan(columns = 2, rows = 1)
+    private fun sampleWidgetSpan(): GridSpan {
+        return GridSpan(columns = 2, rows = 1)
     }
 }

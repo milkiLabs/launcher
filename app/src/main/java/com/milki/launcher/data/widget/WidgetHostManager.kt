@@ -39,6 +39,8 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
+import android.appwidget.AppWidgetProviderInfo.RESIZE_HORIZONTAL
+import android.appwidget.AppWidgetProviderInfo.RESIZE_VERTICAL
 import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL
 import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE
 import android.content.ComponentName
@@ -51,6 +53,7 @@ import android.util.Log
 import android.util.SizeF
 import android.view.WindowManager
 import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
 import com.milki.launcher.ui.components.grid.GridConfig
 import kotlin.math.roundToInt
 
@@ -439,6 +442,58 @@ class WidgetHostManager(
             return calculateMinSpan(providerInfo)
         }
         return Pair(dpToCells(minResizeWidth), dpToCells(minResizeHeight))
+    }
+
+    /**
+     * Calculates the recommended placement span for a new widget.
+     *
+     * This intentionally differs from the provider's raw minimum/default size:
+     * very large widgets are shrunk to a practical first placement so users do
+     * not need to clear an oversized area before they can drop them.
+     */
+    fun calculateRecommendedPlacementSpan(
+        providerInfo: AppWidgetProviderInfo,
+        gridColumns: Int = GridConfig.Default.columns
+    ): GridSpan {
+        val (minCols, minRows) = calculateMinSpan(providerInfo)
+        return recommendWidgetPlacementSpan(
+            rawSpan = GridSpan(columns = minCols, rows = minRows),
+            gridColumns = gridColumns
+        )
+    }
+
+    /**
+     * Clamps a requested widget resize to the provider's supported axes, minimum
+     * size, and the currently visible home-grid bounds.
+     */
+    fun clampResizeSpan(
+        providerInfo: AppWidgetProviderInfo?,
+        currentSpan: GridSpan,
+        requestedSpan: GridSpan,
+        gridColumns: Int,
+        maxRows: Int
+    ): GridSpan {
+        val supportsHorizontalResize = providerInfo != null &&
+            (providerInfo.resizeMode and RESIZE_HORIZONTAL) != 0
+        val supportsVerticalResize = providerInfo != null &&
+            (providerInfo.resizeMode and RESIZE_VERTICAL) != 0
+
+        val (minResizeCols, minResizeRows) = providerInfo?.let(::calculateMinResizeSpan)
+            ?: (1 to 1)
+
+        val targetColumns = if (supportsHorizontalResize) {
+            requestedSpan.columns.coerceIn(minResizeCols, gridColumns.coerceAtLeast(minResizeCols))
+        } else {
+            currentSpan.columns
+        }
+
+        val targetRows = if (supportsVerticalResize) {
+            requestedSpan.rows.coerceIn(minResizeRows, maxRows.coerceAtLeast(minResizeRows))
+        } else {
+            currentSpan.rows
+        }
+
+        return GridSpan(columns = targetColumns, rows = targetRows)
     }
 
     /**

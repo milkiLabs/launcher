@@ -23,6 +23,10 @@ internal data class HomeSurfaceExternalDragState(
     val item: ExternalDragDropItem? = null
 )
 
+internal data class HomeWidgetTransformSession(
+    val widgetId: String
+)
+
 internal data class HomeSurfaceInteractionSnapshot(
     val hasInternalDrag: Boolean,
     val isExternalDragActive: Boolean,
@@ -54,7 +58,7 @@ internal class HomeSurfaceInteractionController(
     var isMenuGestureActive: Boolean by mutableStateOf(false)
         private set
 
-    var resizingWidgetId: String? by mutableStateOf(null)
+    var widgetTransformSession: HomeWidgetTransformSession? by mutableStateOf(null)
         private set
 
     var externalDragState: HomeSurfaceExternalDragState by mutableStateOf(HomeSurfaceExternalDragState())
@@ -64,7 +68,7 @@ internal class HomeSurfaceInteractionController(
         get() = HomeSurfaceInteractionSnapshot(
             hasInternalDrag = dragController.session != null,
             isExternalDragActive = externalDragState.isActive,
-            isResizeModeActive = resizingWidgetId != null,
+            isResizeModeActive = widgetTransformSession != null,
             isAnyContextMenuOpen = menuShownForItemId != null
         )
 
@@ -73,7 +77,7 @@ internal class HomeSurfaceInteractionController(
     }
 
     fun showItemMenu(itemId: String): Boolean {
-        if (dragController.session != null) return false
+        if (dragController.session != null || widgetTransformSession != null) return false
         menuShownForItemId = itemId
         isMenuGestureActive = true
         return true
@@ -88,12 +92,21 @@ internal class HomeSurfaceInteractionController(
         isMenuGestureActive = isActive
     }
 
-    fun requestResize(widgetId: String?) {
-        resizingWidgetId = widgetId
+    fun startWidgetTransform(widgetId: String) {
+        dismissMenu()
+        widgetTransformSession = HomeWidgetTransformSession(widgetId = widgetId)
+    }
+
+    fun finishWidgetTransform() {
+        widgetTransformSession = null
+    }
+
+    fun cancelWidgetTransform() {
+        widgetTransformSession = null
     }
 
     fun startInternalDrag(item: HomeItem): Boolean {
-        if (dragController.session != null) return false
+        if (dragController.session != null || widgetTransformSession != null) return false
         dismissMenu()
         dragController.startDrag(
             item = item,
@@ -129,6 +142,7 @@ internal class HomeSurfaceInteractionController(
     }
 
     fun onExternalDragStarted() {
+        widgetTransformSession = null
         externalDragState = HomeSurfaceExternalDragState(isActive = true)
     }
 
