@@ -16,6 +16,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,6 +41,7 @@ import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
+import com.milki.launcher.presentation.search.shouldCloseSearch
 import com.milki.launcher.ui.screens.launcher.DrawerActions
 import com.milki.launcher.ui.screens.launcher.FolderActions
 import com.milki.launcher.ui.screens.launcher.HomeActions
@@ -174,6 +176,12 @@ class MainActivity : ComponentActivity() {
                     actionExecutor.execute(action, permissionHandler::hasPermission)
                 }
             ) {
+                SideEffect {
+                    actionExecutor.shouldCloseSearchForAction = { action ->
+                        launcherSettings.closeSearchOnLaunch && action.shouldCloseSearch()
+                    }
+                }
+
                 LauncherTheme {
                     LauncherScreen(
                         searchUiState = searchUiState,

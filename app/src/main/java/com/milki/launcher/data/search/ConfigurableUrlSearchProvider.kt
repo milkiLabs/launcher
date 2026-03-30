@@ -6,6 +6,7 @@ import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.WebSearchResult
 import com.milki.launcher.domain.repository.SearchProvider
+import com.milki.launcher.domain.repository.SearchRequest
 
 /**
  * ConfigurableUrlSearchProvider.kt - Runtime SearchProvider backed by SearchSource
@@ -31,20 +32,20 @@ class ConfigurableUrlSearchProvider(
     /**
      * Returns one web/url result for this source.
      */
-    override suspend fun search(query: String): List<SearchResult> {
-        if (query.isBlank()) {
+    override suspend fun search(request: SearchRequest): List<SearchResult> {
+        if (request.query.isBlank()) {
             return emptyList()
         }
 
-        val encodedQuery = Uri.encode(query)
+        val encodedQuery = Uri.encode(request.query)
         val finalUrl = source.buildUrl(encodedQuery)
 
         return listOf(
             WebSearchResult(
-                title = "Search \"$query\" on ${source.name}",
+                title = "Search \"${request.query}\" on ${source.name}",
                 url = finalUrl,
                 engine = source.name,
-                query = query,
+                query = request.query,
                 providerId = source.id
             )
         )

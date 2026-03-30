@@ -20,6 +20,7 @@ package com.milki.launcher.data.search
 
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SearchProvider
 import kotlinx.coroutines.flow.first
 
@@ -70,7 +71,7 @@ class ContactsSearchProvider(
      * @param query The search query (without the "c " prefix)
      * @return List of ContactSearchResult or PermissionRequestResult, or empty list
      */
-    override suspend fun search(query: String): List<SearchResult> {
+    override suspend fun search(request: SearchRequest): List<SearchResult> {
         // Check permission first
         if (!contactsRepository.hasContactsPermission()) {
             // Permission not granted - return permission request placeholder
@@ -85,7 +86,7 @@ class ContactsSearchProvider(
         }
 
         // Permission granted - check for empty query
-        if (query.isBlank()) {
+        if (request.query.isBlank()) {
             // Empty query - show recent contacts
             return getRecentContactsResults()
         }
@@ -93,8 +94,8 @@ class ContactsSearchProvider(
         // Search contacts and map to results
         // If no contacts found, returns empty list (UI handles empty state)
         val contacts = contactsRepository.searchContacts(
-            query = query,
-            maxItems = MAX_RESULTS
+            query = request.query,
+            maxItems = request.maxResults
         )
         return contacts.map { contact ->
             ContactSearchResult(contact = contact)

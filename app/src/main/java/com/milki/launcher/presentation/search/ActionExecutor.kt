@@ -60,6 +60,7 @@ class ActionExecutor(
     var onRequestPermission: ((String) -> Unit)? = null
     var onCloseSearch: (() -> Unit)? = null
     var onSaveRecentApp: ((String) -> Unit)? = null
+    var shouldCloseSearchForAction: ((SearchResultAction) -> Boolean)? = null
 
     /**
      * Execute a SearchResultAction.
@@ -103,7 +104,7 @@ class ActionExecutor(
             is SearchResultAction.RequestPermission -> handleRequestPermission(action)
         }
         
-        if (action.shouldCloseSearch()) {
+        if (shouldCloseSearchForAction?.invoke(action) ?: action.shouldCloseSearch()) {
             onCloseSearch?.invoke()
         }
     }

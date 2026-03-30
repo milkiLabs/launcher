@@ -21,6 +21,7 @@ import android.Manifest
 import android.os.Build
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.FilesRepository
+import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SearchProvider
 
 /**
@@ -31,10 +32,6 @@ import com.milki.launcher.domain.repository.SearchProvider
 class FilesSearchProvider(
     private val filesRepository: FilesRepository
 ) : SearchProvider {
-
-    private companion object {
-        const val MAX_RESULTS = 8
-    }
 
     override val config: SearchProviderConfig = SearchProviderConfig(
         providerId = ProviderId.FILES,
@@ -60,7 +57,7 @@ class FilesSearchProvider(
      * @param query The search query (without the "f " prefix)
      * @return List of FileDocumentSearchResult or PermissionRequestResult, or empty list
      */
-    override suspend fun search(query: String): List<SearchResult> {
+    override suspend fun search(request: SearchRequest): List<SearchResult> {
         if (!filesRepository.hasFilesPermission()) {
             /**
              * On Android 11+, MANAGE_EXTERNAL_STORAGE is required to access all files.
@@ -90,7 +87,7 @@ class FilesSearchProvider(
         }
 
         // Permission granted - perform actual search
-        if (query.isBlank()) {
+        if (request.query.isBlank()) {
             // Return empty list - UI will show appropriate empty state
             return emptyList()
         }
@@ -98,8 +95,8 @@ class FilesSearchProvider(
         // Search files and map to results
         // If no files found, returns empty list (UI handles empty state)
         val files = filesRepository.searchFiles(
-            query = query,
-            maxItems = MAX_RESULTS
+            query = request.query,
+            maxItems = request.maxResults
         )
         return files.map { file ->
             FileDocumentSearchResult(file = file)

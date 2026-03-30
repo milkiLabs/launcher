@@ -262,11 +262,9 @@ val searchModule = module {
         // and the rest come from this searchModule.
         SearchViewModel(
             appRepository = get(),
-            contactsRepository = get(),
             settingsRepository = get(),
             providerRegistry = get(),
             filterAppsUseCase = get(),
-            urlHandlerResolver = get(),
             clipboardSuggestionResolver = get(),
             querySuggestionResolver = get()
         )

@@ -4,11 +4,11 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SearchProvider
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.ParsedQuery
 import com.milki.launcher.domain.search.SearchProviderRegistry
-import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.domain.search.parseSearchQuery
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,8 +33,7 @@ import java.util.concurrent.atomic.AtomicLong
  */
 internal class SearchViewModelPipelineCoordinator(
     private val providerRegistry: SearchProviderRegistry,
-    private val filterAppsUseCase: FilterAppsUseCase,
-    private val urlHandlerResolver: UrlHandlerResolver
+    private val filterAppsUseCase: FilterAppsUseCase
 ) {
 
     /**
@@ -48,6 +47,7 @@ internal class SearchViewModelPipelineCoordinator(
         query: StateFlow<String>,
         isSearchVisible: StateFlow<Boolean>,
         backgroundState: StateFlow<SearchBackgroundState>,
+        runtimeSettings: StateFlow<SearchRuntimeSettings>,
         prefixConfigurations: StateFlow<ProviderPrefixConfiguration>,
         existingOutput: MutableStateFlow<SearchPipelineOutput>
     ): StateFlow<SearchPipelineOutput> {
@@ -58,12 +58,14 @@ internal class SearchViewModelPipelineCoordinator(
             query,
             isSearchVisible,
             backgroundState,
+            runtimeSettings,
             prefixConfigurations
-        ) { currentQuery, visible, background, _ ->
+        ) { currentQuery, visible, background, runtimeSettings, _ ->
             SearchPipelineInput(
                 query = currentQuery,
                 visible = visible,
-                background = background
+                background = background,
+                runtimeSettings = runtimeSettings
             )
         }
             .onEach { input ->
@@ -87,7 +89,8 @@ internal class SearchViewModelPipelineCoordinator(
                         val results = executeSearch(
                             parsed = parsed,
                             installedApps = input.background.installedApps,
-                            recentApps = input.background.recentApps
+                            recentApps = input.background.recentApps,
+                            settings = input.runtimeSettings
                         )
 
                         if (generation == searchGeneration.get()) {
@@ -112,20 +115,33 @@ internal class SearchViewModelPipelineCoordinator(
     private suspend fun executeSearch(
         parsed: ParsedQuery,
         installedApps: List<AppInfo>,
-        recentApps: List<AppInfo>
+        recentApps: List<AppInfo>,
+        settings: SearchRuntimeSettings
     ): List<SearchResult> {
         if (parsed.provider != null) {
-            return runProviderSearch(parsed.provider, parsed.query)
+            return runProviderSearch(
+                provider = parsed.provider,
+                request = SearchRequest(
+                    query = parsed.query,
+                    maxResults = settings.maxSearchResults
+                )
+            )
+        }
+
+        val recentAppsToUse = if (settings.showRecentApps) {
+            recentApps.take(settings.maxRecentApps)
+        } else {
+            emptyList()
         }
 
         val filteredApps = filterAppsUseCase(
             query = parsed.query,
             installedApps = installedApps,
-            recentApps = recentApps
+            recentApps = recentAppsToUse
         )
 
         val appResults = filteredApps
-            .take(8)
+            .take(settings.maxSearchResults)
             .map { app -> AppSearchResult(appInfo = app) }
 
         return appResults
@@ -134,10 +150,13 @@ internal class SearchViewModelPipelineCoordinator(
     /**
      * Executes provider-specific search with defensive exception handling.
      */
-    private suspend fun runProviderSearch(provider: SearchProvider, query: String): List<SearchResult> {
+    private suspend fun runProviderSearch(
+        provider: SearchProvider,
+        request: SearchRequest
+    ): List<SearchResult> {
         return try {
             withContext(Dispatchers.IO) {
-                provider.search(query)
+                provider.search(request)
             }
         } catch (_: Exception) {
             emptyList()
@@ -152,5 +171,6 @@ internal class SearchViewModelPipelineCoordinator(
 private data class SearchPipelineInput(
     val query: String,
     val visible: Boolean,
-    val background: SearchBackgroundState
+    val background: SearchBackgroundState,
+    val runtimeSettings: SearchRuntimeSettings
 )

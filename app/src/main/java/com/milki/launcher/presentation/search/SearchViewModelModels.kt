@@ -22,3 +22,10 @@ internal data class SearchPipelineOutput(
     val activeProviderConfig: SearchProviderConfig? = null,
     val isLoading: Boolean = false
 )
+
+internal data class SearchRuntimeSettings(
+    val maxSearchResults: Int = 8,
+    val showRecentApps: Boolean = true,
+    val maxRecentApps: Int = 5,
+    val autoFocusKeyboard: Boolean = true
+)

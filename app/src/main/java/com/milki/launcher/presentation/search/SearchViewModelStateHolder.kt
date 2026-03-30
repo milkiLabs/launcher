@@ -32,6 +32,7 @@ internal class SearchViewModelStateHolder(
     val recentApps = MutableStateFlow<List<AppInfo>>(emptyList())
 
     val searchOutput = MutableStateFlow(SearchPipelineOutput())
+    val runtimeSettings = MutableStateFlow(SearchRuntimeSettings())
     val prefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
     val clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
     val querySuggestion = MutableStateFlow<QuerySuggestion?>(null)
@@ -51,19 +52,28 @@ internal class SearchViewModelStateHolder(
         )
     }.stateIn(scope, SharingStarted.Eagerly, SearchBackgroundState())
 
+    private val presentationState = combine(
+        searchOutput,
+        runtimeSettings
+    ) { output, runtimeSettings ->
+        output to runtimeSettings
+    }
+
     val uiState: StateFlow<SearchUiState> = combine(
         query,
         isSearchVisible,
-        searchOutput,
+        presentationState,
         clipboardSuggestion,
         querySuggestion
-    ) { currentQuery, visible, output, clipSuggestion, qrySuggestion ->
+    ) { currentQuery, visible, presentationState, clipSuggestion, qrySuggestion ->
+        val (output, runtimeSettings) = presentationState
         SearchUiState(
             query = currentQuery,
             isSearchVisible = visible,
             results = if (visible) output.results else emptyList(),
             activeProviderConfig = if (visible) output.activeProviderConfig else null,
             isLoading = visible && output.isLoading,
+            autoFocusKeyboard = runtimeSettings.autoFocusKeyboard,
             clipboardSuggestion = if (visible) clipSuggestion else null,
             querySuggestion = if (visible) qrySuggestion else null
         )

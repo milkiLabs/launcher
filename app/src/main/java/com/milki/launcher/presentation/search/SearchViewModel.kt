@@ -46,13 +46,11 @@ package com.milki.launcher.presentation.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.repository.AppRepository
-import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.QuerySuggestionResolver
 import com.milki.launcher.domain.search.SearchProviderRegistry
-import com.milki.launcher.domain.search.UrlHandlerResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -90,11 +88,9 @@ import kotlinx.coroutines.withContext
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
-    private val contactsRepository: ContactsRepository,
     private val settingsRepository: SettingsRepository,
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
-    private val urlHandlerResolver: UrlHandlerResolver,
     private val clipboardSuggestionResolver: ClipboardSuggestionResolver,
     private val querySuggestionResolver: QuerySuggestionResolver
 ) : ViewModel() {
@@ -122,8 +118,7 @@ class SearchViewModel(
 
     private val pipelineCoordinator = SearchViewModelPipelineCoordinator(
         providerRegistry = providerRegistry,
-        filterAppsUseCase = filterAppsUseCase,
-        urlHandlerResolver = urlHandlerResolver
+        filterAppsUseCase = filterAppsUseCase
     )
 
     val uiState = stateHolder.uiState
@@ -138,6 +133,7 @@ class SearchViewModel(
             query = stateHolder.query,
             isSearchVisible = stateHolder.isSearchVisible,
             backgroundState = stateHolder.backgroundState,
+            runtimeSettings = stateHolder.runtimeSettings,
             prefixConfigurations = stateHolder.prefixConfigurations,
             existingOutput = stateHolder.searchOutput
         )
@@ -146,6 +142,7 @@ class SearchViewModel(
         observeQueryForSuggestions()
         settingsAdapter.bind(
             scope = viewModelScope,
+            runtimeSettings = stateHolder.runtimeSettings,
             prefixConfigurations = stateHolder.prefixConfigurations,
             providerAccentColorById = stateHolder.providerAccentColorById
         )
@@ -317,18 +314,6 @@ class SearchViewModel(
     fun saveRecentApp(componentName: String) {
         viewModelScope.launch {
             appRepository.saveRecentApp(componentName)
-        }
-    }
-
-    /**
-     * Save a phone number to recent contacts.
-     * Called by ActionExecutor after making a call.
-     *
-     * @param phoneNumber The phone number to save
-     */
-    fun saveRecentContact(phoneNumber: String) {
-        viewModelScope.launch {
-            contactsRepository.saveRecentContact(phoneNumber)
         }
     }
 

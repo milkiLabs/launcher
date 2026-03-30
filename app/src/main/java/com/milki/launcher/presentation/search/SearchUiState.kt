@@ -66,6 +66,7 @@ data class SearchUiState(
     val results: List<SearchResult> = emptyList(),
     val activeProviderConfig: SearchProviderConfig? = null,
     val isLoading: Boolean = false,
+    val autoFocusKeyboard: Boolean = true,
     val clipboardSuggestion: ClipboardSuggestion? = null,
     val querySuggestion: QuerySuggestion? = null,
     val providerAccentColorById: Map<String, String> = emptyMap()

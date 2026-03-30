@@ -39,6 +39,11 @@ package com.milki.launcher.domain.repository
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 
+data class SearchRequest(
+    val query: String,
+    val maxResults: Int
+)
+
 /**
  * Interface for pluggable search providers.
  *
@@ -68,8 +73,8 @@ interface SearchProvider {
      * This is a suspend function to allow for async operations
      * (e.g., database queries for contacts).
      *
-     * @param query The search query (already parsed, without prefix)
+     * @param request Normalized request for one provider search pass
      * @return List of SearchResult objects to display
      */
-    suspend fun search(query: String): List<SearchResult>
+    suspend fun search(request: SearchRequest): List<SearchResult>
 }

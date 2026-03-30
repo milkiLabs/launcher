@@ -31,6 +31,7 @@ internal class SearchViewModelSettingsAdapter(
      */
     fun bind(
         scope: CoroutineScope,
+        runtimeSettings: MutableStateFlow<SearchRuntimeSettings>,
         prefixConfigurations: MutableStateFlow<ProviderPrefixConfiguration>,
         providerAccentColorById: MutableStateFlow<Map<String, String>>
     ) {
@@ -84,6 +85,12 @@ internal class SearchViewModelSettingsAdapter(
                         fixedProviderConfigurations + sourcePrefixConfigurations
 
                     providerRegistry.updatePrefixConfigurations(mergedConfigurations)
+                    runtimeSettings.value = SearchRuntimeSettings(
+                        maxSearchResults = projection.maxSearchResults.coerceAtLeast(1),
+                        showRecentApps = projection.showRecentApps,
+                        maxRecentApps = projection.maxRecentApps.coerceAtLeast(0),
+                        autoFocusKeyboard = projection.autoFocusKeyboard
+                    )
                     prefixConfigurations.value = mergedConfigurations
                     providerAccentColorById.value = projection.searchSources.associate { it.id to it.accentColorHex }
                 }
@@ -102,7 +109,11 @@ private data class SearchRuntimeSettingsProjection(
     val searchSources: List<SearchSource>,
     val contactsSearchEnabled: Boolean,
     val filesSearchEnabled: Boolean,
-    val prefixConfigurations: ProviderPrefixConfiguration
+    val prefixConfigurations: ProviderPrefixConfiguration,
+    val maxSearchResults: Int,
+    val showRecentApps: Boolean,
+    val maxRecentApps: Int,
+    val autoFocusKeyboard: Boolean
 ) {
     companion object {
         fun from(settings: com.milki.launcher.domain.model.LauncherSettings): SearchRuntimeSettingsProjection {
@@ -110,7 +121,11 @@ private data class SearchRuntimeSettingsProjection(
                 searchSources = settings.searchSources,
                 contactsSearchEnabled = settings.contactsSearchEnabled,
                 filesSearchEnabled = settings.filesSearchEnabled,
-                prefixConfigurations = settings.prefixConfigurations
+                prefixConfigurations = settings.prefixConfigurations,
+                maxSearchResults = settings.maxSearchResults,
+                showRecentApps = settings.showRecentApps,
+                maxRecentApps = settings.maxRecentApps,
+                autoFocusKeyboard = settings.autoFocusKeyboard
             )
         }
     }

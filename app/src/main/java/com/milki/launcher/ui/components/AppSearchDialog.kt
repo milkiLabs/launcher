@@ -240,7 +240,8 @@ fun AppSearchDialog(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(uiState.autoFocusKeyboard) {
+        if (!uiState.autoFocusKeyboard) return@LaunchedEffect
         try {
             focusRequester.requestFocus()
             keyboardController?.show()
@@ -249,9 +250,9 @@ fun AppSearchDialog(
         }
     }
 
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, uiState.autoFocusKeyboard) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
+            if (event == Lifecycle.Event.ON_RESUME && uiState.autoFocusKeyboard) {
                 try {
                     focusRequester.requestFocus()
                     keyboardController?.show()
