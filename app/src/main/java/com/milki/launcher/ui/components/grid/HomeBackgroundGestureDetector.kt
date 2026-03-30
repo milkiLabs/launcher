@@ -128,7 +128,7 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
         }
 
         totalDrag = change.position - startPosition
-        
+
         if (!totalDrag.isSwipeUpGesture(minimumDistancePx = 0f)) {
             return BackgroundGestureOutcome.Moved
         }

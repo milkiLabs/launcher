@@ -51,10 +51,10 @@ The launcher now supports a full-screen app drawer overlay with the following be
     - Back press closes drawer before search.
     - Home press closes drawer first.
     - `onStop` closes drawer.
+  - Delegates swipe-up action resolution to `SurfaceStateCoordinator`, so `OPEN_SEARCH`, `OPEN_APP_DRAWER`, and `DO_NOTHING` all share one policy owner.
 
 - `LauncherScreen`
-  - Detects upward swipe on homescreen root.
-  - Calls host callback; host decides whether drawer should open based on settings.
+  - Detects homescreen gestures and routes them through the host callback contract.
   - Renders `AppDrawerOverlay` above homescreen grid.
 
 ---
@@ -128,7 +128,7 @@ Open is attempted only when:
 - Drawer is not already open.
 
 The gesture detector checks for a predominantly vertical upward movement past a lower threshold derived from `Spacing.mediumLarge`.
-Gesture sampling uses the initial pointer pass and ignore-consumed deltas so opening remains responsive even when child composables are handling touch input.
+Gesture sampling uses the home-surface detector shared with other background interactions.
 
 ### Close (drawer swipe down)
 

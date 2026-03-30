@@ -3,6 +3,7 @@ package com.milki.launcher.presentation.main
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.presentation.drawer.DrawerSurfaceController
 import com.milki.launcher.presentation.drawer.DrawerTransitionState
 
@@ -59,15 +60,9 @@ interface SurfaceStateCoordinatorContract {
     fun updateWidgetPickerOpen(isOpen: Boolean)
 
     /**
-     * Applies swipe-up policy transition to open app drawer.
-     *
-     * This mirrors previous behavior in MainActivity:
-     * 1. Close homescreen menu.
-     * 2. Hide search.
-     * 3. Close open folder.
-     * 4. Open app drawer.
+     * Applies the configured homescreen swipe-up action.
      */
-    fun openAppDrawerFromSwipeGesture()
+    fun handleHomeSwipeUp(action: SwipeUpAction)
 
     /**
      * Applies layered-dismiss policy for HOME button presses before running home policy.
@@ -96,6 +91,7 @@ interface SurfaceStateCoordinatorContract {
  * remains lightweight and unit-test friendly.
  */
 class SurfaceStateCoordinator(
+    private val showSearch: () -> Unit,
     private val hideSearch: () -> Unit,
     private val isFolderOpen: () -> Boolean,
     private val closeFolder: () -> Unit
@@ -151,14 +147,33 @@ class SurfaceStateCoordinator(
     }
 
     /**
-     * Handles the launcher swipe-up action that opens app drawer.
+     * Handles homescreen swipe-up behavior in one place.
+     *
+     * Keeping this decision here avoids splitting gesture intent handling across
+     * UI code and MainActivity branches.
      */
-    override fun openAppDrawerFromSwipeGesture() {
-        isHomescreenMenuOpen = false
-        hideSearch()
-        closeFolder()
-        drawerSurfaceController.requestOpen()
-        isAppDrawerOpen = drawerSurfaceController.isVisible()
+    override fun handleHomeSwipeUp(action: SwipeUpAction) {
+        when (action) {
+            SwipeUpAction.OPEN_SEARCH -> {
+                isHomescreenMenuOpen = false
+                drawerSurfaceController.requestClose()
+                isAppDrawerOpen = drawerSurfaceController.isVisible()
+                isWidgetPickerOpen = false
+                closeFolder()
+                showSearch()
+            }
+
+            SwipeUpAction.OPEN_APP_DRAWER -> {
+                isHomescreenMenuOpen = false
+                hideSearch()
+                isWidgetPickerOpen = false
+                closeFolder()
+                drawerSurfaceController.requestOpen()
+                isAppDrawerOpen = drawerSurfaceController.isVisible()
+            }
+
+            SwipeUpAction.DO_NOTHING -> Unit
+        }
     }
 
     /**

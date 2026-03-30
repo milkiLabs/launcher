@@ -37,11 +37,11 @@ Responsibilities:
 - Owns layered close ordering for:
   - back press
   - HOME press pre-consumption
-- Owns swipe-up drawer transition side effects:
-  - close menu
-  - hide search
-  - close folder
-  - open drawer
+- Owns homescreen swipe-up action handling:
+  - open search
+  - open app drawer
+  - ignore gesture when configured to do nothing
+  - close/reset transient surfaces needed by the chosen action
 
 Why this matters:
 

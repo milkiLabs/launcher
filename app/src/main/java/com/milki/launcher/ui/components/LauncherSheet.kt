@@ -13,11 +13,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -122,9 +122,11 @@ fun rememberLauncherSheetState(): LauncherSheetState {
 fun LauncherSheet(
     state: LauncherSheetState,
     modifier: Modifier = Modifier,
+    onDismissedByUser: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val currentOnDismissedByUser = rememberUpdatedState(onDismissedByUser)
     
     val nestedScrollConnection = remember(state) {
         object : NestedScrollConnection {
@@ -159,7 +161,10 @@ fun LauncherSheet(
 
             override suspend fun onPreFling(available: Velocity): Velocity {
                 return if (state.expandedFraction < 1f) {
-                    state.onDragStopped(available.y)
+                    val keptExpanded = state.onDragStopped(available.y)
+                    if (!keptExpanded) {
+                        currentOnDismissedByUser.value()
+                    }
                     available
                 } else {
                     Velocity.Zero
@@ -188,7 +193,14 @@ fun LauncherSheet(
                 .draggable(
                     state = draggableState,
                     orientation = Orientation.Vertical,
-                    onDragStopped = { scope.launch { state.onDragStopped(it) } }
+                    onDragStopped = { velocity ->
+                        scope.launch {
+                            val keptExpanded = state.onDragStopped(velocity)
+                            if (!keptExpanded) {
+                                currentOnDismissedByUser.value()
+                            }
+                        }
+                    }
                 )
         ) {
             content()

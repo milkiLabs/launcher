@@ -1,5 +1,6 @@
 package com.milki.launcher.presentation.main
 
+import com.milki.launcher.domain.model.SwipeUpAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -24,6 +25,7 @@ class SurfaceStateCoordinatorTest {
         var hideSearchCalls = 0
 
         val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
             hideSearch = { hideSearchCalls++ },
             isFolderOpen = { folderOpen },
             closeFolder = {
@@ -49,6 +51,7 @@ class SurfaceStateCoordinatorTest {
         var folderOpen = false
 
         val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
             hideSearch = { },
             isFolderOpen = { folderOpen },
             closeFolder = { folderOpen = false }
@@ -70,6 +73,7 @@ class SurfaceStateCoordinatorTest {
         var closeFolderCalls = 0
 
         val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
             hideSearch = { },
             isFolderOpen = { folderOpen },
             closeFolder = {
@@ -95,6 +99,7 @@ class SurfaceStateCoordinatorTest {
         var hideSearchCalls = 0
 
         val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
             hideSearch = { hideSearchCalls++ },
             isFolderOpen = { folderOpen },
             closeFolder = {
@@ -116,15 +121,17 @@ class SurfaceStateCoordinatorTest {
     }
 
     /**
-     * Swipe-up drawer open transition should close menu, hide search, close folder, then open drawer.
+     * Swipe-up app-drawer action should close menu, hide search, close folder, then open drawer.
      */
     @Test
     fun swipe_open_drawer_applies_expected_transition_sequence() {
         var folderOpen = true
         var closeFolderCalls = 0
         var hideSearchCalls = 0
+        var showSearchCalls = 0
 
         val coordinator = SurfaceStateCoordinator(
+            showSearch = { showSearchCalls++ },
             hideSearch = { hideSearchCalls++ },
             isFolderOpen = { folderOpen },
             closeFolder = {
@@ -135,13 +142,70 @@ class SurfaceStateCoordinatorTest {
 
         coordinator.updateHomescreenMenuOpen(true)
 
-        coordinator.openAppDrawerFromSwipeGesture()
+        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_APP_DRAWER)
 
         assertFalse(coordinator.isHomescreenMenuOpen)
         assertTrue(coordinator.isAppDrawerOpen)
         assertEquals(1, hideSearchCalls)
+        assertEquals(0, showSearchCalls)
         assertEquals(1, closeFolderCalls)
         assertFalse(folderOpen)
+    }
+
+    @Test
+    fun swipe_open_search_closes_transient_surfaces_and_opens_search() {
+        var folderOpen = true
+        var closeFolderCalls = 0
+        var hideSearchCalls = 0
+        var showSearchCalls = 0
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { showSearchCalls++ },
+            hideSearch = { hideSearchCalls++ },
+            isFolderOpen = { folderOpen },
+            closeFolder = {
+                closeFolderCalls++
+                folderOpen = false
+            }
+        )
+
+        coordinator.updateHomescreenMenuOpen(true)
+        coordinator.updateAppDrawerOpen(true)
+        coordinator.updateWidgetPickerOpen(true)
+
+        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_SEARCH)
+
+        assertFalse(coordinator.isHomescreenMenuOpen)
+        assertFalse(coordinator.isAppDrawerOpen)
+        assertFalse(coordinator.isWidgetPickerOpen)
+        assertEquals(1, showSearchCalls)
+        assertEquals(0, hideSearchCalls)
+        assertEquals(1, closeFolderCalls)
+        assertFalse(folderOpen)
+    }
+
+    @Test
+    fun swipe_do_nothing_leaves_state_unchanged() {
+        var folderOpen = false
+        var closeFolderCalls = 0
+        var hideSearchCalls = 0
+        var showSearchCalls = 0
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { showSearchCalls++ },
+            hideSearch = { hideSearchCalls++ },
+            isFolderOpen = { folderOpen },
+            closeFolder = { closeFolderCalls++ }
+        )
+
+        coordinator.updateHomescreenMenuOpen(true)
+
+        coordinator.handleHomeSwipeUp(SwipeUpAction.DO_NOTHING)
+
+        assertTrue(coordinator.isHomescreenMenuOpen)
+        assertEquals(0, showSearchCalls)
+        assertEquals(0, hideSearchCalls)
+        assertEquals(0, closeFolderCalls)
     }
 
     /**
@@ -153,6 +217,7 @@ class SurfaceStateCoordinatorTest {
         var closeFolderCalls = 0
 
         val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
             hideSearch = { },
             isFolderOpen = { folderOpen },
             closeFolder = {

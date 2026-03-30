@@ -21,7 +21,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,7 +41,6 @@ import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.LauncherSheet
 import com.milki.launcher.ui.components.rememberLauncherSheetState
 import com.milki.launcher.ui.theme.Spacing
-import kotlinx.coroutines.launch
 
 /**
  * Main launcher surface.
@@ -57,6 +55,7 @@ fun LauncherScreen(
     searchUiState: SearchUiState,
     homeUiState: HomeUiState,
     actions: LauncherActions = LauncherActions(),
+    isHomeSwipeEnabled: Boolean = true,
     isHomescreenMenuOpen: Boolean = false,
     isAppDrawerOpen: Boolean = false,
     appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
@@ -67,24 +66,6 @@ fun LauncherScreen(
     val widgetPickerSheetState = rememberLauncherSheetState()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
     val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
-
-    // Sync from ViewModel state to Drawer sheet state
-    LaunchedEffect(isAppDrawerOpen) {
-        if (isAppDrawerOpen) {
-            appDrawerSheetState.animateToExpanded()
-        } else {
-            appDrawerSheetState.animateToHidden()
-        }
-    }
-
-    // Sync from ViewModel state to Widget Picker sheet state
-    LaunchedEffect(isWidgetPickerOpen) {
-        if (isWidgetPickerOpen) {
-            widgetPickerSheetState.animateToExpanded()
-        } else {
-            widgetPickerSheetState.animateToHidden()
-        }
-    }
 
     LaunchedEffect(searchUiState.isSearchVisible) {
         if (searchUiState.isSearchVisible) {
@@ -117,6 +98,7 @@ fun LauncherScreen(
             homeUiState = homeUiState,
             actions = actions,
             canOpenDrawerFromSwipe =
+                isHomeSwipeEnabled &&
                 !isHomescreenMenuOpen &&
                     !isAppDrawerOpen &&
                     !isWidgetPickerOpen &&
@@ -156,12 +138,14 @@ fun LauncherScreen(
 
         DrawerHost(
             appDrawerSheetState = appDrawerSheetState,
+            isAppDrawerOpen = isAppDrawerOpen,
             appDrawerUiState = appDrawerUiState,
             actions = actions
         )
 
         WidgetPickerHost(
             widgetPickerSheetState = widgetPickerSheetState,
+            isWidgetPickerOpen = isWidgetPickerOpen,
             widgetHostManager = widgetHostManager,
             actions = actions
         )
@@ -314,28 +298,20 @@ private fun FolderOverlayHost(
 @Composable
 private fun DrawerHost(
     appDrawerSheetState: com.milki.launcher.ui.components.LauncherSheetState,
+    isAppDrawerOpen: Boolean,
     appDrawerUiState: AppDrawerUiState,
     actions: LauncherActions
 ) {
-    val scope = rememberCoroutineScope()
-    
-    // Only intercept touches / capture focus when visible
-    if (appDrawerSheetState.expandedFraction > 0f || !appDrawerSheetState.isHidden) {
-        LauncherSheet(
-            state = appDrawerSheetState,
+    ManagedLauncherSheet(
+        isOpen = isAppDrawerOpen,
+        sheetState = appDrawerSheetState,
+        onDismissRequest = { actions.drawer.onAppDrawerOpenChange(false) }
+    ) {
+        AppDrawerOverlay(
+            uiState = appDrawerUiState,
+            onDismiss = { actions.drawer.onAppDrawerOpenChange(false) },
             modifier = Modifier.fillMaxSize()
-        ) {
-            AppDrawerOverlay(
-                uiState = appDrawerUiState,
-                onDismiss = {
-                    scope.launch {
-                        appDrawerSheetState.animateToHidden()
-                        actions.drawer.onAppDrawerOpenChange(false)
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+        )
     }
 }
 
@@ -345,31 +321,23 @@ private fun DrawerHost(
 @Composable
 private fun WidgetPickerHost(
     widgetPickerSheetState: com.milki.launcher.ui.components.LauncherSheetState,
+    isWidgetPickerOpen: Boolean,
     widgetHostManager: WidgetHostManager?,
     actions: LauncherActions
 ) {
     if (widgetHostManager == null) return
-    val scope = rememberCoroutineScope()
-
-    if (widgetPickerSheetState.expandedFraction > 0f || !widgetPickerSheetState.isHidden) {
-        LauncherSheet(
-            state = widgetPickerSheetState,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            WidgetPickerBottomSheet(
-                onDismiss = {
-                    scope.launch {
-                        widgetPickerSheetState.animateToHidden()
-                        actions.widget.onWidgetPickerOpenChange(false)
-                    }
-                },
-                widgetHostManager = widgetHostManager,
-                onExternalDragStarted = {
-                    scope.launch { widgetPickerSheetState.snapToHidden() }
-                    actions.widget.onWidgetPickerOpenChange(false)
-                }
-            )
-        }
+    ManagedLauncherSheet(
+        isOpen = isWidgetPickerOpen,
+        sheetState = widgetPickerSheetState,
+        onDismissRequest = { actions.widget.onWidgetPickerOpenChange(false) }
+    ) {
+        WidgetPickerBottomSheet(
+            onDismiss = { actions.widget.onWidgetPickerOpenChange(false) },
+            widgetHostManager = widgetHostManager,
+            onExternalDragStarted = {
+                actions.widget.onWidgetPickerOpenChange(false)
+            }
+        )
     }
 }
 
@@ -385,4 +353,40 @@ private fun SearchOverlayHost(
         onQueryChange = actions.search.onQueryChange,
         onDismiss = actions.search.onDismissSearch
     )
+}
+
+@Composable
+private fun ManagedLauncherSheet(
+    isOpen: Boolean,
+    sheetState: com.milki.launcher.ui.components.LauncherSheetState,
+    onDismissRequest: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    var isMounted by remember { mutableStateOf(isOpen) }
+
+    LaunchedEffect(isOpen) {
+        when (resolveLauncherSheetTargetChange(targetOpen = isOpen, isMounted = isMounted)) {
+            LauncherSheetTargetChange.MountAndAnimateOpen -> {
+                isMounted = true
+                sheetState.animateToExpanded()
+            }
+
+            LauncherSheetTargetChange.AnimateClosedThenUnmount -> {
+                sheetState.animateToHidden()
+                isMounted = false
+            }
+
+            LauncherSheetTargetChange.None -> Unit
+        }
+    }
+
+    if (!isMounted) return
+
+    LauncherSheet(
+        state = sheetState,
+        modifier = Modifier.fillMaxSize(),
+        onDismissedByUser = onDismissRequest
+    ) {
+        content()
+    }
 }

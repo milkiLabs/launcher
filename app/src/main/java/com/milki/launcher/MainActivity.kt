@@ -198,9 +198,9 @@ class MainActivity : ComponentActivity() {
                             ),
                             home = HomeActions(
                                 onHomeSwipeUp = {
-                                    if (launcherSettings.swipeUpAction == SwipeUpAction.OPEN_APP_DRAWER) {
-                                        surfaceStateCoordinator.openAppDrawerFromSwipeGesture()
-                                    }
+                                    surfaceStateCoordinator.handleHomeSwipeUp(
+                                        action = launcherSettings.swipeUpAction
+                                    )
                                 },
                                 onPinnedItemClick = { item ->
                                     // Folder icons open the FolderPopupDialog.
@@ -339,6 +339,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         ),
+                        isHomeSwipeEnabled = launcherSettings.swipeUpAction != SwipeUpAction.DO_NOTHING,
                         isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
                         isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
                         appDrawerUiState = appDrawerUiState,
@@ -411,6 +412,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun initializeCoordinators() {
         surfaceStateCoordinator = SurfaceStateCoordinator(
+            showSearch = { searchViewModel.showSearch() },
             hideSearch = { searchViewModel.hideSearch() },
             isFolderOpen = { homeViewModel.uiState.value.openFolderItem != null },
             closeFolder = { homeViewModel.closeFolder() }
