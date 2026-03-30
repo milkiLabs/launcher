@@ -31,9 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -69,9 +66,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.ItemActionMenu
+import com.milki.launcher.ui.components.MenuAction
 import com.milki.launcher.ui.components.PinnedItem
 import com.milki.launcher.ui.components.dragdrop.startExternalFolderItemDrag
 import com.milki.launcher.ui.components.grid.detectDragGesture
@@ -758,22 +756,19 @@ private fun FolderPopupItem(
             showMenu = false
         )
 
-        DropdownMenu(
+        ItemActionMenu(
             expanded = showMenu,
-            onDismissRequest = onMenuDismiss,
-            properties = PopupProperties(focusable = !isLongPressGestureActive)
-        ) {
-            DropdownMenuItem(
-                text = { Text("Remove from folder") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = null
-                    )
-                },
-                onClick = onRemoveFromFolder
+            onDismiss = onMenuDismiss,
+            focusable = !isLongPressGestureActive,
+            actions = listOf(
+                MenuAction(
+                    label = "Remove from folder",
+                    icon = Icons.Filled.Delete,
+                    onClick = onRemoveFromFolder,
+                    isDestructive = true
+                )
             )
-        }
+        )
     }
 }
 

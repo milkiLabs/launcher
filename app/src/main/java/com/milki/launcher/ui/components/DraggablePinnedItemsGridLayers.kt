@@ -14,9 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -284,8 +281,7 @@ internal fun InternalGridDragLayer(
                             onRemove = {
                                 interactionController.dismissMenu()
                                 onRemoveWidget(item.id, item.appWidgetId)
-                            },
-                            hapticConfirm = hapticConfirm
+                            }
                         )
                     } else {
                         PinnedItem(
@@ -697,41 +693,26 @@ private fun WidgetContextMenu(
     onDismiss: () -> Unit,
     focusable: Boolean,
     onResize: () -> Unit,
-    onRemove: () -> Unit,
-    hapticConfirm: () -> Unit
+    onRemove: () -> Unit
 ) {
-    DropdownMenu(
+    ItemActionMenu(
         expanded = expanded,
-        onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.PopupProperties(focusable = focusable)
-    ) {
-        DropdownMenuItem(
-            text = { Text("Resize") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.AspectRatio,
-                    contentDescription = null
-                )
-            },
-            onClick = {
-                hapticConfirm()
-                onResize()
-            }
+        onDismiss = onDismiss,
+        focusable = focusable,
+        actions = listOf(
+            MenuAction(
+                label = "Resize",
+                icon = Icons.Filled.AspectRatio,
+                onClick = onResize
+            ),
+            MenuAction(
+                label = "Remove",
+                icon = Icons.Filled.Delete,
+                onClick = onRemove,
+                isDestructive = true
+            )
         )
-        DropdownMenuItem(
-            text = { Text("Remove") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = null
-                )
-            },
-            onClick = {
-                hapticConfirm()
-                onRemove()
-            }
-        )
-    }
+    )
 }
 
 /**
