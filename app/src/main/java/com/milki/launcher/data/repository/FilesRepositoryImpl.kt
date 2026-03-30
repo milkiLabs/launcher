@@ -44,7 +44,10 @@ import com.milki.launcher.util.MimeTypeUtil
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileFilterConfig
 import com.milki.launcher.domain.repository.FilesRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -115,6 +118,7 @@ class FilesRepositoryImpl(
                 val addedFileIds = mutableSetOf<Long>()
                 
                 Log.d(TAG, "Searching files with query: $query")
+                currentCoroutineContext().ensureActive()
                 
                 // Query multiple MediaStore collections to get all files
                 // On Android 11+, scoped storage limits what MediaStore.Files returns
@@ -130,6 +134,7 @@ class FilesRepositoryImpl(
                 // 2. Query MediaStore.Downloads (downloaded files)
                 // Available on Android 10 (API 29) and above
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    currentCoroutineContext().ensureActive()
                     queryMediaStoreCollection(
                         uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI,
                         query = query,
@@ -140,6 +145,8 @@ class FilesRepositoryImpl(
                 
                 Log.d(TAG, "Returning ${files.size} files")
                 files
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error searching files", e)
                 emptyList()
@@ -165,13 +172,14 @@ class FilesRepositoryImpl(
      * @param files Mutable list to add matching files to
      * @param addedFileIds Set of file IDs already added (to prevent duplicates)
      */
-    private fun queryMediaStoreCollection(
+    private suspend fun queryMediaStoreCollection(
         uri: Uri,
         query: String,
         files: MutableList<FileDocument>,
         addedFileIds: MutableSet<Long>
     ) {
         try {
+            currentCoroutineContext().ensureActive()
             // Build the WHERE clause: find files whose name contains the query
             // The LIKE operator with % wildcards does partial matching
             // %query% means "anything before, then query, then anything after"
@@ -212,6 +220,8 @@ class FilesRepositoryImpl(
                 // Iterate through all rows in the result set
                 while (it.moveToNext()) {
                     try {
+                        currentCoroutineContext().ensureActive()
+
                         // Extract the file ID
                         // MediaStore uses IDs to uniquely identify files
                         val id = it.getLong(idColumn)
@@ -277,12 +287,16 @@ class FilesRepositoryImpl(
                                 folderPath = folderPath
                             )
                         )
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         // Log error but continue processing other files
                         Log.e(TAG, "Error reading file from cursor", e)
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error querying URI: $uri", e)
         }
@@ -334,6 +348,8 @@ class FilesRepositoryImpl(
                     
                     while (it.moveToNext()) {
                         try {
+                            currentCoroutineContext().ensureActive()
+
                             val id = it.getLong(idColumn)
                             if (id in addedFileIds) continue
                             
@@ -380,6 +396,8 @@ class FilesRepositoryImpl(
                                     folderPath = folderPath
                                 )
                             )
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             Log.e(TAG, "Error reading file from cursor", e)
                         }
@@ -387,6 +405,8 @@ class FilesRepositoryImpl(
                 }
                 
                 files
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting recent files", e)
                 emptyList()

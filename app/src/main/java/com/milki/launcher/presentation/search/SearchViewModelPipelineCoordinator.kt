@@ -11,15 +11,17 @@ import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.domain.search.parseSearchQuery
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Coordinates the asynchronous search pipeline for SearchViewModel.
@@ -29,7 +31,6 @@ import kotlinx.coroutines.flow.update
  * - emits loading + final search output
  * - delegates provider-based and app-based searches
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 internal class SearchViewModelPipelineCoordinator(
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
@@ -50,7 +51,10 @@ internal class SearchViewModelPipelineCoordinator(
         prefixConfigurations: StateFlow<ProviderPrefixConfiguration>,
         existingOutput: MutableStateFlow<SearchPipelineOutput>
     ): StateFlow<SearchPipelineOutput> {
-        return combine(
+        val searchGeneration = AtomicLong(0L)
+        var activeSearchJob: kotlinx.coroutines.Job? = null
+
+        combine(
             query,
             isSearchVisible,
             backgroundState,
@@ -62,11 +66,15 @@ internal class SearchViewModelPipelineCoordinator(
                 background = background
             )
         }
-            .mapLatest { input ->
+            .onEach { input ->
+                activeSearchJob?.cancel()
+
                 if (!input.visible) {
-                    SearchPipelineOutput()
+                    searchGeneration.incrementAndGet()
+                    existingOutput.value = SearchPipelineOutput()
                 } else {
                     val parsed = parseSearchQuery(input.query, providerRegistry)
+                    val generation = searchGeneration.incrementAndGet()
 
                     existingOutput.update { current ->
                         current.copy(
@@ -75,23 +83,26 @@ internal class SearchViewModelPipelineCoordinator(
                         )
                     }
 
-                    val results = executeSearch(
-                        parsed = parsed,
-                        installedApps = input.background.installedApps,
-                        recentApps = input.background.recentApps
-                    )
+                    activeSearchJob = scope.launch(Dispatchers.Default) {
+                        val results = executeSearch(
+                            parsed = parsed,
+                            installedApps = input.background.installedApps,
+                            recentApps = input.background.recentApps
+                        )
 
-                    SearchPipelineOutput(
-                        results = results,
-                        activeProviderConfig = parsed.config,
-                        isLoading = false
-                    )
+                        if (generation == searchGeneration.get()) {
+                            existingOutput.value = SearchPipelineOutput(
+                                results = results,
+                                activeProviderConfig = parsed.config,
+                                isLoading = false
+                            )
+                        }
+                    }
                 }
             }
-            .onEach { output ->
-                existingOutput.value = output
-            }
-            .stateIn(scope, SharingStarted.Eagerly, existingOutput.value)
+            .launchIn(scope)
+
+        return existingOutput.asStateFlow()
     }
 
     /**
@@ -125,7 +136,9 @@ internal class SearchViewModelPipelineCoordinator(
      */
     private suspend fun runProviderSearch(provider: SearchProvider, query: String): List<SearchResult> {
         return try {
-            provider.search(query)
+            withContext(Dispatchers.IO) {
+                provider.search(query)
+            }
         } catch (_: Exception) {
             emptyList()
         }

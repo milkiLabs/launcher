@@ -3,7 +3,7 @@ package com.milki.launcher.ui.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,7 +29,8 @@ fun EmptyState(
     searchQuery: String,
     activeProvider: SearchProviderConfig?,
     prefixHint: String,
-    providerAccentColorById: Map<String, String>
+    providerAccentColorById: Map<String, String>,
+    modifier: Modifier = Modifier
 ) {
     val providerVisual = rememberSearchProviderVisual(
         providerId = activeProvider?.providerId,
@@ -37,12 +38,15 @@ fun EmptyState(
     )
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(Spacing.extraLarge)
+            modifier = Modifier.padding(
+                horizontal = Spacing.extraLarge,
+                vertical = Spacing.large
+            )
         ) {
             val icon = providerVisual?.icon ?: Icons.Default.Search
             val tint = providerVisual?.accentColor ?: MaterialTheme.colorScheme.onSurfaceVariant

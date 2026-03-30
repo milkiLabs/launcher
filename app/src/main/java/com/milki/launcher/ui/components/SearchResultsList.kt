@@ -20,17 +20,17 @@
 package com.milki.launcher.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
@@ -60,7 +60,8 @@ fun SearchResultsList(
     results: List<SearchResult>,
     activeProviderConfig: SearchProviderConfig?,
     providerAccentColorById: Map<String, String> = emptyMap(),
-    onExternalAppDragStart: () -> Unit = {}
+    onExternalAppDragStart: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     /**
      * Get the action handler from CompositionLocal.
@@ -94,7 +95,8 @@ fun SearchResultsList(
         AppResultsGrid(
             appResults = results.filterIsInstance<AppSearchResult>(),
             actionHandler = actionHandler,
-            onExternalAppDragStart = onExternalAppDragStart
+            onExternalAppDragStart = onExternalAppDragStart,
+            modifier = modifier
         )
     } else {
         /**
@@ -109,7 +111,8 @@ fun SearchResultsList(
             activeProviderConfig = activeProviderConfig,
             providerAccentColorById = providerAccentColorById,
             actionHandler = actionHandler,
-            onExternalAppDragStart = onExternalAppDragStart
+            onExternalAppDragStart = onExternalAppDragStart,
+            modifier = modifier
         )
     }
 }
@@ -122,13 +125,9 @@ fun SearchResultsList(
  * - 2 rows (implicit, based on number of items)
  * - Maximum 8 items (limited by ViewModel)
  *
- * The grid uses LazyVerticalGrid which:
- * - Handles items lazily (only composes visible items)
- * - Provides consistent spacing
- * - Is performant even for larger datasets
- *
- * Note: Even though we only have 8 items, LazyVerticalGrid
- * provides a clean API for grid layouts with proper key handling.
+ * The grid is rendered as a simple 4-column layout because search
+ * app results are capped at 8 items. This lets the dialog wrap to
+ * content height instead of reserving unnecessary empty space.
  *
  * @param appResults List of app search results to display (max 8)
  * @param actionHandler The action handler to emit actions when user interacts
@@ -137,37 +136,34 @@ fun SearchResultsList(
 private fun AppResultsGrid(
     appResults: List<AppSearchResult>,
     actionHandler: (SearchResultAction) -> Unit,
-    onExternalAppDragStart: () -> Unit
+    onExternalAppDragStart: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(4),
-        modifier = Modifier
+    Column(
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.smallMedium),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.small),
         verticalArrangement = Arrangement.spacedBy(Spacing.small)
     ) {
-        /**
-         * items() creates a grid item for each result.
-         * key = { it.id } ensures stable identity across recompositions,
-         * which improves performance. We use 'id' (which includes the
-         * activity name) instead of 'packageName' because multiple
-         * activities can share the same package (e.g., launcher + settings).
-         *
-         * Stable keys are important because:
-         * - They prevent unnecessary recompositions
-         * - They enable smooth animations when items change
-         * - They maintain item state (like scroll position)
-         */
-        items(
-            items = appResults,
-            key = { it.id }
-        ) { result ->
-            AppGridItem(
-                appInfo = result.appInfo,
-                onExternalDragStarted = onExternalAppDragStart,
-                onClick = { actionHandler(SearchResultAction.Tap(result)) }
-            )
+        appResults.chunked(4).forEach { rowResults ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+            ) {
+                rowResults.forEach { result ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppGridItem(
+                            appInfo = result.appInfo,
+                            onExternalDragStarted = onExternalAppDragStart,
+                            onClick = { actionHandler(SearchResultAction.Tap(result)) }
+                        )
+                    }
+                }
+
+                repeat(4 - rowResults.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
 }
@@ -204,7 +200,8 @@ private fun MixedResultsList(
     activeProviderConfig: SearchProviderConfig?,
     providerAccentColorById: Map<String, String>,
     actionHandler: (SearchResultAction) -> Unit,
-    onExternalAppDragStart: () -> Unit
+    onExternalAppDragStart: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val providerVisual = rememberSearchProviderVisual(
         providerId = activeProviderConfig?.providerId,
@@ -213,11 +210,11 @@ private fun MixedResultsList(
     val accentColor = providerVisual?.accentColor
 
     /**
-     * LazyListState allows us to control and observe the scroll position
-     * of the LazyColumn. We use this to programmatically scroll to the
+     * Scroll state allows us to control and observe the scroll position
+     * of the results container. We use this to programmatically scroll to the
      * top when new results arrive.
      */
-    val listState = rememberLazyListState()
+    val scrollState = rememberScrollState()
     
     /**
      * LaunchedEffect with results as the key ensures this effect runs
@@ -230,12 +227,13 @@ private fun MixedResultsList(
      * - The user might miss the best matches that are now at the top
      */
     LaunchedEffect(results) {
-        listState.animateScrollToItem(0)
+        scrollState.scrollTo(0)
     }
-    
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = listState
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(scrollState)
     ) {
         /**
          * Each result type gets its own dedicated composable.
@@ -245,10 +243,7 @@ private fun MixedResultsList(
          * SearchResult subtypes - if a new type is added, the
          * compiler will warn about missing branches.
          */
-        items(
-            items = results,
-            key = { it.id }
-        ) { result ->
+        results.forEach { result ->
             when (result) {
                 is AppSearchResult -> {
                     AppListItem(
@@ -322,5 +317,7 @@ private fun MixedResultsList(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(Spacing.smallMedium))
     }
 }

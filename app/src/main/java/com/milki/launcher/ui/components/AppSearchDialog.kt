@@ -30,7 +30,10 @@ package com.milki.launcher.ui.components
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -46,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -61,6 +65,7 @@ import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+import kotlinx.coroutines.delay
 
 /**
  * AppSearchDialog - Main search dialog component supporting multiple search modes.
@@ -105,6 +110,18 @@ fun AppSearchDialog(
      * consistency across OEM keyboard implementations.
      */
     val keyboardController = LocalSoftwareKeyboardController.current
+    val showLoadingIndicator by produceState(
+        initialValue = false,
+        key1 = uiState.isLoading
+    ) {
+        if (!uiState.isLoading) {
+            value = false
+            return@produceState
+        }
+
+        delay(300)
+        value = uiState.isLoading
+    }
 
     /**
      * Lifecycle owner to react to resume events for focus requests.
@@ -123,170 +140,99 @@ fun AppSearchDialog(
      *
      * PROPERTIES:
      * - usePlatformDefaultWidth = false: Allows custom sizing
-     * - decorFitsSystemWindows = true: Properly handles window insets
+     * - decorFitsSystemWindows = false: We handle system/IME insets manually
      */
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = true
+            decorFitsSystemWindows = false
         )
     ) {
-        /**
-         * Surface provides the background and elevation for the dialog.
-         * It uses the theme's surface color and has rounded corners
-         * for a modern, card-like appearance.
-         *
-         * SIZE:
-         * - 90% of screen width
-         * - 80% of screen height
-         * - Plus padding for system bars (IME, navigation, status)
-         */
-        Surface(
+        Box(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .fillMaxHeight(0.8f)
-                .imePadding()
-                .navigationBarsPadding()
-                .statusBarsPadding(),
-            shape = RoundedCornerShape(CornerRadius.large),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = Spacing.smallMedium
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.16f))
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                /**
-                 * SearchTextFieldWithIndicator is the search input field
-                 * with a color-coded indicator bar showing the active mode.
-                 */
-                SearchTextFieldWithIndicator(
-                    searchQuery = uiState.query,
-                    onSearchQueryChange = onQueryChange,
-                    focusRequester = focusRequester,
-                    activeProviderConfig = uiState.activeProviderConfig,
-                    providerAccentColorById = uiState.providerAccentColorById,
-                    placeholderText = uiState.placeholderText,
-                    onLaunchFirstResult = {
-                        uiState.results.firstOrNull()?.let { result ->
-                            actionHandler(SearchResultAction.Tap(result))
-                        }
-                    },
-                    onClear = { onQueryChange("") }
-                )
-
-                /**
-                 * Loading indicator shown when a search is in progress.
-                 * This provides visual feedback to the user that the app is
-                 * actively searching, especially important for slower providers
-                 * like file search. Without this, users might think the app
-                 * is frozen or unresponsive.
-                 */
-                if (uiState.isLoading) {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = Spacing.mediumLarge)
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismiss
                     )
-                }
+            )
 
-                /**
-                 * Main results region takes remaining vertical space.
-                 *
-                 * We intentionally keep this as a weighted block so we can place the
-                 * clipboard suggestion chip as the LAST element in the dialog, below
-                 * recent apps/results.
-                 */
-                Box(
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+                        )
+                    )
+                    .windowInsetsPadding(
+                        WindowInsets.navigationBars
+                            .union(WindowInsets.ime)
+                            .only(WindowInsetsSides.Bottom)
+                    )
+                    .padding(
+                        start = Spacing.mediumLarge,
+                        end = Spacing.mediumLarge,
+                        top = Spacing.smallMedium,
+                        bottom = Spacing.smallMedium
+                    ),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .widthIn(max = 720.dp)
+                        .heightIn(max = maxHeight)
+                        .animateContentSize(),
+                    shape = RoundedCornerShape(CornerRadius.large),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = Spacing.smallMedium
                 ) {
-                    if (uiState.results.isEmpty()) {
-                        EmptyState(
-                            searchQuery = uiState.query,
-                            activeProvider = uiState.activeProviderConfig,
-                            prefixHint = uiState.prefixHint,
-                            providerAccentColorById = uiState.providerAccentColorById
-                        )
-                    } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = maxHeight)
+                            .animateContentSize()
+                    ) {
                         /**
-                         * SearchResultsList handles the display of results.
-                         * It automatically chooses between grid and list layouts.
-                         * Actions are handled via LocalSearchActionHandler.
+                         * SearchTextFieldWithIndicator is the search input field
+                         * with a color-coded indicator bar showing the active mode.
                          */
-                        SearchResultsList(
-                            results = uiState.results,
+                        SearchTextFieldWithIndicator(
+                            searchQuery = uiState.query,
+                            onSearchQueryChange = onQueryChange,
+                            focusRequester = focusRequester,
                             activeProviderConfig = uiState.activeProviderConfig,
                             providerAccentColorById = uiState.providerAccentColorById,
-                            onExternalAppDragStart = onDismiss
+                            placeholderText = uiState.placeholderText,
+                            onLaunchFirstResult = {
+                                uiState.results.firstOrNull()?.let { result ->
+                                    actionHandler(SearchResultAction.Tap(result))
+                                }
+                            },
+                            onClear = { onQueryChange("") }
                         )
-                    }
-                }
 
-                /**
-                 * Suggestion chips are intentionally placed at the bottom of
-                 * the dialog, below recent apps/results, as requested.
-                 *
-                 * MUTUAL EXCLUSIVITY:
-                 * - Clipboard chip shows when query is BLANK
-                 * - Query chip shows when query is NOT BLANK
-                 * - They never both appear at the same time
-                 */
-                if (uiState.shouldShowClipboardSuggestion) {
-                    val suggestionToShow = uiState.clipboardSuggestion
-
-                    if (suggestionToShow != null) {
-                        ClipboardSuggestionBottomChip(
-                            suggestion = suggestionToShow,
-                            onSearchTextInBrowser = { queryText ->
-                                val encodedQuery = Uri.encode(queryText)
-                                val url = "https://www.google.com/search?q=$encodedQuery"
-                                actionHandler(
-                                    SearchResultAction.OpenUrlInBrowser(
-                                        url = url
-                                    )
-                                )
-                            },
-                            onOpenUrl = { urlResult ->
-                                actionHandler(SearchResultAction.Tap(urlResult))
-                            },
-                            onOpenDialer = { phoneNumber ->
-                                actionHandler(SearchResultAction.OpenDialer(phoneNumber))
-                            },
-                            onComposeEmail = { emailAddress ->
-                                actionHandler(SearchResultAction.ComposeEmail(emailAddress))
-                            },
-                            onOpenMapLocation = { locationQuery ->
-                                actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
-                            }
+                        SearchLoadingIndicatorSlot(
+                            isVisible = showLoadingIndicator,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = Spacing.mediumLarge)
                         )
-                    }
-                } else if (uiState.shouldShowQuerySuggestion) {
-                    val suggestionToShow = uiState.querySuggestion
 
-                    if (suggestionToShow != null) {
-                        QuerySuggestionBottomChip(
-                            suggestion = suggestionToShow,
-                            onSearchWeb = { searchQuery ->
-                                val encodedQuery = Uri.encode(searchQuery)
-                                val url = "https://www.google.com/search?q=$encodedQuery"
-                                actionHandler(
-                                    SearchResultAction.OpenUrlInBrowser(
-                                        url = url
-                                    )
-                                )
-                            },
-                            onOpenUrl = { urlResult ->
-                                actionHandler(SearchResultAction.Tap(urlResult))
-                            },
-                            onOpenDialer = { phoneNumber ->
-                                actionHandler(SearchResultAction.OpenDialer(phoneNumber))
-                            },
-                            onComposeEmail = { emailAddress ->
-                                actionHandler(SearchResultAction.ComposeEmail(emailAddress))
-                            },
-                            onOpenMapLocation = { locationQuery ->
-                                actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
-                            }
+                        SearchDialogBody(
+                            uiState = uiState,
+                            onExternalAppDragStart = onDismiss,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false)
                         )
                     }
                 }
@@ -316,6 +262,134 @@ fun AppSearchDialog(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+}
+
+@Composable
+private fun SearchLoadingIndicatorSlot(
+    isVisible: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.height(Spacing.small),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isVisible) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchDialogBody(
+    uiState: SearchUiState,
+    onExternalAppDragStart: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val actionHandler = LocalSearchActionHandler.current
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = Spacing.smallMedium)
+    ) {
+        if (uiState.results.isEmpty()) {
+            EmptyState(
+                searchQuery = uiState.query,
+                activeProvider = uiState.activeProviderConfig,
+                prefixHint = uiState.prefixHint,
+                providerAccentColorById = uiState.providerAccentColorById,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+            )
+        } else {
+            /**
+             * SearchResultsList handles the display of results.
+             * It automatically chooses between grid and list layouts.
+             * Actions are handled via LocalSearchActionHandler.
+             */
+            SearchResultsList(
+                results = uiState.results,
+                activeProviderConfig = uiState.activeProviderConfig,
+                providerAccentColorById = uiState.providerAccentColorById,
+                onExternalAppDragStart = onExternalAppDragStart,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+            )
+        }
+
+        /**
+         * Suggestion chips are intentionally placed at the bottom of
+         * the dialog, below recent apps/results, as requested.
+         *
+         * MUTUAL EXCLUSIVITY:
+         * - Clipboard chip shows when query is BLANK
+         * - Query chip shows when query is NOT BLANK
+         * - They never both appear at the same time
+         */
+        if (uiState.shouldShowClipboardSuggestion) {
+            val suggestionToShow = uiState.clipboardSuggestion
+
+            if (suggestionToShow != null) {
+                ClipboardSuggestionBottomChip(
+                    suggestion = suggestionToShow,
+                    onSearchTextInBrowser = { queryText ->
+                        val encodedQuery = Uri.encode(queryText)
+                        val url = "https://www.google.com/search?q=$encodedQuery"
+                        actionHandler(
+                            SearchResultAction.OpenUrlInBrowser(
+                                url = url
+                            )
+                        )
+                    },
+                    onOpenUrl = { urlResult ->
+                        actionHandler(SearchResultAction.Tap(urlResult))
+                    },
+                    onOpenDialer = { phoneNumber ->
+                        actionHandler(SearchResultAction.OpenDialer(phoneNumber))
+                    },
+                    onComposeEmail = { emailAddress ->
+                        actionHandler(SearchResultAction.ComposeEmail(emailAddress))
+                    },
+                    onOpenMapLocation = { locationQuery ->
+                        actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
+                    }
+                )
+            }
+        } else if (uiState.shouldShowQuerySuggestion) {
+            val suggestionToShow = uiState.querySuggestion
+
+            if (suggestionToShow != null) {
+                QuerySuggestionBottomChip(
+                    suggestion = suggestionToShow,
+                    onSearchWeb = { searchQuery ->
+                        val encodedQuery = Uri.encode(searchQuery)
+                        val url = "https://www.google.com/search?q=$encodedQuery"
+                        actionHandler(
+                            SearchResultAction.OpenUrlInBrowser(
+                                url = url
+                            )
+                        )
+                    },
+                    onOpenUrl = { urlResult ->
+                        actionHandler(SearchResultAction.Tap(urlResult))
+                    },
+                    onOpenDialer = { phoneNumber ->
+                        actionHandler(SearchResultAction.OpenDialer(phoneNumber))
+                    },
+                    onComposeEmail = { emailAddress ->
+                        actionHandler(SearchResultAction.ComposeEmail(emailAddress))
+                    },
+                    onOpenMapLocation = { locationQuery ->
+                        actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
+                    }
+                )
+            }
+        }
     }
 }
 
