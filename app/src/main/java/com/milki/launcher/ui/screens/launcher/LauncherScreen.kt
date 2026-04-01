@@ -282,7 +282,8 @@ private fun DrawerHost(
     ManagedLauncherSheet(
         isOpen = isAppDrawerOpen,
         sheetState = appDrawerSheetState,
-        onDismissRequest = { actions.drawer.onAppDrawerOpenChange(false) }
+        onDismissRequest = { actions.drawer.onAppDrawerOpenChange(false) },
+        onClosed = actions.drawer.onAppDrawerClosed
     ) {
         AppDrawerOverlay(
             uiState = appDrawerUiState,
@@ -338,6 +339,7 @@ private fun ManagedLauncherSheet(
     isOpen: Boolean,
     sheetState: com.milki.launcher.ui.components.LauncherSheetState,
     onDismissRequest: () -> Unit,
+    onClosed: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
     var isMounted by remember { mutableStateOf(isOpen) }
@@ -352,6 +354,7 @@ private fun ManagedLauncherSheet(
             LauncherSheetTargetChange.AnimateClosedThenUnmount -> {
                 sheetState.animateToHidden()
                 isMounted = false
+                onClosed()
             }
 
             LauncherSheetTargetChange.None -> Unit

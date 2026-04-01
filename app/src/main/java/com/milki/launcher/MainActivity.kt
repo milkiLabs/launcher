@@ -167,6 +167,7 @@ class MainActivity : ComponentActivity() {
                 initialValue = LauncherSettings()
             )
             val context = LocalContext.current
+            val isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen
 
             /**
              * Provide the action handler via CompositionLocal.
@@ -213,12 +214,12 @@ class MainActivity : ComponentActivity() {
                             drawer = DrawerActions(
                                 onAppDrawerOpenChange = { isOpen ->
                                     surfaceStateCoordinator.updateAppDrawerOpen(isOpen)
-                                    if (!isOpen) {
-                                        appDrawerViewModel.updateQuery("")
-                                    }
                                 },
                                 onQueryChange = { query ->
                                     appDrawerViewModel.updateQuery(query)
+                                },
+                                onAppDrawerClosed = {
+                                    appDrawerViewModel.updateQuery("")
                                 }
                             ),
                             home = HomeActions(
@@ -378,7 +379,7 @@ class MainActivity : ComponentActivity() {
                         ),
                         isHomeSwipeEnabled = launcherSettings.swipeUpAction != SwipeUpAction.DO_NOTHING,
                         isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
-                        isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
+                        isAppDrawerOpen = isAppDrawerOpen,
                         appDrawerUiState = appDrawerUiState,
                         isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
                         widgetHostManager = widgetHostManager
