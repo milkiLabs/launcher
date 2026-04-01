@@ -48,7 +48,7 @@ class HomeButtonPolicy {
         RESET_TRANSIENT_UI,
 
         /**
-         * A homescreen dropdown/menu is open; close it first and consume this home press.
+         * A homescreen dropdown/menu is open; close it before opening search.
          */
         CLOSE_MENU,
 
@@ -73,7 +73,7 @@ class HomeButtonPolicy {
      *
      * PRIORITY ORDER:
      * 1) Not already on homescreen -> reset transient UI
-     * 2) Menu open -> close menu (consume this press)
+    * 2) Menu open -> close menu, then open search
      * 3) Search hidden -> open search
      * 4) Search visible + has query -> clear query
      * 5) Search visible + empty query -> hide search

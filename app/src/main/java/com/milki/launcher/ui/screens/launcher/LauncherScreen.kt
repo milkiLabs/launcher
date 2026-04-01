@@ -1,28 +1,22 @@
 package com.milki.launcher.ui.screens.launcher
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,19 +24,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.home.HomeUiState
-import com.milki.launcher.presentation.main.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.AppDrawerOverlay
 import com.milki.launcher.ui.components.AppSearchDialog
 import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
+import com.milki.launcher.ui.components.ItemActionMenu
 import com.milki.launcher.ui.components.folder.FolderPopupDialog
 import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.LauncherSheet
+import com.milki.launcher.ui.components.MenuAction
 import com.milki.launcher.ui.components.rememberLauncherSheetState
 import com.milki.launcher.ui.theme.Spacing
 
@@ -93,11 +88,6 @@ fun LauncherScreen(
             .background(Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
-        HomescreenMenuScrim(
-            isVisible = isHomescreenMenuOpen,
-            onDismiss = { actions.menu.onHomescreenMenuOpenChange(false) }
-        )
-
         HomeSurface(
             homeUiState = homeUiState,
             actions = actions,
@@ -162,24 +152,6 @@ fun LauncherScreen(
 }
 
 @Composable
-private fun HomescreenMenuScrim(
-    isVisible: Boolean,
-    onDismiss: () -> Unit
-) {
-    if (!isVisible) return
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            )
-    )
-}
-
-@Composable
 private fun HomescreenMenu(
     expanded: Boolean,
     anchorPx: Offset,
@@ -190,47 +162,36 @@ private fun HomescreenMenu(
     if (!expanded) return
 
     val density = LocalDensity.current
-    val dismissSignal = LocalContextMenuDismissSignal.current
-    val latestOnDismiss by rememberUpdatedState(onDismiss)
-    var lastHandledDismissSignal by remember { mutableIntStateOf(dismissSignal) }
-
-    LaunchedEffect(dismissSignal) {
-        if (dismissSignal == lastHandledDismissSignal) return@LaunchedEffect
-        lastHandledDismissSignal = dismissSignal
-        latestOnDismiss()
-    }
-
-    DropdownMenu(
-        expanded = true,
-        onDismissRequest = onDismiss,
-        offset = with(density) {
-            DpOffset(
-                x = anchorPx.x.toDp(),
-                y = anchorPx.y.toDp()
-            )
-        }
-    ) {
-        DropdownMenuItem(
-            text = { Text("Widgets") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Widgets,
-                    contentDescription = null
-                )
-            },
+    val xOffset = with(density) { anchorPx.x.toDp() }
+    val yOffset = with(density) { anchorPx.y.toDp() }
+    val actions = listOf(
+        MenuAction(
+            label = "Widgets",
+            icon = Icons.Filled.Widgets,
             onClick = onOpenWidgets
-        )
-
-        DropdownMenuItem(
-            text = { Text("Settings") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = null
-                )
-            },
+        ),
+        MenuAction(
+            label = "Settings",
+            icon = Icons.Filled.Settings,
             onClick = onOpenSettings
         )
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = xOffset, y = yOffset)
+                .size(1.dp)
+        ) {
+            ItemActionMenu(
+                expanded = true,
+                onDismiss = onDismiss,
+                actions = actions
+            )
+        }
     }
 }
 

@@ -42,6 +42,7 @@ class SearchSessionController(
 
             HomeButtonPolicy.Decision.CLOSE_MENU -> {
                 closeHomescreenMenu()
+                searchViewModel.showSearch()
             }
 
             HomeButtonPolicy.Decision.OPEN_SEARCH -> {
