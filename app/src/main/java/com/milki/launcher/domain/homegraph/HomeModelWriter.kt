@@ -8,7 +8,7 @@ import com.milki.launcher.domain.model.HomeItem
  * Simple, deterministic mutation engine for top-level home layout operations.
  */
 class HomeModelWriter(
-    private val gridColumns: Int = 5
+    private val gridColumns: Int = HomeGridDefaults.COLUMNS
 ) {
 
     sealed interface Command {

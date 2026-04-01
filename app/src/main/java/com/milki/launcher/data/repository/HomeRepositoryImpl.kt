@@ -36,6 +36,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -72,18 +73,6 @@ private val Context.homeDataStore: DataStore<Preferences> by preferencesDataStor
 class HomeRepositoryImpl(
     private val context: Context
 ) : HomeRepository {
-
-    /**
-     * Default column count used by repository-level auto-placement.
-     *
-     * IMPORTANT:
-     * This value is only used for "find first available slot" behavior during
-     * generic pin actions that do not specify an explicit drop target. Explicit
-     * drag-drop placement always uses provided GridPosition values.
-     */
-    private companion object {
-        private const val DEFAULT_GRID_COLUMNS = 5
-    }
 
     // ========================================================================
     // PREFERENCE KEY
@@ -188,7 +177,7 @@ class HomeRepositoryImpl(
             }
 
             // Find the next available position for the new item.
-            val availablePosition = findAvailablePositionInList(currentItems, columns = DEFAULT_GRID_COLUMNS)
+            val availablePosition = findAvailablePositionInList(currentItems, columns = HomeGridDefaults.COLUMNS)
 
             // Place the item at the available position
             val itemWithPosition = item.withPosition(availablePosition)
@@ -272,7 +261,7 @@ class HomeRepositoryImpl(
 
             // For widgets, verify the full span fits; for single-cell items, check just the cell.
             val span = (item as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
-            if (!isSpanFree(targetPosition, span, occupiedCells, gridColumns = DEFAULT_GRID_COLUMNS)) {
+            if (!isSpanFree(targetPosition, span, occupiedCells, gridColumns = HomeGridDefaults.COLUMNS)) {
                 wasApplied = false
                 return@edit
             }
@@ -354,7 +343,7 @@ class HomeRepositoryImpl(
 
             // For widgets, check that the full span fits; for single-cell items, check the single cell.
             val span = (currentItem as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
-            val wouldOverlap = !isSpanFree(newPosition, span, occupiedCells, gridColumns = DEFAULT_GRID_COLUMNS)
+            val wouldOverlap = !isSpanFree(newPosition, span, occupiedCells, gridColumns = HomeGridDefaults.COLUMNS)
 
             if (wouldOverlap) {
                 wasApplied = false
@@ -848,7 +837,7 @@ class HomeRepositoryImpl(
         position: GridPosition,
         span: GridSpan,
         occupiedCells: Map<GridPosition, String>,
-        gridColumns: Int = DEFAULT_GRID_COLUMNS
+        gridColumns: Int = HomeGridDefaults.COLUMNS
     ): Boolean {
         // Bounds check: the span must not extend beyond the grid columns.
         if (position.column + span.columns > gridColumns) return false
