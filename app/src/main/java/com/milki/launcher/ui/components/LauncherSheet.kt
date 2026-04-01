@@ -3,9 +3,6 @@ package com.milki.launcher.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -30,6 +28,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private enum class DismissDragSession {
+    Undecided,
+    Allowed,
+    Blocked
+}
 
 @Stable
 class LauncherSheetState(
@@ -125,17 +129,16 @@ fun LauncherSheet(
     onDismissedByUser: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
     val currentOnDismissedByUser = rememberUpdatedState(onDismissedByUser)
+    val dismissDragSession = remember { mutableStateOf(DismissDragSession.Undecided) }
     
     val nestedScrollConnection = remember(state) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                return if (available.y > 0 && state.expandedFraction < 1f) {
-                    // Swiping down while list is at top -> drag sheet down
-                    val consumed = available.y
-                    state.onDragDelta(consumed)
-                    Offset(0f, consumed)
+                return if (available.y < 0 && state.expandedFraction < 1f) {
+                    // Pulling up while partially hidden re-expands the sheet first.
+                    state.onDragDelta(available.y)
+                    Offset(0f, available.y)
                 } else {
                     Offset.Zero
                 }
@@ -146,12 +149,35 @@ fun LauncherSheet(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                // If the list couldn't scroll down anymore (available.y > 0), drag the sheet
-                return if (available.y > 0) {
+                if (
+                    source == NestedScrollSource.UserInput &&
+                    dismissDragSession.value == DismissDragSession.Undecided &&
+                    state.expandedFraction == 1f &&
+                    abs(consumed.y) > 0f
+                ) {
+                    // Child scroll consumed drag first, so this gesture is a scroll gesture.
+                    dismissDragSession.value = DismissDragSession.Blocked
+                }
+
+                if (
+                    source == NestedScrollSource.UserInput &&
+                    dismissDragSession.value == DismissDragSession.Undecided &&
+                    available.y > 0f &&
+                    abs(consumed.y) == 0f
+                ) {
+                    // No child scroll consumption: drag started at top, allow dismiss.
+                    dismissDragSession.value = DismissDragSession.Allowed
+                }
+
+                return if (
+                    source == NestedScrollSource.UserInput &&
+                    available.y > 0 &&
+                    dismissDragSession.value == DismissDragSession.Allowed
+                ) {
+                    // Gesture started from top: pull sheet downward.
                     state.onDragDelta(available.y)
                     Offset(0f, available.y)
                 } else if (available.y < 0 && state.expandedFraction < 1f) {
-                    // Pulling up when not fully expanded
                     state.onDragDelta(available.y)
                     Offset(0f, available.y)
                 } else {
@@ -160,7 +186,7 @@ fun LauncherSheet(
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                return if (state.expandedFraction < 1f) {
+                val result = if (state.expandedFraction < 1f) {
                     val keptExpanded = state.onDragStopped(available.y)
                     if (!keptExpanded) {
                         currentOnDismissedByUser.value()
@@ -169,6 +195,13 @@ fun LauncherSheet(
                 } else {
                     Velocity.Zero
                 }
+                dismissDragSession.value = DismissDragSession.Undecided
+                return result
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                dismissDragSession.value = DismissDragSession.Undecided
+                return Velocity.Zero
             }
         }
     }
@@ -181,27 +214,11 @@ fun LauncherSheet(
             }
         }
 
-        val draggableState = rememberDraggableState { delta ->
-            state.onDragDelta(delta)
-        }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, state.currentOffsetPx.roundToInt()) }
                 .nestedScroll(nestedScrollConnection)
-                .draggable(
-                    state = draggableState,
-                    orientation = Orientation.Vertical,
-                    onDragStopped = { velocity ->
-                        scope.launch {
-                            val keptExpanded = state.onDragStopped(velocity)
-                            if (!keptExpanded) {
-                                currentOnDismissedByUser.value()
-                            }
-                        }
-                    }
-                )
         ) {
             content()
         }
