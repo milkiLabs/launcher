@@ -214,4 +214,38 @@ class HomeModelWriterTest {
 
         assertTrue(result is HomeModelWriter.Result.Rejected)
     }
+
+    @Test
+    fun remove_items_by_id_deletes_folder_when_all_children_removed() {
+        val staleChildA = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("A", "pkg.a", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val staleChildB = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("B", "pkg.b", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val healthyTopLevel = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("C", "pkg.c", "Main", null)
+        ).withPosition(GridPosition(0, 0))
+
+        val folder = HomeItem.FolderItem.create(
+            item1 = staleChildA,
+            item2 = staleChildB,
+            atPosition = GridPosition(1, 1)
+        )
+
+        val result = writer.apply(
+            currentItems = listOf(healthyTopLevel, folder),
+            command = HomeModelWriter.Command.RemoveItemsById(
+                itemIds = setOf(staleChildA.id, staleChildB.id)
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val appliedItems = (result as HomeModelWriter.Result.Applied).items
+        assertTrue(appliedItems.none { it is HomeItem.FolderItem && it.id == folder.id })
+        assertTrue(appliedItems.none { it.id == staleChildA.id || it.id == staleChildB.id })
+        assertTrue(appliedItems.any { it.id == healthyTopLevel.id })
+    }
 }

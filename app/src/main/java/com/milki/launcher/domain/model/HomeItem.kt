@@ -259,8 +259,8 @@ sealed class HomeItem {
             fun fromShortcutInfo(info: ShortcutInfo): AppShortcut {
                 return AppShortcut(
                     id = "shortcut:${info.`package`}/${info.id}",
-                    packageName = info.`package` ?: "",
-                    shortcutId = info.id ?: "",
+                    packageName = info.`package`,
+                    shortcutId = info.id,
                     shortLabel = info.shortLabel?.toString() ?: "",
                     longLabel = info.longLabel?.toString() ?: info.shortLabel?.toString() ?: "",
                     position = GridPosition.DEFAULT

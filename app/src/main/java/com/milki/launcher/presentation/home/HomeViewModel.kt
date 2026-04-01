@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -86,6 +87,11 @@ class HomeViewModel(
     private val homeRepository: HomeRepository,
     private val appRepository: AppRepository
 ) : ViewModel(), HomeMutationHandler {
+
+    private data class InstalledAppAvailability(
+        val validPackages: Set<String>,
+        val validPinnedAppComponents: Set<String>
+    )
 
     private val modelWriter = HomeModelWriter()
 
@@ -232,37 +238,45 @@ class HomeViewModel(
      * - WidgetItem entries whose provider package no longer exists
      */
     private fun observeAppAvailabilityAndPruneUnavailableItems() {
+        val installedAvailability = appRepository.observeInstalledApps()
+            .filter { installedApps -> installedApps.isNotEmpty() }
+            .map(::buildInstalledAppAvailability)
+
         viewModelScope.launch {
             combine(
                 homeRepository.pinnedItems,
-                // Ignore the repository's bootstrap empty snapshot so we don't
-                // treat startup as "all packages missing" and wipe home content.
-                appRepository.observeInstalledApps().filter { installedApps ->
-                    installedApps.isNotEmpty()
-                }
-            ) { pinnedItems, installedApps -> pinnedItems to installedApps }
-                .collectLatest { (pinnedItems, installedApps) ->
+                installedAvailability
+            ) { pinnedItems, availability -> pinnedItems to availability }
+                .collectLatest { (pinnedItems, availability) ->
                     pruneUnavailableItems(
                         currentItems = pinnedItems,
-                        installedApps = installedApps
+                        availability = availability
                     )
                 }
         }
     }
 
+    private fun buildInstalledAppAvailability(installedApps: List<AppInfo>): InstalledAppAvailability {
+        return InstalledAppAvailability(
+            validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName },
+            validPinnedAppComponents = installedApps.mapTo(mutableSetOf()) {
+                ComponentName(it.packageName, it.activityName).flattenToString()
+            }
+        )
+    }
+
     private suspend fun pruneUnavailableItems(
         currentItems: List<HomeItem>,
-        installedApps: List<AppInfo>
+        availability: InstalledAppAvailability
     ) {
-        val validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName }
-        val validPinnedAppComponents = installedApps.mapTo(mutableSetOf()) {
-            ComponentName(it.packageName, it.activityName).flattenToString()
+        if (currentItems.isEmpty()) {
+            return
         }
 
         val unavailableItemIds = collectUnavailableItemIds(
             items = currentItems,
-            validPackages = validPackages,
-            validPinnedAppComponents = validPinnedAppComponents
+            validPackages = availability.validPackages,
+            validPinnedAppComponents = availability.validPinnedAppComponents
         )
         if (unavailableItemIds.isEmpty()) {
             return
