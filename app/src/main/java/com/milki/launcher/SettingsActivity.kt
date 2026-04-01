@@ -13,7 +13,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.SettingsActions
 import com.milki.launcher.ui.screens.SettingsAdvancedActions
-import com.milki.launcher.ui.screens.SettingsAppearanceActions
 import com.milki.launcher.ui.screens.SettingsCustomSourceActions
 import com.milki.launcher.ui.screens.SettingsHomeScreenActions
 import com.milki.launcher.ui.screens.SettingsLocalPrefixActions
@@ -53,16 +52,7 @@ class SettingsActivity : ComponentActivity() {
             val settingsActions = remember(settingsViewModel) {
                 SettingsActions(
                     searchBehavior = SettingsSearchBehaviorActions(
-                        onSetMaxSearchResults = settingsViewModel::setMaxSearchResults,
-                        onSetAutoFocusKeyboard = settingsViewModel::setAutoFocusKeyboard,
-                        onSetShowRecentApps = settingsViewModel::setShowRecentApps,
-                        onSetMaxRecentApps = settingsViewModel::setMaxRecentApps,
-                        onSetCloseSearchOnLaunch = settingsViewModel::setCloseSearchOnLaunch
-                    ),
-                    appearance = SettingsAppearanceActions(
-                        onSetSearchResultLayout = settingsViewModel::setSearchResultLayout,
-                        onSetShowHomescreenHint = settingsViewModel::setShowHomescreenHint,
-                        onSetShowAppIcons = settingsViewModel::setShowAppIcons
+                        onSetMaxRecentApps = settingsViewModel::setMaxRecentApps
                     ),
                     homeScreen = SettingsHomeScreenActions(
                         onSetHomeTapAction = settingsViewModel::setHomeTapAction,

@@ -53,33 +53,9 @@ class SettingsViewModel(
     // SEARCH BEHAVIOR
     // ========================================================================
 
-    fun setMaxSearchResults(value: Int) {
-        viewModelScope.launch {
-            settingsRepository.setMaxSearchResults(value.coerceIn(3, 20))
-        }
-    }
-
-    fun setAutoFocusKeyboard(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setAutoFocusKeyboard(value)
-        }
-    }
-
-    fun setShowRecentApps(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setShowRecentApps(value)
-        }
-    }
-
     fun setMaxRecentApps(value: Int) {
         viewModelScope.launch {
             settingsRepository.setMaxRecentApps(value.coerceIn(1, 10))
-        }
-    }
-
-    fun setCloseSearchOnLaunch(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setCloseSearchOnLaunch(value)
         }
     }
 

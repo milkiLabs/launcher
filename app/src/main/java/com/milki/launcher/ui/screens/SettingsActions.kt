@@ -1,7 +1,6 @@
 package com.milki.launcher.ui.screens
 
 import com.milki.launcher.domain.model.HomeTapAction
-import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SwipeUpAction
 
 /**
@@ -20,20 +19,7 @@ import com.milki.launcher.domain.model.SwipeUpAction
  * Actions used by Search Behavior settings section.
  */
 data class SettingsSearchBehaviorActions(
-    val onSetMaxSearchResults: (Int) -> Unit,
-    val onSetAutoFocusKeyboard: (Boolean) -> Unit,
-    val onSetShowRecentApps: (Boolean) -> Unit,
-    val onSetMaxRecentApps: (Int) -> Unit,
-    val onSetCloseSearchOnLaunch: (Boolean) -> Unit
-)
-
-/**
- * Actions used by Appearance settings section.
- */
-data class SettingsAppearanceActions(
-    val onSetSearchResultLayout: (SearchResultLayout) -> Unit,
-    val onSetShowHomescreenHint: (Boolean) -> Unit,
-    val onSetShowAppIcons: (Boolean) -> Unit
+    val onSetMaxRecentApps: (Int) -> Unit
 )
 
 /**
@@ -97,7 +83,6 @@ data class SettingsAdvancedActions(
  */
 data class SettingsActions(
     val searchBehavior: SettingsSearchBehaviorActions,
-    val appearance: SettingsAppearanceActions,
     val homeScreen: SettingsHomeScreenActions,
     val localProviders: SettingsLocalProviderActions,
     val customSources: SettingsCustomSourceActions,

@@ -44,7 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import com.milki.launcher.domain.model.HomeTapAction
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.ProviderId
-import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.ui.components.settings.ActionSettingItem
@@ -110,11 +109,6 @@ fun SettingsScreen(
             SearchBehaviorSection(
                 settings = settings,
                 actions = actions.searchBehavior
-            )
-
-            AppearanceSection(
-                settings = settings,
-                actions = actions.appearance
             )
 
             HomeScreenSection(
@@ -233,20 +227,6 @@ private fun SearchBehaviorSection(
 ) {
     SettingsCategory(title = "Search Behavior")
 
-    SwitchSettingItem(
-        title = "Auto-focus keyboard",
-        subtitle = "Automatically show keyboard when search opens",
-        checked = settings.autoFocusKeyboard,
-        onCheckedChange = actions.onSetAutoFocusKeyboard
-    )
-
-    SwitchSettingItem(
-        title = "Show recent apps",
-        subtitle = "Display recently used apps when search is empty",
-        checked = settings.showRecentApps,
-        onCheckedChange = actions.onSetShowRecentApps
-    )
-
     SliderSettingItem(
         title = "Max recent apps",
         subtitle = "Number of recent apps to show",
@@ -254,55 +234,6 @@ private fun SearchBehaviorSection(
         onValueChange = actions.onSetMaxRecentApps,
         valueRange = 1..10,
         steps = 8
-    )
-
-    SliderSettingItem(
-        title = "Max search results",
-        subtitle = "Maximum results shown per search",
-        value = settings.maxSearchResults,
-        onValueChange = actions.onSetMaxSearchResults,
-        valueRange = 3..20,
-        steps = 16
-    )
-
-    SwitchSettingItem(
-        title = "Close search on launch",
-        subtitle = "Close the search dialog after launching an app",
-        checked = settings.closeSearchOnLaunch,
-        onCheckedChange = actions.onSetCloseSearchOnLaunch
-    )
-}
-
-/**
- * Section: Appearance.
- */
-@Composable
-private fun AppearanceSection(
-    settings: LauncherSettings,
-    actions: SettingsAppearanceActions
-) {
-    SettingsCategory(title = "Appearance")
-
-    DropdownSettingItem(
-        title = "Search result layout",
-        subtitle = "How search results are displayed",
-        selectedValue = settings.searchResultLayout.displayName,
-        options = SearchResultLayout.entries.map { it.displayName to it },
-        onOptionSelected = actions.onSetSearchResultLayout
-    )
-
-    SwitchSettingItem(
-        title = "Show homescreen hint",
-        subtitle = "Display \"Tap to search\" text on homescreen",
-        checked = settings.showHomescreenHint,
-        onCheckedChange = actions.onSetShowHomescreenHint
-    )
-
-    SwitchSettingItem(
-        title = "Show app icons",
-        subtitle = "Display app icons in search results",
-        checked = settings.showAppIcons,
-        onCheckedChange = actions.onSetShowAppIcons
     )
 }
 
