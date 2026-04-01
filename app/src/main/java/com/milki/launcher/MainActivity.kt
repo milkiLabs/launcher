@@ -30,6 +30,7 @@ import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.main.HomeButtonPolicy
+import com.milki.launcher.presentation.main.DrawerHomePressPolicy
 import com.milki.launcher.presentation.main.HomeIntentCoordinator
 import com.milki.launcher.presentation.main.HomeIntentCoordinatorContract
 import com.milki.launcher.presentation.main.PermissionRequestCoordinator
@@ -62,6 +63,8 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
  * It displays the pinned items grid and provides access to search functionality.
  */
 class MainActivity : ComponentActivity() {
+
+    private val drawerHomePressPolicy = DrawerHomePressPolicy()
 
     // ========================================================================
     // DEPENDENCY INJECTION
@@ -450,15 +453,37 @@ class MainActivity : ComponentActivity() {
             showSearch = { searchViewModel.showSearch() },
             hideSearch = { searchViewModel.hideSearch() },
             isFolderOpen = { homeViewModel.uiState.value.openFolderItem != null },
-            closeFolder = { homeViewModel.closeFolder() },
-            getDrawerQuery = { appDrawerViewModel.uiState.value.query },
-            clearDrawerQuery = { appDrawerViewModel.updateQuery("") }
+            closeFolder = { homeViewModel.closeFolder() }
         )
 
         homeIntentCoordinator = HomeIntentCoordinator(
             homeButtonPolicy = HomeButtonPolicy(),
             isHomescreenMenuOpen = { surfaceStateCoordinator.isHomescreenMenuOpen },
-            consumeLayeredHomePress = { surfaceStateCoordinator.consumeHomePressForLayeredSurface() },
+            consumeLayeredHomePress = {
+                when (
+                    drawerHomePressPolicy.resolve(
+                        DrawerHomePressPolicy.InputState(
+                            isDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
+                            hasDrawerQuery = appDrawerViewModel.uiState.value.query.isNotBlank()
+                        )
+                    )
+                ) {
+                    DrawerHomePressPolicy.Decision.CLEAR_QUERY -> {
+                        surfaceStateCoordinator.dismissContextMenus()
+                        appDrawerViewModel.updateQuery("")
+                        true
+                    }
+
+                    DrawerHomePressPolicy.Decision.CLOSE_DRAWER -> {
+                        surfaceStateCoordinator.updateAppDrawerOpen(false)
+                        true
+                    }
+
+                    DrawerHomePressPolicy.Decision.NONE -> {
+                        surfaceStateCoordinator.consumeHomePressForLayeredSurface()
+                    }
+                }
+            },
             applyDecision = { decision ->
                 searchSessionController.applyHomeButtonDecision(
                     decision = decision,
