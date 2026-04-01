@@ -37,9 +37,11 @@ import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -80,7 +82,8 @@ data class HomeUiState(
  * This separation keeps the action handling logic centralized and consistent.
  */
 class HomeViewModel(
-    private val homeRepository: HomeRepository
+    private val homeRepository: HomeRepository,
+    private val appRepository: AppRepository
 ) : ViewModel(), HomeMutationHandler {
 
     private val modelWriter = HomeModelWriter()
@@ -214,6 +217,111 @@ class HomeViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = HomeUiState(isLoading = true)
         )
+
+    init {
+        observeAppAvailabilityAndPruneUnavailableItems()
+    }
+
+    /**
+     * Keeps home layout aligned with currently installed apps.
+     *
+     * This removes stale app-backed items after uninstall/update events:
+     * - PinnedApp entries whose launcher component no longer exists
+     * - AppShortcut entries whose parent package no longer exists
+     * - WidgetItem entries whose provider package no longer exists
+     */
+    private fun observeAppAvailabilityAndPruneUnavailableItems() {
+        viewModelScope.launch {
+            combine(
+                homeRepository.pinnedItems,
+                appRepository.observeInstalledApps()
+            ) { _, installedApps -> installedApps }
+                .collectLatest { installedApps ->
+                    pruneUnavailableItems(installedApps)
+                }
+        }
+    }
+
+    private suspend fun pruneUnavailableItems(installedApps: List<AppInfo>) {
+        val validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName }
+        val validPinnedAppComponents = installedApps.mapTo(mutableSetOf()) {
+            ComponentName(it.packageName, it.activityName).flattenToString()
+        }
+
+        positionUpdateMutex.withLock {
+            val currentItems = uiState.value.pinnedItems
+            val unavailableItemIds = collectUnavailableItemIds(
+                items = currentItems,
+                validPackages = validPackages,
+                validPinnedAppComponents = validPinnedAppComponents
+            )
+
+            if (unavailableItemIds.isEmpty()) {
+                return@withLock
+            }
+
+            pendingPositionUpdateCount.update { current -> current + 1 }
+            try {
+                var updatedItems = currentItems
+                unavailableItemIds.forEach { itemId ->
+                    when (
+                        val result = modelWriter.apply(
+                            currentItems = updatedItems,
+                            command = HomeModelWriter.Command.RemoveItemById(itemId = itemId)
+                        )
+                    ) {
+                        is HomeModelWriter.Result.Applied -> updatedItems = result.items
+                        is HomeModelWriter.Result.Rejected -> Unit
+                    }
+                }
+
+                if (updatedItems != currentItems) {
+                    homeRepository.replacePinnedItems(updatedItems)
+                    val openFolderId = openFolderIdFlow.value
+                    if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
+                        openFolderIdFlow.value = null
+                    }
+                }
+            } finally {
+                pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
+            }
+        }
+    }
+
+    private fun collectUnavailableItemIds(
+        items: List<HomeItem>,
+        validPackages: Set<String>,
+        validPinnedAppComponents: Set<String>
+    ): List<String> {
+        val unavailableIds = linkedSetOf<String>()
+
+        fun visit(item: HomeItem) {
+            when (item) {
+                is HomeItem.PinnedApp -> {
+                    val componentName = ComponentName(item.packageName, item.activityName).flattenToString()
+                    if (componentName !in validPinnedAppComponents) {
+                        unavailableIds += item.id
+                    }
+                }
+                is HomeItem.AppShortcut -> {
+                    if (item.packageName !in validPackages) {
+                        unavailableIds += item.id
+                    }
+                }
+                is HomeItem.WidgetItem -> {
+                    if (item.providerPackage !in validPackages) {
+                        unavailableIds += item.id
+                    }
+                }
+                is HomeItem.FolderItem -> item.children.forEach(::visit)
+                is HomeItem.PinnedFile,
+                is HomeItem.PinnedContact -> Unit
+            }
+        }
+
+        items.forEach(::visit)
+        return unavailableIds.toList()
+    }
 
     /**
      * Moves an item to a new grid position.

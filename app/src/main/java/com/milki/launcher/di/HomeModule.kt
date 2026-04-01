@@ -83,7 +83,8 @@ val homeModule = module {
      */
     viewModel {
         HomeViewModel(
-            homeRepository = get()
+            homeRepository = get(),
+            appRepository = get(),
         )
     }
 }

@@ -241,7 +241,53 @@ class AppRepositoryImpl(
     private suspend fun refreshInstalledAppsSnapshot() {
         val latestApps = getInstalledApps().toList()
         installedAppsSnapshot.value = latestApps
+        pruneUnavailableRecentApps(latestApps)
         installedAppsSnapshotTimestampMillis.set(System.currentTimeMillis())
+    }
+
+    /**
+     * Removes invalid recent-app component entries when packages/components disappear.
+     *
+     * This keeps persisted recents aligned with the current launcher app set so
+     * stale rows are not kept after uninstall/update events.
+     */
+    private suspend fun pruneUnavailableRecentApps(installedApps: List<AppInfo>) {
+        val validComponents = installedApps
+            .mapTo(mutableSetOf()) { app ->
+                ComponentName(app.packageName, app.activityName).flattenToString()
+            }
+
+        application.dataStore.edit { preferences ->
+            val currentRaw = preferences[recentAppsKey] ?: return@edit
+            val currentComponents = currentRaw
+                .split(",")
+                .filter { it.isNotEmpty() }
+
+            if (currentComponents.isEmpty()) {
+                preferences.remove(recentAppsKey)
+                return@edit
+            }
+
+            val filtered = linkedSetOf<String>()
+            currentComponents.forEach { component ->
+                if (component in validComponents) {
+                    filtered += component
+                }
+            }
+
+            val normalized = filtered.take(8)
+            val normalizedRaw = normalized.joinToString(",")
+
+            if (normalizedRaw == currentRaw) {
+                return@edit
+            }
+
+            if (normalizedRaw.isEmpty()) {
+                preferences.remove(recentAppsKey)
+            } else {
+                preferences[recentAppsKey] = normalizedRaw
+            }
+        }
     }
 
     /**

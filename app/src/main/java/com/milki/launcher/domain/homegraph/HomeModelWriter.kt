@@ -197,14 +197,13 @@ class HomeModelWriter(
         currentItems: List<HomeItem>,
         command: Command.RemoveItemById
     ): Result {
-        val mutable = currentItems.toMutableList()
-        val before = mutable.size
-        evictItemEverywhere(mutable, command.itemId)
-        return if (mutable.size == before) {
-            Result.Rejected(Error.ItemNotFound)
-        } else {
-            Result.Applied(mutable)
+        if (!containsItemIdAnywhere(currentItems, command.itemId)) {
+            return Result.Rejected(Error.ItemNotFound)
         }
+
+        val mutable = currentItems.toMutableList()
+        evictItemEverywhere(mutable, command.itemId)
+        return Result.Applied(mutable)
     }
 
     private fun createFolder(
