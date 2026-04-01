@@ -80,6 +80,37 @@ class HomeModelWriterTest {
     }
 
     @Test
+    fun remove_item_by_id_removes_nested_folder_child_and_promotes_last_child() {
+        val staleChild = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("A", "pkg.a", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val healthyChild = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("B", "pkg.b", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val folderPosition = GridPosition(0, 2)
+        val folder = HomeItem.FolderItem.create(
+            item1 = staleChild,
+            item2 = healthyChild,
+            atPosition = folderPosition
+        )
+
+        val result = writer.apply(
+            currentItems = listOf(folder),
+            command = HomeModelWriter.Command.RemoveItemById(itemId = staleChild.id)
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val applied = (result as HomeModelWriter.Result.Applied).items
+        assertTrue(applied.none { it.id == staleChild.id })
+
+        val promoted = applied.firstOrNull { it.id == healthyChild.id }
+        assertTrue(promoted != null)
+        assertEquals(folderPosition, promoted?.position)
+    }
+
+    @Test
     fun update_widget_frame_applies_position_and_span_together() {
         val widget = HomeItem.WidgetItem.create(
             appWidgetId = 7,
@@ -125,6 +156,59 @@ class HomeModelWriterTest {
                 widgetId = widget.id,
                 newPosition = GridPosition(0, 1),
                 newSpan = GridSpan(columns = 3, rows = 2)
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Rejected)
+    }
+
+    @Test
+    fun remove_items_by_id_removes_top_level_and_folder_children() {
+        val staleTopLevel = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("A", "pkg.a", "Main", null)
+        ).withPosition(GridPosition(0, 0))
+
+        val staleChild = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("B", "pkg.b", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val healthyChild = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("C", "pkg.c", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val folder = HomeItem.FolderItem.create(
+            item1 = staleChild,
+            item2 = healthyChild,
+            atPosition = GridPosition(1, 1)
+        )
+
+        val result = writer.apply(
+            currentItems = listOf(staleTopLevel, folder),
+            command = HomeModelWriter.Command.RemoveItemsById(
+                itemIds = setOf(staleTopLevel.id, staleChild.id)
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val appliedItems = (result as HomeModelWriter.Result.Applied).items
+
+        assertTrue(appliedItems.none { it.id == staleTopLevel.id })
+
+        val promoted = appliedItems.firstOrNull { it.id == healthyChild.id }
+        assertTrue(promoted != null)
+        assertEquals(GridPosition(1, 1), promoted?.position)
+    }
+
+    @Test
+    fun remove_items_by_id_rejects_when_nothing_removed() {
+        val healthy = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("A", "pkg.a", "Main", null)
+        ).withPosition(GridPosition(0, 0))
+
+        val result = writer.apply(
+            currentItems = listOf(healthy),
+            command = HomeModelWriter.Command.RemoveItemsById(
+                itemIds = setOf("app:pkg.missing/Main")
             )
         )
 

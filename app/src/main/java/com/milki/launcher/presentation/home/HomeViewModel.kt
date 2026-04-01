@@ -235,55 +235,52 @@ class HomeViewModel(
             combine(
                 homeRepository.pinnedItems,
                 appRepository.observeInstalledApps()
-            ) { _, installedApps -> installedApps }
-                .collectLatest { installedApps ->
-                    pruneUnavailableItems(installedApps)
+            ) { pinnedItems, installedApps -> pinnedItems to installedApps }
+                .collectLatest { (pinnedItems, installedApps) ->
+                    pruneUnavailableItems(
+                        currentItems = pinnedItems,
+                        installedApps = installedApps
+                    )
                 }
         }
     }
 
-    private suspend fun pruneUnavailableItems(installedApps: List<AppInfo>) {
+    private suspend fun pruneUnavailableItems(
+        currentItems: List<HomeItem>,
+        installedApps: List<AppInfo>
+    ) {
         val validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName }
         val validPinnedAppComponents = installedApps.mapTo(mutableSetOf()) {
             ComponentName(it.packageName, it.activityName).flattenToString()
         }
 
+        val unavailableItemIds = collectUnavailableItemIds(
+            items = currentItems,
+            validPackages = validPackages,
+            validPinnedAppComponents = validPinnedAppComponents
+        )
+        if (unavailableItemIds.isEmpty()) {
+            return
+        }
+
         positionUpdateMutex.withLock {
-            val currentItems = uiState.value.pinnedItems
-            val unavailableItemIds = collectUnavailableItemIds(
-                items = currentItems,
-                validPackages = validPackages,
-                validPinnedAppComponents = validPinnedAppComponents
-            )
-
-            if (unavailableItemIds.isEmpty()) {
-                return@withLock
-            }
-
-            pendingPositionUpdateCount.update { current -> current + 1 }
-            try {
-                var updatedItems = currentItems
-                unavailableItemIds.forEach { itemId ->
-                    when (
-                        val result = modelWriter.apply(
-                            currentItems = updatedItems,
-                            command = HomeModelWriter.Command.RemoveItemById(itemId = itemId)
-                        )
-                    ) {
-                        is HomeModelWriter.Result.Applied -> updatedItems = result.items
-                        is HomeModelWriter.Result.Rejected -> Unit
+            when (
+                val result = modelWriter.apply(
+                    currentItems = currentItems,
+                    command = HomeModelWriter.Command.RemoveItemsById(itemIds = unavailableItemIds.toSet())
+                )
+            ) {
+                is HomeModelWriter.Result.Applied -> {
+                    val updatedItems = result.items
+                    if (updatedItems != currentItems) {
+                        homeRepository.replacePinnedItems(updatedItems)
+                        val openFolderId = openFolderIdFlow.value
+                        if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
+                            openFolderIdFlow.value = null
+                        }
                     }
                 }
-
-                if (updatedItems != currentItems) {
-                    homeRepository.replacePinnedItems(updatedItems)
-                    val openFolderId = openFolderIdFlow.value
-                    if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
-                        openFolderIdFlow.value = null
-                    }
-                }
-            } finally {
-                pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
+                is HomeModelWriter.Result.Rejected -> Unit
             }
         }
     }

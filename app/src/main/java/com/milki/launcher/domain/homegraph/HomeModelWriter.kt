@@ -31,6 +31,10 @@ class HomeModelWriter(
             val itemId: String
         ) : Command
 
+        data class RemoveItemsById(
+            val itemIds: Set<String>
+        ) : Command
+
         data class CreateFolder(
             val item1: HomeItem,
             val item2: HomeItem,
@@ -110,6 +114,7 @@ class HomeModelWriter(
             is Command.MoveTopLevelItem -> moveTopLevelItem(currentItems, command)
             is Command.PinOrMoveToPosition -> pinOrMove(currentItems, command)
             is Command.RemoveItemById -> removeItemById(currentItems, command)
+            is Command.RemoveItemsById -> removeItemsById(currentItems, command)
             is Command.CreateFolder -> createFolder(currentItems, command)
             is Command.AddItemToFolder -> addItemToFolder(currentItems, command)
             is Command.RemoveItemFromFolder -> removeItemFromFolder(currentItems, command)
@@ -197,12 +202,31 @@ class HomeModelWriter(
         currentItems: List<HomeItem>,
         command: Command.RemoveItemById
     ): Result {
-        if (!containsItemIdAnywhere(currentItems, command.itemId)) {
+        return removeItemsById(
+            currentItems = currentItems,
+            command = Command.RemoveItemsById(itemIds = setOf(command.itemId))
+        )
+    }
+
+    private fun removeItemsById(
+        currentItems: List<HomeItem>,
+        command: Command.RemoveItemsById
+    ): Result {
+        if (command.itemIds.isEmpty()) {
+            return Result.Rejected(Error.ItemNotFound)
+        }
+
+        val existingIds = command.itemIds.filterTo(mutableSetOf()) { itemId ->
+            containsItemIdAnywhere(currentItems, itemId)
+        }
+        if (existingIds.isEmpty()) {
             return Result.Rejected(Error.ItemNotFound)
         }
 
         val mutable = currentItems.toMutableList()
-        evictItemEverywhere(mutable, command.itemId)
+        existingIds.forEach { itemId ->
+            evictItemEverywhere(mutable, itemId)
+        }
         return Result.Applied(mutable)
     }
 
