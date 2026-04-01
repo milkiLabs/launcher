@@ -296,7 +296,7 @@ private fun SearchDialogBody(
             .fillMaxWidth()
             .padding(bottom = Spacing.smallMedium)
     ) {
-        if (uiState.results.isEmpty()) {
+        if (uiState.results.isEmpty() && !uiState.isLoading) {
             EmptyState(
                 searchQuery = uiState.query,
                 activeProvider = uiState.activeProviderConfig,
@@ -306,7 +306,7 @@ private fun SearchDialogBody(
                     .fillMaxWidth()
                     .weight(1f, fill = false)
             )
-        } else {
+        } else if (uiState.results.isNotEmpty()) {
             /**
              * SearchResultsList handles the display of results.
              * It automatically chooses between grid and list layouts.

@@ -52,6 +52,7 @@ import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.QuerySuggestionResolver
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -82,7 +83,6 @@ import kotlinx.coroutines.withContext
  * @property settingsRepository Repository for settings (including prefix configs)
  * @property providerRegistry Registry of search providers
  * @property filterAppsUseCase Use case for filtering apps
- * @property urlHandlerResolver Resolver for URL handler apps
  * @property clipboardSuggestionResolver Resolver that classifies clipboard text into one smart action suggestion
  * @property querySuggestionResolver Resolver that classifies query text into one smart action suggestion
  */
@@ -191,22 +191,6 @@ class SearchViewModel(
 
     /**
      * Observe query changes and resolve query suggestions.
-     *
-     * HOW THIS WORKS:
-     * When the user types in the search field, we analyze the query text and
-     * determine what kind of action the user might want to take. This provides
-     * a quick-action chip at the bottom of the search dialog.
-     *
-     * WHY ASYNC:
-     * The QuerySuggestionResolver performs I/O operations (URL handler resolution)
-     * which should not block the main thread. We launch a coroutine on
-     * Dispatchers.Default to run the resolution on a background thread.
-     *
-     * EXAMPLE SUGGESTIONS:
-     * - "youtube.com" → "Open in YouTube"
-     * - "+1234567890" → "Call +1234567890"
-     * - "user@example.com" → "Email user@example.com"
-     * - "how to make pasta" → "Search with Google"
      */
     private fun observeQueryForSuggestions() {
         viewModelScope.launch {
@@ -233,6 +217,12 @@ class SearchViewModel(
      * 3. Compose shows the AppSearchDialog
      */
     fun showSearch() {
+        stateHolder.searchOutput.update { currentOutput ->
+            currentOutput.copy(
+                results = emptyList(),
+                isLoading = true
+            )
+        }
         stateHolder.isSearchVisible.value = true
         stateHolder.clipboardSuggestion.value = clipboardSuggestionResolver.resolveFromClipboard()
     }

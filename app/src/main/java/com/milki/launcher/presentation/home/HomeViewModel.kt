@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -234,7 +235,11 @@ class HomeViewModel(
         viewModelScope.launch {
             combine(
                 homeRepository.pinnedItems,
-                appRepository.observeInstalledApps()
+                // Ignore the repository's bootstrap empty snapshot so we don't
+                // treat startup as "all packages missing" and wipe home content.
+                appRepository.observeInstalledApps().filter { installedApps ->
+                    installedApps.isNotEmpty()
+                }
             ) { pinnedItems, installedApps -> pinnedItems to installedApps }
                 .collectLatest { (pinnedItems, installedApps) ->
                     pruneUnavailableItems(
