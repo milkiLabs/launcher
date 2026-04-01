@@ -71,7 +71,8 @@ data class WidgetActions(
  * App drawer lifecycle interactions.
  */
 data class DrawerActions(
-    val onAppDrawerOpenChange: (Boolean) -> Unit = {}
+    val onAppDrawerOpenChange: (Boolean) -> Unit = {},
+    val onQueryChange: (String) -> Unit = {}
 )
 
 /**

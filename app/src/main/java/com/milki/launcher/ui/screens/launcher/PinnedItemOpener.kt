@@ -15,12 +15,16 @@ import com.milki.launcher.util.openFile
  * This helper keeps item-opening behavior out of the main screen file so the
  * screen can stay focused on UI composition and event routing.
  */
-fun openPinnedItem(item: HomeItem, context: Context) {
+fun openPinnedItem(
+    item: HomeItem,
+    context: Context,
+    onUnavailableItem: (String) -> Unit = {}
+) {
     when (item) {
-        is HomeItem.PinnedApp -> openPinnedApp(item, context)
+        is HomeItem.PinnedApp -> openPinnedApp(item, context, onUnavailableItem)
         is HomeItem.PinnedFile -> openPinnedFile(item, context)
         is HomeItem.PinnedContact -> openPinnedContact(item, context)
-        is HomeItem.AppShortcut -> openAppShortcut(item, context)
+        is HomeItem.AppShortcut -> openAppShortcut(item, context, onUnavailableItem)
         // Folder taps are handled upstream by opening the folder overlay.
         is HomeItem.FolderItem -> Unit
         // Widgets handle their own clicks through RemoteViews PendingIntents.
@@ -31,8 +35,13 @@ fun openPinnedItem(item: HomeItem, context: Context) {
 /**
  * Launches a pinned app.
  */
-private fun openPinnedApp(item: HomeItem.PinnedApp, context: Context) {
+private fun openPinnedApp(
+    item: HomeItem.PinnedApp,
+    context: Context,
+    onUnavailableItem: (String) -> Unit = {}
+) {
     if (!launchPinnedApp(context, item)) {
+        onUnavailableItem(item.id)
         Toast.makeText(context, "App not found: ${item.label}", Toast.LENGTH_SHORT).show()
     }
 }
@@ -70,8 +79,13 @@ private fun openPinnedContact(item: HomeItem.PinnedContact, context: Context) {
 /**
  * Opens an app shortcut.
  */
-private fun openAppShortcut(item: HomeItem.AppShortcut, context: Context) {
+private fun openAppShortcut(
+    item: HomeItem.AppShortcut,
+    context: Context,
+    onUnavailableItem: (String) -> Unit = {}
+) {
     if (!launchAppShortcut(context, item)) {
+        onUnavailableItem(item.id)
         Toast.makeText(context, "App not found: ${item.shortLabel}", Toast.LENGTH_SHORT).show()
     }
 }

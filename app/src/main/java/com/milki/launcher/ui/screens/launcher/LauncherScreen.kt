@@ -286,6 +286,7 @@ private fun DrawerHost(
     ) {
         AppDrawerOverlay(
             uiState = appDrawerUiState,
+            onQueryChange = actions.drawer.onQueryChange,
             onDismiss = { actions.drawer.onAppDrawerOpenChange(false) },
             modifier = Modifier.fillMaxSize()
         )

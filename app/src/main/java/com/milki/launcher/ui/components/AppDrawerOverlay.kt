@@ -38,8 +38,14 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -64,6 +70,7 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun AppDrawerOverlay(
     uiState: AppDrawerUiState,
+    onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -95,12 +102,53 @@ fun AppDrawerOverlay(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = uiState.query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null
+                    )
+                },
+                trailingIcon = {
+                    if (uiState.query.isNotEmpty()) {
+                        IconButton(onClick = { onQueryChange("") }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear drawer search"
+                            )
+                        }
+                    }
+                },
+                placeholder = {
+                    Text(text = "Search apps")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.small)
+            )
+
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
+                }
+            } else if (uiState.adapterItems.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = Spacing.medium),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (uiState.query.isBlank()) "No apps installed" else "No apps found",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
                 // ── App grid ─────────────────────────────────────────────

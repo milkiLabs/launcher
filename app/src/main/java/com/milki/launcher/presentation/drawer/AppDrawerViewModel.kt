@@ -33,7 +33,10 @@ import kotlinx.coroutines.launch
  * UI state consumed by the app drawer composable.
  *
  * @property isLoading Whether the repository load is still in progress.
- * @property apps Final list presented by the drawer.
+ * @property apps Full repository-backed app list.
+ * @property adapterItems Drawer-ready section headers + app rows.
+ * @property sections Fast section metadata aligned with adapterItems.
+ * @property query Current in-drawer search query.
  */
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
@@ -48,9 +51,8 @@ data class AppDrawerUiState(
  *
  * PERFORMANCE RATIONALE:
  * - The repository already emits apps in stable alphabetical order.
- * - The drawer now renders that list directly, which removes runtime sorting work
- *   and avoids extra recompositions caused by sort-mode changes.
- * - This keeps open/close interactions lightweight and consistent.
+ * - Adapter rows (including section headers) are assembled from that snapshot.
+ * - Query filtering runs in-memory over cached lowercase fields for responsive typing.
  */
 class AppDrawerViewModel(
     private val appRepository: AppRepository,
@@ -60,13 +62,6 @@ class AppDrawerViewModel(
 
     /**
      * Shared installed-app stream scoped to this ViewModel.
-     *
-     * WHY THIS EXISTS EVEN THOUGH THE REPOSITORY IS ALREADY SHARED:
-     * - The repository already guarantees a single upstream PackageManager scan path
-     *   for all feature consumers (search + drawer).
-     * - This local stateIn adds a stable replay point inside the drawer feature so
-     *   additional internal collectors can fan out without re-subscribing directly.
-     * - Keeping drawer/search patterns aligned makes maintenance easier for new contributors.
      */
     private val installedAppsStream = appRepository.observeInstalledApps().stateIn(
         scope = viewModelScope,
@@ -74,20 +69,13 @@ class AppDrawerViewModel(
         initialValue = emptyList()
     )
 
-    /**
-     * Tracks whether the initial load is running.
-     */
+    /** Tracks whether the initial load is running. */
     private val isLoading = MutableStateFlow(true)
 
-    /** Current drawer query (reserved for future in-drawer search). */
+    /** Current in-drawer query used to filter visible apps. */
     private val query = MutableStateFlow("")
 
-    /**
-     * Public state observed by Compose.
-     *
-     * We combine loading + app list into one immutable state object so the UI
-     * remains simple and stateless.
-     */
+    /** Public state observed by Compose. */
     val uiState = combine(
         isLoading,
         drawerAppStore.apps,
@@ -106,10 +94,9 @@ class AppDrawerViewModel(
             sections = assembly.sections,
             query = searchQuery
         )
-    }
-        .stateIn(
+    }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.WhileSubscribed(5_000),
         initialValue = AppDrawerUiState(isLoading = true)
     )
 
@@ -118,16 +105,7 @@ class AppDrawerViewModel(
     }
 
     /**
-     * Collects installed apps from the repository's reactive stream.
-     *
-     * HOW THIS WORKS:
-     * AppRepository.observeInstalledApps() emits the full app list immediately
-     * on first collection, and then re-emits automatically whenever an app is
-     * installed, uninstalled, or updated on the device. This means the drawer
-     * always shows the current set of apps without any manual refresh button.
-     *
-     * The repository handles PackageManager queries and icon preloading
-     * internally, so this method only moves data into state flows.
+     * Collects installed apps from the repository and commits snapshots to store.
      */
     private fun observeInstalledApps() {
         viewModelScope.launch {

@@ -198,7 +198,13 @@ class MainActivity : ComponentActivity() {
                             ),
                             menu = MenuActions(
                                 onOpenSettings = {
-                                    startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                                    val settingsIntent = Intent(
+                                        this@MainActivity,
+                                        SettingsActivity::class.java
+                                    ).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    startActivity(settingsIntent)
                                 },
                                 onHomescreenMenuOpenChange = { isOpen ->
                                     surfaceStateCoordinator.updateHomescreenMenuOpen(isOpen)
@@ -207,6 +213,12 @@ class MainActivity : ComponentActivity() {
                             drawer = DrawerActions(
                                 onAppDrawerOpenChange = { isOpen ->
                                     surfaceStateCoordinator.updateAppDrawerOpen(isOpen)
+                                    if (!isOpen) {
+                                        appDrawerViewModel.updateQuery("")
+                                    }
+                                },
+                                onQueryChange = { query ->
+                                    appDrawerViewModel.updateQuery(query)
                                 }
                             ),
                             home = HomeActions(
@@ -221,7 +233,11 @@ class MainActivity : ComponentActivity() {
                                     if (item is HomeItem.FolderItem) {
                                         homeViewModel.openFolder(item.id)
                                     } else {
-                                        openPinnedItem(item, context)
+                                        openPinnedItem(
+                                            item = item,
+                                            context = context,
+                                            onUnavailableItem = homeViewModel::unpinItem
+                                        )
                                     }
                                 },
                                 onPinnedItemLongPress = { _ ->
@@ -279,7 +295,11 @@ class MainActivity : ComponentActivity() {
                                     // Tap on an icon inside the folder popup — launch it.
                                     // FolderItem cannot appear here because nesting is not
                                     // supported, but the when in openPinnedItem is exhaustive.
-                                    openPinnedItem(item, context)
+                                    openPinnedItem(
+                                        item = item,
+                                        context = context,
+                                        onUnavailableItem = homeViewModel::unpinItem
+                                    )
                                 },
                                 onFolderItemRemove = { folderId, itemId ->
                                     // "Remove from folder" context-menu action.
