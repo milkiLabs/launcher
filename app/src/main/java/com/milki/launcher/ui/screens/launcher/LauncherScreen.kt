@@ -18,9 +18,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.DpOffset
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.home.HomeUiState
+import com.milki.launcher.presentation.main.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.AppDrawerOverlay
 import com.milki.launcher.ui.components.AppSearchDialog
@@ -184,10 +187,21 @@ private fun HomescreenMenu(
     onOpenWidgets: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    if (!expanded) return
+
     val density = LocalDensity.current
+    val dismissSignal = LocalContextMenuDismissSignal.current
+    val latestOnDismiss by rememberUpdatedState(onDismiss)
+    var lastHandledDismissSignal by remember { mutableIntStateOf(dismissSignal) }
+
+    LaunchedEffect(dismissSignal) {
+        if (dismissSignal == lastHandledDismissSignal) return@LaunchedEffect
+        lastHandledDismissSignal = dismissSignal
+        latestOnDismiss()
+    }
 
     DropdownMenu(
-        expanded = expanded,
+        expanded = true,
         onDismissRequest = onDismiss,
         offset = with(density) {
             DpOffset(
