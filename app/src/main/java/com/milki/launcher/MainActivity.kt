@@ -450,7 +450,9 @@ class MainActivity : ComponentActivity() {
             showSearch = { searchViewModel.showSearch() },
             hideSearch = { searchViewModel.hideSearch() },
             isFolderOpen = { homeViewModel.uiState.value.openFolderItem != null },
-            closeFolder = { homeViewModel.closeFolder() }
+            closeFolder = { homeViewModel.closeFolder() },
+            getDrawerQuery = { appDrawerViewModel.uiState.value.query },
+            clearDrawerQuery = { appDrawerViewModel.updateQuery("") }
         )
 
         homeIntentCoordinator = HomeIntentCoordinator(

@@ -44,6 +44,40 @@ class SurfaceStateCoordinatorTest {
     }
 
     /**
+     * HOME press should clear drawer query first, then close drawer on next press.
+     */
+    @Test
+    fun home_press_clears_drawer_query_before_closing_drawer() {
+        var folderOpen = false
+        var drawerQuery = "maps"
+        var clearDrawerQueryCalls = 0
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
+            hideSearch = { },
+            isFolderOpen = { folderOpen },
+            closeFolder = { folderOpen = false },
+            getDrawerQuery = { drawerQuery },
+            clearDrawerQuery = {
+                clearDrawerQueryCalls++
+                drawerQuery = ""
+            }
+        )
+
+        coordinator.updateAppDrawerOpen(true)
+
+        val firstConsumed = coordinator.consumeHomePressForLayeredSurface()
+        assertTrue(firstConsumed)
+        assertEquals(1, clearDrawerQueryCalls)
+        assertEquals("", drawerQuery)
+        assertTrue(coordinator.isAppDrawerOpen)
+
+        val secondConsumed = coordinator.consumeHomePressForLayeredSurface()
+        assertTrue(secondConsumed)
+        assertFalse(coordinator.isAppDrawerOpen)
+    }
+
+    /**
      * HOME press should close widget picker when drawer is closed.
      */
     @Test

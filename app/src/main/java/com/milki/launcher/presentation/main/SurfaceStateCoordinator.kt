@@ -105,7 +105,9 @@ class SurfaceStateCoordinator(
     private val showSearch: () -> Unit,
     private val hideSearch: () -> Unit,
     private val isFolderOpen: () -> Boolean,
-    private val closeFolder: () -> Unit
+    private val closeFolder: () -> Unit,
+    private val getDrawerQuery: () -> String = { "" },
+    private val clearDrawerQuery: () -> Unit = {}
 ) : SurfaceStateCoordinatorContract {
 
     private val drawerSurfaceController = DrawerSurfaceController()
@@ -214,6 +216,12 @@ class SurfaceStateCoordinator(
     override fun consumeHomePressForLayeredSurface(): Boolean {
         if (isAppDrawerOpen) {
             dismissContextMenus()
+
+            if (getDrawerQuery().isNotBlank()) {
+                clearDrawerQuery()
+                return true
+            }
+
             drawerSurfaceController.requestClose()
             isAppDrawerOpen = drawerSurfaceController.isVisible()
             return true
