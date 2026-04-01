@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -131,18 +133,32 @@ fun AppDrawerOverlay(
             )
 
             if (uiState.isLoading) {
-                Box(
+                // Keep loading state scrollable so downward drag can also
+                // propagate to LauncherSheet while results are still loading.
+                Column(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    CircularProgressIndicator()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
             } else if (uiState.adapterItems.isEmpty()) {
-                Box(
+                // Keep this state scrollable so downward drag can propagate to
+                // LauncherSheet and dismiss the drawer even with no grid items.
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = Spacing.medium),
-                    contentAlignment = Alignment.Center
+                        .padding(top = Spacing.medium)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = if (uiState.query.isBlank()) "No apps installed" else "No apps found",
