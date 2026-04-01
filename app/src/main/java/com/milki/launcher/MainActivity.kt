@@ -37,6 +37,7 @@ import com.milki.launcher.presentation.main.SearchSessionController
 import com.milki.launcher.presentation.main.SurfaceStateCoordinator
 import com.milki.launcher.presentation.main.SurfaceStateCoordinatorContract
 import com.milki.launcher.presentation.main.WidgetPlacementCoordinator
+import com.milki.launcher.presentation.main.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
@@ -174,7 +175,8 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(
                 LocalSearchActionHandler provides { action: SearchResultAction ->
                     actionExecutor.execute(action, permissionHandler::hasPermission)
-                }
+                },
+                LocalContextMenuDismissSignal provides surfaceStateCoordinator.contextMenuDismissSignal
             ) {
                 SideEffect {
                     actionExecutor.shouldCloseSearchForAction = { action ->
@@ -189,7 +191,10 @@ class MainActivity : ComponentActivity() {
                         actions = LauncherActions(
                             search = SearchActions(
                                 onQueryChange = { searchViewModel.onQueryChange(it) },
-                                onDismissSearch = { searchViewModel.hideSearch() }
+                                onDismissSearch = {
+                                    surfaceStateCoordinator.dismissContextMenus()
+                                    searchViewModel.hideSearch()
+                                }
                             ),
                             menu = MenuActions(
                                 onOpenSettings = {
@@ -437,6 +442,9 @@ class MainActivity : ComponentActivity() {
             applyDecision = { decision ->
                 searchSessionController.applyHomeButtonDecision(
                     decision = decision,
+                    dismissContextMenus = {
+                        surfaceStateCoordinator.dismissContextMenus()
+                    },
                     closeHomescreenMenu = {
                         surfaceStateCoordinator.updateHomescreenMenuOpen(false)
                     }

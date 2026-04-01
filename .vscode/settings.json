@@ -1,3 +1,6 @@
 {
-    "kiroAgent.configureMCP": "Disabled"
+    "kiroAgent.configureMCP": "Disabled",
+    "chat.tools.terminal.autoApprove": {
+        "./gradlew": true
+    }
 }

@@ -29,8 +29,11 @@ class SearchSessionController(
      */
     fun applyHomeButtonDecision(
         decision: HomeButtonPolicy.Decision,
+        dismissContextMenus: () -> Unit,
         closeHomescreenMenu: () -> Unit
     ) {
+        dismissContextMenus()
+
         when (decision) {
             HomeButtonPolicy.Decision.RESET_TRANSIENT_UI -> {
                 closeHomescreenMenu()

@@ -24,10 +24,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.milki.launcher.presentation.main.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.CornerRadius
@@ -82,6 +86,16 @@ fun ItemActionMenu(
     val hapticFeedback = LocalHapticFeedback.current
     val actionHandler = LocalSearchActionHandler.current
     val density = LocalDensity.current
+    val dismissSignal = LocalContextMenuDismissSignal.current
+    val latestOnDismiss by rememberUpdatedState(onDismiss)
+    var lastHandledDismissSignal by remember { mutableIntStateOf(dismissSignal) }
+
+    LaunchedEffect(dismissSignal) {
+        if (dismissSignal == lastHandledDismissSignal) return@LaunchedEffect
+        lastHandledDismissSignal = dismissSignal
+        latestOnDismiss()
+    }
+
     val positionProvider = remember(density) {
         with(density) {
             ItemActionMenuPositionProvider(

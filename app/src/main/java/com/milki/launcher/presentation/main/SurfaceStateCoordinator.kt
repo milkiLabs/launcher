@@ -1,6 +1,7 @@
 package com.milki.launcher.presentation.main
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.milki.launcher.domain.model.SwipeUpAction
@@ -25,6 +26,11 @@ import com.milki.launcher.presentation.drawer.DrawerTransitionState
  * while preserving existing user-visible behavior and dismissal ordering.
  */
 interface SurfaceStateCoordinatorContract {
+
+    /**
+     * Monotonically increasing signal used by UI menus to dismiss themselves.
+     */
+    val contextMenuDismissSignal: Int
 
     /**
      * Whether the homescreen long-press dropdown menu is currently visible.
@@ -58,6 +64,11 @@ interface SurfaceStateCoordinatorContract {
      * Updates widget picker visibility.
      */
     fun updateWidgetPickerOpen(isOpen: Boolean)
+
+    /**
+     * Requests dismissal of all transient item action/context menus.
+     */
+    fun dismissContextMenus()
 
     /**
      * Applies the configured homescreen swipe-up action.
@@ -99,6 +110,9 @@ class SurfaceStateCoordinator(
 
     private val drawerSurfaceController = DrawerSurfaceController()
 
+    override var contextMenuDismissSignal by mutableIntStateOf(0)
+        private set
+
     /**
      * Compose-observed state for homescreen menu visibility.
      */
@@ -124,6 +138,9 @@ class SurfaceStateCoordinator(
      * Updates homescreen menu visibility.
      */
     override fun updateHomescreenMenuOpen(isOpen: Boolean) {
+        if (isOpen) {
+            dismissContextMenus()
+        }
         isHomescreenMenuOpen = isOpen
     }
 
@@ -131,6 +148,7 @@ class SurfaceStateCoordinator(
      * Updates app drawer visibility.
      */
     override fun updateAppDrawerOpen(isOpen: Boolean) {
+        dismissContextMenus()
         if (isOpen) {
             drawerSurfaceController.requestOpen()
         } else {
@@ -143,7 +161,12 @@ class SurfaceStateCoordinator(
      * Updates widget picker visibility.
      */
     override fun updateWidgetPickerOpen(isOpen: Boolean) {
+        dismissContextMenus()
         isWidgetPickerOpen = isOpen
+    }
+
+    override fun dismissContextMenus() {
+        contextMenuDismissSignal += 1
     }
 
     /**
@@ -155,6 +178,7 @@ class SurfaceStateCoordinator(
     override fun handleHomeSwipeUp(action: SwipeUpAction) {
         when (action) {
             SwipeUpAction.OPEN_SEARCH -> {
+                dismissContextMenus()
                 isHomescreenMenuOpen = false
                 drawerSurfaceController.requestClose()
                 isAppDrawerOpen = drawerSurfaceController.isVisible()
@@ -164,6 +188,7 @@ class SurfaceStateCoordinator(
             }
 
             SwipeUpAction.OPEN_APP_DRAWER -> {
+                dismissContextMenus()
                 isHomescreenMenuOpen = false
                 hideSearch()
                 isWidgetPickerOpen = false
@@ -188,17 +213,20 @@ class SurfaceStateCoordinator(
      */
     override fun consumeHomePressForLayeredSurface(): Boolean {
         if (isAppDrawerOpen) {
+            dismissContextMenus()
             drawerSurfaceController.requestClose()
             isAppDrawerOpen = drawerSurfaceController.isVisible()
             return true
         }
 
         if (isWidgetPickerOpen) {
+            dismissContextMenus()
             isWidgetPickerOpen = false
             return true
         }
 
         if (isFolderOpen()) {
+            dismissContextMenus()
             closeFolder()
             return true
         }
@@ -219,22 +247,26 @@ class SurfaceStateCoordinator(
      */
     override fun handleBackPressed(isSearchVisible: Boolean): Boolean {
         if (isFolderOpen()) {
+            dismissContextMenus()
             closeFolder()
             return true
         }
 
         if (isAppDrawerOpen) {
+            dismissContextMenus()
             drawerSurfaceController.requestClose()
             isAppDrawerOpen = drawerSurfaceController.isVisible()
             return true
         }
 
         if (isWidgetPickerOpen) {
+            dismissContextMenus()
             isWidgetPickerOpen = false
             return true
         }
 
         if (isSearchVisible) {
+            dismissContextMenus()
             hideSearch()
             return true
         }
@@ -250,6 +282,7 @@ class SurfaceStateCoordinator(
      * reset drawer/picker and closed folder on stop.
      */
     override fun onStop() {
+        dismissContextMenus()
         drawerSurfaceController.requestClose()
         isAppDrawerOpen = drawerSurfaceController.isVisible()
         isWidgetPickerOpen = false
