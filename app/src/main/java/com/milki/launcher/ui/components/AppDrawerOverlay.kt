@@ -23,6 +23,7 @@
 
 package com.milki.launcher.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.drawer.DrawerAdapterItem
@@ -67,6 +69,7 @@ fun AppDrawerOverlay(
 ) {
     val actionHandler = LocalSearchActionHandler.current
     val gridState = rememberLazyGridState()
+    val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
 
     Surface(
         modifier = modifier
@@ -111,13 +114,17 @@ fun AppDrawerOverlay(
                 // icon size (IconSize.appGrid = 56dp) plus comfortable label
                 // room (Spacing.large = 24dp), totalling 80dp per column.
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = IconSize.appGrid + Spacing.large),
+                    columns = if (isPortrait) {
+                        GridCells.Fixed(4)
+                    } else {
+                        GridCells.Adaptive(minSize = IconSize.appGrid + Spacing.large)
+                    },
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = Spacing.medium),
                     state = gridState,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.small)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
                 ) {
                     items(
                         items = uiState.adapterItems,

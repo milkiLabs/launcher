@@ -13,6 +13,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -70,6 +71,10 @@ fun AppGridItem(
     appInfo: AppInfo,
     onClick: () -> Unit,
     onExternalDragStarted: () -> Unit = {},
+    contentPadding: PaddingValues = PaddingValues(
+        vertical = Spacing.extraSmall,
+        horizontal = Spacing.none
+    ),
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -140,7 +145,7 @@ fun AppGridItem(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
+                    .padding(contentPadding),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
