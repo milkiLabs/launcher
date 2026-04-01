@@ -217,9 +217,6 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onQueryChange = { query ->
                                     appDrawerViewModel.updateQuery(query)
-                                },
-                                onAppDrawerClosed = {
-                                    appDrawerViewModel.updateQuery("")
                                 }
                             ),
                             home = HomeActions(

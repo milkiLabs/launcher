@@ -72,8 +72,7 @@ data class WidgetActions(
  */
 data class DrawerActions(
     val onAppDrawerOpenChange: (Boolean) -> Unit = {},
-    val onQueryChange: (String) -> Unit = {},
-    val onAppDrawerClosed: () -> Unit = {}
+    val onQueryChange: (String) -> Unit = {}
 )
 
 /**

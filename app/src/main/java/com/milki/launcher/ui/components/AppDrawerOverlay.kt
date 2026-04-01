@@ -51,6 +51,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -79,6 +80,12 @@ fun AppDrawerOverlay(
     val actionHandler = LocalSearchActionHandler.current
     val gridState = rememberLazyGridState()
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
+
+    LaunchedEffect(uiState.query) {
+        if (uiState.adapterItems.isNotEmpty()) {
+            gridState.scrollToItem(0)
+        }
+    }
 
     Surface(
         modifier = modifier
