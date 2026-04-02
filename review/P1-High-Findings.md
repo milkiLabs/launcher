@@ -1,18 +1,6 @@
 # P1 High Findings
 
-## 1) Serialized mutation queue may become UI bottleneck under rapid operations
-- Severity: High
-- Confidence: Medium (needs profiling)
-- Evidence:
-  - `app/src/main/java/com/milki/launcher/presentation/home/mutation/HomeMutationCoordinator.kt:39`
-  - `app/src/main/java/com/milki/launcher/presentation/home/mutation/HomeMutationCoordinator.kt:65`
-- Impact:
-  - All mutations are gated by a single mutex lock; heavy writer operations can queue and delay interactions.
-- Fix:
-  - Timing instrumentation has been added in `HomeMutationCoordinator` with slow-mutation warning logs.
-  - Next: collect real traces, then consider channel-based mutation queue with cancellation/coalescing semantics.
-
-## 2) Possible over-recomposition pressure in draggable grid calculations
+## 1) Possible over-recomposition pressure in draggable grid calculations
 - Severity: High
 - Confidence: Medium (needs compose tracing)
 - Evidence:
@@ -22,7 +10,7 @@
 - Fix:
   - Stabilize item inputs and profile with Compose tracing tools.
 
-## 3) Test surface is small relative to production codebase
+## 2) Test surface is small relative to production codebase
 - Severity: High
 - Confidence: Confirmed
 - Evidence:

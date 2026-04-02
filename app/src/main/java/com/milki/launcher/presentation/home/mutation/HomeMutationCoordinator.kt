@@ -6,13 +6,13 @@ import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.channels.Channel
 
 /**
  * Central write coordinator for home-layout mutations.
@@ -24,7 +24,8 @@ internal class HomeMutationCoordinator(
     private val homeRepository: HomeRepository,
     private val modelWriter: HomeModelWriter,
     private val openFolderIdFlow: MutableStateFlow<String?>,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val elapsedRealtimeMs: () -> Long = { SystemClock.elapsedRealtime() }
 ) {
 
     private companion object {
@@ -32,7 +33,19 @@ internal class HomeMutationCoordinator(
         private const val SLOW_MUTATION_THRESHOLD_MS = 120L
     }
 
-    private val positionUpdateMutex = Mutex()
+    private sealed interface QueuedMutation {
+        data class Immediate(val payload: MutationPayload) : QueuedMutation
+        data class CoalescedKey(val key: String) : QueuedMutation
+    }
+
+    private data class MutationPayload(
+        val fallbackErrorMessage: String,
+        val mutation: suspend () -> Boolean
+    )
+
+    private val mutationQueue = Channel<QueuedMutation>(capacity = Channel.UNLIMITED)
+    private val coalescedMutations = linkedMapOf<String, MutationPayload>()
+    private val coalescingLock = Any()
 
     private val _pendingPositionUpdateCount = MutableStateFlow(0)
     val pendingPositionUpdateCount: StateFlow<Int> = _pendingPositionUpdateCount
@@ -40,38 +53,88 @@ internal class HomeMutationCoordinator(
     private val _lastMoveErrorMessage = MutableStateFlow<String?>(null)
     val lastMoveErrorMessage: StateFlow<String?> = _lastMoveErrorMessage
 
+    init {
+        scope.launch(Dispatchers.Default) {
+            processMutationQueue()
+        }
+    }
+
     fun launchSerializedMutation(
         fallbackErrorMessage: String,
+        coalescingKey: String? = null,
         mutation: suspend () -> Boolean
     ) {
-        scope.launch {
-            positionUpdateMutex.withLock {
-                _pendingPositionUpdateCount.update { current -> current + 1 }
-                _lastMoveErrorMessage.value = null
+        val payload = MutationPayload(
+            fallbackErrorMessage = fallbackErrorMessage,
+            mutation = mutation
+        )
 
-                try {
-                    val startedAt = SystemClock.elapsedRealtime()
-                    val wasApplied = mutation()
-                    val elapsedMs = SystemClock.elapsedRealtime() - startedAt
-                    if (elapsedMs >= SLOW_MUTATION_THRESHOLD_MS) {
-                        Log.w(TAG, "Slow home mutation: ${elapsedMs}ms")
-                    }
+        val queueResult = if (coalescingKey == null) {
+            _pendingPositionUpdateCount.update { current -> current + 1 }
+            mutationQueue.trySend(QueuedMutation.Immediate(payload))
+        } else {
+            synchronized(coalescingLock) {
+                val alreadyQueued = coalescedMutations.containsKey(coalescingKey)
+                coalescedMutations[coalescingKey] = payload
 
-                    if (!wasApplied) {
-                        _lastMoveErrorMessage.value = fallbackErrorMessage
-                    }
-                } catch (exception: Exception) {
-                    _lastMoveErrorMessage.value = exception.message ?: fallbackErrorMessage
-                } finally {
-                    _pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
+                if (alreadyQueued) {
+                    null
+                } else {
+                    _pendingPositionUpdateCount.update { current -> current + 1 }
+                    mutationQueue.trySend(QueuedMutation.CoalescedKey(coalescingKey))
                 }
             }
+        }
+
+        if (queueResult != null && queueResult.isFailure) {
+            _pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
+            _lastMoveErrorMessage.value = fallbackErrorMessage
+            Log.e(TAG, "Failed to enqueue mutation", queueResult.exceptionOrNull())
         }
     }
 
     suspend fun <T> withMutationLock(block: suspend () -> T): T {
-        return positionUpdateMutex.withLock {
-            block()
+        return block()
+    }
+
+    private suspend fun processMutationQueue() {
+        for (queued in mutationQueue) {
+            val payload = when (queued) {
+                is QueuedMutation.Immediate -> queued.payload
+                is QueuedMutation.CoalescedKey -> {
+                    synchronized(coalescingLock) {
+                        coalescedMutations.remove(queued.key)
+                    }
+                }
+            }
+
+            if (payload == null) {
+                _pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
+                continue
+            }
+
+            runQueuedMutation(payload)
+        }
+    }
+
+    private suspend fun runQueuedMutation(payload: MutationPayload) {
+        _lastMoveErrorMessage.value = null
+
+        try {
+            val startedAt = elapsedRealtimeMs()
+            val wasApplied = payload.mutation()
+            val elapsedMs = elapsedRealtimeMs() - startedAt
+            if (elapsedMs >= SLOW_MUTATION_THRESHOLD_MS) {
+                Log.w(TAG, "Slow home mutation: ${elapsedMs}ms")
+            }
+
+            if (!wasApplied) {
+                _lastMoveErrorMessage.value = payload.fallbackErrorMessage
+            }
+        } catch (exception: Exception) {
+            _lastMoveErrorMessage.value = exception.message ?: payload.fallbackErrorMessage
+        } finally {
+            _pendingPositionUpdateCount.update { current -> (current - 1).coerceAtLeast(0) }
         }
     }
 

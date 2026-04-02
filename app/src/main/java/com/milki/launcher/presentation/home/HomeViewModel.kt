@@ -99,7 +99,10 @@ class HomeViewModel(
         command: HomeModelWriter.Command,
         onApplied: suspend (items: List<HomeItem>) -> Unit = {}
     ) {
-        mutationCoordinator.launchSerializedMutation(fallbackErrorMessage) {
+        mutationCoordinator.launchSerializedMutation(
+            fallbackErrorMessage = fallbackErrorMessage,
+            coalescingKey = command.coalescingKey()
+        ) {
             mutationCoordinator.applyWriterCommand(
                 command = command,
                 onApplied = onApplied
@@ -365,5 +368,14 @@ class HomeViewModel(
                 newSpan = newSpan
             )
         )
+    }
+
+    private fun HomeModelWriter.Command.coalescingKey(): String? {
+        return when (this) {
+            is HomeModelWriter.Command.MoveTopLevelItem -> "move:$itemId"
+            is HomeModelWriter.Command.PinOrMoveToPosition -> "pin-or-move:${item.id}"
+            is HomeModelWriter.Command.UpdateWidgetFrame -> "widget-frame:$widgetId"
+            else -> null
+        }
     }
 }
