@@ -29,15 +29,15 @@ import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.dragdrop.AppDragDropController
-import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
-import com.milki.launcher.ui.components.dragdrop.AppDragDropResult
-import com.milki.launcher.ui.components.grid.GridConfig
-import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
-import com.milki.launcher.ui.components.grid.animateDragVisuals
-import com.milki.launcher.ui.components.grid.detectDragGesture
-import com.milki.launcher.ui.components.grid.detectHomeBackgroundGestures
-import com.milki.launcher.ui.components.widget.HomeScreenWidgetView
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropResult
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
+import com.milki.launcher.ui.interaction.grid.animateDragVisuals
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
+import com.milki.launcher.ui.interaction.grid.detectHomeBackgroundGestures
+import com.milki.launcher.ui.components.launcher.widget.HomeScreenWidgetView
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
 

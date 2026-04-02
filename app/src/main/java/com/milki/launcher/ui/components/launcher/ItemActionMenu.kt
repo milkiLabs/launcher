@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
-import com.milki.launcher.presentation.main.LocalContextMenuDismissSignal
+import com.milki.launcher.presentation.launcher.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.theme.CornerRadius

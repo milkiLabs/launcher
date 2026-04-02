@@ -12,8 +12,8 @@ import com.milki.launcher.domain.drag.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
-import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragDropItem
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 
 internal data class ExternalDropRoutingCallbacks(
     val onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit,

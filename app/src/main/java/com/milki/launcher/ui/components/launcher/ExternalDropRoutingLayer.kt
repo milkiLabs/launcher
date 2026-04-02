@@ -10,9 +10,9 @@ import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
-import com.milki.launcher.ui.components.dragdrop.AppExternalDropTargetOverlay
-import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.ui.interaction.dragdrop.AppExternalDropTargetOverlay
+import com.milki.launcher.ui.interaction.grid.GridConfig
 
 /**
  * ExternalDropRoutingLayer isolates platform drag callbacks and routing decisions.

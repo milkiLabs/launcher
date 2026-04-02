@@ -54,7 +54,7 @@ import android.util.SizeF
 import android.view.WindowManager
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
-import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.GridConfig
 import kotlin.math.roundToInt
 
 class WidgetHostManager(

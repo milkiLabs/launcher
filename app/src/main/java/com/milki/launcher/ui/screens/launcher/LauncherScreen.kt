@@ -33,9 +33,9 @@ import com.milki.launcher.ui.components.launcher.AppDrawerOverlay
 import com.milki.launcher.ui.components.search.AppSearchDialog
 import com.milki.launcher.ui.components.launcher.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
-import com.milki.launcher.ui.components.folder.FolderPopupDialog
-import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
-import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
+import com.milki.launcher.ui.components.launcher.folder.FolderPopupDialog
+import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
+import com.milki.launcher.ui.components.launcher.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.launcher.LauncherSheet
 import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.components.launcher.rememberLauncherSheetState

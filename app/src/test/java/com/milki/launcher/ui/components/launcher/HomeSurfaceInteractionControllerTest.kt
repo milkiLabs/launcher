@@ -2,10 +2,10 @@ package com.milki.launcher.ui.components.launcher
 
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
-import com.milki.launcher.ui.components.dragdrop.AppDragDropController
-import com.milki.launcher.ui.components.grid.GridConfig
-import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull

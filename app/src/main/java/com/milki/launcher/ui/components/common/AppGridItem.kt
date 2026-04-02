@@ -38,9 +38,9 @@ import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.components.launcher.createAppInfoAction
 import com.milki.launcher.ui.components.launcher.createPinAction
-import com.milki.launcher.ui.components.grid.GridConfig
-import com.milki.launcher.ui.components.grid.detectDragGesture
-import com.milki.launcher.ui.components.dragdrop.startExternalAppDrag
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
+import com.milki.launcher.ui.interaction.dragdrop.startExternalAppDrag
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing

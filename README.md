@@ -26,15 +26,13 @@ A custom Android Launcher app built with modern Android development practices. F
 
 ## Documentation
 
-Comprehensive documentation is available in the [`docs/`](docs/) folder:
+Comprehensive documentation is available in the [docs/](docs/) directory:
 
-- **[Architecture Guide](docs/Architecture.md)** - Complete architecture documentation
-- **[Multi-Mode Search](docs/multi-mode-search.md)** - Search feature details
-- **[AppIconFetcher](docs/AppIconFetcher.md)** - Custom icon loading
-- **[Build Configuration](docs/BuildConfiguration.md)** - Gradle setup
-- **[AndroidManifest](docs/AndroidManifest.md)** - App configuration
-- **[Theme](docs/Theme.md)** - Material 3 theming
-- **[LauncherApplication](docs/LauncherApplication.md)** - App initialization
+- **[Documentation Index](docs/README.md)** - Entry point for all project docs
+- **[Architecture](docs/Architecture.md)** - Current package map, layer boundaries, and runtime flow
+- **[Conventions](docs/Conventions.md)** - Placement rules, naming standards, and engineering guardrails
+- **[Contributing](docs/Contributing.md)** - New-contributor setup, workflow, and review checklist
+- **[Distilled Learnings](docs/Distilled-Learnings.md)** - Hard-earned lessons from refactors and production-adjacent fixes
 
 ## Quick Start
 

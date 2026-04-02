@@ -16,9 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import com.milki.launcher.domain.model.ContactSearchResult
-import com.milki.launcher.ui.components.dragdrop.startExternalContactDrag
-import com.milki.launcher.ui.components.grid.GridConfig
-import com.milki.launcher.ui.components.grid.detectDragGesture
+import com.milki.launcher.ui.interaction.dragdrop.startExternalContactDrag
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 

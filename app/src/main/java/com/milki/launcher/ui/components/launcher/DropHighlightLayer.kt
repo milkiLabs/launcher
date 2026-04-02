@@ -24,10 +24,10 @@ import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.dragdrop.AppDragDropController
-import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
-import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
-import com.milki.launcher.ui.components.grid.GridConfig
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
+import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt

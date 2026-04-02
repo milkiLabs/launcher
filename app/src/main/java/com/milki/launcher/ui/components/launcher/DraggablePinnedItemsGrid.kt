@@ -20,12 +20,12 @@ import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
-import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
-import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
-import com.milki.launcher.ui.components.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
-import com.milki.launcher.ui.components.dragdrop.rememberAppDragDropController
-import com.milki.launcher.ui.components.grid.GridConfig
-import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragDropItem
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
+import com.milki.launcher.ui.interaction.dragdrop.rememberAppDragDropController
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 
 /**
  * DraggablePinnedItemsGrid now acts as a composition/wiring root.

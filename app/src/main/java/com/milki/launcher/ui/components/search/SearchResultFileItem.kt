@@ -29,9 +29,9 @@ import com.milki.launcher.domain.model.isWordDocument
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.components.launcher.createPinAction
-import com.milki.launcher.ui.components.dragdrop.startExternalFileDrag
-import com.milki.launcher.ui.components.grid.GridConfig
-import com.milki.launcher.ui.components.grid.detectDragGesture
+import com.milki.launcher.ui.interaction.dragdrop.startExternalFileDrag
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
 
 /**
  * Renders a file/document result row with file-type icon, pin action menu, and drag support.

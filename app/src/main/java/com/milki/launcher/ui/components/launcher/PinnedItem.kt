@@ -65,7 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
-import com.milki.launcher.ui.components.folder.FolderIcon
+import com.milki.launcher.ui.components.launcher.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing

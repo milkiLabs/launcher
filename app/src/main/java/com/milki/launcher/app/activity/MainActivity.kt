@@ -10,9 +10,9 @@ import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.presentation.main.host.LauncherActionFactory
-import com.milki.launcher.presentation.main.host.LauncherHostRuntime
-import com.milki.launcher.presentation.main.host.LauncherRootContent
+import com.milki.launcher.presentation.launcher.host.LauncherActionFactory
+import com.milki.launcher.presentation.launcher.host.LauncherHostRuntime
+import com.milki.launcher.presentation.launcher.host.LauncherRootContent
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 

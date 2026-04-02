@@ -10,12 +10,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.dragdrop.AppDragDropController
-import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
-import com.milki.launcher.ui.components.dragdrop.AppDragDropResult
-import com.milki.launcher.ui.components.dragdrop.ExternalDragDropItem
-import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
-import com.milki.launcher.ui.components.grid.HomeBackgroundGesturePolicy
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropResult
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragDropItem
+import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
+import com.milki.launcher.ui.interaction.grid.HomeBackgroundGesturePolicy
 
 internal data class HomeSurfaceExternalDragState(
     val isActive: Boolean = false,
