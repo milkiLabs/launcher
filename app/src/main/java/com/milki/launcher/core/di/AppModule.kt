@@ -58,7 +58,7 @@
  * For a full explanation of Koin concepts, see: docs/KoinDependencyInjection.md
  */
 
-package com.milki.launcher.di
+package com.milki.launcher.core.di
 
 /**
  * All Koin modules aggregated into a single list for convenient loading.

@@ -16,7 +16,7 @@
  * - Files: Varies by Android version (see hasFilesPermission docs)
  */
 
-package com.milki.launcher.util
+package com.milki.launcher.core.permission
 
 import android.Manifest
 import android.content.Context

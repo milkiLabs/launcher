@@ -39,8 +39,8 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
-import com.milki.launcher.util.PermissionUtil
-import com.milki.launcher.util.MimeTypeUtil
+import com.milki.launcher.core.permission.PermissionUtil
+import com.milki.launcher.core.file.MimeTypeUtil
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileFilterConfig
 import com.milki.launcher.domain.repository.FilesRepository

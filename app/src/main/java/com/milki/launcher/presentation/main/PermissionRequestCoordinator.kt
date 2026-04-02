@@ -1,6 +1,6 @@
 package com.milki.launcher.presentation.main
 
-import com.milki.launcher.handlers.PermissionHandler
+import com.milki.launcher.core.permission.PermissionHandler
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.SearchViewModel
 

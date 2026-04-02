@@ -2,7 +2,7 @@
  * SettingsActivity.kt - Settings entry point for the Milki Launcher
  */
 
-package com.milki.launcher
+package com.milki.launcher.app.activity
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

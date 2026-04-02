@@ -10,7 +10,7 @@
 package com.milki.launcher.domain.model
 
 import android.net.Uri
-import com.milki.launcher.util.MimeTypeUtil
+import com.milki.launcher.core.file.MimeTypeUtil
 
 /**
  * Represents a single document/file from the device storage.

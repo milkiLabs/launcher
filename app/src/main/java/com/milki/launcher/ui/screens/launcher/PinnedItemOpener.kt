@@ -5,9 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.util.launchAppShortcut
-import com.milki.launcher.util.launchPinnedApp
-import com.milki.launcher.util.openFile
+import com.milki.launcher.core.intent.launchAppShortcut
+import com.milki.launcher.core.intent.launchPinnedApp
+import com.milki.launcher.core.intent.openFile
 
 /**
  * Handles opening a pinned item from the launcher surface.

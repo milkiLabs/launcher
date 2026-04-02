@@ -24,8 +24,8 @@ import android.widget.Toast
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.presentation.home.HomeMutationHandler
-import com.milki.launcher.util.openFile
-import com.milki.launcher.util.launchApp
+import com.milki.launcher.core.intent.openFile
+import com.milki.launcher.core.intent.launchApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 

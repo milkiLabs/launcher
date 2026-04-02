@@ -35,7 +35,7 @@
  * ```
  */
 
-package com.milki.launcher.util
+package com.milki.launcher.core.url
 
 import android.util.Patterns
 

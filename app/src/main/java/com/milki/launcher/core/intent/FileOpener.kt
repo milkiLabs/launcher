@@ -21,7 +21,7 @@
  * ```
  */
 
-package com.milki.launcher.util
+package com.milki.launcher.core.intent
 
 import android.content.Context
 import android.content.Intent

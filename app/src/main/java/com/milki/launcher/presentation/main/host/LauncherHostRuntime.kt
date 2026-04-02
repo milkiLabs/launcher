@@ -6,7 +6,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.repository.ContactsRepository
-import com.milki.launcher.handlers.PermissionHandler
+import com.milki.launcher.core.permission.PermissionHandler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.main.DrawerHomePressPolicy

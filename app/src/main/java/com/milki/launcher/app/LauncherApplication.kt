@@ -3,7 +3,7 @@
  * * Handles early-stage initialization, specifically Dependency Injection with Koin.
  * Ensure this is registered in the `AndroidManifest.xml` under `android:name`.
  */
-package com.milki.launcher
+package com.milki.launcher.app
 
 // ============================================================================
 // IMPORTS - Android Framework
@@ -13,7 +13,7 @@ import android.app.Application
 // ============================================================================
 // IMPORTS - Koin (Dependency Injection)
 // ============================================================================
-import com.milki.launcher.di.allModules
+import com.milki.launcher.core.di.allModules
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin

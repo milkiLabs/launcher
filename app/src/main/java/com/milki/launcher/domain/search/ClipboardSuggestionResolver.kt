@@ -4,7 +4,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.util.Patterns
 import com.milki.launcher.domain.model.UrlSearchResult
-import com.milki.launcher.util.UrlValidator
+import com.milki.launcher.core.url.UrlValidator
 
 /**
  * ClipboardSuggestionResolver reads the current clipboard text once and converts it

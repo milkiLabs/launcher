@@ -1,4 +1,4 @@
-package com.milki.launcher.util
+package com.milki.launcher.core.file
 
 import android.webkit.MimeTypeMap
 

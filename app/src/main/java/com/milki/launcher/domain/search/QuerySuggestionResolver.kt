@@ -26,7 +26,7 @@ package com.milki.launcher.domain.search
 
 import android.util.Patterns
 import com.milki.launcher.domain.model.UrlSearchResult
-import com.milki.launcher.util.UrlValidator
+import com.milki.launcher.core.url.UrlValidator
 
 /**
  * Analyzes query text and returns the best single suggestion for the user.

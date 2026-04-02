@@ -14,7 +14,7 @@
  * 4. Call requestContactsPermission() or requestFilesPermission() when needed
  */
 
-package com.milki.launcher.handlers
+package com.milki.launcher.core.permission
 
 import android.Manifest
 import android.content.Context
@@ -28,7 +28,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.util.PermissionUtil
+import com.milki.launcher.core.permission.PermissionUtil
 
 /**
  * Handles all permission requests and state management for the launcher.

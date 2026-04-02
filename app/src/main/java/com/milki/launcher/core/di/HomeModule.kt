@@ -24,7 +24,7 @@
  * For a full explanation of Koin concepts, see: docs/KoinDependencyInjection.md
  */
 
-package com.milki.launcher.di
+package com.milki.launcher.core.di
 
 import com.milki.launcher.data.repository.HomeRepositoryImpl
 import com.milki.launcher.domain.repository.HomeRepository
