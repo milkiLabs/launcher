@@ -71,6 +71,7 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
             val backupStatusMessage by settingsViewModel.backupStatusMessage.collectAsStateWithLifecycle()
+            val importReport by settingsViewModel.lastImportReport.collectAsStateWithLifecycle()
             val settingsActions = remember(settingsViewModel) {
                 SettingsActions(
                     searchBehavior = SettingsSearchBehaviorActions(
@@ -116,6 +117,8 @@ class SettingsActivity : ComponentActivity() {
                     settings = settings,
                     onNavigateBack = { finish() },
                     backupStatusMessage = backupStatusMessage,
+                    importReport = importReport,
+                    onDismissImportReport = settingsViewModel::clearLastImportReport,
                     actions = settingsActions
                 )
             }

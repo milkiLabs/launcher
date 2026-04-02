@@ -10,5 +10,19 @@ data class LauncherImportResult(
     val message: String,
     val importedTopLevelCount: Int,
     val skippedCount: Int,
-    val skippedReasons: List<String>
+    val skippedReasons: List<SkippedImportReason>
 )
+
+data class SkippedImportReason(
+    val category: SkippedImportCategory,
+    val message: String
+)
+
+enum class SkippedImportCategory {
+    APP,
+    FILE,
+    WIDGET,
+    SHORTCUT,
+    FOLDER,
+    OTHER
+}

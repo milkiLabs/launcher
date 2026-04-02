@@ -57,6 +57,9 @@ class SettingsViewModel(
     private val _backupStatusMessage = MutableStateFlow<String?>(null)
     val backupStatusMessage: StateFlow<String?> = _backupStatusMessage
 
+    private val _lastImportReport = MutableStateFlow<LauncherImportResult?>(null)
+    val lastImportReport: StateFlow<LauncherImportResult?> = _lastImportReport
+
     // ========================================================================
     // SEARCH BEHAVIOR
     // ========================================================================
@@ -388,6 +391,7 @@ class SettingsViewModel(
     fun importBackup(sourceUri: Uri) {
         viewModelScope.launch {
             val result = launcherBackupRepository.importFromUri(sourceUri)
+            _lastImportReport.value = result
             _backupStatusMessage.value = result.toUiMessage()
         }
     }
@@ -396,13 +400,17 @@ class SettingsViewModel(
         _backupStatusMessage.value = null
     }
 
+    fun clearLastImportReport() {
+        _lastImportReport.value = null
+    }
+
     private fun LauncherImportResult.toUiMessage(): String {
         if (!success) return message
         if (skippedCount == 0) return message
 
         val preview = skippedReasons
             .take(3)
-            .joinToString(separator = "\n")
+            .joinToString(separator = "\n") { reason -> reason.message }
 
         return "$message\n$preview"
     }

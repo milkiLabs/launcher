@@ -9,6 +9,8 @@ import com.milki.launcher.domain.model.backup.LauncherBackupFile
 import com.milki.launcher.domain.model.backup.LauncherBackupResult
 import com.milki.launcher.domain.model.backup.LauncherBackupSnapshot
 import com.milki.launcher.domain.model.backup.LauncherImportResult
+import com.milki.launcher.domain.model.backup.SkippedImportCategory
+import com.milki.launcher.domain.model.backup.SkippedImportReason
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
@@ -93,7 +95,7 @@ class LauncherBackupRepositoryImpl(
                 ComponentName(it.packageName, it.activityName).flattenToString()
             }
 
-            val skippedReasons = mutableListOf<String>()
+            val skippedReasons = mutableListOf<SkippedImportReason>()
             val importContext = ImportContext(
                 validPackages = validPackages,
                 validPinnedAppComponents = validComponents,
@@ -141,7 +143,10 @@ class LauncherBackupRepositoryImpl(
         return items.mapNotNull { item ->
             val sanitized = sanitizeItem(item, context) ?: return@mapNotNull null
             if (!seenIds.add(sanitized.id)) {
-                context.skippedReasons += "Skipped duplicate item id: ${sanitized.id}"
+                context.skip(
+                    category = SkippedImportCategory.OTHER,
+                    message = "Skipped duplicate item id: ${sanitized.id}"
+                )
                 null
             } else {
                 sanitized
@@ -166,7 +171,10 @@ class LauncherBackupRepositoryImpl(
     ): HomeItem.PinnedApp? {
         val componentName = ComponentName(item.packageName, item.activityName).flattenToString()
         if (componentName !in context.validPinnedAppComponents) {
-            context.skippedReasons += "Missing app component for ${item.label} (${item.packageName})"
+            context.skip(
+                category = SkippedImportCategory.APP,
+                message = "Missing app component for ${item.label} (${item.packageName})"
+            )
             return null
         }
         return item
@@ -177,7 +185,10 @@ class LauncherBackupRepositoryImpl(
         context: ImportContext
     ): HomeItem.AppShortcut? {
         if (item.packageName !in context.validPackages) {
-            context.skippedReasons += "Missing shortcut package ${item.packageName}"
+            context.skip(
+                category = SkippedImportCategory.SHORTCUT,
+                message = "Missing shortcut package ${item.packageName}"
+            )
             return null
         }
         return item
@@ -188,7 +199,10 @@ class LauncherBackupRepositoryImpl(
         context: ImportContext
     ): HomeItem.PinnedFile? {
         if (!isPinnedFileAvailable(item)) {
-            context.skippedReasons += "Missing or inaccessible file ${item.name}"
+            context.skip(
+                category = SkippedImportCategory.FILE,
+                message = "Missing or inaccessible file ${item.name}"
+            )
             return null
         }
         return item
@@ -199,7 +213,10 @@ class LauncherBackupRepositoryImpl(
         context: ImportContext
     ): HomeItem.WidgetItem? {
         if (item.providerPackage !in context.validPackages) {
-            context.skippedReasons += "Missing widget provider package ${item.providerPackage}"
+            context.skip(
+                category = SkippedImportCategory.WIDGET,
+                message = "Missing widget provider package ${item.providerPackage}"
+            )
             return null
         }
 
@@ -208,13 +225,19 @@ class LauncherBackupRepositoryImpl(
         }.getOrNull()
 
         if (providerComponent == null) {
-            context.skippedReasons += "Invalid widget provider component ${item.providerPackage}/${item.providerClass}"
+            context.skip(
+                category = SkippedImportCategory.WIDGET,
+                message = "Invalid widget provider component ${item.providerPackage}/${item.providerClass}"
+            )
             return null
         }
 
         val providerInfo = widgetHostManager.findInstalledProvider(providerComponent)
         if (providerInfo == null) {
-            context.skippedReasons += "Widget provider not installed ${item.providerPackage}/${item.providerClass}"
+            context.skip(
+                category = SkippedImportCategory.WIDGET,
+                message = "Widget provider not installed ${item.providerPackage}/${item.providerClass}"
+            )
             return null
         }
 
@@ -222,14 +245,20 @@ class LauncherBackupRepositoryImpl(
         val bound = widgetHostManager.bindWidget(appWidgetId, providerInfo)
         if (!bound) {
             widgetHostManager.deallocateWidgetId(appWidgetId)
-            context.skippedReasons += "Widget permission not granted for ${item.label}"
+            context.skip(
+                category = SkippedImportCategory.WIDGET,
+                message = "Widget permission not granted for ${item.label}"
+            )
             return null
         }
 
         val needsConfiguration = widgetHostManager.getProviderInfo(appWidgetId)?.configure != null
         if (needsConfiguration) {
             widgetHostManager.deallocateWidgetId(appWidgetId)
-            context.skippedReasons += "Widget ${item.label} requires configuration; skipped in batch import"
+            context.skip(
+                category = SkippedImportCategory.WIDGET,
+                message = "Widget ${item.label} requires configuration; skipped in batch import"
+            )
             return null
         }
 
@@ -252,7 +281,10 @@ class LauncherBackupRepositoryImpl(
         }
 
         if (sanitizedChildren.isEmpty()) {
-            context.skippedReasons += "Folder ${folder.name} became empty after import filtering"
+            context.skip(
+                category = SkippedImportCategory.FOLDER,
+                message = "Folder ${folder.name} became empty after import filtering"
+            )
             return null
         }
 
@@ -321,6 +353,13 @@ class LauncherBackupRepositoryImpl(
     private data class ImportContext(
         val validPackages: Set<String>,
         val validPinnedAppComponents: Set<String>,
-        val skippedReasons: MutableList<String>
-    )
+        val skippedReasons: MutableList<SkippedImportReason>
+    ) {
+        fun skip(category: SkippedImportCategory, message: String) {
+            skippedReasons += SkippedImportReason(
+                category = category,
+                message = message
+            )
+        }
+    }
 }

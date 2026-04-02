@@ -48,6 +48,8 @@ import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.SwipeUpAction
+import com.milki.launcher.domain.model.backup.SkippedImportCategory
+import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.DropdownSettingItem
 import com.milki.launcher.ui.components.settings.PrefixSettingItem
@@ -67,6 +69,8 @@ fun SettingsScreen(
     settings: LauncherSettings,
     onNavigateBack: () -> Unit,
     backupStatusMessage: String?,
+    importReport: LauncherImportResult?,
+    onDismissImportReport: () -> Unit,
     actions: SettingsActions
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -220,6 +224,69 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+
+    if (importReport != null) {
+        AlertDialog(
+            onDismissRequest = onDismissImportReport,
+            title = { Text("Import Report") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                ) {
+                    Text(importReport.message)
+                    Spacer(modifier = Modifier.height(Spacing.small))
+                    Text("Imported items: ${importReport.importedTopLevelCount}")
+                    Text("Skipped items: ${importReport.skippedCount}")
+
+                    if (importReport.skippedReasons.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(Spacing.smallMedium))
+                        val groupedReasons = importReport.skippedReasons.groupBy { it.category }
+                        val orderedCategories = listOf(
+                            SkippedImportCategory.APP,
+                            SkippedImportCategory.FILE,
+                            SkippedImportCategory.WIDGET,
+                            SkippedImportCategory.SHORTCUT,
+                            SkippedImportCategory.FOLDER,
+                            SkippedImportCategory.OTHER
+                        )
+
+                        orderedCategories.forEach { category ->
+                            val reasonsForCategory = groupedReasons[category].orEmpty()
+                            if (reasonsForCategory.isEmpty()) return@forEach
+
+                            Text(
+                                text = category.toDisplayTitle(),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            reasonsForCategory.forEach { reason ->
+                                Text("- ${reason.message}")
+                            }
+
+                            Spacer(modifier = Modifier.height(Spacing.small))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismissImportReport) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+}
+
+private fun SkippedImportCategory.toDisplayTitle(): String {
+    return when (this) {
+        SkippedImportCategory.APP -> "Apps"
+        SkippedImportCategory.FILE -> "Files"
+        SkippedImportCategory.WIDGET -> "Widgets"
+        SkippedImportCategory.SHORTCUT -> "Shortcuts"
+        SkippedImportCategory.FOLDER -> "Folders"
+        SkippedImportCategory.OTHER -> "Other"
     }
 }
 
