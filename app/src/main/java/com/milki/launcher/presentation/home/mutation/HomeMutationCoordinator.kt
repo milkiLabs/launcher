@@ -1,5 +1,7 @@
 package com.milki.launcher.presentation.home
 
+import android.os.SystemClock
+import android.util.Log
 import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
@@ -25,6 +27,11 @@ internal class HomeMutationCoordinator(
     private val scope: CoroutineScope
 ) {
 
+    private companion object {
+        private const val TAG = "HomeMutationCoordinator"
+        private const val SLOW_MUTATION_THRESHOLD_MS = 120L
+    }
+
     private val positionUpdateMutex = Mutex()
 
     private val _pendingPositionUpdateCount = MutableStateFlow(0)
@@ -43,7 +50,13 @@ internal class HomeMutationCoordinator(
                 _lastMoveErrorMessage.value = null
 
                 try {
+                    val startedAt = SystemClock.elapsedRealtime()
                     val wasApplied = mutation()
+                    val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+                    if (elapsedMs >= SLOW_MUTATION_THRESHOLD_MS) {
+                        Log.w(TAG, "Slow home mutation: ${elapsedMs}ms")
+                    }
+
                     if (!wasApplied) {
                         _lastMoveErrorMessage.value = fallbackErrorMessage
                     }

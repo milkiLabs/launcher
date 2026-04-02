@@ -27,7 +27,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.milki.launcher.presentation.search.SearchViewModel
+
+/**
+ * Sink for propagating permission-state updates to higher layers.
+ *
+ * This keeps core permission logic independent from presentation classes.
+ */
+interface PermissionStateSink {
+    fun updateContactsPermission(hasPermission: Boolean)
+    fun updateFilesPermission(hasPermission: Boolean)
+}
 
 /**
  * Handles all permission requests and state management for the launcher.
@@ -36,11 +45,11 @@ import com.milki.launcher.presentation.search.SearchViewModel
  * the deprecated onRequestPermissionsResult() callback approach. 
  *
  * @property activity The ComponentActivity that owns this handler
- * @property searchViewModel The ViewModel to update with permission states
+ * @property permissionStateSink Sink used to publish permission state updates
  */
 class PermissionHandler(
     private val activity: ComponentActivity,
-    private val searchViewModel: SearchViewModel
+    private val permissionStateSink: PermissionStateSink
 ) {
     // ========================================================================
     // PERMISSION LAUNCHERS
@@ -147,7 +156,7 @@ class PermissionHandler(
         contactsPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            searchViewModel.updateContactsPermission(isGranted)
+            permissionStateSink.updateContactsPermission(isGranted)
             onPermissionResult?.invoke(Manifest.permission.READ_CONTACTS, isGranted)
         }
     }
@@ -185,7 +194,7 @@ class PermissionHandler(
         filesPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            searchViewModel.updateFilesPermission(isGranted)
+            permissionStateSink.updateFilesPermission(isGranted)
             onPermissionResult?.invoke(Manifest.permission.READ_EXTERNAL_STORAGE, isGranted)
         }
     }
@@ -239,12 +248,12 @@ class PermissionHandler(
             Manifest.permission.READ_CONTACTS
         ) == PackageManager.PERMISSION_GRANTED
 
-        searchViewModel.updateContactsPermission(hasPermission)
+        permissionStateSink.updateContactsPermission(hasPermission)
     }
 
     private fun updateFilesPermissionState() {
         val hasPermission = PermissionUtil.hasFilesPermission(activity)
-        searchViewModel.updateFilesPermission(hasPermission)
+        permissionStateSink.updateFilesPermission(hasPermission)
     }
 
     // ========================================================================

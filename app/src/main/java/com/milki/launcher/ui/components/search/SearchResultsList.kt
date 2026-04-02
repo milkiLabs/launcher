@@ -272,8 +272,7 @@ private fun MixedResultsList(
                 is UrlSearchResult -> {
                     UrlSearchResultItem(
                         result = result,
-                        onOpenInApp = { actionHandler(SearchResultAction.Tap(result)) },
-                        onOpenInBrowser = { actionHandler(SearchResultAction.OpenUrlInBrowser(result.url)) }
+                        onOpenInApp = { actionHandler(SearchResultAction.Tap(result)) }
                     )
                 }
                 is ContactSearchResult -> {

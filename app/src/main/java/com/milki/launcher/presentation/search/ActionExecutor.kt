@@ -15,11 +15,13 @@
 
 package com.milki.launcher.presentation.search
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import android.widget.Toast
 import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
@@ -53,6 +55,10 @@ class ActionExecutor(
     private val homeMutationHandler: HomeMutationHandler,
     private val scope: CoroutineScope
 ) {
+
+    private companion object {
+        private const val TAG = "ActionExecutor"
+    }
     
     var pendingAction: PendingPermissionAction? = null
         private set
@@ -172,7 +178,11 @@ class ActionExecutor(
         
         try {
             context.startActivity(intent)
-        } catch (e: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No matching activity for YouTube search intent", e)
+            openUrlInBrowser(youtubeUrl)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while opening YouTube search", e)
             openUrlInBrowser(youtubeUrl)
         }
     }
@@ -185,7 +195,11 @@ class ActionExecutor(
             }
             try {
                 context.startActivity(intent)
-            } catch (e: Exception) {
+            } catch (e: ActivityNotFoundException) {
+                Log.w(TAG, "No matching activity for handler app URL intent", e)
+                openUrlInBrowser(result.url)
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Security exception while opening URL in handler app", e)
                 openUrlInBrowser(result.url)
             }
         } ?: openUrlInBrowser(result.url)
@@ -197,7 +211,11 @@ class ActionExecutor(
         }
         try {
             context.startActivity(intent)
-        } catch (e: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No browser app available for URL", e)
+            Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while opening browser URL", e)
             Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
         }
     }
@@ -212,7 +230,11 @@ class ActionExecutor(
         
         try {
             context.startActivity(intent)
-        } catch (e: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No dialer app available", e)
+            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while opening dialer", e)
             Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
         
@@ -237,8 +259,10 @@ class ActionExecutor(
         try {
             context.startActivity(intent)
         } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while placing direct call", e)
             Toast.makeText(context, "Call permission not granted", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No phone app available for direct call", e)
             Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
         
@@ -280,7 +304,12 @@ class ActionExecutor(
         ).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(intent)
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "Could not open app info screen", e)
+            Toast.makeText(context, "Unable to open app info", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // ========================================================================
@@ -306,7 +335,11 @@ class ActionExecutor(
 
         try {
             context.startActivity(intent)
-        } catch (e: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No dialer app available", e)
+            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while opening dialer", e)
             Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
     }
@@ -322,7 +355,11 @@ class ActionExecutor(
 
         try {
             context.startActivity(intent)
-        } catch (e: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No email app available", e)
+            Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while opening email compose", e)
             Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
         }
     }
@@ -338,7 +375,11 @@ class ActionExecutor(
 
         try {
             context.startActivity(geoIntent)
-        } catch (e: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No map app available; falling back to browser", e)
+            openUrlInBrowser("https://www.google.com/maps/search/?api=1&query=${Uri.encode(action.locationQuery)}")
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while opening map app; falling back to browser", e)
             openUrlInBrowser("https://www.google.com/maps/search/?api=1&query=${Uri.encode(action.locationQuery)}")
         }
     }

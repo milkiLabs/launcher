@@ -19,9 +19,7 @@ import com.milki.launcher.ui.theme.IconSize
 @Composable
 fun UrlSearchResultItem(
     result: UrlSearchResult,
-    onOpenInApp: () -> Unit,
-    @Suppress("UNUSED_PARAMETER")
-    onOpenInBrowser: (() -> Unit)? = null
+    onOpenInApp: () -> Unit
 ) {
     val leadingIcon: ImageVector = if (result.handlerApp != null) {
         Icons.Default.Language

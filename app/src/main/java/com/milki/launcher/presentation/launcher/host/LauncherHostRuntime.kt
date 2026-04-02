@@ -121,7 +121,18 @@ internal class LauncherHostRuntime(
     }
 
     private fun initializeHandlers() {
-        permissionHandler = PermissionHandler(activity, searchViewModel)
+        permissionHandler = PermissionHandler(
+            activity = activity,
+            permissionStateSink = object : com.milki.launcher.core.permission.PermissionStateSink {
+                override fun updateContactsPermission(hasPermission: Boolean) {
+                    searchViewModel.updateContactsPermission(hasPermission)
+                }
+
+                override fun updateFilesPermission(hasPermission: Boolean) {
+                    searchViewModel.updateFilesPermission(hasPermission)
+                }
+            }
+        )
         permissionHandler.setup()
 
         actionExecutor = ActionExecutor(

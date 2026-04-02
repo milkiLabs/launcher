@@ -25,6 +25,9 @@ package com.milki.launcher.core.intent
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.LauncherApps
+import android.os.Build
+import android.os.Process
 import android.widget.Toast
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
@@ -135,8 +138,7 @@ fun launchPinnedApp(
  * app shortcuts - they point to specific content within an app.
  *
  * Note: The current implementation simply opens the parent app rather than
- * the specific shortcut. This could be enhanced in the future to use
- * LauncherApps API for proper shortcut launching.
+ * the specific shortcut when launcher APIs are unavailable.
  *
  * @param context The Android context
  * @param appShortcut The AppShortcut to launch
@@ -151,11 +153,28 @@ fun launchAppShortcut(
     context: Context,
     appShortcut: HomeItem.AppShortcut
 ): Boolean {
-    // For now, just open the parent app
-    // TODO: Implement proper shortcut launching using LauncherApps.pinShortcut() API
-    // The proper way would be:
-    // val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-    // val intent = launcherApps.getShortcutIntent(...)
+    // Preferred path: launch the concrete shortcut via LauncherApps.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+        val launcherApps = context.getSystemService(LauncherApps::class.java)
+        if (launcherApps != null) {
+            try {
+                launcherApps.startShortcut(
+                    appShortcut.packageName,
+                    appShortcut.shortcutId,
+                    null,
+                    null,
+                    Process.myUserHandle()
+                )
+                return true
+            } catch (_: SecurityException) {
+                // Fall through to package launch fallback.
+            } catch (_: IllegalStateException) {
+                // Fall through to package launch fallback.
+            } catch (_: IllegalArgumentException) {
+                // Fall through to package launch fallback.
+            }
+        }
+    }
     
     val intent = context.packageManager.getLaunchIntentForPackage(appShortcut.packageName)
     

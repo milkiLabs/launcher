@@ -2,10 +2,10 @@ package com.milki.launcher.data.repository.apps
 
 import android.app.Application
 import android.content.ComponentName
-import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.datastore.preferences.core.edit
 import com.milki.launcher.data.icon.AppIconMemoryCache
+import com.milki.launcher.core.intent.createLauncherActivityIntent
 import com.milki.launcher.domain.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -110,18 +110,10 @@ internal class RecentAppsStore(
                 name = packageManager.getApplicationLabel(applicationInfo).toString(),
                 packageName = componentName.packageName,
                 activityName = componentName.className,
-                launchIntent = buildLaunchIntent(componentName)
+                launchIntent = createLauncherActivityIntent(componentName)
             )
         } catch (_: PackageManager.NameNotFoundException) {
             null
-        }
-    }
-
-    private fun buildLaunchIntent(componentName: ComponentName): Intent {
-        return Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-            component = componentName
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
         }
     }
 }
