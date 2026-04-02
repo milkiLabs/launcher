@@ -36,8 +36,8 @@ class HomeModelWriter(
         ) : Command
 
         data class CreateFolder(
-            val item1: HomeItem,
-            val item2: HomeItem,
+            val draggedItem: HomeItem,
+            val targetItemId: String,
             val atPosition: GridPosition
         ) : Command
 
@@ -234,18 +234,32 @@ class HomeModelWriter(
         currentItems: List<HomeItem>,
         command: Command.CreateFolder
     ): Result {
-        if (command.item1 is HomeItem.FolderItem || command.item2 is HomeItem.FolderItem) {
+        if (command.draggedItem is HomeItem.FolderItem) {
             return Result.Rejected(Error.InvalidFolderOperation)
         }
-        if (command.item1 is HomeItem.WidgetItem || command.item2 is HomeItem.WidgetItem) {
+        if (command.draggedItem is HomeItem.WidgetItem) {
             return Result.Rejected(Error.InvalidFolderOperation)
         }
 
         val mutable = currentItems.toMutableList()
-        evictItemEverywhere(mutable, command.item1.id)
-        evictItemEverywhere(mutable, command.item2.id)
 
-        val folder = HomeItem.FolderItem.create(command.item1, command.item2, command.atPosition)
+        val liveTarget = mutable.firstOrNull {
+            it.id == command.targetItemId &&
+                it.position == command.atPosition &&
+                it !is HomeItem.FolderItem &&
+                it !is HomeItem.WidgetItem
+        } ?: return Result.Rejected(Error.ItemNotFound)
+
+        if (command.draggedItem.id == liveTarget.id) {
+            return Result.Rejected(Error.InvalidFolderOperation)
+        }
+
+        // Dragged item may already exist on grid/folder (internal drag) or may be external
+        // (from drawer/search). In both cases we keep one final copy in the new folder.
+        evictItemEverywhere(mutable, command.draggedItem.id)
+        evictItemEverywhere(mutable, liveTarget.id)
+
+        val folder = HomeItem.FolderItem.create(command.draggedItem, liveTarget, command.atPosition)
         mutable.add(folder)
         return Result.Applied(mutable)
     }

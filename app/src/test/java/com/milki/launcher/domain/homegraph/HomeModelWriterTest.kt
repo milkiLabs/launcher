@@ -248,4 +248,58 @@ class HomeModelWriterTest {
         assertTrue(appliedItems.none { it.id == staleChildA.id || it.id == staleChildB.id })
         assertTrue(appliedItems.any { it.id == healthyTopLevel.id })
     }
+
+    @Test
+    fun create_folder_rejects_when_target_occupant_is_not_live() {
+        val dragged = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Dragged", "pkg.dragged", "Main", null)
+        ).withPosition(GridPosition(0, 0))
+
+        val staleRemovedOccupant = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Removed", "pkg.removed", "Main", null)
+        ).withPosition(GridPosition(0, 1))
+
+        val result = writer.apply(
+            currentItems = listOf(dragged),
+            command = HomeModelWriter.Command.CreateFolder(
+                draggedItem = dragged,
+                targetItemId = staleRemovedOccupant.id,
+                atPosition = staleRemovedOccupant.position
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Rejected)
+        val rejected = result as HomeModelWriter.Result.Rejected
+        assertEquals(HomeModelWriter.Error.ItemNotFound, rejected.error)
+    }
+
+    @Test
+    fun create_folder_allows_external_item_when_occupant_is_live() {
+        val occupant = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Occupant", "pkg.occupant", "Main", null)
+        ).withPosition(GridPosition(1, 1))
+
+        val externalItem = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("External", "pkg.external", "Main", null)
+        )
+
+        val result = writer.apply(
+            currentItems = listOf(occupant),
+            command = HomeModelWriter.Command.CreateFolder(
+                draggedItem = externalItem,
+                targetItemId = occupant.id,
+                atPosition = occupant.position
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val applied = (result as HomeModelWriter.Result.Applied).items
+        val folder = applied.singleOrNull() as? HomeItem.FolderItem
+        assertTrue(folder != null)
+        assertEquals(occupant.position, folder?.position)
+        assertEquals(
+            setOf(externalItem.id, occupant.id),
+            folder?.children?.map { it.id }?.toSet()
+        )
+    }
 }

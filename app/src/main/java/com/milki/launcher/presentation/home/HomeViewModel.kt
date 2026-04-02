@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -169,14 +170,17 @@ class HomeViewModel(
         command: HomeModelWriter.Command,
         onApplied: suspend (items: List<HomeItem>) -> Unit = {}
     ): Boolean {
+        val currentItems = homeRepository.pinnedItems.first()
         return when (
             val result = modelWriter.apply(
-                currentItems = uiState.value.pinnedItems,
+                currentItems = currentItems,
                 command = command
             )
         ) {
             is HomeModelWriter.Result.Applied -> {
-                homeRepository.replacePinnedItems(result.items)
+                if (result.items != currentItems) {
+                    homeRepository.replacePinnedItems(result.items)
+                }
                 onApplied(result.items)
                 true
             }
@@ -247,11 +251,8 @@ class HomeViewModel(
                 homeRepository.pinnedItems,
                 installedAvailability
             ) { pinnedItems, availability -> pinnedItems to availability }
-                .collectLatest { (pinnedItems, availability) ->
-                    pruneUnavailableItems(
-                        currentItems = pinnedItems,
-                        availability = availability
-                    )
+                .collectLatest { (_, availability) ->
+                    pruneUnavailableItems(availability = availability)
                 }
         }
     }
@@ -265,24 +266,22 @@ class HomeViewModel(
         )
     }
 
-    private suspend fun pruneUnavailableItems(
-        currentItems: List<HomeItem>,
-        availability: InstalledAppAvailability
-    ) {
-        if (currentItems.isEmpty()) {
-            return
-        }
-
-        val unavailableItemIds = collectUnavailableItemIds(
-            items = currentItems,
-            validPackages = availability.validPackages,
-            validPinnedAppComponents = availability.validPinnedAppComponents
-        )
-        if (unavailableItemIds.isEmpty()) {
-            return
-        }
-
+    private suspend fun pruneUnavailableItems(availability: InstalledAppAvailability) {
         positionUpdateMutex.withLock {
+            val currentItems = homeRepository.pinnedItems.first()
+            if (currentItems.isEmpty()) {
+                return@withLock
+            }
+
+            val unavailableItemIds = collectUnavailableItemIds(
+                items = currentItems,
+                validPackages = availability.validPackages,
+                validPinnedAppComponents = availability.validPinnedAppComponents
+            )
+            if (unavailableItemIds.isEmpty()) {
+                return@withLock
+            }
+
             when (
                 val result = modelWriter.apply(
                     currentItems = currentItems,
@@ -508,8 +507,8 @@ class HomeViewModel(
         ) {
             applyWriterCommand(
                 command = HomeModelWriter.Command.CreateFolder(
-                    item1 = item1,
-                    item2 = item2,
+                    draggedItem = item1,
+                    targetItemId = item2.id,
                     atPosition = atPosition
                 )
             )
