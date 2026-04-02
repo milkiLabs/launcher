@@ -28,7 +28,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.core.permission.PermissionUtil
 
 /**
  * Handles all permission requests and state management for the launcher.
