@@ -110,7 +110,7 @@ class HomeViewModel(
 
     private val latestInstalledAvailability = MutableStateFlow<InstalledAppAvailability?>(null)
 
-    private val fileStorageChangeSignals = MutableSharedFlow<Unit>(
+    private val pruneRequests = MutableSharedFlow<Unit>(
         replay = 0,
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -118,11 +118,11 @@ class HomeViewModel(
 
     private val mediaStoreObserver = object : ContentObserver(null) {
         override fun onChange(selfChange: Boolean) {
-            fileStorageChangeSignals.tryEmit(Unit)
+            requestPrune()
         }
 
         override fun onChange(selfChange: Boolean, uri: Uri?) {
-            fileStorageChangeSignals.tryEmit(Unit)
+            requestPrune()
         }
     }
 
@@ -166,9 +166,9 @@ class HomeViewModel(
     private val openFolderIdFlow = MutableStateFlow<String?>(null)
 
     init {
-        observeAppAvailabilityAndPruneUnavailableItems()
+        observePruneRequests()
+        observeInstalledAvailability()
         registerFileStorageObservers()
-        observeFileStorageChangesAndPruneUnavailableItems()
     }
 
     /**
@@ -179,7 +179,7 @@ class HomeViewModel(
      * - AppShortcut entries whose parent package no longer exists
      * - WidgetItem entries whose provider package no longer exists
      */
-    private fun observeAppAvailabilityAndPruneUnavailableItems() {
+    private fun observeInstalledAvailability() {
         val installedAvailability = appRepository.observeInstalledApps()
             .filter { installedApps -> installedApps.isNotEmpty() }
             .map(::buildInstalledAppAvailability)
@@ -187,34 +187,38 @@ class HomeViewModel(
         viewModelScope.launch {
             installedAvailability.collectLatest { availability ->
                 latestInstalledAvailability.value = availability
-                pruneUnavailableItems(availability = availability)
+                requestPrune()
             }
         }
     }
 
-    private fun observeFileStorageChangesAndPruneUnavailableItems() {
+    private fun observePruneRequests() {
         viewModelScope.launch {
-            fileStorageChangeSignals.collectLatest {
+            pruneRequests.collectLatest {
                 val availability = latestInstalledAvailability.value ?: return@collectLatest
                 pruneUnavailableItems(availability = availability)
             }
         }
     }
 
+    private fun requestPrune() {
+        pruneRequests.tryEmit(Unit)
+    }
+
     private fun registerFileStorageObservers() {
+        registerStorageObserver(MediaStore.Files.getContentUri("external"))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            registerStorageObserver(MediaStore.Downloads.EXTERNAL_CONTENT_URI)
+        }
+    }
+
+    private fun registerStorageObserver(uri: Uri) {
         runCatching {
             appContext.contentResolver.registerContentObserver(
-                MediaStore.Files.getContentUri("external"),
+                uri,
                 true,
                 mediaStoreObserver
             )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                appContext.contentResolver.registerContentObserver(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    true,
-                    mediaStoreObserver
-                )
-            }
         }
     }
 
@@ -258,16 +262,10 @@ class HomeViewModel(
                     command = HomeModelWriter.Command.RemoveItemsById(itemIds = unavailableItemIds.toSet())
                 )
             ) {
-                is HomeModelWriter.Result.Applied -> {
-                    val updatedItems = result.items
-                    if (updatedItems != currentItems) {
-                        homeRepository.replacePinnedItems(updatedItems)
-                        val openFolderId = openFolderIdFlow.value
-                        if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
-                            openFolderIdFlow.value = null
-                        }
-                    }
-                }
+                is HomeModelWriter.Result.Applied -> persistUpdatedItems(
+                    currentItems = currentItems,
+                    updatedItems = result.items
+                )
                 is HomeModelWriter.Result.Rejected -> Unit
             }
         }
@@ -316,13 +314,26 @@ class HomeViewModel(
             )
         ) {
             is HomeModelWriter.Result.Applied -> {
-                if (result.items != currentItems) {
-                    homeRepository.replacePinnedItems(result.items)
-                }
+                persistUpdatedItems(currentItems = currentItems, updatedItems = result.items)
                 onApplied(result.items)
                 true
             }
             is HomeModelWriter.Result.Rejected -> false
+        }
+    }
+
+    private suspend fun persistUpdatedItems(
+        currentItems: List<HomeItem>,
+        updatedItems: List<HomeItem>
+    ) {
+        if (updatedItems == currentItems) {
+            return
+        }
+        homeRepository.replacePinnedItems(updatedItems)
+
+        val openFolderId = openFolderIdFlow.value
+        if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
+            openFolderIdFlow.value = null
         }
     }
 
@@ -656,12 +667,7 @@ class HomeViewModel(
                 command = HomeModelWriter.Command.RemoveItemFromFolder(
                     folderId = folderId,
                     itemId = itemId
-                ),
-                onApplied = { items ->
-                    if (items.none { it.id == folderId }) {
-                        openFolderIdFlow.value = null
-                    }
-                }
+                )
             )
         }
     }
@@ -707,7 +713,6 @@ class HomeViewModel(
      *
      * @param sourceFolderId The folder the item is coming FROM
      * @param itemId         The ID of the item being moved
-     * @param item           The actual [HomeItem] to add to the target folder
      * @param targetFolderId The folder the item is going INTO
      */
     fun moveItemBetweenFolders(
@@ -729,43 +734,10 @@ class HomeViewModel(
     }
 
     /**
-     * Extracts an item from a folder and creates a NEW folder with it and
-     * an existing non-folder home grid icon at the same cell position.
+     * Drag a folder child onto a non-folder home item to create a new folder.
      *
-     * This is called when the user drags an icon OUT of a folder popup and
-     * drops it DIRECTLY ONTO another (non-folder) icon on the home grid.
-     * The expected result is the same as dragging two normal icons together:
-     * a brand new folder appears at [atPosition] containing both items.
-     *
-     * HOW IT WORKS — STEP BY STEP:
-     *
-     * Step 1 — Remove [childItem] from its source folder.
-     *   [childItem] lives inside its folder's children list.  It is NOT present
-     *   in the flat [pinnedItems] grid list, because folder children are stored
-     *   separately inside [HomeItem.FolderItem.children].
-     *   After removal, the source folder's cleanup policy is applied:
-     *     - 0 children remaining → the source folder is auto-deleted from the grid.
-     *     - 1 child remaining    → the folder is "unwrapped" to a plain icon.
-     *     - 2+ children          → folder stays, just minus this one item.
-     *
-     * Step 2 — Create a new folder from [childItem] + [occupantItem] at [atPosition].
-     *   [HomeRepository.createFolder] does several things:
-     *     a) Looks for both items in the flat pinnedItems list and removes them.
-     *        For [childItem], this search is a no-op (it was never in the flat list).
-     *        For [occupantItem], it IS in the flat list and gets removed from there.
-     *     b) Creates a new [HomeItem.FolderItem] containing both items.
-     *     c) Places the new folder at [atPosition] in the flat pinnedItems list.
-     *
-     * WHY NOT reuse [extractItemFromFolder] + [createFolder] as separate mutations?
-     *   They are separate DataStore writes, which could cause a race condition and
-     *   a brief UI flash.  [launchSerializedHomeMutation] ensures both writes
-     *   happen back-to-back in the same coroutine, eliminating that risk.
-     *
-     * @param sourceFolderId The folder the [childItem] is being dragged OUT of.
-     * @param childItem      The item being dragged — the folder child.
-     * @param occupantItem   The home grid item being dropped ONTO (not a folder).
-     * @param atPosition     The grid cell where the NEW folder will appear.
-     *                       This is the same position [occupantItem] occupies.
+     * The writer validates the target item by ID + position against current
+     * model state to avoid stale-UI ghost merges.
      */
     fun extractFolderChildOntoItem(
         sourceFolderId: String,
