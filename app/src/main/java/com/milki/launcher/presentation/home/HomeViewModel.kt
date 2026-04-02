@@ -684,7 +684,7 @@ class HomeViewModel(
                 command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
                     sourceFolderId = sourceFolderId,
                     childItemId = childItem.id,
-                    occupantItem = occupantItem,
+                    targetItemId = occupantItem.id,
                     atPosition = atPosition
                 )
             )

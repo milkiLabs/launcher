@@ -66,7 +66,7 @@ class HomeModelWriter(
         data class ExtractFolderChildOntoItem(
             val sourceFolderId: String,
             val childItemId: String,
-            val occupantItem: HomeItem,
+            val targetItemId: String,
             val atPosition: GridPosition
         ) : Command
 
@@ -366,10 +366,6 @@ class HomeModelWriter(
         currentItems: List<HomeItem>,
         command: Command.ExtractFolderChildOntoItem
     ): Result {
-        if (command.occupantItem is HomeItem.FolderItem || command.occupantItem is HomeItem.WidgetItem) {
-            return Result.Rejected(Error.InvalidFolderOperation)
-        }
-
         val mutable = currentItems.toMutableList()
         val source = mutable.firstOrNull { it.id == command.sourceFolderId } as? HomeItem.FolderItem
             ?: return Result.Rejected(Error.FolderNotFound)
@@ -378,14 +374,21 @@ class HomeModelWriter(
             ?: return Result.Rejected(Error.ItemNotFound)
         if (child is HomeItem.WidgetItem) return Result.Rejected(Error.InvalidFolderOperation)
 
-        val liveOccupant = mutable.firstOrNull {
-            it.id == command.occupantItem.id && it.position == command.atPosition && it !is HomeItem.FolderItem
+        val liveTarget = mutable.firstOrNull {
+            it.id == command.targetItemId &&
+                it.position == command.atPosition &&
+                it !is HomeItem.FolderItem &&
+                it !is HomeItem.WidgetItem
         } ?: return Result.Rejected(Error.ItemNotFound)
 
-        evictItemEverywhere(mutable, child.id)
-        evictItemEverywhere(mutable, liveOccupant.id)
+        if (child.id == liveTarget.id) {
+            return Result.Rejected(Error.InvalidFolderOperation)
+        }
 
-        val folder = HomeItem.FolderItem.create(child, liveOccupant, command.atPosition)
+        evictItemEverywhere(mutable, child.id)
+        evictItemEverywhere(mutable, liveTarget.id)
+
+        val folder = HomeItem.FolderItem.create(child, liveTarget, command.atPosition)
         mutable.add(folder)
         return Result.Applied(mutable)
     }

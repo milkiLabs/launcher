@@ -302,4 +302,82 @@ class HomeModelWriterTest {
             folder?.children?.map { it.id }?.toSet()
         )
     }
+
+    @Test
+    fun extract_folder_child_onto_item_rejects_when_target_not_live() {
+        val child = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Child", "pkg.child", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+        val sibling = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Sibling", "pkg.sibling", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val sourceFolder = HomeItem.FolderItem.create(
+            item1 = child,
+            item2 = sibling,
+            atPosition = GridPosition(0, 0)
+        )
+        val staleTarget = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Removed", "pkg.removed", "Main", null)
+        ).withPosition(GridPosition(0, 2))
+
+        val result = writer.apply(
+            currentItems = listOf(sourceFolder),
+            command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
+                sourceFolderId = sourceFolder.id,
+                childItemId = child.id,
+                targetItemId = staleTarget.id,
+                atPosition = staleTarget.position
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Rejected)
+        val rejected = result as HomeModelWriter.Result.Rejected
+        assertEquals(HomeModelWriter.Error.ItemNotFound, rejected.error)
+    }
+
+    @Test
+    fun extract_folder_child_onto_item_creates_folder_with_live_target() {
+        val child = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Child", "pkg.child", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+        val sibling = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Sibling", "pkg.sibling", "Main", null)
+        ).withPosition(GridPosition.DEFAULT)
+
+        val sourceFolderPosition = GridPosition(0, 0)
+        val sourceFolder = HomeItem.FolderItem.create(
+            item1 = child,
+            item2 = sibling,
+            atPosition = sourceFolderPosition
+        )
+        val target = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("Target", "pkg.target", "Main", null)
+        ).withPosition(GridPosition(0, 2))
+
+        val result = writer.apply(
+            currentItems = listOf(sourceFolder, target),
+            command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
+                sourceFolderId = sourceFolder.id,
+                childItemId = child.id,
+                targetItemId = target.id,
+                atPosition = target.position
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val applied = (result as HomeModelWriter.Result.Applied).items
+
+        val promotedSibling = applied.firstOrNull { it.id == sibling.id }
+        assertTrue(promotedSibling != null)
+        assertEquals(sourceFolderPosition, promotedSibling?.position)
+
+        val createdFolder = applied.firstOrNull { it is HomeItem.FolderItem } as? HomeItem.FolderItem
+        assertTrue(createdFolder != null)
+        assertEquals(target.position, createdFolder?.position)
+        assertEquals(
+            setOf(child.id, target.id),
+            createdFolder?.children?.map { it.id }?.toSet()
+        )
+    }
 }
