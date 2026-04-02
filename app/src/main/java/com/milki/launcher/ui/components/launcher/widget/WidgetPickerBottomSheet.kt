@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DragIndicator
@@ -37,15 +36,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,13 +53,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.domain.search.QueryTextMatcher
+import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.interaction.dragdrop.startExternalWidgetDrag
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
@@ -89,13 +85,13 @@ data class WidgetAppGroup(
 
 @Composable
 fun WidgetPickerBottomSheet(
-    onDismiss: () -> Unit,
     widgetHostManager: WidgetHostManager,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onExternalDragStarted: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
-    var searchQuery by rememberSaveable { mutableStateOf("") }
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
 
     val appGroups: List<WidgetAppGroup> = remember {
@@ -133,19 +129,25 @@ fun WidgetPickerBottomSheet(
             .sortedBy { it.appLabel.lowercase() }
     }
 
-    val normalizedQuery = searchQuery.trim().lowercase()
+    val normalizedQuery = QueryTextMatcher.normalize(searchQuery)
     val isSearching = normalizedQuery.isNotEmpty()
     val filteredGroups = remember(appGroups, normalizedQuery) {
         appGroups.mapNotNull { group ->
             if (normalizedQuery.isBlank()) {
                 group
             } else {
-                val appMatches = group.appLabel.lowercase().contains(normalizedQuery)
+                val appMatches = QueryTextMatcher.containsNormalized(
+                    text = group.appLabel,
+                    normalizedQuery = normalizedQuery
+                )
                 val matchingWidgets = if (appMatches) {
                     group.widgets
                 } else {
                     group.widgets.filter { entry ->
-                        entry.label.lowercase().contains(normalizedQuery)
+                        QueryTextMatcher.containsNormalized(
+                            text = entry.label,
+                            normalizedQuery = normalizedQuery
+                        )
                     }
                 }
 
@@ -184,8 +186,8 @@ fun WidgetPickerBottomSheet(
                 visibleApps = filteredGroups.size,
                 visibleWidgets = visibleWidgetCount,
                 searchQuery = searchQuery,
-                onSearchQueryChange = { searchQuery = it },
-                onClearSearch = { searchQuery = "" }
+                onSearchQueryChange = onSearchQueryChange,
+                onClearSearch = { onSearchQueryChange("") }
             )
 
             LazyColumn(
@@ -300,43 +302,13 @@ private fun WidgetPickerHeader(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = Spacing.none
         ) {
-            TextField(
-                value = searchQuery,
-                onValueChange = onSearchQueryChange,
+            UnifiedSearchInputField(
+                query = searchQuery,
+                onQueryChange = onSearchQueryChange,
+                placeholderText = "Search apps or widgets",
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = {
-                    Text(
-                        text = "Search apps or widgets",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null
-                    )
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotBlank()) {
-                        IconButton(onClick = onClearSearch) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear search"
-                            )
-                        }
-                    }
-                },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    errorContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
+                onClear = onClearSearch,
+                indicatorColor = MaterialTheme.colorScheme.primary
             )
         }
     }

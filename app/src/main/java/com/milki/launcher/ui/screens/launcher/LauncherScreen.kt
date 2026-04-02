@@ -59,6 +59,7 @@ fun LauncherScreen(
     isAppDrawerOpen: Boolean = false,
     appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
     isWidgetPickerOpen: Boolean = false,
+    widgetPickerQuery: String = "",
     widgetHostManager: WidgetHostManager? = null,
 ) {
     val appDrawerSheetState = rememberLauncherSheetState()
@@ -140,6 +141,7 @@ fun LauncherScreen(
         WidgetPickerHost(
             widgetPickerSheetState = widgetPickerSheetState,
             isWidgetPickerOpen = isWidgetPickerOpen,
+            widgetPickerQuery = widgetPickerQuery,
             widgetHostManager = widgetHostManager,
             actions = actions
         )
@@ -301,6 +303,7 @@ private fun DrawerHost(
 private fun WidgetPickerHost(
     widgetPickerSheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
     isWidgetPickerOpen: Boolean,
+    widgetPickerQuery: String,
     widgetHostManager: WidgetHostManager?,
     actions: LauncherActions
 ) {
@@ -311,8 +314,9 @@ private fun WidgetPickerHost(
         onDismissRequest = { actions.widget.onWidgetPickerOpenChange(false) }
     ) {
         WidgetPickerBottomSheet(
-            onDismiss = { actions.widget.onWidgetPickerOpenChange(false) },
             widgetHostManager = widgetHostManager,
+            searchQuery = widgetPickerQuery,
+            onSearchQueryChange = actions.widget.onWidgetPickerQueryChange,
             onExternalDragStarted = {
                 actions.widget.onWidgetPickerOpenChange(false)
             }

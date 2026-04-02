@@ -108,9 +108,21 @@ class SettingsViewModel(
         }
     }
 
-    fun setHomeButtonClearsQuery(value: Boolean) {
+    fun setHomeButtonClearsSearchDialogQuery(value: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setHomeButtonClearsQuery(value)
+            settingsRepository.setHomeButtonClearsSearchDialogQuery(value)
+        }
+    }
+
+    fun setHomeButtonClearsDrawerQuery(value: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setHomeButtonClearsDrawerQuery(value)
+        }
+    }
+
+    fun setHomeButtonClearsWidgetPickerQuery(value: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setHomeButtonClearsWidgetPickerQuery(value)
         }
     }
 

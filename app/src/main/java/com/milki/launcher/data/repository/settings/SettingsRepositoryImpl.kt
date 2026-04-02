@@ -15,6 +15,8 @@ import com.milki.launcher.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import java.io.IOException
 
 /**
@@ -97,8 +99,16 @@ class SettingsRepositoryImpl(
         writeStringSetting(SettingsPreferenceKeys.SWIPE_UP_ACTION, action.name)
     }
 
-    override suspend fun setHomeButtonClearsQuery(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_QUERY, value)
+    override suspend fun setHomeButtonClearsSearchDialogQuery(value: Boolean) {
+        writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_SEARCH_DIALOG_QUERY, value)
+    }
+
+    override suspend fun setHomeButtonClearsDrawerQuery(value: Boolean) {
+        writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY, value)
+    }
+
+    override suspend fun setHomeButtonClearsWidgetPickerQuery(value: Boolean) {
+        writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_WIDGET_PICKER_QUERY, value)
     }
 
     override suspend fun setContactsSearchEnabled(value: Boolean) {
@@ -307,9 +317,15 @@ class SettingsRepositoryImpl(
                     runCatching { SwipeUpAction.valueOf(it) }
                         .getOrDefault(defaults.swipeUpAction)
                 } ?: defaults.swipeUpAction,
-            homeButtonClearsQuery =
-                preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_QUERY]
-                    ?: defaults.homeButtonClearsQuery,
+            homeButtonClearsSearchDialogQuery =
+                preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_SEARCH_DIALOG_QUERY]
+                    ?: defaults.homeButtonClearsSearchDialogQuery,
+            homeButtonClearsDrawerQuery =
+                preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY]
+                    ?: defaults.homeButtonClearsDrawerQuery,
+            homeButtonClearsWidgetPickerQuery =
+                preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_WIDGET_PICKER_QUERY]
+                    ?: defaults.homeButtonClearsWidgetPickerQuery,
 
             contactsSearchEnabled =
                 preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED]
@@ -370,9 +386,23 @@ class SettingsRepositoryImpl(
         if (currentSettings.swipeUpAction != newSettings.swipeUpAction) {
             preferences[SettingsPreferenceKeys.SWIPE_UP_ACTION] = newSettings.swipeUpAction.name
         }
-        if (currentSettings.homeButtonClearsQuery != newSettings.homeButtonClearsQuery) {
-            preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_QUERY] =
-                newSettings.homeButtonClearsQuery
+        if (
+            currentSettings.homeButtonClearsSearchDialogQuery !=
+            newSettings.homeButtonClearsSearchDialogQuery
+        ) {
+            preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_SEARCH_DIALOG_QUERY] =
+                newSettings.homeButtonClearsSearchDialogQuery
+        }
+        if (currentSettings.homeButtonClearsDrawerQuery != newSettings.homeButtonClearsDrawerQuery) {
+            preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY] =
+                newSettings.homeButtonClearsDrawerQuery
+        }
+        if (
+            currentSettings.homeButtonClearsWidgetPickerQuery !=
+            newSettings.homeButtonClearsWidgetPickerQuery
+        ) {
+            preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_WIDGET_PICKER_QUERY] =
+                newSettings.homeButtonClearsWidgetPickerQuery
         }
 
         if (currentSettings.contactsSearchEnabled != newSettings.contactsSearchEnabled) {

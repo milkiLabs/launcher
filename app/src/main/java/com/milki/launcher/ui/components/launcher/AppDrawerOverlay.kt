@@ -40,14 +40,8 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,6 +55,7 @@ import com.milki.launcher.presentation.drawer.DrawerAdapterItem
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem
+import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -112,32 +107,14 @@ fun AppDrawerOverlay(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
-                value = uiState.query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null
-                    )
-                },
-                trailingIcon = {
-                    if (uiState.query.isNotEmpty()) {
-                        IconButton(onClick = { onQueryChange("") }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear drawer search"
-                            )
-                        }
-                    }
-                },
-                placeholder = {
-                    Text(text = "Search apps")
-                },
+            UnifiedSearchInputField(
+                query = uiState.query,
+                onQueryChange = onQueryChange,
+                placeholderText = "Search apps",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = Spacing.small)
+                    .padding(top = Spacing.small),
+                onClear = { onQueryChange("") }
             )
 
             if (uiState.isLoading) {

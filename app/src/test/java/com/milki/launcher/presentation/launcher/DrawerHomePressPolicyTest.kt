@@ -12,7 +12,8 @@ class DrawerHomePressPolicyTest {
         val decision = policy.resolve(
             DrawerHomePressPolicy.InputState(
                 isDrawerOpen = false,
-                hasDrawerQuery = true
+                hasDrawerQuery = true,
+                shouldClearDrawerQueryOnHomePress = true
             )
         )
 
@@ -24,7 +25,8 @@ class DrawerHomePressPolicyTest {
         val decision = policy.resolve(
             DrawerHomePressPolicy.InputState(
                 isDrawerOpen = true,
-                hasDrawerQuery = true
+                hasDrawerQuery = true,
+                shouldClearDrawerQueryOnHomePress = true
             )
         )
 
@@ -36,7 +38,21 @@ class DrawerHomePressPolicyTest {
         val decision = policy.resolve(
             DrawerHomePressPolicy.InputState(
                 isDrawerOpen = true,
-                hasDrawerQuery = false
+                hasDrawerQuery = false,
+                shouldClearDrawerQueryOnHomePress = true
+            )
+        )
+
+        assertEquals(DrawerHomePressPolicy.Decision.CLOSE_DRAWER, decision)
+    }
+
+    @Test
+    fun resolve_returns_close_drawer_when_clear_toggle_disabled() {
+        val decision = policy.resolve(
+            DrawerHomePressPolicy.InputState(
+                isDrawerOpen = true,
+                hasDrawerQuery = true,
+                shouldClearDrawerQueryOnHomePress = false
             )
         )
 

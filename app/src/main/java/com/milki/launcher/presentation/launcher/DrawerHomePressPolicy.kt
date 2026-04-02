@@ -9,7 +9,8 @@ class DrawerHomePressPolicy {
 
     data class InputState(
         val isDrawerOpen: Boolean,
-        val hasDrawerQuery: Boolean
+        val hasDrawerQuery: Boolean,
+        val shouldClearDrawerQueryOnHomePress: Boolean
     )
 
     enum class Decision {
@@ -20,6 +21,10 @@ class DrawerHomePressPolicy {
 
     fun resolve(input: InputState): Decision {
         if (!input.isDrawerOpen) return Decision.NONE
-        return if (input.hasDrawerQuery) Decision.CLEAR_QUERY else Decision.CLOSE_DRAWER
+        return if (input.hasDrawerQuery && input.shouldClearDrawerQueryOnHomePress) {
+            Decision.CLEAR_QUERY
+        } else {
+            Decision.CLOSE_DRAWER
+        }
     }
 }

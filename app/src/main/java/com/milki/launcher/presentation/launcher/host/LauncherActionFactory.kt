@@ -117,6 +117,7 @@ internal class LauncherActionFactory(
             onWidgetPickerOpenChange = { isOpen ->
                 surfaceStateCoordinator.updateWidgetPickerOpen(isOpen)
             },
+            onWidgetPickerQueryChange = surfaceStateCoordinator::updateWidgetPickerQuery,
             onRemoveWidget = { widgetId, _ ->
                 homeViewModel.removeWidget(
                     widgetId = widgetId,

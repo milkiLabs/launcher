@@ -337,10 +337,24 @@ private fun HomeScreenSection(
     )
 
     SwitchSettingItem(
-        title = "Home button clears query",
-        subtitle = "Pressing home clears query before closing search",
-        checked = settings.homeButtonClearsQuery,
-        onCheckedChange = actions.onSetHomeButtonClearsQuery
+        title = "Home clears search dialog query",
+        subtitle = "If disabled, home closes search dialog immediately",
+        checked = settings.homeButtonClearsSearchDialogQuery,
+        onCheckedChange = actions.onSetHomeButtonClearsSearchDialogQuery
+    )
+
+    SwitchSettingItem(
+        title = "Home clears drawer query",
+        subtitle = "If disabled, home closes app drawer immediately",
+        checked = settings.homeButtonClearsDrawerQuery,
+        onCheckedChange = actions.onSetHomeButtonClearsDrawerQuery
+    )
+
+    SwitchSettingItem(
+        title = "Home clears widget picker query",
+        subtitle = "If disabled, home closes widget picker immediately",
+        checked = settings.homeButtonClearsWidgetPickerQuery,
+        onCheckedChange = actions.onSetHomeButtonClearsWidgetPickerQuery
     )
 }
 

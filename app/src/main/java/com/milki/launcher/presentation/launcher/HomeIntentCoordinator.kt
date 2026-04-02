@@ -28,7 +28,8 @@ interface HomeIntentCoordinatorContract {
      */
     fun onHomeButtonPressed(
         isSearchVisible: Boolean,
-        hasSearchQuery: Boolean
+        hasSearchQuery: Boolean,
+        shouldClearSearchQueryOnHomePress: Boolean
     )
 }
 
@@ -76,7 +77,8 @@ class HomeIntentCoordinator(
      */
     override fun onHomeButtonPressed(
         isSearchVisible: Boolean,
-        hasSearchQuery: Boolean
+        hasSearchQuery: Boolean,
+        shouldClearSearchQueryOnHomePress: Boolean
     ) {
         if (consumeLayeredHomePress()) {
             return
@@ -87,7 +89,8 @@ class HomeIntentCoordinator(
                 isAlreadyOnHomescreen = wasAlreadyOnHomescreen,
                 isHomescreenMenuOpen = isHomescreenMenuOpen(),
                 isSearchVisible = isSearchVisible,
-                hasSearchQuery = hasSearchQuery
+                hasSearchQuery = hasSearchQuery,
+                shouldClearSearchQueryOnHomePress = shouldClearSearchQueryOnHomePress
             )
         )
 

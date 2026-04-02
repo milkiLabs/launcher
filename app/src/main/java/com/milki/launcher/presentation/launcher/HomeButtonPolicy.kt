@@ -30,12 +30,14 @@ class HomeButtonPolicy {
      * @property isHomescreenMenuOpen Whether homescreen long-press dropdown is visible.
      * @property isSearchVisible Whether search dialog is currently visible.
      * @property hasSearchQuery Whether search query currently has user-entered text.
+     * @property shouldClearSearchQueryOnHomePress Whether query should clear before hide.
      */
     data class InputState(
         val isAlreadyOnHomescreen: Boolean,
         val isHomescreenMenuOpen: Boolean,
         val isSearchVisible: Boolean,
-        val hasSearchQuery: Boolean
+        val hasSearchQuery: Boolean,
+        val shouldClearSearchQueryOnHomePress: Boolean
     )
 
     /**
@@ -89,7 +91,7 @@ class HomeButtonPolicy {
 
         return when {
             !input.isSearchVisible -> Decision.OPEN_SEARCH
-            input.hasSearchQuery -> Decision.CLEAR_QUERY
+            input.hasSearchQuery && input.shouldClearSearchQueryOnHomePress -> Decision.CLEAR_QUERY
             else -> Decision.HIDE_SEARCH
         }
     }

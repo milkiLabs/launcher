@@ -52,6 +52,11 @@ internal fun LauncherRootContent(
             runtime.updateSearchClosePolicy(
                 closeSearchOnLaunch = launcherSettings.closeSearchOnLaunch
             )
+            runtime.updateHomeButtonQueryClearPolicy(
+                clearSearchDialogQuery = launcherSettings.homeButtonClearsSearchDialogQuery,
+                clearDrawerQuery = launcherSettings.homeButtonClearsDrawerQuery,
+                clearWidgetPickerQuery = launcherSettings.homeButtonClearsWidgetPickerQuery
+            )
         }
 
         LauncherTheme {
@@ -67,6 +72,7 @@ internal fun LauncherRootContent(
                 isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
                 appDrawerUiState = appDrawerUiState,
                 isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
+                widgetPickerQuery = surfaceStateCoordinator.widgetPickerQuery,
                 widgetHostManager = widgetHostManager
             )
         }

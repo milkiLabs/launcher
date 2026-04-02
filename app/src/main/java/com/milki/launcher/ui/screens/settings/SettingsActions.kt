@@ -28,7 +28,9 @@ data class SettingsSearchBehaviorActions(
 data class SettingsHomeScreenActions(
     val onSetHomeTapAction: (HomeTapAction) -> Unit,
     val onSetSwipeUpAction: (SwipeUpAction) -> Unit,
-    val onSetHomeButtonClearsQuery: (Boolean) -> Unit
+    val onSetHomeButtonClearsSearchDialogQuery: (Boolean) -> Unit,
+    val onSetHomeButtonClearsDrawerQuery: (Boolean) -> Unit,
+    val onSetHomeButtonClearsWidgetPickerQuery: (Boolean) -> Unit
 )
 
 /**

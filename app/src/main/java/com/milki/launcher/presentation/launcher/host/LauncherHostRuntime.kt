@@ -38,6 +38,9 @@ internal class LauncherHostRuntime(
     private val widgetHostManager: WidgetHostManager
 ) {
     private val drawerHomePressPolicy = DrawerHomePressPolicy()
+    private var shouldClearSearchDialogQueryOnHomePress = true
+    private var shouldClearDrawerQueryOnHomePress = true
+    private var shouldClearWidgetPickerQueryOnHomePress = true
 
     private lateinit var permissionHandler: PermissionHandler
     private lateinit var actionExecutor: ActionExecutor
@@ -85,6 +88,16 @@ internal class LauncherHostRuntime(
         }
     }
 
+    fun updateHomeButtonQueryClearPolicy(
+        clearSearchDialogQuery: Boolean,
+        clearDrawerQuery: Boolean,
+        clearWidgetPickerQuery: Boolean
+    ) {
+        shouldClearSearchDialogQueryOnHomePress = clearSearchDialogQuery
+        shouldClearDrawerQueryOnHomePress = clearDrawerQuery
+        shouldClearWidgetPickerQueryOnHomePress = clearWidgetPickerQuery
+    }
+
     fun onResume() {
         widgetHostManager.setActivityResumed(true)
         widgetHostManager.setStateIsNormal(true)
@@ -112,7 +125,8 @@ internal class LauncherHostRuntime(
         val uiState = searchViewModel.uiState.value
         homeIntentCoordinator.onHomeButtonPressed(
             isSearchVisible = uiState.isSearchVisible,
-            hasSearchQuery = uiState.query.isNotEmpty()
+            hasSearchQuery = uiState.query.isNotEmpty(),
+            shouldClearSearchQueryOnHomePress = shouldClearSearchDialogQueryOnHomePress
         )
     }
 
@@ -172,7 +186,8 @@ internal class LauncherHostRuntime(
                     drawerHomePressPolicy.resolve(
                         DrawerHomePressPolicy.InputState(
                             isDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
-                            hasDrawerQuery = appDrawerViewModel.uiState.value.query.isNotBlank()
+                            hasDrawerQuery = appDrawerViewModel.uiState.value.query.isNotBlank(),
+                            shouldClearDrawerQueryOnHomePress = shouldClearDrawerQueryOnHomePress
                         )
                     )
                 ) {
@@ -188,6 +203,19 @@ internal class LauncherHostRuntime(
                     }
 
                     DrawerHomePressPolicy.Decision.NONE -> {
+                        if (surfaceStateCoordinator.isWidgetPickerOpen) {
+                            if (
+                                shouldClearWidgetPickerQueryOnHomePress &&
+                                surfaceStateCoordinator.widgetPickerQuery.isNotBlank()
+                            ) {
+                                surfaceStateCoordinator.dismissContextMenus()
+                                surfaceStateCoordinator.updateWidgetPickerQuery("")
+                            } else {
+                                surfaceStateCoordinator.updateWidgetPickerOpen(false)
+                            }
+                            return@HomeIntentCoordinator true
+                        }
+
                         surfaceStateCoordinator.consumeHomePressForLayeredSurface()
                     }
                 }

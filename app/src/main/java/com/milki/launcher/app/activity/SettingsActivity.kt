@@ -80,7 +80,9 @@ class SettingsActivity : ComponentActivity() {
                     homeScreen = SettingsHomeScreenActions(
                         onSetHomeTapAction = settingsViewModel::setHomeTapAction,
                         onSetSwipeUpAction = settingsViewModel::setSwipeUpAction,
-                        onSetHomeButtonClearsQuery = settingsViewModel::setHomeButtonClearsQuery
+                        onSetHomeButtonClearsSearchDialogQuery = settingsViewModel::setHomeButtonClearsSearchDialogQuery,
+                        onSetHomeButtonClearsDrawerQuery = settingsViewModel::setHomeButtonClearsDrawerQuery,
+                        onSetHomeButtonClearsWidgetPickerQuery = settingsViewModel::setHomeButtonClearsWidgetPickerQuery
                     ),
                     localProviders = SettingsLocalProviderActions(
                         onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,

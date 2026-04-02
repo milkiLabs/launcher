@@ -1,6 +1,7 @@
 package com.milki.launcher.presentation.drawer
 
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.search.AppQueryRanker
 
 class DrawerListAssembler {
 
@@ -14,10 +15,14 @@ class DrawerListAssembler {
     }
 
     fun assembleSearch(apps: List<AppInfo>, query: String): Result {
-        val queryLower = query.trim().lowercase()
-        if (queryLower.isEmpty()) return assembleNormal(apps)
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isEmpty()) return assembleNormal(apps)
 
-        val ranked = rankAppsForSearch(apps = apps, queryLower = queryLower)
+        val ranked = AppQueryRanker.rank(
+            apps = apps,
+            query = normalizedQuery,
+            includePackageNameMatches = true
+        )
         return assembleFromApps(apps = ranked, sortSectionsAlphabetically = false)
     }
 
@@ -61,56 +66,4 @@ class DrawerListAssembler {
         return if (key == "#") "{" else key
     }
 
-    private fun rankAppsForSearch(apps: List<AppInfo>, queryLower: String): List<AppInfo> {
-        val exactNameMatches = ArrayList<AppInfo>()
-        val startsWithMatches = ArrayList<AppInfo>()
-        val wordBoundaryMatches = ArrayList<AppInfo>()
-        val containsMatches = ArrayList<AppInfo>()
-        val fuzzyMatches = ArrayList<AppInfo>()
-        val packageMatches = ArrayList<AppInfo>()
-
-        apps.forEach { app ->
-            val name = app.nameLower
-            when {
-                name == queryLower -> exactNameMatches.add(app)
-                name.startsWith(queryLower) -> startsWithMatches.add(app)
-                name.contains(" $queryLower") -> wordBoundaryMatches.add(app)
-                name.contains(queryLower) -> containsMatches.add(app)
-                isSubsequenceMatch(query = queryLower, text = name) -> fuzzyMatches.add(app)
-                app.packageLower.contains(queryLower) -> packageMatches.add(app)
-            }
-        }
-
-        return buildList(
-            capacity = exactNameMatches.size +
-                startsWithMatches.size +
-                wordBoundaryMatches.size +
-                containsMatches.size +
-                fuzzyMatches.size +
-                packageMatches.size
-        ) {
-            addAll(exactNameMatches)
-            addAll(startsWithMatches)
-            addAll(wordBoundaryMatches)
-            addAll(containsMatches)
-            addAll(fuzzyMatches)
-            addAll(packageMatches)
-        }
-    }
-
-    private fun isSubsequenceMatch(query: String, text: String): Boolean {
-        if (query.length > text.length) return false
-
-        var queryIndex = 0
-        var textIndex = 0
-
-        while (queryIndex < query.length && textIndex < text.length) {
-            if (query[queryIndex] == text[textIndex]) {
-                queryIndex++
-            }
-            textIndex++
-        }
-
-        return queryIndex == query.length
-    }
 }

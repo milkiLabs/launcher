@@ -202,22 +202,67 @@ fun AppSearchDialog(
                             .animateContentSize()
                     ) {
                         /**
-                         * SearchTextFieldWithIndicator is the search input field
-                         * with a color-coded indicator bar showing the active mode.
+                         * Shared unified search input with provider-aware visuals.
                          */
-                        SearchTextFieldWithIndicator(
-                            searchQuery = uiState.query,
-                            onSearchQueryChange = onQueryChange,
-                            focusRequester = focusRequester,
-                            activeProviderConfig = uiState.activeProviderConfig,
-                            providerAccentColorById = uiState.providerAccentColorById,
+                        val providerVisual = rememberSearchProviderVisual(
+                            providerId = uiState.activeProviderConfig?.providerId,
+                            customAccentHex =
+                                uiState.activeProviderConfig?.providerId?.let(
+                                    uiState.providerAccentColorById::get
+                                )
+                        )
+                        val indicatorColor by animateColorAsState(
+                            targetValue = providerVisual?.accentColor
+                                ?: MaterialTheme.colorScheme.primary,
+                            label = "search_indicator_color"
+                        )
+
+                        UnifiedSearchInputField(
+                            query = uiState.query,
+                            onQueryChange = onQueryChange,
                             placeholderText = uiState.placeholderText,
-                            onLaunchFirstResult = {
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = Spacing.mediumLarge)
+                                .padding(top = Spacing.mediumLarge),
+                            focusRequester = focusRequester,
+                            leadingIcon = providerVisual?.icon ?: Icons.Default.Search,
+                            leadingIconTint = providerVisual?.accentColor
+                                ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                            leadingIconContentDescription = uiState.activeProviderConfig?.name,
+                            indicatorColor = indicatorColor,
+                            imeAction = ImeAction.Done,
+                            onImeAction = {
                                 uiState.results.firstOrNull()?.let { result ->
                                     actionHandler(SearchResultAction.Tap(result))
                                 }
                             },
-                            onClear = { onQueryChange("") }
+                            onClear = { onQueryChange("") },
+                            supportingContent = {
+                                if (uiState.activeProviderConfig != null) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = Spacing.smallMedium, bottom = Spacing.smallMedium),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = providerVisual?.icon ?: Icons.Default.Search,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(IconSize.extraSmall),
+                                            tint = providerVisual?.accentColor
+                                                ?: MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(Spacing.smallMedium))
+                                        Text(
+                                            text = "${uiState.activeProviderConfig.name}: ${uiState.activeProviderConfig.description}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = providerVisual?.accentColor
+                                                ?: MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
                         )
 
                         SearchLoadingIndicatorSlot(
@@ -394,161 +439,3 @@ private fun SearchDialogBody(
     }
 }
 
-/**
- * SearchTextFieldWithIndicator - Search input with mode indicator bar.
- *
- * This composable provides:
- * 1. An OutlinedTextField for search input
- * 2. A color-coded indicator bar showing the active search mode
- * 3. Provider info text when a special mode is active
- *
- * VISUAL HIERARCHY:
- * ┌────────────────────────────────────┐
- * │ [icon] [Search field....] [X]     │
- * ├────────────────────────────────────┤
- * │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │ ← Indicator bar (colored)
- * │ [icon] Provider: description       │ ← Mode info (when active)
- * └────────────────────────────────────┘
- *
- * @param searchQuery Current text in the search field
- * @param onSearchQueryChange Callback when text changes
- * @param focusRequester FocusRequester for the text field
- * @param activeProviderConfig Current search provider (null for default app search)
- * @param placeholderText Placeholder text to show when field is empty
- * @param onLaunchFirstResult Callback when user presses "Done" on keyboard
- * @param onClear Callback when user taps the clear button
- */
-@Composable
-private fun SearchTextFieldWithIndicator(
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    focusRequester: FocusRequester,
-    activeProviderConfig: SearchProviderConfig?,
-    providerAccentColorById: Map<String, String>,
-    placeholderText: String,
-    onLaunchFirstResult: () -> Unit,
-    onClear: () -> Unit
-) {
-    val providerVisual = rememberSearchProviderVisual(
-        providerId = activeProviderConfig?.providerId,
-        customAccentHex = activeProviderConfig?.providerId?.let(providerAccentColorById::get)
-    )
-
-    /**
-     * Animate the indicator color when the provider changes.
-     * This creates a smooth visual transition between search modes.
-     */
-    val indicatorColor by animateColorAsState(
-        targetValue = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary,
-        label = "indicator_color"
-    )
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        /**
-         * OutlinedTextField is the main search input.
-         *
-         * FEATURES:
-         * - Leading icon: Shows the active provider's icon (or default search)
-         * - Trailing icon: Clear button (only shown when text exists)
-         * - Single line: Prevents multiline input
-         * - ImeAction.Done: Shows "Done" button on keyboard
-         */
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.mediumLarge)
-                .padding(top = Spacing.mediumLarge)
-                .focusRequester(focusRequester),
-            placeholder = { Text(placeholderText) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { onLaunchFirstResult() }),
-            leadingIcon = {
-                /**
-                 * Show the active provider's icon when a special mode is active.
-                 * Visuals are resolved in the presentation layer using providerId,
-                 * so domain models remain free of Compose-specific fields.
-                 */
-                if (activeProviderConfig != null && providerVisual != null) {
-                    Icon(
-                        imageVector = providerVisual.icon,
-                        contentDescription = activeProviderConfig.name,
-                        tint = providerVisual.accentColor
-                    )
-                }
-            },
-            trailingIcon = {
-                /**
-                 * Clear button only appears when there's text to clear.
-                 * This reduces visual clutter when the field is empty.
-                 */
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = onClear) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Clear search"
-                        )
-                    }
-                }
-            }
-        )
-
-        /**
-         * Indicator bar below the text field.
-         *
-         * PURPOSE:
-         * - Provides a visual cue for the active search mode
-         * - Height changes based on whether a special mode is active
-         * - Color animates smoothly when switching modes
-         *
-         * The slightly taller bar (4dp vs 2dp) when a provider is active
-         * draws more attention to the active mode.
-         */
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.mediumLarge)
-                .padding(top = Spacing.small)
-                .height(if (activeProviderConfig != null) Spacing.small else Spacing.extraSmall)
-                .clip(RoundedCornerShape(CornerRadius.extraSmall))
-                .background(indicatorColor)
-        )
-
-        /**
-         * Provider info row - only shown when a special mode is active.
-         *
-         * This provides additional context about what the current mode does,
-         * helping users understand the different search options.
-         */
-        if (activeProviderConfig != null) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Spacing.mediumLarge)
-                    .padding(top = Spacing.smallMedium, bottom = Spacing.smallMedium),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = providerVisual?.icon ?: Icons.Default.Search,
-                    contentDescription = null,
-                    modifier = Modifier.size(IconSize.extraSmall),
-                    tint = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(Spacing.smallMedium))
-                Text(
-                    text = "${activeProviderConfig.name}: ${activeProviderConfig.description}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary
-                )
-            }
-        } else {
-            /**
-             * When no special mode is active, add spacing to maintain
-             * consistent layout height between mode switches.
-             */
-            Spacer(modifier = Modifier.height(Spacing.smallMedium))
-        }
-    }
-}

@@ -33,7 +33,8 @@ class HomeIntentCoordinatorTest {
         coordinator.onResume()
         coordinator.onHomeButtonPressed(
             isSearchVisible = true,
-            hasSearchQuery = true
+            hasSearchQuery = true,
+            shouldClearSearchQueryOnHomePress = true
         )
 
         assertEquals(null, appliedDecision)
@@ -58,7 +59,8 @@ class HomeIntentCoordinatorTest {
         coordinator.onStop()
         coordinator.onHomeButtonPressed(
             isSearchVisible = false,
-            hasSearchQuery = false
+            hasSearchQuery = false,
+            shouldClearSearchQueryOnHomePress = true
         )
 
         assertEquals(HomeButtonPolicy.Decision.RESET_TRANSIENT_UI, appliedDecision)
@@ -83,7 +85,8 @@ class HomeIntentCoordinatorTest {
         coordinator.onResume()
         coordinator.onHomeButtonPressed(
             isSearchVisible = false,
-            hasSearchQuery = false
+            hasSearchQuery = false,
+            shouldClearSearchQueryOnHomePress = true
         )
 
         assertEquals(HomeButtonPolicy.Decision.CLOSE_MENU, appliedDecision)
@@ -108,7 +111,8 @@ class HomeIntentCoordinatorTest {
         coordinator.onResume()
         coordinator.onHomeButtonPressed(
             isSearchVisible = false,
-            hasSearchQuery = false
+            hasSearchQuery = false,
+            shouldClearSearchQueryOnHomePress = true
         )
 
         assertEquals(HomeButtonPolicy.Decision.OPEN_SEARCH, appliedDecision)
@@ -133,7 +137,8 @@ class HomeIntentCoordinatorTest {
         coordinator.onResume()
         coordinator.onHomeButtonPressed(
             isSearchVisible = true,
-            hasSearchQuery = true
+            hasSearchQuery = true,
+            shouldClearSearchQueryOnHomePress = true
         )
 
         assertEquals(HomeButtonPolicy.Decision.CLEAR_QUERY, appliedDecision)
@@ -158,7 +163,8 @@ class HomeIntentCoordinatorTest {
         coordinator.onResume()
         coordinator.onHomeButtonPressed(
             isSearchVisible = true,
-            hasSearchQuery = false
+            hasSearchQuery = false,
+            shouldClearSearchQueryOnHomePress = true
         )
 
         assertEquals(HomeButtonPolicy.Decision.HIDE_SEARCH, appliedDecision)
@@ -181,9 +187,33 @@ class HomeIntentCoordinatorTest {
         coordinator.onResume()
         coordinator.onHomeButtonPressed(
             isSearchVisible = false,
-            hasSearchQuery = false
+            hasSearchQuery = false,
+            shouldClearSearchQueryOnHomePress = true
         )
 
         assertTrue(true)
+    }
+
+    @Test
+    fun search_visible_with_query_hides_search_when_clear_toggle_disabled() {
+        var appliedDecision: HomeButtonPolicy.Decision? = null
+
+        val coordinator = HomeIntentCoordinator(
+            homeButtonPolicy = HomeButtonPolicy(),
+            isHomescreenMenuOpen = { false },
+            consumeLayeredHomePress = { false },
+            applyDecision = { decision ->
+                appliedDecision = decision
+            }
+        )
+
+        coordinator.onResume()
+        coordinator.onHomeButtonPressed(
+            isSearchVisible = true,
+            hasSearchQuery = true,
+            shouldClearSearchQueryOnHomePress = false
+        )
+
+        assertEquals(HomeButtonPolicy.Decision.HIDE_SEARCH, appliedDecision)
     }
 }

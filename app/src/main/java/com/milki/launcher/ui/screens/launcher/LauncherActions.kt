@@ -54,6 +54,7 @@ data class FolderActions(
  */
 data class WidgetActions(
     val onWidgetPickerOpenChange: (Boolean) -> Unit = {},
+    val onWidgetPickerQueryChange: (String) -> Unit = {},
     val onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
     val onUpdateWidgetFrame: (
         widgetId: String,

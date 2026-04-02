@@ -50,6 +50,9 @@ interface SurfaceStateCoordinatorContract {
      */
     val isWidgetPickerOpen: Boolean
 
+    /** Current widget-picker search query. */
+    val widgetPickerQuery: String
+
     /**
      * Updates homescreen menu visibility.
      */
@@ -64,6 +67,9 @@ interface SurfaceStateCoordinatorContract {
      * Updates widget picker visibility.
      */
     fun updateWidgetPickerOpen(isOpen: Boolean)
+
+    /** Updates widget-picker search query state. */
+    fun updateWidgetPickerQuery(query: String)
 
     /**
      * Requests dismissal of all transient item action/context menus.
@@ -134,6 +140,9 @@ class SurfaceStateCoordinator(
     override var isWidgetPickerOpen by mutableStateOf(false)
         private set
 
+    override var widgetPickerQuery by mutableStateOf("")
+        private set
+
     /**
      * Updates homescreen menu visibility.
      */
@@ -163,6 +172,13 @@ class SurfaceStateCoordinator(
     override fun updateWidgetPickerOpen(isOpen: Boolean) {
         dismissContextMenus()
         isWidgetPickerOpen = isOpen
+        if (!isOpen) {
+            widgetPickerQuery = ""
+        }
+    }
+
+    override fun updateWidgetPickerQuery(query: String) {
+        widgetPickerQuery = query
     }
 
     override fun dismissContextMenus() {
@@ -222,6 +238,7 @@ class SurfaceStateCoordinator(
         if (isWidgetPickerOpen) {
             dismissContextMenus()
             isWidgetPickerOpen = false
+            widgetPickerQuery = ""
             return true
         }
 
@@ -262,6 +279,7 @@ class SurfaceStateCoordinator(
         if (isWidgetPickerOpen) {
             dismissContextMenus()
             isWidgetPickerOpen = false
+            widgetPickerQuery = ""
             return true
         }
 
@@ -286,6 +304,7 @@ class SurfaceStateCoordinator(
         drawerSurfaceController.requestClose()
         isAppDrawerOpen = drawerSurfaceController.isVisible()
         isWidgetPickerOpen = false
+        widgetPickerQuery = ""
         closeFolder()
     }
 }
