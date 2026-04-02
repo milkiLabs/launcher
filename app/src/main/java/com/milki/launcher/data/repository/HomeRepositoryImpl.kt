@@ -4,6 +4,7 @@ import android.content.Context
 import com.milki.launcher.data.repository.home.HomeGridOccupancyPolicy
 import com.milki.launcher.data.repository.home.HomeSnapshotStore
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
 
 /**
