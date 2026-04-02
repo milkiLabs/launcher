@@ -1,586 +1,114 @@
-/**
- * This Activity serves as the launcher's home screen. It:
- * - Displays the pinned items grid
- * - Handles search functionality
- * - Manages permission requests
- * - Coordinates between ViewModels and UI
-
- * The Activity is kept minimal - most logic is in ViewModels and UseCases.
- */
-
 package com.milki.launcher
 
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.data.widget.WidgetHostManager
-import com.milki.launcher.domain.model.LauncherSettings
-import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SettingsRepository
-import com.milki.launcher.handlers.PermissionHandler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
-import com.milki.launcher.presentation.main.HomeButtonPolicy
-import com.milki.launcher.presentation.main.DrawerHomePressPolicy
-import com.milki.launcher.presentation.main.HomeIntentCoordinator
-import com.milki.launcher.presentation.main.HomeIntentCoordinatorContract
-import com.milki.launcher.presentation.main.PermissionRequestCoordinator
-import com.milki.launcher.presentation.main.SearchSessionController
-import com.milki.launcher.presentation.main.SurfaceStateCoordinator
-import com.milki.launcher.presentation.main.SurfaceStateCoordinatorContract
-import com.milki.launcher.presentation.main.WidgetPlacementCoordinator
-import com.milki.launcher.presentation.main.LocalContextMenuDismissSignal
-import com.milki.launcher.presentation.search.ActionExecutor
-import com.milki.launcher.presentation.search.LocalSearchActionHandler
-import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.presentation.search.shouldCloseSearch
-import com.milki.launcher.ui.screens.launcher.DrawerActions
-import com.milki.launcher.ui.screens.launcher.FolderActions
-import com.milki.launcher.ui.screens.launcher.HomeActions
-import com.milki.launcher.ui.screens.launcher.LauncherScreen
-import com.milki.launcher.ui.screens.launcher.LauncherActions
-import com.milki.launcher.ui.screens.launcher.MenuActions
-import com.milki.launcher.ui.screens.launcher.SearchActions
-import com.milki.launcher.ui.screens.launcher.WidgetActions
-import com.milki.launcher.ui.screens.launcher.openPinnedItem
-import com.milki.launcher.ui.theme.LauncherTheme
-import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.presentation.main.host.LauncherActionFactory
+import com.milki.launcher.presentation.main.host.LauncherHostRuntime
+import com.milki.launcher.presentation.main.host.LauncherRootContent
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 /**
- * This is the main entry point when the user presses the home button.
- * It displays the pinned items grid and provides access to search functionality.
+ * Android host shell for launcher home.
+ *
+ * Architecture split:
+ * - [LauncherHostRuntime] owns lifecycle side effects and coordinator orchestration.
+ * - [LauncherActionFactory] assembles screen callback APIs.
+ * - [LauncherRootContent] collects ViewModel state and renders Compose UI.
  */
 class MainActivity : ComponentActivity() {
 
-    private val drawerHomePressPolicy = DrawerHomePressPolicy()
-
-    // ========================================================================
-    // DEPENDENCY INJECTION
-    // ========================================================================
-
-    /**
-     * SearchViewModel handles all search-related state and logic.
-     * Provided by Koin DI.
-     */
     private val searchViewModel: SearchViewModel by viewModel()
-
-    /**
-     * HomeViewModel handles the home screen pinned items state.
-     * Provided by Koin DI.
-     */
     private val homeViewModel: HomeViewModel by viewModel()
-
-    /**
-     * AppDrawerViewModel manages drawer app list and loading state.
-     */
     private val appDrawerViewModel: AppDrawerViewModel by viewModel()
-
-    /**
-     * ContactsRepository for contact-related operations.
-     * Provided by Koin DI.
-     */
     private val contactsRepository: ContactsRepository by inject()
-
-    /**
-     * Settings repository used for reading swipe-up action configuration.
-     */
     private val settingsRepository: SettingsRepository by inject()
-
-    /**
-     * WidgetHostManager wraps Android's AppWidgetHost framework.
-     *
-     * It manages the lifecycle of hosted widgets (startListening/stopListening),
-     * allocates widget IDs, binds widget providers, and creates widget views.
-     * Provided as a singleton by Koin DI.
-     */
     private val widgetHostManager: WidgetHostManager by inject()
 
-    // ========================================================================
-    // HANDLERS
-    // ========================================================================
-
-    /**
-     * PermissionHandler manages runtime permission requests.
-     * Initialized in onCreate.
-     */
-    private lateinit var permissionHandler: PermissionHandler
-
-    /**
-     * ActionExecutor handles all SearchResultAction implementations.
-     * Initialized in onCreate.
-     */
-    private lateinit var actionExecutor: ActionExecutor
-
-    /**
-     * Coordinator that wires permission request flow between ActionExecutor and PermissionHandler.
-     */
-    private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
-
-    /**
-     * Controller that applies search/menu state transitions chosen by policy.
-     */
-    private lateinit var searchSessionController: SearchSessionController
-
-    /**
-     * Coordinator responsible for layered surface open/close orchestration.
-     */
-    private lateinit var surfaceStateCoordinator: SurfaceStateCoordinatorContract
-
-    /**
-     * Coordinator that owns HOME-button policy orchestration.
-     */
-    private lateinit var homeIntentCoordinator: HomeIntentCoordinatorContract
-
-    /**
-     * Coordinator that owns widget bind/configure activity launcher orchestration.
-     */
-    private lateinit var widgetPlacementCoordinator: WidgetPlacementCoordinator
-
-    // ========================================================================
-    // LIFECYCLE
-    // ========================================================================
+    private lateinit var runtime: LauncherHostRuntime
+    private lateinit var actionFactory: LauncherActionFactory
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        searchSessionController = SearchSessionController(searchViewModel)
-        initializeHandlers()
-        initializeCoordinators()
-        initializeBackButtonBehavior()
-        widgetPlacementCoordinator.initialize()
+        runtime = LauncherHostRuntime(
+            activity = this,
+            searchViewModel = searchViewModel,
+            homeViewModel = homeViewModel,
+            appDrawerViewModel = appDrawerViewModel,
+            contactsRepository = contactsRepository,
+            widgetHostManager = widgetHostManager
+        )
+        actionFactory = LauncherActionFactory(
+            onOpenSettings = ::openSettings,
+            homeViewModel = homeViewModel,
+            appDrawerViewModel = appDrawerViewModel,
+            searchViewModel = searchViewModel,
+            surfaceStateCoordinator = runtime.surfaceStateCoordinator,
+            widgetPlacementCoordinator = runtime.widgetPlacementCoordinator,
+            widgetHostManager = widgetHostManager
+        )
+        runtime.initialize()
 
         setContent {
-            // Collect state from ViewModels
-            val searchUiState by searchViewModel.uiState.collectAsStateWithLifecycle()
-            val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
-            val appDrawerUiState by appDrawerViewModel.uiState.collectAsStateWithLifecycle()
-            val launcherSettings by settingsRepository.settings.collectAsStateWithLifecycle(
-                initialValue = LauncherSettings()
+            LauncherRootContent(
+                runtime = runtime,
+                actionFactory = actionFactory,
+                searchViewModel = searchViewModel,
+                homeViewModel = homeViewModel,
+                appDrawerViewModel = appDrawerViewModel,
+                settingsRepository = settingsRepository,
+                widgetHostManager = widgetHostManager
             )
-            val context = LocalContext.current
-            val isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen
-
-            /**
-             * Provide the action handler via CompositionLocal.
-             * This allows any child composable to emit actions without prop drilling.
-             */
-            CompositionLocalProvider(
-                LocalSearchActionHandler provides { action: SearchResultAction ->
-                    actionExecutor.execute(action, permissionHandler::hasPermission)
-                },
-                LocalContextMenuDismissSignal provides surfaceStateCoordinator.contextMenuDismissSignal
-            ) {
-                SideEffect {
-                    actionExecutor.shouldCloseSearchForAction = { action ->
-                        launcherSettings.closeSearchOnLaunch && action.shouldCloseSearch()
-                    }
-                }
-
-                LauncherTheme {
-                    LauncherScreen(
-                        searchUiState = searchUiState,
-                        homeUiState = homeUiState,
-                        actions = LauncherActions(
-                            search = SearchActions(
-                                onQueryChange = { searchViewModel.onQueryChange(it) },
-                                onDismissSearch = {
-                                    surfaceStateCoordinator.dismissContextMenus()
-                                    searchViewModel.hideSearch()
-                                }
-                            ),
-                            menu = MenuActions(
-                                onOpenSettings = {
-                                    val settingsIntent = Intent(
-                                        this@MainActivity,
-                                        SettingsActivity::class.java
-                                    ).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    startActivity(settingsIntent)
-                                },
-                                onHomescreenMenuOpenChange = { isOpen ->
-                                    surfaceStateCoordinator.updateHomescreenMenuOpen(isOpen)
-                                }
-                            ),
-                            drawer = DrawerActions(
-                                onAppDrawerOpenChange = { isOpen ->
-                                    surfaceStateCoordinator.updateAppDrawerOpen(isOpen)
-                                },
-                                onQueryChange = { query ->
-                                    appDrawerViewModel.updateQuery(query)
-                                }
-                            ),
-                            home = HomeActions(
-                                onHomeSwipeUp = {
-                                    surfaceStateCoordinator.handleHomeSwipeUp(
-                                        action = launcherSettings.swipeUpAction
-                                    )
-                                },
-                                onPinnedItemClick = { item ->
-                                    // Folder icons open the FolderPopupDialog.
-                                    // All other item types are launched directly.
-                                    if (item is HomeItem.FolderItem) {
-                                        homeViewModel.openFolder(item.id)
-                                    } else {
-                                        openPinnedItem(
-                                            item = item,
-                                            context = context,
-                                            onUnavailableItem = homeViewModel::unpinItem
-                                        )
-                                    }
-                                },
-                                onPinnedItemLongPress = { _ ->
-                                    /**
-                                     * Long press without drag shows the action menu.
-                                     * The menu is shown by the PinnedItem composable itself,
-                                     * so we don't need to do anything here.
-                                     * This callback exists for potential future use (e.g., haptic feedback).
-                                     */
-                                },
-                                onPinnedItemMove = { itemId, newPosition ->
-                                    /**
-                                     * User has dragged an item to a new position.
-                                     * Delegate to HomeViewModel to update the position.
-                                     */
-                                    homeViewModel.moveItemToPosition(itemId, newPosition)
-                                },
-                                onItemDroppedToHome = { item, position ->
-                                    /**
-                                     * User dropped an external payload onto the home grid.
-                                     *
-                                     * Behavior is centralized in HomeViewModel:
-                                     * - If item is not pinned yet: pin it first, then place at drop cell.
-                                     * - If item is already pinned: move existing icon to drop cell.
-                                     */
-                                    homeViewModel.pinOrMoveHomeItemToPosition(item, position)
-                                }
-                            ),
-                            folder = FolderActions(
-                                onCreateFolder = { item1, item2, atPosition ->
-                                    // Two non-folder icons were dropped on each other.
-                                    // Both icons are removed from the grid and a new FolderItem
-                                    // is created at atPosition containing both as children.
-                                    homeViewModel.createFolder(item1, item2, atPosition)
-                                },
-                                onAddItemToFolder = { folderId, item ->
-                                    // A non-folder icon was dropped onto an existing folder.
-                                    // The icon is moved inside the folder's children list.
-                                    homeViewModel.addItemToFolder(folderId, item)
-                                },
-                                onMergeFolders = { sourceFolderId, targetFolderId ->
-                                    // A folder icon was dropped onto another folder.
-                                    // All children of the source folder are appended to the
-                                    // target folder, then the source folder is deleted.
-                                    homeViewModel.mergeFolders(sourceFolderId, targetFolderId)
-                                },
-                                onFolderClose = {
-                                    // User tapped the scrim or pressed back inside the popup.
-                                    homeViewModel.closeFolder()
-                                },
-                                onFolderRename = { folderId, newName ->
-                                    homeViewModel.renameFolder(folderId, newName)
-                                },
-                                onFolderItemClick = { item ->
-                                    // Tap on an icon inside the folder popup — launch it.
-                                    // FolderItem cannot appear here because nesting is not
-                                    // supported, but the when in openPinnedItem is exhaustive.
-                                    openPinnedItem(
-                                        item = item,
-                                        context = context,
-                                        onUnavailableItem = homeViewModel::unpinItem
-                                    )
-                                },
-                                onFolderItemRemove = { folderId, itemId ->
-                                    // "Remove from folder" context-menu action.
-                                    // Cleanup policy fires inside the repo: if ≤1 child remains
-                                    // the folder is unwrapped/deleted and the popup closes.
-                                    homeViewModel.removeItemFromFolder(folderId, itemId)
-                                },
-                                onFolderItemReorder = { folderId, newChildren ->
-                                    // User reordered icons inside the folder popup via drag.
-                                    homeViewModel.reorderFolderItems(folderId, newChildren)
-                                },
-                                onExtractItemFromFolder = { folderId, itemId, targetPosition ->
-                                    // User dragged an icon out of the folder popup and released
-                                    // it over an empty home grid cell. Move the item from the
-                                    // folder to the resolved grid cell. Folder cleanup policy applies.
-                                    homeViewModel.extractItemFromFolder(folderId, itemId, targetPosition)
-                                },
-                                onMoveFolderItemToFolder = { sourceFolderId, itemId, targetFolderId ->
-                                    // User dragged an icon from one folder popup and dropped it
-                                    // onto a different folder icon. Move between folders without
-                                    // placing the item on the grid (avoids position collision).
-                                    homeViewModel.moveItemBetweenFolders(
-                                        sourceFolderId = sourceFolderId,
-                                        itemId = itemId,
-                                        targetFolderId = targetFolderId
-                                    )
-                                },
-                                onFolderChildDroppedOnItem = { sourceFolderId, childItem, occupantItem, atPosition ->
-                                    // User dragged a folder child and dropped it directly onto
-                                    // a NON-FOLDER home icon.  This should work just like dragging
-                                    // two normal grid icons together: the two items are merged into
-                                    // a brand new folder at that grid cell.
-                                    //
-                                    // The ViewModel handles both steps in a single serialized
-                                    // mutation:
-                                    //   1. Remove childItem from its source folder (cleanup policy applies).
-                                    //   2. Create a new folder with childItem + occupantItem at atPosition.
-                                    homeViewModel.extractFolderChildOntoItem(
-                                        sourceFolderId = sourceFolderId,
-                                        childItem = childItem,
-                                        occupantItem = occupantItem,
-                                        atPosition = atPosition
-                                    )
-                                }
-                            ),
-                            widget = WidgetActions(
-                                onWidgetPickerOpenChange = { isOpen ->
-                                    surfaceStateCoordinator.updateWidgetPickerOpen(isOpen)
-                                },
-                                onRemoveWidget = { widgetId, _ ->
-                                    homeViewModel.removeWidget(
-                                        widgetId = widgetId,
-                                        widgetHostManager = widgetHostManager
-                                    )
-                                },
-                                onUpdateWidgetFrame = { widgetId, newPosition, newSpan ->
-                                    homeViewModel.updateWidgetFrame(
-                                        widgetId = widgetId,
-                                        newPosition = newPosition,
-                                        newSpan = newSpan
-                                    )
-                                },
-                                onWidgetDroppedToHome = { providerInfo, span, dropPosition ->
-                                    // The user dragged a widget from the picker and dropped
-                                    // it on a specific cell. Begin the bind → configure → place
-                                    // flow using the actual drop position instead of auto-placement.
-                                    val command = homeViewModel.startWidgetPlacement(
-                                        providerInfo = providerInfo,
-                                        targetPosition = dropPosition,
-                                        span = span,
-                                        widgetHostManager = widgetHostManager
-                                    )
-                                    widgetPlacementCoordinator.execute(command)
-                                }
-                            )
-                        ),
-                        isHomeSwipeEnabled = launcherSettings.swipeUpAction != SwipeUpAction.DO_NOTHING,
-                        isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
-                        isAppDrawerOpen = isAppDrawerOpen,
-                        appDrawerUiState = appDrawerUiState,
-                        isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
-                        widgetHostManager = widgetHostManager
-                    )
-                }
-            }
         }
     }
 
-    // ========================================================================
-    // INITIALIZATION
-    // ========================================================================
-
-    /**
-     * Fixes the launcher as the root surface by intercepting the back button.
-     * * Logic:
-     * 1. If search is active, the coordinator closes it.
-     * 2. Otherwise, back is consumed to prevent navigating away from Home.
-     */
-    private fun initializeBackButtonBehavior() {
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    val uiState = searchViewModel.uiState.value
-
-                    // Delegate UI-specific closing logic to the coordinator
-                    surfaceStateCoordinator.handleBackPressed(
-                        isSearchVisible = uiState.isSearchVisible
-                    )
-                }
-            }
-        )
-    }
-
-    /**
-     * Initializes all handlers and sets up callbacks.
-     */
-    private fun initializeHandlers() {
-        // Initialize permission handler
-        permissionHandler = PermissionHandler(this, searchViewModel)
-        permissionHandler.setup()
-
-        // Initialize action executor
-        actionExecutor = ActionExecutor(this, contactsRepository, homeViewModel, lifecycleScope)
-
-        // Initialize and bind permission orchestration.
-        permissionRequestCoordinator = PermissionRequestCoordinator(
-            permissionHandler = permissionHandler,
-            actionExecutor = actionExecutor,
-            searchViewModel = searchViewModel
-        )
-        permissionRequestCoordinator.bind()
-    }
-
-    /**
-     * Initializes orchestration coordinators extracted from MainActivity.
-     *
-     * COORDINATORS CREATED HERE:
-     * 1) SurfaceStateCoordinator
-     *    - Owns layered surface visibility state and close ordering policies.
-     *
-     * 2) HomeIntentCoordinator
-     *    - Owns HOME-button policy orchestration using HomeButtonPolicy + SearchSessionController.
-     *
-     * 3) WidgetPlacementCoordinator
-     *    - Owns bind/configure ActivityResult launchers and command dispatching.
-     */
-    private fun initializeCoordinators() {
-        surfaceStateCoordinator = SurfaceStateCoordinator(
-            showSearch = { searchViewModel.showSearch() },
-            hideSearch = { searchViewModel.hideSearch() },
-            isFolderOpen = { homeViewModel.uiState.value.openFolderItem != null },
-            closeFolder = { homeViewModel.closeFolder() }
-        )
-
-        homeIntentCoordinator = HomeIntentCoordinator(
-            homeButtonPolicy = HomeButtonPolicy(),
-            isHomescreenMenuOpen = { surfaceStateCoordinator.isHomescreenMenuOpen },
-            consumeLayeredHomePress = {
-                when (
-                    drawerHomePressPolicy.resolve(
-                        DrawerHomePressPolicy.InputState(
-                            isDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
-                            hasDrawerQuery = appDrawerViewModel.uiState.value.query.isNotBlank()
-                        )
-                    )
-                ) {
-                    DrawerHomePressPolicy.Decision.CLEAR_QUERY -> {
-                        surfaceStateCoordinator.dismissContextMenus()
-                        appDrawerViewModel.updateQuery("")
-                        true
-                    }
-
-                    DrawerHomePressPolicy.Decision.CLOSE_DRAWER -> {
-                        surfaceStateCoordinator.updateAppDrawerOpen(false)
-                        true
-                    }
-
-                    DrawerHomePressPolicy.Decision.NONE -> {
-                        surfaceStateCoordinator.consumeHomePressForLayeredSurface()
-                    }
-                }
-            },
-            applyDecision = { decision ->
-                searchSessionController.applyHomeButtonDecision(
-                    decision = decision,
-                    dismissContextMenus = {
-                        surfaceStateCoordinator.dismissContextMenus()
-                    },
-                    closeHomescreenMenu = {
-                        surfaceStateCoordinator.updateHomescreenMenuOpen(false)
-                    }
-                )
-            }
-        )
-
-        widgetPlacementCoordinator = WidgetPlacementCoordinator(
-            activity = this,
-            homeViewModel = homeViewModel,
-            widgetHostManager = widgetHostManager
-        )
-    }
-
-    // ========================================================================
-    // ACTIVITY LIFECYCLE CALLBACKS
-    // ========================================================================
-
     override fun onResume() {
         super.onResume()
-        widgetHostManager.setActivityResumed(true)
-        widgetHostManager.setStateIsNormal(true)
-        permissionHandler.updateStates()
-        homeIntentCoordinator.onResume()
+        runtime.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        widgetHostManager.setActivityResumed(false)
+        runtime.onPause()
     }
 
-    /**
-     * Called when the Activity becomes visible to the user.
-     *
-     * We use onStart (not onResume) for widget host listening because:
-     * - The widget host should be active whenever the Activity is visible
-     * - onStart/onStop pairs match the visible lifecycle, which is what
-     *   AppWidgetHost expects for its listening lifecycle
-     */
     override fun onStart() {
         super.onStart()
-        widgetHostManager.setActivityStarted(true)
+        runtime.onStart()
     }
 
     override fun onStop() {
         super.onStop()
-        widgetHostManager.setActivityStarted(false)
-        homeIntentCoordinator.onStop()
-        surfaceStateCoordinator.onStop()
+        runtime.onStop()
     }
 
-    /**
-     * Handles new Intents sent to this Activity.
-     *
-     * This is called when:
-     * - User presses home button while launcher is running
-     * - Another app launches an Intent targeting this Activity
-     *
-     * HOME BUTTON BEHAVIOR:
-     * - Home-intent classification stays in MainActivity (host responsibility).
-     * - Orchestration/policy execution is delegated to HomeIntentCoordinator.
-     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-
-        if (isLauncherHomeIntent(intent)) {
-            val uiState = searchViewModel.uiState.value
-            homeIntentCoordinator.onHomeButtonPressed(
-                isSearchVisible = uiState.isSearchVisible,
-                hasSearchQuery = uiState.query.isNotEmpty()
-            )
-        }
+        runtime.onNewIntent(intent)
     }
 
     @Deprecated("Required for AppWidgetHost configuration flows")
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (widgetPlacementCoordinator.onActivityResult(requestCode, resultCode)) {
+        if (runtime.onActivityResult(requestCode, resultCode)) {
             return
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
 
-    /**
-     * Host-level helper that classifies whether an Intent is a HOME-button return.
-     *
-     * Keeping this check near onNewIntent maintains clear ownership:
-     * MainActivity handles Android Intent mechanics,
-     * HomeIntentCoordinator handles policy/orchestration once classified.
-     */
-    private fun isLauncherHomeIntent(intent: Intent): Boolean {
-        return intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
+    private fun openSettings() {
+        val settingsIntent = Intent(this, SettingsActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(settingsIntent)
     }
 }
