@@ -47,7 +47,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.PinnedItem
+import com.milki.launcher.ui.components.launcher.PinnedItem
 import com.milki.launcher.ui.components.dragdrop.startExternalFolderItemDrag
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing

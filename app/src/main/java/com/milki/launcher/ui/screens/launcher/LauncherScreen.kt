@@ -29,16 +29,16 @@ import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.home.HomeUiState
 import com.milki.launcher.presentation.search.SearchUiState
-import com.milki.launcher.ui.components.AppDrawerOverlay
-import com.milki.launcher.ui.components.AppSearchDialog
-import com.milki.launcher.ui.components.DraggablePinnedItemsGrid
-import com.milki.launcher.ui.components.ItemActionMenu
+import com.milki.launcher.ui.components.launcher.AppDrawerOverlay
+import com.milki.launcher.ui.components.search.AppSearchDialog
+import com.milki.launcher.ui.components.launcher.DraggablePinnedItemsGrid
+import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.components.folder.FolderPopupDialog
 import com.milki.launcher.ui.components.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.components.widget.WidgetPickerBottomSheet
-import com.milki.launcher.ui.components.LauncherSheet
-import com.milki.launcher.ui.components.MenuAction
-import com.milki.launcher.ui.components.rememberLauncherSheetState
+import com.milki.launcher.ui.components.launcher.LauncherSheet
+import com.milki.launcher.ui.components.launcher.MenuAction
+import com.milki.launcher.ui.components.launcher.rememberLauncherSheetState
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -274,7 +274,7 @@ private fun FolderOverlayHost(
  */
 @Composable
 private fun DrawerHost(
-    appDrawerSheetState: com.milki.launcher.ui.components.LauncherSheetState,
+    appDrawerSheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
     isAppDrawerOpen: Boolean,
     appDrawerUiState: AppDrawerUiState,
     actions: LauncherActions
@@ -299,7 +299,7 @@ private fun DrawerHost(
  */
 @Composable
 private fun WidgetPickerHost(
-    widgetPickerSheetState: com.milki.launcher.ui.components.LauncherSheetState,
+    widgetPickerSheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
     isWidgetPickerOpen: Boolean,
     widgetHostManager: WidgetHostManager?,
     actions: LauncherActions
@@ -337,7 +337,7 @@ private fun SearchOverlayHost(
 @Composable
 private fun ManagedLauncherSheet(
     isOpen: Boolean,
-    sheetState: com.milki.launcher.ui.components.LauncherSheetState,
+    sheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
     onDismissRequest: () -> Unit,
     onClosed: () -> Unit = {},
     content: @Composable () -> Unit

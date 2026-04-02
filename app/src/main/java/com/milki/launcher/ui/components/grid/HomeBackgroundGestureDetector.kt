@@ -9,7 +9,7 @@ import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.dragdrop.AppDragDropLayoutMetrics
-import com.milki.launcher.ui.components.findOccupantAt
+import com.milki.launcher.ui.components.launcher.findOccupantAt
 import kotlinx.coroutines.withTimeoutOrNull
 
 private enum class BackgroundGestureOutcome {

@@ -45,9 +45,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.ItemActionMenu
-import com.milki.launcher.ui.components.MenuAction
-import com.milki.launcher.ui.components.PinnedItem
+import com.milki.launcher.ui.components.launcher.ItemActionMenu
+import com.milki.launcher.ui.components.launcher.MenuAction
+import com.milki.launcher.ui.components.launcher.PinnedItem
 import com.milki.launcher.ui.components.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing

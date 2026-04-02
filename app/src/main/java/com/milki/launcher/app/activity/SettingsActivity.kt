@@ -11,14 +11,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.presentation.settings.SettingsViewModel
-import com.milki.launcher.ui.screens.SettingsActions
-import com.milki.launcher.ui.screens.SettingsAdvancedActions
-import com.milki.launcher.ui.screens.SettingsCustomSourceActions
-import com.milki.launcher.ui.screens.SettingsHomeScreenActions
-import com.milki.launcher.ui.screens.SettingsLocalPrefixActions
-import com.milki.launcher.ui.screens.SettingsLocalProviderActions
-import com.milki.launcher.ui.screens.SettingsSearchBehaviorActions
-import com.milki.launcher.ui.screens.SettingsScreen
+import com.milki.launcher.ui.screens.settings.SettingsActions
+import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
+import com.milki.launcher.ui.screens.settings.SettingsCustomSourceActions
+import com.milki.launcher.ui.screens.settings.SettingsHomeScreenActions
+import com.milki.launcher.ui.screens.settings.SettingsLocalPrefixActions
+import com.milki.launcher.ui.screens.settings.SettingsLocalProviderActions
+import com.milki.launcher.ui.screens.settings.SettingsSearchBehaviorActions
+import com.milki.launcher.ui.screens.settings.SettingsScreen
 import com.milki.launcher.ui.theme.LauncherTheme
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
