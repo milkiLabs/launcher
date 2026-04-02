@@ -26,7 +26,12 @@ package com.milki.launcher.presentation.home
 import android.app.Activity
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.database.ContentObserver
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.data.widget.WidgetHostManager
@@ -39,6 +44,9 @@ import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
@@ -51,6 +59,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileNotFoundException
 
 /**
  * UI State for the home screen.
@@ -86,7 +97,8 @@ data class HomeUiState(
  */
 class HomeViewModel(
     private val homeRepository: HomeRepository,
-    private val appRepository: AppRepository
+    private val appRepository: AppRepository,
+    private val appContext: Context
 ) : ViewModel(), HomeMutationHandler {
 
     private data class InstalledAppAvailability(
@@ -95,6 +107,24 @@ class HomeViewModel(
     )
 
     private val modelWriter = HomeModelWriter()
+
+    private val latestInstalledAvailability = MutableStateFlow<InstalledAppAvailability?>(null)
+
+    private val fileStorageChangeSignals = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    private val mediaStoreObserver = object : ContentObserver(null) {
+        override fun onChange(selfChange: Boolean) {
+            fileStorageChangeSignals.tryEmit(Unit)
+        }
+
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
+            fileStorageChangeSignals.tryEmit(Unit)
+        }
+    }
 
     /**
      * Number of currently running position-update operations.
@@ -134,6 +164,114 @@ class HomeViewModel(
      * displays the latest state without a separate emit.
      */
     private val openFolderIdFlow = MutableStateFlow<String?>(null)
+
+    init {
+        observeAppAvailabilityAndPruneUnavailableItems()
+        registerFileStorageObservers()
+        observeFileStorageChangesAndPruneUnavailableItems()
+    }
+
+    /**
+     * Keeps home layout aligned with currently installed apps.
+     *
+     * This removes stale app-backed items after uninstall/update events:
+     * - PinnedApp entries whose launcher component no longer exists
+     * - AppShortcut entries whose parent package no longer exists
+     * - WidgetItem entries whose provider package no longer exists
+     */
+    private fun observeAppAvailabilityAndPruneUnavailableItems() {
+        val installedAvailability = appRepository.observeInstalledApps()
+            .filter { installedApps -> installedApps.isNotEmpty() }
+            .map(::buildInstalledAppAvailability)
+
+        viewModelScope.launch {
+            installedAvailability.collectLatest { availability ->
+                latestInstalledAvailability.value = availability
+                pruneUnavailableItems(availability = availability)
+            }
+        }
+    }
+
+    private fun observeFileStorageChangesAndPruneUnavailableItems() {
+        viewModelScope.launch {
+            fileStorageChangeSignals.collectLatest {
+                val availability = latestInstalledAvailability.value ?: return@collectLatest
+                pruneUnavailableItems(availability = availability)
+            }
+        }
+    }
+
+    private fun registerFileStorageObservers() {
+        runCatching {
+            appContext.contentResolver.registerContentObserver(
+                MediaStore.Files.getContentUri("external"),
+                true,
+                mediaStoreObserver
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                appContext.contentResolver.registerContentObserver(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    true,
+                    mediaStoreObserver
+                )
+            }
+        }
+    }
+
+    override fun onCleared() {
+        runCatching {
+            appContext.contentResolver.unregisterContentObserver(mediaStoreObserver)
+        }
+        super.onCleared()
+    }
+
+    private fun buildInstalledAppAvailability(installedApps: List<AppInfo>): InstalledAppAvailability {
+        return InstalledAppAvailability(
+            validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName },
+            validPinnedAppComponents = installedApps.mapTo(mutableSetOf()) {
+                ComponentName(it.packageName, it.activityName).flattenToString()
+            }
+        )
+    }
+
+    private suspend fun pruneUnavailableItems(availability: InstalledAppAvailability) {
+        positionUpdateMutex.withLock {
+            val currentItems = homeRepository.pinnedItems.first()
+            if (currentItems.isEmpty()) {
+                return@withLock
+            }
+
+            val unavailableItemIds = withContext(Dispatchers.IO) {
+                collectUnavailableItemIds(
+                    items = currentItems,
+                    validPackages = availability.validPackages,
+                    validPinnedAppComponents = availability.validPinnedAppComponents
+                )
+            }
+            if (unavailableItemIds.isEmpty()) {
+                return@withLock
+            }
+
+            when (
+                val result = modelWriter.apply(
+                    currentItems = currentItems,
+                    command = HomeModelWriter.Command.RemoveItemsById(itemIds = unavailableItemIds.toSet())
+                )
+            ) {
+                is HomeModelWriter.Result.Applied -> {
+                    val updatedItems = result.items
+                    if (updatedItems != currentItems) {
+                        homeRepository.replacePinnedItems(updatedItems)
+                        val openFolderId = openFolderIdFlow.value
+                        if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
+                            openFolderIdFlow.value = null
+                        }
+                    }
+                }
+                is HomeModelWriter.Result.Rejected -> Unit
+            }
+        }
+    }
 
     /**
      * Execute a home-layout mutation through one serialized coordinator path.
@@ -229,80 +367,6 @@ class HomeViewModel(
             initialValue = HomeUiState(isLoading = true)
         )
 
-    init {
-        observeAppAvailabilityAndPruneUnavailableItems()
-    }
-
-    /**
-     * Keeps home layout aligned with currently installed apps.
-     *
-     * This removes stale app-backed items after uninstall/update events:
-     * - PinnedApp entries whose launcher component no longer exists
-     * - AppShortcut entries whose parent package no longer exists
-     * - WidgetItem entries whose provider package no longer exists
-     */
-    private fun observeAppAvailabilityAndPruneUnavailableItems() {
-        val installedAvailability = appRepository.observeInstalledApps()
-            .filter { installedApps -> installedApps.isNotEmpty() }
-            .map(::buildInstalledAppAvailability)
-
-        viewModelScope.launch {
-            combine(
-                homeRepository.pinnedItems,
-                installedAvailability
-            ) { pinnedItems, availability -> pinnedItems to availability }
-                .collectLatest { (_, availability) ->
-                    pruneUnavailableItems(availability = availability)
-                }
-        }
-    }
-
-    private fun buildInstalledAppAvailability(installedApps: List<AppInfo>): InstalledAppAvailability {
-        return InstalledAppAvailability(
-            validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName },
-            validPinnedAppComponents = installedApps.mapTo(mutableSetOf()) {
-                ComponentName(it.packageName, it.activityName).flattenToString()
-            }
-        )
-    }
-
-    private suspend fun pruneUnavailableItems(availability: InstalledAppAvailability) {
-        positionUpdateMutex.withLock {
-            val currentItems = homeRepository.pinnedItems.first()
-            if (currentItems.isEmpty()) {
-                return@withLock
-            }
-
-            val unavailableItemIds = collectUnavailableItemIds(
-                items = currentItems,
-                validPackages = availability.validPackages,
-                validPinnedAppComponents = availability.validPinnedAppComponents
-            )
-            if (unavailableItemIds.isEmpty()) {
-                return@withLock
-            }
-
-            when (
-                val result = modelWriter.apply(
-                    currentItems = currentItems,
-                    command = HomeModelWriter.Command.RemoveItemsById(itemIds = unavailableItemIds.toSet())
-                )
-            ) {
-                is HomeModelWriter.Result.Applied -> {
-                    val updatedItems = result.items
-                    if (updatedItems != currentItems) {
-                        homeRepository.replacePinnedItems(updatedItems)
-                        val openFolderId = openFolderIdFlow.value
-                        if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
-                            openFolderIdFlow.value = null
-                        }
-                    }
-                }
-                is HomeModelWriter.Result.Rejected -> Unit
-            }
-        }
-    }
-
     private fun collectUnavailableItemIds(
         items: List<HomeItem>,
         validPackages: Set<String>,
@@ -328,14 +392,46 @@ class HomeViewModel(
                         unavailableIds += item.id
                     }
                 }
+                is HomeItem.PinnedFile -> {
+                    if (!isPinnedFileAvailable(item)) {
+                        unavailableIds += item.id
+                    }
+                }
                 is HomeItem.FolderItem -> item.children.forEach(::visit)
-                is HomeItem.PinnedFile,
                 is HomeItem.PinnedContact -> Unit
             }
         }
 
         items.forEach(::visit)
         return unavailableIds.toList()
+    }
+
+    private fun isPinnedFileAvailable(item: HomeItem.PinnedFile): Boolean {
+        val uri = runCatching { Uri.parse(item.uri) }.getOrNull() ?: return false
+        val scheme = uri.scheme ?: return false
+
+        if (scheme.equals("file", ignoreCase = true)) {
+            val path = uri.path ?: return false
+            return File(path).exists()
+        }
+
+        if (!scheme.equals("content", ignoreCase = true)) {
+            return false
+        }
+
+        return try {
+            appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use {
+                true
+            } ?: false
+        } catch (_: FileNotFoundException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        } catch (_: SecurityException) {
+            true
+        } catch (_: Exception) {
+            true
+        }
     }
 
     /**

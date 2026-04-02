@@ -85,6 +85,7 @@ val homeModule = module {
         HomeViewModel(
             homeRepository = get(),
             appRepository = get(),
+            appContext = get(),
         )
     }
 }
