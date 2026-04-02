@@ -12,6 +12,8 @@
 
 package com.milki.launcher.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * ProviderPrefixConfiguration.kt - Type alias for provider prefix settings
  *
@@ -26,6 +28,7 @@ typealias ProviderPrefixConfiguration = Map<String, PrefixConfig>
 /**
  * Display layout options for search results.
  */
+@Serializable
 enum class SearchResultLayout(val displayName: String) {
     LIST("List"),
     GRID("Grid")
@@ -34,6 +37,7 @@ enum class SearchResultLayout(val displayName: String) {
 /**
  * Home screen tap behavior options.
  */
+@Serializable
 enum class HomeTapAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
     DO_NOTHING("Do nothing")
@@ -42,6 +46,7 @@ enum class HomeTapAction(val displayName: String) {
 /**
  * Swipe-up behavior on homescreen.
  */
+@Serializable
 enum class SwipeUpAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
     OPEN_APP_DRAWER("Open app drawer"),
@@ -59,6 +64,7 @@ enum class SwipeUpAction(val displayName: String) {
  * 3. Home Screen - Home button/gesture behavior
  * 4. Search Providers - Enable local providers and configure dynamic sources
  */
+@Serializable
 data class LauncherSettings(
 
     // ========================================================================

@@ -39,9 +39,11 @@
 
 package com.milki.launcher.core.di
 
+import com.milki.launcher.data.repository.backup.LauncherBackupRepositoryImpl
 import com.milki.launcher.data.repository.AppRepositoryImpl
 import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.domain.repository.AppRepository
+import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import org.koin.dsl.module
 
@@ -93,5 +95,21 @@ val coreModule = module {
      */
     single<SettingsRepository> {
         SettingsRepositoryImpl(get())
+    }
+
+    /**
+     * LauncherBackupRepository - Export/import launcher state snapshots.
+     *
+     * Depends on settings/home/app/widget repositories to produce and apply
+     * consistent replace-style snapshots.
+     */
+    single<LauncherBackupRepository> {
+        LauncherBackupRepositoryImpl(
+            appContext = get(),
+            settingsRepository = get(),
+            homeRepository = get(),
+            appRepository = get(),
+            widgetHostManager = get()
+        )
     }
 }

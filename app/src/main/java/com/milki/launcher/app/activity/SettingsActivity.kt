@@ -4,8 +4,10 @@
 
 package com.milki.launcher.app.activity
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -44,11 +46,31 @@ class SettingsActivity : ComponentActivity() {
      */
     private val settingsViewModel: SettingsViewModel by viewModel()
 
+    private val exportBackupLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) {
+                settingsViewModel.exportBackup(uri)
+            }
+        }
+
+    private val importBackupLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                grantUriPermission(
+                    packageName,
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                settingsViewModel.importBackup(uri)
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
+            val backupStatusMessage by settingsViewModel.backupStatusMessage.collectAsStateWithLifecycle()
             val settingsActions = remember(settingsViewModel) {
                 SettingsActions(
                     searchBehavior = SettingsSearchBehaviorActions(
@@ -77,7 +99,14 @@ class SettingsActivity : ComponentActivity() {
                         onResetProviderPrefixes = settingsViewModel::resetProviderPrefixes
                     ),
                     advanced = SettingsAdvancedActions(
-                        onResetToDefaults = settingsViewModel::resetToDefaults
+                        onResetToDefaults = settingsViewModel::resetToDefaults,
+                        onExportBackup = {
+                            val suggestedName = "launcher-backup-${System.currentTimeMillis()}.json"
+                            exportBackupLauncher.launch(suggestedName)
+                        },
+                        onImportBackup = {
+                            importBackupLauncher.launch(arrayOf("application/json", "*/*"))
+                        }
                     )
                 )
             }
@@ -86,6 +115,7 @@ class SettingsActivity : ComponentActivity() {
                 SettingsScreen(
                     settings = settings,
                     onNavigateBack = { finish() },
+                    backupStatusMessage = backupStatusMessage,
                     actions = settingsActions
                 )
             }

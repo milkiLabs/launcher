@@ -12,10 +12,14 @@
 
 package com.milki.launcher.presentation.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.*
+import com.milki.launcher.domain.model.backup.LauncherImportResult
+import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -27,7 +31,8 @@ import kotlinx.coroutines.launch
  * @param settingsRepository Repository for reading/writing settings
  */
 class SettingsViewModel(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val launcherBackupRepository: LauncherBackupRepository
 ) : ViewModel() {
 
     companion object {
@@ -48,6 +53,9 @@ class SettingsViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = LauncherSettings()
         )
+
+    private val _backupStatusMessage = MutableStateFlow<String?>(null)
+    val backupStatusMessage: StateFlow<String?> = _backupStatusMessage
 
     // ========================================================================
     // SEARCH BEHAVIOR
@@ -368,6 +376,35 @@ class SettingsViewModel(
         viewModelScope.launch {
             settingsRepository.updateSettings { LauncherSettings() }
         }
+    }
+
+    fun exportBackup(targetUri: Uri) {
+        viewModelScope.launch {
+            val result = launcherBackupRepository.exportToUri(targetUri)
+            _backupStatusMessage.value = result.message
+        }
+    }
+
+    fun importBackup(sourceUri: Uri) {
+        viewModelScope.launch {
+            val result = launcherBackupRepository.importFromUri(sourceUri)
+            _backupStatusMessage.value = result.toUiMessage()
+        }
+    }
+
+    fun clearBackupStatusMessage() {
+        _backupStatusMessage.value = null
+    }
+
+    private fun LauncherImportResult.toUiMessage(): String {
+        if (!success) return message
+        if (skippedCount == 0) return message
+
+        val preview = skippedReasons
+            .take(3)
+            .joinToString(separator = "\n")
+
+        return "$message\n$preview"
     }
 
 }

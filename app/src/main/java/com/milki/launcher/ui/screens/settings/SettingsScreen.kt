@@ -22,6 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,6 +66,7 @@ import com.milki.launcher.ui.theme.Spacing
 fun SettingsScreen(
     settings: LauncherSettings,
     onNavigateBack: () -> Unit,
+    backupStatusMessage: String?,
     actions: SettingsActions
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -135,7 +138,10 @@ fun SettingsScreen(
             )
 
             AdvancedSection(
-                onRequestReset = { showResetDialog = true }
+                backupStatusMessage = backupStatusMessage,
+                onRequestReset = { showResetDialog = true },
+                onRequestExport = actions.advanced.onExportBackup,
+                onRequestImport = actions.advanced.onImportBackup
             )
 
             Spacer(modifier = Modifier.height(Spacing.extraLarge))
@@ -392,9 +398,26 @@ private fun LocalPrefixesSection(
  */
 @Composable
 private fun AdvancedSection(
-    onRequestReset: () -> Unit
+    backupStatusMessage: String?,
+    onRequestReset: () -> Unit,
+    onRequestExport: () -> Unit,
+    onRequestImport: () -> Unit
 ) {
     SettingsCategory(title = "Advanced")
+
+    ActionSettingItem(
+        title = "Export backup",
+        subtitle = "Export settings and homescreen snapshot to a file",
+        onClick = onRequestExport,
+        icon = Icons.Default.FileUpload
+    )
+
+    ActionSettingItem(
+        title = "Import backup (replace current)",
+        subtitle = "Replace current settings and homescreen from a backup file",
+        onClick = onRequestImport,
+        icon = Icons.Default.FileDownload
+    )
 
     ActionSettingItem(
         title = "Reset to defaults",
@@ -402,4 +425,16 @@ private fun AdvancedSection(
         onClick = onRequestReset,
         textColor = MaterialTheme.colorScheme.error
     )
+
+    if (!backupStatusMessage.isNullOrBlank()) {
+        Text(
+            text = backupStatusMessage,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(
+                horizontal = Spacing.mediumLarge,
+                vertical = Spacing.small
+            )
+        )
+    }
 }

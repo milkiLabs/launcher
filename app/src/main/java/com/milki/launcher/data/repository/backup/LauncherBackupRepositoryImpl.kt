@@ -1,0 +1,326 @@
+package com.milki.launcher.data.repository.backup
+
+import android.content.ComponentName
+import android.content.Context
+import android.net.Uri
+import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.backup.LauncherBackupFile
+import com.milki.launcher.domain.model.backup.LauncherBackupResult
+import com.milki.launcher.domain.model.backup.LauncherBackupSnapshot
+import com.milki.launcher.domain.model.backup.LauncherImportResult
+import com.milki.launcher.domain.repository.AppRepository
+import com.milki.launcher.domain.repository.HomeRepository
+import com.milki.launcher.domain.repository.LauncherBackupRepository
+import com.milki.launcher.domain.repository.SettingsRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.File
+import java.io.FileNotFoundException
+
+class LauncherBackupRepositoryImpl(
+    private val appContext: Context,
+    private val settingsRepository: SettingsRepository,
+    private val homeRepository: HomeRepository,
+    private val appRepository: AppRepository,
+    private val widgetHostManager: WidgetHostManager
+) : LauncherBackupRepository {
+
+    private val backupJson = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        prettyPrint = true
+    }
+
+    override suspend fun exportToUri(uri: Uri): LauncherBackupResult {
+        return runCatching {
+            val settings = settingsRepository.settings.first()
+            val homeItems = homeRepository.pinnedItems.first()
+
+            val snapshot = LauncherBackupSnapshot(
+                schemaVersion = LauncherBackupSnapshot.CURRENT_SCHEMA_VERSION,
+                createdAtEpochMillis = System.currentTimeMillis(),
+                appVersionName = resolveAppVersionName(),
+                settings = settings,
+                homeItems = homeItems
+            )
+
+            val payload = backupJson.encodeToString(
+                LauncherBackupFile(snapshot = snapshot)
+            )
+
+            appContext.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { writer ->
+                writer.write(payload)
+            } ?: error("Could not open output stream")
+
+            LauncherBackupResult(
+                success = true,
+                message = "Backup exported successfully"
+            )
+        }.getOrElse { throwable ->
+            LauncherBackupResult(
+                success = false,
+                message = throwable.message ?: "Failed to export backup"
+            )
+        }
+    }
+
+    override suspend fun importFromUri(uri: Uri): LauncherImportResult {
+        return runCatching {
+            val filePayload = appContext.contentResolver.openInputStream(uri)
+                ?.bufferedReader()
+                ?.use { it.readText() }
+                ?: error("Could not open input stream")
+
+            val backupFile = backupJson.decodeFromString<LauncherBackupFile>(filePayload)
+            val snapshot = backupFile.snapshot
+
+            if (snapshot.schemaVersion > LauncherBackupSnapshot.CURRENT_SCHEMA_VERSION) {
+                return LauncherImportResult(
+                    success = false,
+                    message = "Backup schema ${snapshot.schemaVersion} is not supported",
+                    importedTopLevelCount = 0,
+                    skippedCount = 0,
+                    skippedReasons = emptyList()
+                )
+            }
+
+            val installedApps = appRepository.getInstalledApps()
+            val validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName }
+            val validComponents = installedApps.mapTo(mutableSetOf()) {
+                ComponentName(it.packageName, it.activityName).flattenToString()
+            }
+
+            val skippedReasons = mutableListOf<String>()
+            val importContext = ImportContext(
+                validPackages = validPackages,
+                validPinnedAppComponents = validComponents,
+                skippedReasons = skippedReasons
+            )
+
+            val sanitizedHomeItems = sanitizeTopLevelItems(
+                items = snapshot.homeItems,
+                context = importContext
+            )
+
+            val existingHomeItems = homeRepository.pinnedItems.first()
+            collectWidgetIds(existingHomeItems).forEach(widgetHostManager::deallocateWidgetId)
+
+            // Replace behavior: imported settings/home overwrite all current state.
+            settingsRepository.updateSettings { snapshot.settings }
+            homeRepository.replacePinnedItems(sanitizedHomeItems)
+
+            LauncherImportResult(
+                success = true,
+                message = buildSummaryMessage(
+                    importedCount = sanitizedHomeItems.size,
+                    skippedCount = skippedReasons.size
+                ),
+                importedTopLevelCount = sanitizedHomeItems.size,
+                skippedCount = skippedReasons.size,
+                skippedReasons = skippedReasons.toList()
+            )
+        }.getOrElse { throwable ->
+            LauncherImportResult(
+                success = false,
+                message = throwable.message ?: "Failed to import backup",
+                importedTopLevelCount = 0,
+                skippedCount = 0,
+                skippedReasons = emptyList()
+            )
+        }
+    }
+
+    private fun sanitizeTopLevelItems(
+        items: List<HomeItem>,
+        context: ImportContext
+    ): List<HomeItem> {
+        val seenIds = mutableSetOf<String>()
+        return items.mapNotNull { item ->
+            val sanitized = sanitizeItem(item, context) ?: return@mapNotNull null
+            if (!seenIds.add(sanitized.id)) {
+                context.skippedReasons += "Skipped duplicate item id: ${sanitized.id}"
+                null
+            } else {
+                sanitized
+            }
+        }
+    }
+
+    private fun sanitizeItem(item: HomeItem, context: ImportContext): HomeItem? {
+        return when (item) {
+            is HomeItem.PinnedApp -> sanitizePinnedApp(item, context)
+            is HomeItem.PinnedFile -> sanitizePinnedFile(item, context)
+            is HomeItem.AppShortcut -> sanitizeAppShortcut(item, context)
+            is HomeItem.WidgetItem -> sanitizeWidget(item, context)
+            is HomeItem.PinnedContact -> item
+            is HomeItem.FolderItem -> sanitizeFolder(item, context)
+        }
+    }
+
+    private fun sanitizePinnedApp(
+        item: HomeItem.PinnedApp,
+        context: ImportContext
+    ): HomeItem.PinnedApp? {
+        val componentName = ComponentName(item.packageName, item.activityName).flattenToString()
+        if (componentName !in context.validPinnedAppComponents) {
+            context.skippedReasons += "Missing app component for ${item.label} (${item.packageName})"
+            return null
+        }
+        return item
+    }
+
+    private fun sanitizeAppShortcut(
+        item: HomeItem.AppShortcut,
+        context: ImportContext
+    ): HomeItem.AppShortcut? {
+        if (item.packageName !in context.validPackages) {
+            context.skippedReasons += "Missing shortcut package ${item.packageName}"
+            return null
+        }
+        return item
+    }
+
+    private fun sanitizePinnedFile(
+        item: HomeItem.PinnedFile,
+        context: ImportContext
+    ): HomeItem.PinnedFile? {
+        if (!isPinnedFileAvailable(item)) {
+            context.skippedReasons += "Missing or inaccessible file ${item.name}"
+            return null
+        }
+        return item
+    }
+
+    private fun sanitizeWidget(
+        item: HomeItem.WidgetItem,
+        context: ImportContext
+    ): HomeItem.WidgetItem? {
+        if (item.providerPackage !in context.validPackages) {
+            context.skippedReasons += "Missing widget provider package ${item.providerPackage}"
+            return null
+        }
+
+        val providerComponent = runCatching {
+            ComponentName(item.providerPackage, item.providerClass)
+        }.getOrNull()
+
+        if (providerComponent == null) {
+            context.skippedReasons += "Invalid widget provider component ${item.providerPackage}/${item.providerClass}"
+            return null
+        }
+
+        val providerInfo = widgetHostManager.findInstalledProvider(providerComponent)
+        if (providerInfo == null) {
+            context.skippedReasons += "Widget provider not installed ${item.providerPackage}/${item.providerClass}"
+            return null
+        }
+
+        val appWidgetId = widgetHostManager.allocateWidgetId()
+        val bound = widgetHostManager.bindWidget(appWidgetId, providerInfo)
+        if (!bound) {
+            widgetHostManager.deallocateWidgetId(appWidgetId)
+            context.skippedReasons += "Widget permission not granted for ${item.label}"
+            return null
+        }
+
+        val needsConfiguration = widgetHostManager.getProviderInfo(appWidgetId)?.configure != null
+        if (needsConfiguration) {
+            widgetHostManager.deallocateWidgetId(appWidgetId)
+            context.skippedReasons += "Widget ${item.label} requires configuration; skipped in batch import"
+            return null
+        }
+
+        return HomeItem.WidgetItem.create(
+            appWidgetId = appWidgetId,
+            providerPackage = item.providerPackage,
+            providerClass = item.providerClass,
+            label = item.label,
+            position = item.position,
+            span = item.span
+        )
+    }
+
+    private fun sanitizeFolder(
+        folder: HomeItem.FolderItem,
+        context: ImportContext
+    ): HomeItem.FolderItem? {
+        val sanitizedChildren = folder.children.mapNotNull { child ->
+            sanitizeItem(child, context)
+        }
+
+        if (sanitizedChildren.isEmpty()) {
+            context.skippedReasons += "Folder ${folder.name} became empty after import filtering"
+            return null
+        }
+
+        return folder.copy(children = sanitizedChildren)
+    }
+
+    private fun isPinnedFileAvailable(item: HomeItem.PinnedFile): Boolean {
+        val uri = runCatching { Uri.parse(item.uri) }.getOrNull() ?: return false
+        val scheme = uri.scheme ?: return false
+
+        if (scheme.equals("file", ignoreCase = true)) {
+            val path = uri.path ?: return false
+            return File(path).exists()
+        }
+
+        if (!scheme.equals("content", ignoreCase = true)) {
+            return false
+        }
+
+        return try {
+            appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use {
+                true
+            } ?: false
+        } catch (_: FileNotFoundException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun collectWidgetIds(items: List<HomeItem>): List<Int> {
+        val ids = mutableListOf<Int>()
+
+        fun visit(item: HomeItem) {
+            when (item) {
+                is HomeItem.WidgetItem -> ids += item.appWidgetId
+                is HomeItem.FolderItem -> item.children.forEach(::visit)
+                else -> Unit
+            }
+        }
+
+        items.forEach(::visit)
+        return ids
+    }
+
+    private fun buildSummaryMessage(importedCount: Int, skippedCount: Int): String {
+        return if (skippedCount == 0) {
+            "Import complete: replaced with $importedCount items"
+        } else {
+            "Import complete: replaced with $importedCount items, skipped $skippedCount unavailable items"
+        }
+    }
+
+    private fun resolveAppVersionName(): String {
+        val packageName = appContext.packageName
+        return runCatching {
+            val packageInfo = appContext.packageManager.getPackageInfo(packageName, 0)
+            packageInfo.versionName ?: "unknown"
+        }.getOrDefault("unknown")
+    }
+
+    private data class ImportContext(
+        val validPackages: Set<String>,
+        val validPinnedAppComponents: Set<String>,
+        val skippedReasons: MutableList<String>
+    )
+}

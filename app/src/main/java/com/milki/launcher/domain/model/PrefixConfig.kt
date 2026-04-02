@@ -38,6 +38,8 @@
 
 package com.milki.launcher.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Represents the prefix configuration for a single search provider.
  *
@@ -61,6 +63,7 @@ package com.milki.launcher.domain.model
  * PrefixConfig(listOf("c", "ct", "contact"))
  * ```
  */
+@Serializable
 data class PrefixConfig(
     val prefixes: List<String>
 ) {

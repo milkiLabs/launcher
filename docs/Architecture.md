@@ -130,9 +130,10 @@ Not allowed:
 
 ## Storage and State
 
-- Home data uses Proto DataStore (`home_items.pb`) with typed schema in `app/src/main/proto/home_items.proto`.
+- Home data uses Preferences DataStore (`home_items`) with a typed domain model (`HomeItem`) serialized as newline-delimited JSON rows.
 - Home writes are serialized through a single-writer queue to avoid races.
 - Widget placement is command-based, with pending state kept in ViewModel.
+- Import/export uses a storage-agnostic backup snapshot schema so backup files remain stable even if internal persistence changes later.
 
 ## Test Layout
 

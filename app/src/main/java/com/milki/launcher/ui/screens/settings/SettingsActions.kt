@@ -75,7 +75,9 @@ data class SettingsLocalPrefixActions(
  * Actions used by advanced settings section.
  */
 data class SettingsAdvancedActions(
-    val onResetToDefaults: () -> Unit
+    val onResetToDefaults: () -> Unit,
+    val onExportBackup: () -> Unit,
+    val onImportBackup: () -> Unit
 )
 
 /**
