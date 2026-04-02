@@ -96,6 +96,8 @@ internal fun InternalGridDragLayer(
     hapticConfirm: () -> Unit,
     onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit
 ) {
+    val latestItems by rememberUpdatedState(items)
+
     val internalDropDispatcher = InternalHomeDropDispatcher(
         gridColumns = config.columns,
         gridRows = maxVisibleRows,
@@ -136,7 +138,7 @@ internal fun InternalGridDragLayer(
             internalDropDispatcher.dispatch(
                 draggedItem = item,
                 dropPosition = result.to,
-                items = items
+                items = latestItems
             )
         }
     }
@@ -632,6 +634,8 @@ internal fun ExternalDropRoutingLayer(
     onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -> Unit,
     hapticConfirm: () -> Unit
 ) {
+    val latestItems by rememberUpdatedState(items)
+
     val dropDispatcher = ExternalHomeDropDispatcher(
         gridColumns = config.columns,
         maxVisibleRows = maxVisibleRows,
@@ -684,7 +688,7 @@ internal fun ExternalDropRoutingLayer(
             dropDispatcher.dispatch(
                 item = item,
                 dropPosition = resolvedDropPosition,
-                items = items
+                items = latestItems
             )
         },
         modifier = Modifier
