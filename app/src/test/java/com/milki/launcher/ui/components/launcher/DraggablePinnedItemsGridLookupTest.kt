@@ -29,7 +29,7 @@ class DraggablePinnedItemsGridLookupTest {
             position = GridPosition(row = 0, column = 0)
         )
 
-        val lookup = listOf(app, widget).buildOccupancyLookup()
+        val lookup = buildHomeOccupancyLookup(listOf(app, widget))
 
         assertEquals(app, lookup[GridPosition(row = 0, column = 0)])
         assertEquals(widget, lookup[GridPosition(row = 1, column = 1)])

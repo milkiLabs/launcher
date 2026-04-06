@@ -32,7 +32,7 @@ import kotlinx.coroutines.flow.stateIn
 class HomeViewModel(
     private val homeRepository: HomeRepository,
     appRepository: AppRepository,
-    appContext: Context
+    private val appContext: Context
 ) : ViewModel(), HomeMutationHandler {
 
     private val modelWriter = HomeModelWriter()
@@ -58,7 +58,14 @@ class HomeViewModel(
         mutationCoordinator = mutationCoordinator
     )
 
+    private val iconWarmupCoordinator = HomeIconWarmupCoordinator(
+        homeRepository = homeRepository,
+        packageManager = appContext.packageManager,
+        scope = viewModelScope
+    )
+
     init {
+        iconWarmupCoordinator.start()
         availabilityPruner.start()
     }
 

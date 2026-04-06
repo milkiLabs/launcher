@@ -9,6 +9,7 @@ package com.milki.launcher.app
 // IMPORTS - Android Framework
 // ============================================================================
 import android.app.Application
+import com.milki.launcher.data.icon.AppIconDiskSnapshotStore
 
 // ============================================================================
 // IMPORTS - Koin (Dependency Injection)
@@ -23,6 +24,7 @@ class LauncherApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppIconDiskSnapshotStore.initialize(this)
         initializeKoin()
     }
 

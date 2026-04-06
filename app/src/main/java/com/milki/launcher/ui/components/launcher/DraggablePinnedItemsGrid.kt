@@ -91,12 +91,15 @@ fun DraggablePinnedItemsGrid(
             )
         }
 
+        // Build once per item-model change so drag-time occupant lookups stay O(1).
+        val occupancyLookup = remember(items) {
+            buildHomeOccupancyLookup(items)
+        }
+
         // Widget preview should use the same reorder planner as commit so users
         // see the final resolved anchor while dragging.
         val resolvedInternalPreviewPosition by remember(
             items,
-            dragController.session,
-            dragController.targetPosition,
             config.columns,
             maxVisibleRows
         ) {
@@ -121,9 +124,7 @@ fun DraggablePinnedItemsGrid(
         }
 
         val dragTargetOccupant by remember(
-            items,
-            dragController.session,
-            dragController.targetPosition,
+            occupancyLookup,
             resolvedInternalPreviewPosition
         ) {
             derivedStateOf {
@@ -131,7 +132,7 @@ fun DraggablePinnedItemsGrid(
                 val target = resolvedInternalPreviewPosition
                     ?: dragController.targetPosition
                     ?: return@derivedStateOf null
-                items.findOccupantAt(position = target, excludeItemId = session.itemId)
+                occupancyLookup[target]?.takeUnless { it.id == session.itemId }
             }
         }
 

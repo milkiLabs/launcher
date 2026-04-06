@@ -38,7 +38,6 @@
 
 package com.milki.launcher.ui.components.common
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -128,9 +127,13 @@ fun AppIcon(
     }
 
     /**
-     * Fallback icon used while async load is still in progress.
+     * Rendering policy for cache-miss frames.
+     *
+     * We intentionally render no drawable while loading instead of showing
+     * the generic Android default icon, which caused a visible flash when
+     * returning home after process/cache cold paths.
      */
-    val iconToDisplay = iconDrawable ?: context.packageManager.defaultActivityIcon
+    val iconToDisplay = iconDrawable
 
     /**
      * Render via ImageView-backed AndroidView.
