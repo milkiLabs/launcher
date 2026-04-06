@@ -142,19 +142,6 @@ internal fun InternalGridDragLayer(
                 swipeUpThresholdPx = cellHeightPx
             )
     ) {
-        if (items.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Tap to search",
-                    color = Color.White.copy(alpha = 0.3f),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-        }
-
         items.forEach { item ->
             key(item.id, item.position.row, item.position.column) {
                 val isBeingDragged = dragController.isDraggingItem(item.id)
