@@ -16,13 +16,6 @@ import com.milki.launcher.domain.model.SwipeUpAction
  */
 
 /**
- * Actions used by Search Behavior settings section.
- */
-data class SettingsSearchBehaviorActions(
-    val onSetMaxRecentApps: (Int) -> Unit
-)
-
-/**
  * Actions used by Home Screen settings section.
  */
 data class SettingsHomeScreenActions(
@@ -84,7 +77,6 @@ data class SettingsAdvancedActions(
  * Root grouped action contract consumed by SettingsScreen.
  */
 data class SettingsActions(
-    val searchBehavior: SettingsSearchBehaviorActions,
     val homeScreen: SettingsHomeScreenActions,
     val localProviders: SettingsLocalProviderActions,
     val customSources: SettingsCustomSourceActions,

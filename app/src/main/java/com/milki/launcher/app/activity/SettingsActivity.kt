@@ -22,7 +22,6 @@ import com.milki.launcher.ui.screens.settings.SettingsCustomSourceActions
 import com.milki.launcher.ui.screens.settings.SettingsHomeScreenActions
 import com.milki.launcher.ui.screens.settings.SettingsLocalPrefixActions
 import com.milki.launcher.ui.screens.settings.SettingsLocalProviderActions
-import com.milki.launcher.ui.screens.settings.SettingsSearchBehaviorActions
 import com.milki.launcher.ui.screens.settings.SettingsScreen
 import com.milki.launcher.ui.theme.LauncherTheme
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -77,9 +76,6 @@ class SettingsActivity : ComponentActivity() {
             val importReport by settingsViewModel.lastImportReport.collectAsStateWithLifecycle()
             val settingsActions = remember(settingsViewModel) {
                 SettingsActions(
-                    searchBehavior = SettingsSearchBehaviorActions(
-                        onSetMaxRecentApps = settingsViewModel::setMaxRecentApps
-                    ),
                     homeScreen = SettingsHomeScreenActions(
                         onSetHomeTapAction = settingsViewModel::setHomeTapAction,
                         onSetSwipeUpAction = settingsViewModel::setSwipeUpAction,

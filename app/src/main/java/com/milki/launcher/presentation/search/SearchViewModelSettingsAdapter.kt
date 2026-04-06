@@ -88,7 +88,6 @@ internal class SearchViewModelSettingsAdapter(
                     runtimeSettings.value = SearchRuntimeSettings(
                         maxSearchResults = projection.maxSearchResults.coerceAtLeast(1),
                         showRecentApps = projection.showRecentApps,
-                        maxRecentApps = projection.maxRecentApps.coerceAtLeast(0),
                         autoFocusKeyboard = projection.autoFocusKeyboard
                     )
                     prefixConfigurations.value = mergedConfigurations
@@ -112,7 +111,6 @@ private data class SearchRuntimeSettingsProjection(
     val prefixConfigurations: ProviderPrefixConfiguration,
     val maxSearchResults: Int,
     val showRecentApps: Boolean,
-    val maxRecentApps: Int,
     val autoFocusKeyboard: Boolean
 ) {
     companion object {
@@ -124,7 +122,6 @@ private data class SearchRuntimeSettingsProjection(
                 prefixConfigurations = settings.prefixConfigurations,
                 maxSearchResults = settings.maxSearchResults,
                 showRecentApps = settings.showRecentApps,
-                maxRecentApps = settings.maxRecentApps,
                 autoFocusKeyboard = settings.autoFocusKeyboard
             )
         }

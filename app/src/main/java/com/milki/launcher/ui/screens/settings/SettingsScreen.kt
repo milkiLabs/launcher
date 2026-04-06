@@ -55,7 +55,6 @@ import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.DropdownSettingItem
 import com.milki.launcher.ui.components.settings.PrefixSettingItem
 import com.milki.launcher.ui.components.settings.SettingsCategory
-import com.milki.launcher.ui.components.settings.SliderSettingItem
 import com.milki.launcher.ui.components.settings.SourceEditorDialog
 import com.milki.launcher.ui.components.settings.SourceSettingItem
 import com.milki.launcher.ui.components.settings.SwitchSettingItem
@@ -114,11 +113,6 @@ fun SettingsScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            SearchBehaviorSection(
-                settings = settings,
-                actions = actions.searchBehavior
-            )
-
             HomeScreenSection(
                 settings = settings,
                 actions = actions.homeScreen
@@ -290,27 +284,6 @@ private fun SkippedImportCategory.toDisplayTitle(): String {
         SkippedImportCategory.OTHER -> "Other"
     }
 }
-
-/**
- * Section: Search Behavior.
- */
-@Composable
-private fun SearchBehaviorSection(
-    settings: LauncherSettings,
-    actions: SettingsSearchBehaviorActions
-) {
-    SettingsCategory(title = "Search Behavior")
-
-    SliderSettingItem(
-        title = "Max recent apps",
-        subtitle = "Number of recent apps to show",
-        value = settings.maxRecentApps,
-        onValueChange = actions.onSetMaxRecentApps,
-        valueRange = 1..10,
-        steps = 8
-    )
-}
-
 /**
  * Section: Home Screen.
  */

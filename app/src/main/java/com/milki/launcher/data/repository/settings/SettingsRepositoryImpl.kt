@@ -71,10 +71,6 @@ class SettingsRepositoryImpl(
         writeBooleanSetting(SettingsPreferenceKeys.SHOW_RECENT_APPS, value)
     }
 
-    override suspend fun setMaxRecentApps(value: Int) {
-        writeIntSetting(SettingsPreferenceKeys.MAX_RECENT_APPS, value)
-    }
-
     override suspend fun setCloseSearchOnLaunch(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH, value)
     }
@@ -278,8 +274,6 @@ class SettingsRepositoryImpl(
                 preferences[SettingsPreferenceKeys.AUTO_FOCUS_KEYBOARD] ?: defaults.autoFocusKeyboard,
             showRecentApps =
                 preferences[SettingsPreferenceKeys.SHOW_RECENT_APPS] ?: defaults.showRecentApps,
-            maxRecentApps =
-                preferences[SettingsPreferenceKeys.MAX_RECENT_APPS] ?: defaults.maxRecentApps,
             closeSearchOnLaunch =
                 preferences[SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH]
                     ?: defaults.closeSearchOnLaunch,
@@ -338,9 +332,6 @@ class SettingsRepositoryImpl(
         }
         if (currentSettings.showRecentApps != newSettings.showRecentApps) {
             preferences[SettingsPreferenceKeys.SHOW_RECENT_APPS] = newSettings.showRecentApps
-        }
-        if (currentSettings.maxRecentApps != newSettings.maxRecentApps) {
-            preferences[SettingsPreferenceKeys.MAX_RECENT_APPS] = newSettings.maxRecentApps
         }
         if (currentSettings.closeSearchOnLaunch != newSettings.closeSearchOnLaunch) {
             preferences[SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH] =

@@ -128,11 +128,7 @@ internal class SearchViewModelPipelineCoordinator(
             )
         }
 
-        val recentAppsToUse = if (settings.showRecentApps) {
-            recentApps.take(settings.maxRecentApps)
-        } else {
-            emptyList()
-        }
+        val recentAppsToUse = if (settings.showRecentApps) recentApps else emptyList()
 
         val filteredApps = filterAppsUseCase(
             query = parsed.query,

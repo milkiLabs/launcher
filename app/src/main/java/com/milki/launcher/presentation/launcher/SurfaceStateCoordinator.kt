@@ -111,7 +111,8 @@ class SurfaceStateCoordinator(
     private val showSearch: () -> Unit,
     private val hideSearch: () -> Unit,
     private val isFolderOpen: () -> Boolean,
-    private val closeFolder: () -> Unit
+    private val closeFolder: () -> Unit,
+    private val onAppDrawerVisibilityChanged: (Boolean) -> Unit = {}
 ) : SurfaceStateCoordinatorContract {
 
     private val drawerSurfaceController = DrawerSurfaceController()
@@ -158,12 +159,7 @@ class SurfaceStateCoordinator(
      */
     override fun updateAppDrawerOpen(isOpen: Boolean) {
         dismissContextMenus()
-        if (isOpen) {
-            drawerSurfaceController.requestOpen()
-        } else {
-            drawerSurfaceController.requestClose()
-        }
-        isAppDrawerOpen = drawerSurfaceController.isVisible()
+        applyDrawerVisibility(isOpen)
     }
 
     /**
@@ -196,8 +192,7 @@ class SurfaceStateCoordinator(
             SwipeUpAction.OPEN_SEARCH -> {
                 dismissContextMenus()
                 isHomescreenMenuOpen = false
-                drawerSurfaceController.requestClose()
-                isAppDrawerOpen = drawerSurfaceController.isVisible()
+                applyDrawerVisibility(false)
                 isWidgetPickerOpen = false
                 closeFolder()
                 showSearch()
@@ -209,8 +204,7 @@ class SurfaceStateCoordinator(
                 hideSearch()
                 isWidgetPickerOpen = false
                 closeFolder()
-                drawerSurfaceController.requestOpen()
-                isAppDrawerOpen = drawerSurfaceController.isVisible()
+                applyDrawerVisibility(true)
             }
 
             SwipeUpAction.DO_NOTHING -> Unit
@@ -230,8 +224,7 @@ class SurfaceStateCoordinator(
     override fun consumeHomePressForLayeredSurface(): Boolean {
         if (isAppDrawerOpen) {
             dismissContextMenus()
-            drawerSurfaceController.requestClose()
-            isAppDrawerOpen = drawerSurfaceController.isVisible()
+            applyDrawerVisibility(false)
             return true
         }
 
@@ -271,8 +264,7 @@ class SurfaceStateCoordinator(
 
         if (isAppDrawerOpen) {
             dismissContextMenus()
-            drawerSurfaceController.requestClose()
-            isAppDrawerOpen = drawerSurfaceController.isVisible()
+            applyDrawerVisibility(false)
             return true
         }
 
@@ -301,10 +293,20 @@ class SurfaceStateCoordinator(
      */
     override fun onStop() {
         dismissContextMenus()
-        drawerSurfaceController.requestClose()
-        isAppDrawerOpen = drawerSurfaceController.isVisible()
+        applyDrawerVisibility(false)
         isWidgetPickerOpen = false
         widgetPickerQuery = ""
         closeFolder()
+    }
+
+    private fun applyDrawerVisibility(isOpen: Boolean) {
+        if (isOpen) {
+            drawerSurfaceController.requestOpen()
+        } else {
+            drawerSurfaceController.requestClose()
+        }
+        val isVisible = drawerSurfaceController.isVisible()
+        isAppDrawerOpen = isVisible
+        onAppDrawerVisibilityChanged(isVisible)
     }
 }

@@ -60,11 +60,6 @@ interface SettingsRepository {
     suspend fun setShowRecentApps(value: Boolean)
 
     /**
-     * Update max number of recent apps.
-     */
-    suspend fun setMaxRecentApps(value: Int)
-
-    /**
      * Update whether search closes after launch.
      */
     suspend fun setCloseSearchOnLaunch(value: Boolean)

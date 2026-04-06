@@ -2,6 +2,7 @@ package com.milki.launcher.presentation.launcher.host
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -54,6 +55,10 @@ internal fun LauncherRootContent(
             runtime.updateSearchClosePolicy(
                 closeSearchOnLaunch = launcherSettings.closeSearchOnLaunch
             )
+        }
+
+        LaunchedEffect(surfaceStateCoordinator.isAppDrawerOpen) {
+            appDrawerViewModel.setDrawerVisible(surfaceStateCoordinator.isAppDrawerOpen)
         }
 
         LauncherTheme {

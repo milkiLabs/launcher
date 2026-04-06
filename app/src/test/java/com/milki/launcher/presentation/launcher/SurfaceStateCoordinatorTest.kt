@@ -153,6 +153,24 @@ class SurfaceStateCoordinatorTest {
     }
 
     @Test
+    fun drawer_visibility_callback_tracks_swipe_open_and_back_close() {
+        val visibilityChanges = mutableListOf<Boolean>()
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
+            hideSearch = { },
+            isFolderOpen = { false },
+            closeFolder = { },
+            onAppDrawerVisibilityChanged = visibilityChanges::add
+        )
+
+        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_APP_DRAWER)
+        coordinator.handleBackPressed(isSearchVisible = false)
+
+        assertEquals(listOf(true, false), visibilityChanges)
+    }
+
+    @Test
     fun swipe_open_search_closes_transient_surfaces_and_opens_search() {
         var folderOpen = true
         var closeFolderCalls = 0

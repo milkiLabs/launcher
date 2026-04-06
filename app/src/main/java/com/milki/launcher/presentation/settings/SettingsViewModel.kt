@@ -64,12 +64,6 @@ class SettingsViewModel(
     // SEARCH BEHAVIOR
     // ========================================================================
 
-    fun setMaxRecentApps(value: Int) {
-        viewModelScope.launch {
-            settingsRepository.setMaxRecentApps(value.coerceIn(1, 10))
-        }
-    }
-
     // ========================================================================
     // APPEARANCE
     // ========================================================================

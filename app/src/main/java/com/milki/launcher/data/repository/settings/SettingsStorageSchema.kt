@@ -49,7 +49,6 @@ internal object SettingsPreferenceKeys {
     val MAX_SEARCH_RESULTS = intPreferencesKey("max_search_results")
     val AUTO_FOCUS_KEYBOARD = booleanPreferencesKey("auto_focus_keyboard")
     val SHOW_RECENT_APPS = booleanPreferencesKey("show_recent_apps")
-    val MAX_RECENT_APPS = intPreferencesKey("max_recent_apps")
     val CLOSE_SEARCH_ON_LAUNCH = booleanPreferencesKey("close_search_on_launch")
 
     // Appearance

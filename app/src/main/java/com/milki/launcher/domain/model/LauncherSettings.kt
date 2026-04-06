@@ -80,9 +80,6 @@ data class LauncherSettings(
     /** Whether to show recent apps when search is opened with empty query */
     val showRecentApps: Boolean = true,
 
-    /** Maximum number of recent apps to display */
-    val maxRecentApps: Int = 5,
-
     /** Whether to close search dialog after launching an app */
     val closeSearchOnLaunch: Boolean = true,
 

@@ -48,7 +48,8 @@ internal class LauncherHostRuntime(
         showSearch = { searchViewModel.showSearch() },
         hideSearch = { searchViewModel.hideSearch() },
         isFolderOpen = { homeViewModel.openFolderItem.value != null },
-        closeFolder = { homeViewModel.closeFolder() }
+        closeFolder = { homeViewModel.closeFolder() },
+        onAppDrawerVisibilityChanged = appDrawerViewModel::setDrawerVisible
     )
 
     val homeIntentCoordinator: HomeIntentCoordinatorContract = createHomeIntentCoordinator()
