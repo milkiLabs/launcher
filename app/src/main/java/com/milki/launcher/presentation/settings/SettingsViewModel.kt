@@ -108,18 +108,6 @@ class SettingsViewModel(
         }
     }
 
-    fun setHomeButtonClearsDrawerQuery(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setHomeButtonClearsDrawerQuery(value)
-        }
-    }
-
-    fun setHomeButtonClearsWidgetPickerQuery(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setHomeButtonClearsWidgetPickerQuery(value)
-        }
-    }
-
     // ========================================================================
     // SEARCH PROVIDERS
     // ========================================================================

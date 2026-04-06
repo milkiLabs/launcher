@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
             widgetHostManager = widgetHostManager
         )
         runtime.initialize()
+        runtime.handleInitialIntent(intent)
 
         setContent {
             LauncherRootContent(

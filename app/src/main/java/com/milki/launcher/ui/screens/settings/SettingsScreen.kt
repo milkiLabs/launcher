@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -336,18 +337,11 @@ private fun HomeScreenSection(
         onOptionSelected = actions.onSetSwipeUpAction
     )
 
-    SwitchSettingItem(
-        title = "Home clears drawer query",
-        subtitle = "If disabled, home closes app drawer immediately",
-        checked = settings.homeButtonClearsDrawerQuery,
-        onCheckedChange = actions.onSetHomeButtonClearsDrawerQuery
-    )
-
-    SwitchSettingItem(
-        title = "Home clears widget picker query",
-        subtitle = "If disabled, home closes widget picker immediately",
-        checked = settings.homeButtonClearsWidgetPickerQuery,
-        onCheckedChange = actions.onSetHomeButtonClearsWidgetPickerQuery
+    ActionSettingItem(
+        title = "Set as default launcher",
+        subtitle = "Open Android Home app settings to set Milki Launcher as default",
+        onClick = actions.onOpenDefaultLauncherSettings,
+        icon = Icons.Default.Home
     )
 }
 

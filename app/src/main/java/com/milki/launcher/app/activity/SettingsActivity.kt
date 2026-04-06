@@ -4,8 +4,11 @@
 
 package com.milki.launcher.app.activity
 
+import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
@@ -80,8 +83,7 @@ class SettingsActivity : ComponentActivity() {
                     homeScreen = SettingsHomeScreenActions(
                         onSetHomeTapAction = settingsViewModel::setHomeTapAction,
                         onSetSwipeUpAction = settingsViewModel::setSwipeUpAction,
-                        onSetHomeButtonClearsDrawerQuery = settingsViewModel::setHomeButtonClearsDrawerQuery,
-                        onSetHomeButtonClearsWidgetPickerQuery = settingsViewModel::setHomeButtonClearsWidgetPickerQuery
+                        onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings
                     ),
                     localProviders = SettingsLocalProviderActions(
                         onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,
@@ -124,5 +126,44 @@ class SettingsActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    private fun openDefaultLauncherSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (
+                roleManager != null &&
+                roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
+                !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+            ) {
+                if (tryStartActivity(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))) {
+                    return
+                }
+            }
+        }
+
+        if (tryStartActivity(Intent(Settings.ACTION_HOME_SETTINGS))) {
+            return
+        }
+
+        if (tryStartActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))) {
+            return
+        }
+
+        tryStartActivity(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        )
+    }
+
+    private fun tryStartActivity(intent: Intent): Boolean {
+        val canHandleIntent = intent.resolveActivity(packageManager) != null
+        if (!canHandleIntent) {
+            return false
+        }
+
+        return runCatching {
+            startActivity(intent)
+            true
+        }.getOrDefault(false)
     }
 }

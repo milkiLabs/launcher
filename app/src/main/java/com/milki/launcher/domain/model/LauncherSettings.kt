@@ -109,12 +109,6 @@ data class LauncherSettings(
     /** What happens when the user swipes up on the homescreen */
     val swipeUpAction: SwipeUpAction = SwipeUpAction.OPEN_SEARCH,
 
-    /** Whether pressing home clears app-drawer query before closing drawer */
-    val homeButtonClearsDrawerQuery: Boolean = true,
-
-    /** Whether pressing home clears widget-picker query before closing picker */
-    val homeButtonClearsWidgetPickerQuery: Boolean = true,
-
     // ========================================================================
     // SEARCH PROVIDERS
     // ========================================================================

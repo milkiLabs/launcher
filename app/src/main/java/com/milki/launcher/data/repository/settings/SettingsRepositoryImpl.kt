@@ -99,14 +99,6 @@ class SettingsRepositoryImpl(
         writeStringSetting(SettingsPreferenceKeys.SWIPE_UP_ACTION, action.name)
     }
 
-    override suspend fun setHomeButtonClearsDrawerQuery(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY, value)
-    }
-
-    override suspend fun setHomeButtonClearsWidgetPickerQuery(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_WIDGET_PICKER_QUERY, value)
-    }
-
     override suspend fun setContactsSearchEnabled(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED, value)
     }
@@ -313,12 +305,6 @@ class SettingsRepositoryImpl(
                     runCatching { SwipeUpAction.valueOf(it) }
                         .getOrDefault(defaults.swipeUpAction)
                 } ?: defaults.swipeUpAction,
-            homeButtonClearsDrawerQuery =
-                preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY]
-                    ?: defaults.homeButtonClearsDrawerQuery,
-            homeButtonClearsWidgetPickerQuery =
-                preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_WIDGET_PICKER_QUERY]
-                    ?: defaults.homeButtonClearsWidgetPickerQuery,
 
             contactsSearchEnabled =
                 preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED]
@@ -378,17 +364,6 @@ class SettingsRepositoryImpl(
         }
         if (currentSettings.swipeUpAction != newSettings.swipeUpAction) {
             preferences[SettingsPreferenceKeys.SWIPE_UP_ACTION] = newSettings.swipeUpAction.name
-        }
-        if (currentSettings.homeButtonClearsDrawerQuery != newSettings.homeButtonClearsDrawerQuery) {
-            preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY] =
-                newSettings.homeButtonClearsDrawerQuery
-        }
-        if (
-            currentSettings.homeButtonClearsWidgetPickerQuery !=
-            newSettings.homeButtonClearsWidgetPickerQuery
-        ) {
-            preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_WIDGET_PICKER_QUERY] =
-                newSettings.homeButtonClearsWidgetPickerQuery
         }
 
         if (currentSettings.contactsSearchEnabled != newSettings.contactsSearchEnabled) {

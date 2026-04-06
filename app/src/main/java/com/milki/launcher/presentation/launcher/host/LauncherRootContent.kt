@@ -53,10 +53,6 @@ internal fun LauncherRootContent(
             runtime.updateSearchClosePolicy(
                 closeSearchOnLaunch = launcherSettings.closeSearchOnLaunch
             )
-            runtime.updateHomeButtonQueryClearPolicy(
-                clearDrawerQuery = launcherSettings.homeButtonClearsDrawerQuery,
-                clearWidgetPickerQuery = launcherSettings.homeButtonClearsWidgetPickerQuery
-            )
         }
 
         LauncherTheme {

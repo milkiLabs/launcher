@@ -49,6 +49,10 @@
         android:resizeableActivity="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.Launcher">
+
+        <profileable
+            android:shell="true"
+            tools:targetApi="29" />
         
         <activity
             android:name=".app.activity.MainActivity"

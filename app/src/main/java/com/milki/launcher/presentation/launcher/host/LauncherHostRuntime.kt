@@ -4,12 +4,13 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
+import com.milki.launcher.core.intent.isBenchmarkOpenDrawerIntent
+import com.milki.launcher.core.intent.isBenchmarkOpenHomeIntent
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.core.permission.PermissionHandler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
-import com.milki.launcher.presentation.launcher.DrawerHomePressPolicy
 import com.milki.launcher.presentation.launcher.HomeButtonPolicy
 import com.milki.launcher.presentation.launcher.HomeIntentCoordinator
 import com.milki.launcher.presentation.launcher.HomeIntentCoordinatorContract
@@ -37,10 +38,6 @@ internal class LauncherHostRuntime(
     private val contactsRepository: ContactsRepository,
     private val widgetHostManager: WidgetHostManager
 ) {
-    private val drawerHomePressPolicy = DrawerHomePressPolicy()
-    private var shouldClearDrawerQueryOnHomePress = true
-    private var shouldClearWidgetPickerQueryOnHomePress = true
-
     private lateinit var permissionHandler: PermissionHandler
     private lateinit var actionExecutor: ActionExecutor
     private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
@@ -87,14 +84,6 @@ internal class LauncherHostRuntime(
         }
     }
 
-    fun updateHomeButtonQueryClearPolicy(
-        clearDrawerQuery: Boolean,
-        clearWidgetPickerQuery: Boolean
-    ) {
-        shouldClearDrawerQueryOnHomePress = clearDrawerQuery
-        shouldClearWidgetPickerQueryOnHomePress = clearWidgetPickerQuery
-    }
-
     fun onResume() {
         widgetHostManager.setActivityResumed(true)
         widgetHostManager.setStateIsNormal(true)
@@ -116,12 +105,34 @@ internal class LauncherHostRuntime(
         surfaceStateCoordinator.onStop()
     }
 
-    fun onNewIntent(intent: Intent) {
-        if (!isLauncherHomeIntent(intent)) return
+    fun handleInitialIntent(intent: Intent) {
+        when {
+            intent.isBenchmarkOpenDrawerIntent() -> showDrawerForBenchmark()
+            intent.isBenchmarkOpenHomeIntent() -> showHomeForBenchmark()
+        }
+    }
 
-        homeIntentCoordinator.onHomeButtonPressed(
-            isSearchVisible = searchViewModel.uiState.value.isSearchVisible
-        )
+    fun onNewIntent(intent: Intent) {
+        when {
+            intent.isBenchmarkOpenDrawerIntent() -> {
+                showDrawerForBenchmark()
+            }
+
+            intent.isBenchmarkOpenHomeIntent() -> {
+                showHomeForBenchmark()
+            }
+
+            isLauncherHomeIntent(intent) -> {
+                homeIntentCoordinator.onHomeButtonPressed(
+                    isSearchVisible = searchViewModel.uiState.value.isSearchVisible
+                )
+            }
+        }
+    }
+
+    private fun showHomeForBenchmark() {
+        resetTransientSurfacesForBenchmark()
+        surfaceStateCoordinator.updateAppDrawerOpen(false)
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int): Boolean {
@@ -176,43 +187,17 @@ internal class LauncherHostRuntime(
             homeButtonPolicy = HomeButtonPolicy(),
             isHomescreenMenuOpen = { surfaceStateCoordinator.isHomescreenMenuOpen },
             consumeLayeredHomePress = {
-                when (
-                    drawerHomePressPolicy.resolve(
-                        DrawerHomePressPolicy.InputState(
-                            isDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
-                            hasDrawerQuery = appDrawerViewModel.uiState.value.query.isNotBlank(),
-                            shouldClearDrawerQueryOnHomePress = shouldClearDrawerQueryOnHomePress
-                        )
-                    )
-                ) {
-                    DrawerHomePressPolicy.Decision.CLEAR_QUERY -> {
-                        surfaceStateCoordinator.dismissContextMenus()
-                        appDrawerViewModel.updateQuery("")
-                        true
-                    }
-
-                    DrawerHomePressPolicy.Decision.CLOSE_DRAWER -> {
-                        surfaceStateCoordinator.updateAppDrawerOpen(false)
-                        true
-                    }
-
-                    DrawerHomePressPolicy.Decision.NONE -> {
-                        if (surfaceStateCoordinator.isWidgetPickerOpen) {
-                            if (
-                                shouldClearWidgetPickerQueryOnHomePress &&
-                                surfaceStateCoordinator.widgetPickerQuery.isNotBlank()
-                            ) {
-                                surfaceStateCoordinator.dismissContextMenus()
-                                surfaceStateCoordinator.updateWidgetPickerQuery("")
-                            } else {
-                                surfaceStateCoordinator.updateWidgetPickerOpen(false)
-                            }
-                            return@HomeIntentCoordinator true
-                        }
-
-                        surfaceStateCoordinator.consumeHomePressForLayeredSurface()
-                    }
+                if (surfaceStateCoordinator.isAppDrawerOpen) {
+                    surfaceStateCoordinator.updateAppDrawerOpen(false)
+                    return@HomeIntentCoordinator true
                 }
+
+                if (surfaceStateCoordinator.isWidgetPickerOpen) {
+                    surfaceStateCoordinator.updateWidgetPickerOpen(false)
+                    return@HomeIntentCoordinator true
+                }
+
+                surfaceStateCoordinator.consumeHomePressForLayeredSurface()
             },
             applyDecision = { decision ->
                 searchSessionController.applyHomeButtonDecision(
@@ -230,5 +215,19 @@ internal class LauncherHostRuntime(
 
     private fun isLauncherHomeIntent(intent: Intent): Boolean {
         return intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
+    }
+
+    private fun showDrawerForBenchmark() {
+        resetTransientSurfacesForBenchmark()
+        surfaceStateCoordinator.updateAppDrawerOpen(true)
+    }
+
+    private fun resetTransientSurfacesForBenchmark() {
+        surfaceStateCoordinator.dismissContextMenus()
+        surfaceStateCoordinator.updateHomescreenMenuOpen(false)
+        surfaceStateCoordinator.updateWidgetPickerOpen(false)
+        appDrawerViewModel.updateQuery("")
+        searchViewModel.hideSearch()
+        homeViewModel.closeFolder()
     }
 }
