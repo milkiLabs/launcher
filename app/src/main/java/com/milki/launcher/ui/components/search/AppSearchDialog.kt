@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -101,6 +102,7 @@ fun AppSearchDialog(
      * better user experience by immediately showing the keyboard.
      */
     val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
 
     /**
      * Software keyboard controller lets us explicitly ask Android to show
@@ -309,6 +311,13 @@ fun AppSearchDialog(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    DisposableEffect(focusManager, keyboardController) {
+        onDispose {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
 }
 
 @Composable
@@ -438,4 +447,3 @@ private fun SearchDialogBody(
         }
     }
 }
-

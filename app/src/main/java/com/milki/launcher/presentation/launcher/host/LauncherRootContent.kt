@@ -7,6 +7,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.LauncherSettings
@@ -45,6 +47,8 @@ internal fun LauncherRootContent(
     )
 
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val surfaceStateCoordinator = runtime.surfaceStateCoordinator
 
     CompositionLocalProvider(
@@ -59,6 +63,25 @@ internal fun LauncherRootContent(
 
         LaunchedEffect(surfaceStateCoordinator.isAppDrawerOpen) {
             appDrawerViewModel.setDrawerVisible(surfaceStateCoordinator.isAppDrawerOpen)
+        }
+
+        LaunchedEffect(
+            searchUiState.isSearchVisible,
+            surfaceStateCoordinator.isAppDrawerOpen,
+            surfaceStateCoordinator.isWidgetPickerOpen,
+            openFolderItem?.id
+        ) {
+            // Keep IME cleanup at the launcher host level so overlapping surface
+            // transitions do not fight each other by hiding the keyboard too early.
+            val hasImeOwningSurface =
+                searchUiState.isSearchVisible ||
+                    surfaceStateCoordinator.isAppDrawerOpen ||
+                    surfaceStateCoordinator.isWidgetPickerOpen ||
+                    openFolderItem != null
+            if (!hasImeOwningSurface) {
+                focusManager.clearFocus(force = true)
+                keyboardController?.hide()
+            }
         }
 
         LauncherTheme {
