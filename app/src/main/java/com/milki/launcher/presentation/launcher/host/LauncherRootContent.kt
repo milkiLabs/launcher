@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.SettingsRepository
@@ -36,7 +37,8 @@ internal fun LauncherRootContent(
     homeViewModel: HomeViewModel,
     appDrawerViewModel: AppDrawerViewModel,
     settingsRepository: SettingsRepository,
-    widgetHostManager: WidgetHostManager
+    widgetHostManager: WidgetHostManager,
+    widgetPickerCatalogStore: WidgetPickerCatalogStore
 ) {
     val searchUiState by searchViewModel.uiState.collectAsStateWithLifecycle()
     val pinnedItems by homeViewModel.pinnedItems.collectAsStateWithLifecycle()
@@ -65,8 +67,8 @@ internal fun LauncherRootContent(
             appDrawerViewModel.setDrawerVisible(surfaceStateCoordinator.isAppDrawerOpen)
         }
 
-        LaunchedEffect(widgetHostManager) {
-            widgetHostManager.prewarmWidgetPickerCatalog()
+        LaunchedEffect(widgetPickerCatalogStore) {
+            widgetPickerCatalogStore.prewarm()
         }
 
         LaunchedEffect(
@@ -107,7 +109,8 @@ internal fun LauncherRootContent(
                 appDrawerUiState = appDrawerUiState,
                 isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
                 widgetPickerQuery = surfaceStateCoordinator.widgetPickerQuery,
-                widgetHostManager = widgetHostManager
+                widgetHostManager = widgetHostManager,
+                widgetPickerCatalogStore = widgetPickerCatalogStore
             )
         }
     }

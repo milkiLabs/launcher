@@ -23,14 +23,13 @@ package com.milki.launcher.core.di
 
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import org.koin.dsl.module
 
 /**
  * Widget module — widget infrastructure dependencies.
  *
- * Currently contains only WidgetHostManager, but provides a natural home for
- * future widget-related dependencies (widget configuration storage, widget
- * preview caching, etc.).
+ * Contains widget-host infrastructure plus picker-specific catalog caching.
  */
 val widgetModule = module {
 
@@ -58,11 +57,22 @@ val widgetModule = module {
      * USED BY: MainActivity (starts/stops the host), HomeViewModel (widget placement),
      *          LauncherScreen (widget rendering)
      *
-     * DEPENDENCY: Android Context + PackageChangeMonitor
+     * DEPENDENCY: Android Context
      */
     single {
-        WidgetHostManager(
+        WidgetHostManager(get())
+    }
+
+    /**
+     * WidgetPickerCatalogStore - Cached widget picker catalog + invalidation policy.
+     *
+     * This stays separate from WidgetHostManager so the host wrapper remains
+     * focused on Android AppWidgetHost/AppWidgetManager operations.
+     */
+    single {
+        WidgetPickerCatalogStore(
             context = get(),
+            widgetHostManager = get(),
             packageChangeMonitor = get<PackageChangeMonitor>()
         )
     }

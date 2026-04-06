@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
     private val contactsRepository: ContactsRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
     private val widgetHostManager: WidgetHostManager by inject()
+    private val widgetPickerCatalogStore: WidgetPickerCatalogStore by inject()
 
     private lateinit var runtime: LauncherHostRuntime
     private lateinit var actionFactory: LauncherActionFactory
@@ -67,7 +69,8 @@ class MainActivity : ComponentActivity() {
                 homeViewModel = homeViewModel,
                 appDrawerViewModel = appDrawerViewModel,
                 settingsRepository = settingsRepository,
-                widgetHostManager = widgetHostManager
+                widgetHostManager = widgetHostManager,
+                widgetPickerCatalogStore = widgetPickerCatalogStore
             )
         }
     }

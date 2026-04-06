@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.search.SearchUiState
@@ -63,6 +64,7 @@ fun LauncherScreen(
     isWidgetPickerOpen: Boolean = false,
     widgetPickerQuery: String = "",
     widgetHostManager: WidgetHostManager? = null,
+    widgetPickerCatalogStore: WidgetPickerCatalogStore? = null,
 ) {
     val appDrawerSheetState = rememberLauncherSheetState()
     val widgetPickerSheetState = rememberLauncherSheetState()
@@ -144,7 +146,7 @@ fun LauncherScreen(
             widgetPickerSheetState = widgetPickerSheetState,
             isWidgetPickerOpen = isWidgetPickerOpen,
             widgetPickerQuery = widgetPickerQuery,
-            widgetHostManager = widgetHostManager,
+            widgetPickerCatalogStore = widgetPickerCatalogStore,
             actions = actions
         )
     }
@@ -311,17 +313,17 @@ private fun WidgetPickerHost(
     widgetPickerSheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
     isWidgetPickerOpen: Boolean,
     widgetPickerQuery: String,
-    widgetHostManager: WidgetHostManager?,
+    widgetPickerCatalogStore: WidgetPickerCatalogStore?,
     actions: LauncherActions
 ) {
-    if (widgetHostManager == null) return
+    if (widgetPickerCatalogStore == null) return
     ManagedLauncherSheet(
         isOpen = isWidgetPickerOpen,
         sheetState = widgetPickerSheetState,
         onDismissRequest = { actions.widget.onWidgetPickerOpenChange(false) }
     ) {
         WidgetPickerBottomSheet(
-            widgetHostManager = widgetHostManager,
+            catalogStore = widgetPickerCatalogStore,
             searchQuery = widgetPickerQuery,
             onSearchQueryChange = actions.widget.onWidgetPickerQueryChange,
             headerDragHandleModifier = Modifier.launcherSheetDragHandle(

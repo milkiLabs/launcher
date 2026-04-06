@@ -58,7 +58,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.milki.launcher.data.widget.WidgetAppGroup
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.data.widget.WidgetPickerEntry
 import com.milki.launcher.domain.search.QueryTextMatcher
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
@@ -76,22 +76,22 @@ private data class WidgetPickerCatalogUiState(
 
 @Composable
 fun WidgetPickerBottomSheet(
-    widgetHostManager: WidgetHostManager,
+    catalogStore: WidgetPickerCatalogStore,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     headerDragHandleModifier: Modifier = Modifier,
     onExternalDragStarted: () -> Unit = {}
 ) {
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
-    val initialCatalog = widgetHostManager.peekWidgetPickerCatalog()
+    val initialCatalog = catalogStore.peek()
     val catalogUiState by produceState(
         initialValue = WidgetPickerCatalogUiState(
             isLoading = initialCatalog == null,
             appGroups = initialCatalog.orEmpty()
         ),
-        widgetHostManager
+        catalogStore
     ) {
-        val cachedCatalog = widgetHostManager.peekWidgetPickerCatalog()
+        val cachedCatalog = catalogStore.peek()
         if (cachedCatalog != null) {
             value = WidgetPickerCatalogUiState(
                 isLoading = false,
@@ -104,7 +104,7 @@ fun WidgetPickerBottomSheet(
             )
             value = WidgetPickerCatalogUiState(
                 isLoading = false,
-                appGroups = widgetHostManager.awaitWidgetPickerCatalog()
+                appGroups = catalogStore.await()
             )
         }
     }
