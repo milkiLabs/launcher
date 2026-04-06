@@ -3,7 +3,11 @@ package com.milki.launcher.ui.components.launcher.widget
 import android.graphics.drawable.Drawable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -194,15 +198,10 @@ fun WidgetPickerBottomSheet(
                         items = filteredGroups,
                         key = { group -> group.packageName }
                     ) { group ->
-                        val expanded = if (isSearching) {
-                            true
-                        } else {
-                            expandedGroups[group.packageName] ?: false
-                        }
+                            val expanded = expandedGroups[group.packageName] ?: false
                         AppGroupCard(
                             group = group,
                             expanded = expanded,
-                            autoExpanded = isSearching,
                             onToggle = {
                                 expandedGroups[group.packageName] =
                                     !(expandedGroups[group.packageName] ?: false)
@@ -268,7 +267,7 @@ private fun WidgetPickerHeader(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Open an app, then long-press and drag a widget onto the home screen.",
+                    text = "Long-press and drag a widget onto the home screen.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -374,12 +373,12 @@ private fun LoadingWidgetCatalogState() {
 private fun AppGroupCard(
     group: WidgetAppGroup,
     expanded: Boolean,
-    autoExpanded: Boolean,
     onToggle: () -> Unit,
     onExternalDragStarted: () -> Unit
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 120, easing = LinearOutSlowInEasing),
         label = "widget_group_rotation"
     )
     val shape = RoundedCornerShape(CornerRadius.extraLarge)
@@ -401,7 +400,9 @@ private fun AppGroupCard(
         tonalElevation = Spacing.none
     ) {
         Column(
-            modifier = Modifier.animateContentSize()
+            modifier = Modifier.animateContentSize(
+                animationSpec = tween(durationMillis = 140, easing = LinearOutSlowInEasing)
+            )
         ) {
             Row(
                 modifier = Modifier
@@ -440,7 +441,7 @@ private fun AppGroupCard(
                 }
 
                 StatPill(
-                    label = if (autoExpanded) "Results" else group.widgets.size.toString()
+                    label = group.widgets.size.toString()
                 )
 
                 Icon(
@@ -451,7 +452,11 @@ private fun AppGroupCard(
                 )
             }
 
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(animationSpec = tween(durationMillis = 120)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 90))
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -544,14 +549,7 @@ private fun WidgetCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     InfoPill(label = "${entry.span.columns} × ${entry.span.rows}")
-                    InfoPill(label = "Drag to place")
                 }
-
-                Text(
-                    text = "Long-press, then keep dragging to drop it on the grid.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

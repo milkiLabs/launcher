@@ -8,9 +8,11 @@ import com.milki.launcher.core.intent.isBenchmarkOpenDrawerIntent
 import com.milki.launcher.core.intent.isBenchmarkOpenHomeIntent
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.core.permission.PermissionHandler
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
+import com.milki.launcher.presentation.launcher.PinShortcutRequestCoordinator
 import com.milki.launcher.presentation.launcher.HomeButtonPolicy
 import com.milki.launcher.presentation.launcher.HomeIntentCoordinator
 import com.milki.launcher.presentation.launcher.HomeIntentCoordinatorContract
@@ -36,11 +38,13 @@ internal class LauncherHostRuntime(
     private val homeViewModel: HomeViewModel,
     private val appDrawerViewModel: AppDrawerViewModel,
     private val contactsRepository: ContactsRepository,
+    private val homeRepository: HomeRepository,
     private val widgetHostManager: WidgetHostManager
 ) {
     private lateinit var permissionHandler: PermissionHandler
     private lateinit var actionExecutor: ActionExecutor
     private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
+    private lateinit var pinShortcutRequestCoordinator: PinShortcutRequestCoordinator
 
     private val searchSessionController = SearchSessionController(searchViewModel)
 
@@ -107,6 +111,10 @@ internal class LauncherHostRuntime(
     }
 
     fun handleInitialIntent(intent: Intent) {
+        if (pinShortcutRequestCoordinator.handleIntent(intent)) {
+            return
+        }
+
         when {
             intent.isBenchmarkOpenDrawerIntent() -> showDrawerForBenchmark()
             intent.isBenchmarkOpenHomeIntent() -> showHomeForBenchmark()
@@ -114,6 +122,10 @@ internal class LauncherHostRuntime(
     }
 
     fun onNewIntent(intent: Intent) {
+        if (pinShortcutRequestCoordinator.handleIntent(intent)) {
+            return
+        }
+
         when {
             intent.isBenchmarkOpenDrawerIntent() -> {
                 showDrawerForBenchmark()
@@ -160,6 +172,13 @@ internal class LauncherHostRuntime(
             contactsRepository,
             homeViewModel,
             activity.lifecycleScope
+        )
+
+        pinShortcutRequestCoordinator = PinShortcutRequestCoordinator(
+            context = activity,
+            homeRepository = homeRepository,
+            homeViewModel = homeViewModel,
+            scope = activity.lifecycleScope
         )
 
         permissionRequestCoordinator = PermissionRequestCoordinator(

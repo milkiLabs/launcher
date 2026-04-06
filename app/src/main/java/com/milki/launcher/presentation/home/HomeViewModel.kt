@@ -184,6 +184,13 @@ class HomeViewModel(
         )
     }
 
+    fun pinAppShortcut(shortcut: HomeItem.AppShortcut) {
+        launchWriterCommand(
+            fallbackErrorMessage = "Failed to pin shortcut",
+            command = HomeModelWriter.Command.AddPinnedItem(item = shortcut)
+        )
+    }
+
     override fun unpinItem(itemId: String) {
         launchWriterCommand(
             fallbackErrorMessage = "Failed to remove item",
