@@ -38,7 +38,6 @@ internal class LauncherHostRuntime(
     private val widgetHostManager: WidgetHostManager
 ) {
     private val drawerHomePressPolicy = DrawerHomePressPolicy()
-    private var shouldClearSearchDialogQueryOnHomePress = true
     private var shouldClearDrawerQueryOnHomePress = true
     private var shouldClearWidgetPickerQueryOnHomePress = true
 
@@ -89,11 +88,9 @@ internal class LauncherHostRuntime(
     }
 
     fun updateHomeButtonQueryClearPolicy(
-        clearSearchDialogQuery: Boolean,
         clearDrawerQuery: Boolean,
         clearWidgetPickerQuery: Boolean
     ) {
-        shouldClearSearchDialogQueryOnHomePress = clearSearchDialogQuery
         shouldClearDrawerQueryOnHomePress = clearDrawerQuery
         shouldClearWidgetPickerQueryOnHomePress = clearWidgetPickerQuery
     }
@@ -122,11 +119,8 @@ internal class LauncherHostRuntime(
     fun onNewIntent(intent: Intent) {
         if (!isLauncherHomeIntent(intent)) return
 
-        val uiState = searchViewModel.uiState.value
         homeIntentCoordinator.onHomeButtonPressed(
-            isSearchVisible = uiState.isSearchVisible,
-            hasSearchQuery = uiState.query.isNotEmpty(),
-            shouldClearSearchQueryOnHomePress = shouldClearSearchDialogQueryOnHomePress
+            isSearchVisible = searchViewModel.uiState.value.isSearchVisible
         )
     }
 

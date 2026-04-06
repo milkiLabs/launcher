@@ -99,10 +99,6 @@ class SettingsRepositoryImpl(
         writeStringSetting(SettingsPreferenceKeys.SWIPE_UP_ACTION, action.name)
     }
 
-    override suspend fun setHomeButtonClearsSearchDialogQuery(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_SEARCH_DIALOG_QUERY, value)
-    }
-
     override suspend fun setHomeButtonClearsDrawerQuery(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY, value)
     }
@@ -317,9 +313,6 @@ class SettingsRepositoryImpl(
                     runCatching { SwipeUpAction.valueOf(it) }
                         .getOrDefault(defaults.swipeUpAction)
                 } ?: defaults.swipeUpAction,
-            homeButtonClearsSearchDialogQuery =
-                preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_SEARCH_DIALOG_QUERY]
-                    ?: defaults.homeButtonClearsSearchDialogQuery,
             homeButtonClearsDrawerQuery =
                 preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY]
                     ?: defaults.homeButtonClearsDrawerQuery,
@@ -385,13 +378,6 @@ class SettingsRepositoryImpl(
         }
         if (currentSettings.swipeUpAction != newSettings.swipeUpAction) {
             preferences[SettingsPreferenceKeys.SWIPE_UP_ACTION] = newSettings.swipeUpAction.name
-        }
-        if (
-            currentSettings.homeButtonClearsSearchDialogQuery !=
-            newSettings.homeButtonClearsSearchDialogQuery
-        ) {
-            preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_SEARCH_DIALOG_QUERY] =
-                newSettings.homeButtonClearsSearchDialogQuery
         }
         if (currentSettings.homeButtonClearsDrawerQuery != newSettings.homeButtonClearsDrawerQuery) {
             preferences[SettingsPreferenceKeys.HOME_BUTTON_CLEARS_DRAWER_QUERY] =

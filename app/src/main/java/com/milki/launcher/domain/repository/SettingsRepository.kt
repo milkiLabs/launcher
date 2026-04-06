@@ -95,11 +95,6 @@ interface SettingsRepository {
     suspend fun setSwipeUpAction(action: SwipeUpAction)
 
     /**
-     * Update whether home-button clears search-dialog query before dismiss.
-     */
-    suspend fun setHomeButtonClearsSearchDialogQuery(value: Boolean)
-
-    /**
      * Update whether home-button clears app-drawer query before close.
      */
     suspend fun setHomeButtonClearsDrawerQuery(value: Boolean)

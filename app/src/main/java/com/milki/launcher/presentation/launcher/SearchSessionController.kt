@@ -11,7 +11,7 @@ import com.milki.launcher.presentation.search.SearchViewModel
  *
  * RESPONSIBILITIES:
  * - Execute home-button decisions returned by HomeButtonPolicy.
- * - Keep all "close menu / open search / clear query" transitions in one place.
+ * - Keep all "close menu / open search / hide search" transitions in one place.
  *
  * NON-RESPONSIBILITIES:
  * - It does not decide WHICH action to take (HomeButtonPolicy does that).
@@ -47,10 +47,6 @@ class SearchSessionController(
 
             HomeButtonPolicy.Decision.OPEN_SEARCH -> {
                 searchViewModel.showSearch()
-            }
-
-            HomeButtonPolicy.Decision.CLEAR_QUERY -> {
-                searchViewModel.clearQuery()
             }
 
             HomeButtonPolicy.Decision.HIDE_SEARCH -> {

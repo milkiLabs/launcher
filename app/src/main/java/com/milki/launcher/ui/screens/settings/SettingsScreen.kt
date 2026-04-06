@@ -337,13 +337,6 @@ private fun HomeScreenSection(
     )
 
     SwitchSettingItem(
-        title = "Home clears search dialog query",
-        subtitle = "If disabled, home closes search dialog immediately",
-        checked = settings.homeButtonClearsSearchDialogQuery,
-        onCheckedChange = actions.onSetHomeButtonClearsSearchDialogQuery
-    )
-
-    SwitchSettingItem(
         title = "Home clears drawer query",
         subtitle = "If disabled, home closes app drawer immediately",
         checked = settings.homeButtonClearsDrawerQuery,

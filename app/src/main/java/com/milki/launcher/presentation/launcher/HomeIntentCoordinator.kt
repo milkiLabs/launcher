@@ -27,9 +27,7 @@ interface HomeIntentCoordinatorContract {
      * Handles one HOME-button press after the caller confirms it is a launcher HOME intent.
      */
     fun onHomeButtonPressed(
-        isSearchVisible: Boolean,
-        hasSearchQuery: Boolean,
-        shouldClearSearchQueryOnHomePress: Boolean
+        isSearchVisible: Boolean
     )
 }
 
@@ -76,9 +74,7 @@ class HomeIntentCoordinator(
      * 4. Delegate side effects to decision applier.
      */
     override fun onHomeButtonPressed(
-        isSearchVisible: Boolean,
-        hasSearchQuery: Boolean,
-        shouldClearSearchQueryOnHomePress: Boolean
+        isSearchVisible: Boolean
     ) {
         if (consumeLayeredHomePress()) {
             return
@@ -88,9 +84,7 @@ class HomeIntentCoordinator(
             HomeButtonPolicy.InputState(
                 isAlreadyOnHomescreen = wasAlreadyOnHomescreen,
                 isHomescreenMenuOpen = isHomescreenMenuOpen(),
-                isSearchVisible = isSearchVisible,
-                hasSearchQuery = hasSearchQuery,
-                shouldClearSearchQueryOnHomePress = shouldClearSearchQueryOnHomePress
+                isSearchVisible = isSearchVisible
             )
         )
 

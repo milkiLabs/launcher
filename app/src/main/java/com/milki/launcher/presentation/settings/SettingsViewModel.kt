@@ -108,12 +108,6 @@ class SettingsViewModel(
         }
     }
 
-    fun setHomeButtonClearsSearchDialogQuery(value: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setHomeButtonClearsSearchDialogQuery(value)
-        }
-    }
-
     fun setHomeButtonClearsDrawerQuery(value: Boolean) {
         viewModelScope.launch {
             settingsRepository.setHomeButtonClearsDrawerQuery(value)

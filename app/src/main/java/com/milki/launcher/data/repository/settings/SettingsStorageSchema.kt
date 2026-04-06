@@ -60,8 +60,6 @@ internal object SettingsPreferenceKeys {
     // Home Screen
     val HOME_TAP_ACTION = stringPreferencesKey("home_tap_action")
     val SWIPE_UP_ACTION = stringPreferencesKey("swipe_up_action")
-    val HOME_BUTTON_CLEARS_SEARCH_DIALOG_QUERY =
-        booleanPreferencesKey("home_button_clears_search_dialog_query")
     val HOME_BUTTON_CLEARS_DRAWER_QUERY =
         booleanPreferencesKey("home_button_clears_drawer_query")
     val HOME_BUTTON_CLEARS_WIDGET_PICKER_QUERY =
