@@ -3,6 +3,9 @@ package com.milki.launcher.ui.components.launcher
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -116,6 +120,31 @@ class LauncherSheetState(
 fun rememberLauncherSheetState(): LauncherSheetState {
     val scope = rememberCoroutineScope()
     return remember { LauncherSheetState(scope) }
+}
+
+fun Modifier.launcherSheetDragHandle(
+    state: LauncherSheetState,
+    onDismissedByUser: () -> Unit = {}
+): Modifier = composed {
+    val scope = rememberCoroutineScope()
+    val currentOnDismissedByUser = rememberUpdatedState(onDismissedByUser)
+
+    draggable(
+        orientation = Orientation.Vertical,
+        state = rememberDraggableState { delta ->
+            if (delta > 0f || state.expandedFraction < 1f) {
+                state.onDragDelta(delta)
+            }
+        },
+        onDragStopped = { velocity ->
+            scope.launch {
+                val keptExpanded = state.onDragStopped(velocity)
+                if (!keptExpanded) {
+                    currentOnDismissedByUser.value()
+                }
+            }
+        }
+    )
 }
 
 /**

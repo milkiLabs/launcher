@@ -1,6 +1,5 @@
 package com.milki.launcher.ui.components.launcher.widget
 
-import android.appwidget.AppWidgetProviderInfo
 import android.graphics.drawable.Drawable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -39,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,8 +57,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import com.milki.launcher.data.widget.WidgetAppGroup
 import com.milki.launcher.data.widget.WidgetHostManager
-import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.data.widget.WidgetPickerEntry
 import com.milki.launcher.domain.search.QueryTextMatcher
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.interaction.dragdrop.startExternalWidgetDrag
@@ -68,19 +69,9 @@ import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
-data class WidgetPickerEntry(
-    val providerInfo: AppWidgetProviderInfo,
-    val label: String,
-    val appLabel: String,
-    val appIcon: Drawable?,
-    val span: GridSpan
-)
-
-data class WidgetAppGroup(
-    val packageName: String,
-    val appLabel: String,
-    val appIcon: Drawable?,
-    val widgets: List<WidgetPickerEntry>
+private data class WidgetPickerCatalogUiState(
+    val isLoading: Boolean,
+    val appGroups: List<WidgetAppGroup>
 )
 
 @Composable
@@ -88,46 +79,36 @@ fun WidgetPickerBottomSheet(
     widgetHostManager: WidgetHostManager,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
+    headerDragHandleModifier: Modifier = Modifier,
     onExternalDragStarted: () -> Unit = {}
 ) {
-    val context = LocalContext.current
-    val packageManager = context.packageManager
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
-
-    val appGroups: List<WidgetAppGroup> = remember {
-        widgetHostManager.getInstalledProviders()
-            .map { info ->
-                val recommendedSpan = widgetHostManager.calculateRecommendedPlacementSpan(info)
-                val widgetLabel = (info.loadLabel(packageManager) ?: info.provider.shortClassName).toString()
-                val appLabel = try {
-                    val appInfo = packageManager.getApplicationInfo(info.provider.packageName, 0)
-                    packageManager.getApplicationLabel(appInfo).toString()
-                } catch (_: Exception) {
-                    info.provider.packageName
-                }
-                WidgetPickerEntry(
-                    providerInfo = info,
-                    label = widgetLabel,
-                    appLabel = appLabel,
-                    appIcon = try {
-                        packageManager.getApplicationIcon(info.provider.packageName)
-                    } catch (_: Exception) {
-                        null
-                    },
-                    span = recommendedSpan
-                )
-            }
-            .groupBy { it.providerInfo.provider.packageName }
-            .map { (packageName, widgets) ->
-                WidgetAppGroup(
-                    packageName = packageName,
-                    appLabel = widgets.first().appLabel,
-                    appIcon = widgets.first().appIcon,
-                    widgets = widgets.sortedBy { it.label.lowercase() }
-                )
-            }
-            .sortedBy { it.appLabel.lowercase() }
+    val initialCatalog = widgetHostManager.peekWidgetPickerCatalog()
+    val catalogUiState by produceState(
+        initialValue = WidgetPickerCatalogUiState(
+            isLoading = initialCatalog == null,
+            appGroups = initialCatalog.orEmpty()
+        ),
+        widgetHostManager
+    ) {
+        val cachedCatalog = widgetHostManager.peekWidgetPickerCatalog()
+        if (cachedCatalog != null) {
+            value = WidgetPickerCatalogUiState(
+                isLoading = false,
+                appGroups = cachedCatalog
+            )
+        } else {
+            value = WidgetPickerCatalogUiState(
+                isLoading = true,
+                appGroups = emptyList()
+            )
+            value = WidgetPickerCatalogUiState(
+                isLoading = false,
+                appGroups = widgetHostManager.awaitWidgetPickerCatalog()
+            )
+        }
     }
+    val appGroups = catalogUiState.appGroups
 
     val normalizedQuery = QueryTextMatcher.normalize(searchQuery)
     val isSearching = normalizedQuery.isNotEmpty()
@@ -187,7 +168,8 @@ fun WidgetPickerBottomSheet(
                 visibleWidgets = visibleWidgetCount,
                 searchQuery = searchQuery,
                 onSearchQueryChange = onSearchQueryChange,
-                onClearSearch = { onSearchQueryChange("") }
+                onClearSearch = { onSearchQueryChange("") },
+                headerDragHandleModifier = headerDragHandleModifier
             )
 
             LazyColumn(
@@ -199,7 +181,11 @@ fun WidgetPickerBottomSheet(
                 ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.medium)
             ) {
-                if (filteredGroups.isEmpty()) {
+                if (catalogUiState.isLoading) {
+                    item(key = "loading_state") {
+                        LoadingWidgetCatalogState()
+                    }
+                } else if (filteredGroups.isEmpty()) {
                     item(key = "empty_state") {
                         EmptyWidgetSearchState(searchQuery = searchQuery)
                     }
@@ -238,7 +224,8 @@ private fun WidgetPickerHeader(
     visibleWidgets: Int,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
-    onClearSearch: () -> Unit
+    onClearSearch: () -> Unit,
+    headerDragHandleModifier: Modifier = Modifier
 ) {
     Column(
         modifier = Modifier
@@ -252,7 +239,7 @@ private fun WidgetPickerHeader(
         verticalArrangement = Arrangement.spacedBy(Spacing.medium)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = headerDragHandleModifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top
         ) {
             Surface(
@@ -329,6 +316,57 @@ private fun StatPill(label: String) {
                 vertical = Spacing.smallMedium
             )
         )
+    }
+}
+
+@Composable
+private fun LoadingWidgetCatalogState() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Spacing.smallMedium),
+        shape = RoundedCornerShape(CornerRadius.extraLarge),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = Spacing.large,
+                    vertical = Spacing.extraLarge
+                ),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = RoundedCornerShape(CornerRadius.large),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Widgets,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(Spacing.medium)
+                        .size(IconSize.standard)
+                )
+            }
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+            ) {
+                Text(
+                    text = "Loading widgets",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Preparing your installed widget list in the background.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 

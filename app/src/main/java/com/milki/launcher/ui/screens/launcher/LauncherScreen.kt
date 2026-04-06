@@ -38,6 +38,7 @@ import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.components.launcher.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.launcher.LauncherSheet
 import com.milki.launcher.ui.components.launcher.MenuAction
+import com.milki.launcher.ui.components.launcher.launcherSheetDragHandle
 import com.milki.launcher.ui.components.launcher.rememberLauncherSheetState
 import com.milki.launcher.ui.theme.Spacing
 
@@ -293,6 +294,10 @@ private fun DrawerHost(
             uiState = appDrawerUiState,
             onQueryChange = actions.drawer.onQueryChange,
             onDismiss = { actions.drawer.onAppDrawerOpenChange(false) },
+            headerDragHandleModifier = Modifier.launcherSheetDragHandle(
+                state = appDrawerSheetState,
+                onDismissedByUser = { actions.drawer.onAppDrawerOpenChange(false) }
+            ),
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -319,6 +324,10 @@ private fun WidgetPickerHost(
             widgetHostManager = widgetHostManager,
             searchQuery = widgetPickerQuery,
             onSearchQueryChange = actions.widget.onWidgetPickerQueryChange,
+            headerDragHandleModifier = Modifier.launcherSheetDragHandle(
+                state = widgetPickerSheetState,
+                onDismissedByUser = { actions.widget.onWidgetPickerOpenChange(false) }
+            ),
             onExternalDragStarted = {
                 actions.widget.onWidgetPickerOpenChange(false)
             }

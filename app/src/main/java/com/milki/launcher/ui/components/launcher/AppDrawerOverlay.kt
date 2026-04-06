@@ -71,6 +71,7 @@ fun AppDrawerOverlay(
     uiState: AppDrawerUiState,
     onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
+    headerDragHandleModifier: Modifier = Modifier,
     modifier: Modifier = Modifier
 ) {
     val actionHandler = LocalSearchActionHandler.current
@@ -100,12 +101,18 @@ fun AppDrawerOverlay(
                 .navigationBarsPadding()
                 .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.mediumLarge)
         ) {
-            Text(
-                text = "All apps",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Box(
+                modifier = headerDragHandleModifier
+                    .fillMaxWidth()
+                    .padding(vertical = Spacing.extraSmall)
+            ) {
+                Text(
+                    text = "All apps",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             UnifiedSearchInputField(
                 query = uiState.query,

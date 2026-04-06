@@ -65,6 +65,10 @@ internal fun LauncherRootContent(
             appDrawerViewModel.setDrawerVisible(surfaceStateCoordinator.isAppDrawerOpen)
         }
 
+        LaunchedEffect(widgetHostManager) {
+            widgetHostManager.prewarmWidgetPickerCatalog()
+        }
+
         LaunchedEffect(
             searchUiState.isSearchVisible,
             surfaceStateCoordinator.isAppDrawerOpen,

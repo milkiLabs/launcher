@@ -55,6 +55,12 @@ import android.view.WindowManager
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
 import com.milki.launcher.ui.interaction.grid.GridConfig
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlin.math.roundToInt
 
 class WidgetHostManager(
@@ -109,10 +115,13 @@ class WidgetHostManager(
      * go through this property instead.
      */
     private val packageManager: PackageManager = context.packageManager
+    private val widgetCatalogScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activityStarted = false
     private var activityResumed = false
     private var stateIsNormal = false
     private var isListening = false
+    private var widgetPickerCatalogCache: List<WidgetAppGroup>? = null
+    private var widgetPickerCatalogLoad: Deferred<List<WidgetAppGroup>>? = null
 
     /**
      * Resolves the user-facing label for a widget provider.
@@ -340,6 +349,40 @@ class WidgetHostManager(
     }
 
     /**
+     * Returns the last completed widget-picker catalog snapshot if one exists.
+     *
+     * The snapshot is cached at the process level so the widget picker can open
+     * immediately instead of rebuilding the full provider/app-label list on the
+     * first composition.
+     */
+    fun peekWidgetPickerCatalog(): List<WidgetAppGroup>? = synchronized(this) {
+        widgetPickerCatalogCache
+    }
+
+    /**
+     * Starts building the widget-picker catalog in the background if needed.
+     *
+     * This is safe to call eagerly from launcher startup; repeated calls reuse
+     * the same in-flight work.
+     */
+    fun prewarmWidgetPickerCatalog() {
+        getOrStartWidgetPickerCatalogLoad()
+    }
+
+    /**
+     * Suspends until the widget-picker catalog is ready, reusing any existing
+     * background preload instead of duplicating work on the UI thread.
+     */
+    suspend fun awaitWidgetPickerCatalog(): List<WidgetAppGroup> {
+        val cachedCatalog = synchronized(this) { widgetPickerCatalogCache }
+        if (cachedCatalog != null) {
+            return cachedCatalog
+        }
+
+        return getOrStartWidgetPickerCatalogLoad().await()
+    }
+
+    /**
      * Finds a widget provider from installed providers by its component name.
      *
      * This is used when decoding a widget drag payload from ClipData fallback,
@@ -511,6 +554,74 @@ class WidgetHostManager(
      */
     private fun dpToCells(dp: Int): Int {
         return ((dp - 30) / 70 + 1).coerceAtLeast(1)
+    }
+
+    private fun getOrStartWidgetPickerCatalogLoad(): Deferred<List<WidgetAppGroup>> =
+        synchronized(this) {
+            widgetPickerCatalogCache?.let { cached ->
+                return@synchronized CompletableDeferred(cached)
+            }
+
+            widgetPickerCatalogLoad?.let { existingLoad ->
+                return@synchronized existingLoad
+            }
+
+            widgetCatalogScope.async {
+                runCatching {
+                    buildWidgetPickerCatalog()
+                }.onFailure { throwable ->
+                    Log.e(TAG, "Failed to build widget picker catalog", throwable)
+                }.getOrElse { emptyList() }
+            }.also { load ->
+                widgetPickerCatalogLoad = load
+                load.invokeOnCompletion {
+                    synchronized(this@WidgetHostManager) {
+                        if (widgetPickerCatalogLoad === load) {
+                            widgetPickerCatalogLoad = null
+                        }
+                    }
+                }
+            }
+        }
+
+    private fun buildWidgetPickerCatalog(): List<WidgetAppGroup> {
+        return getInstalledProviders()
+            .map { info ->
+                val recommendedSpan = calculateRecommendedPlacementSpan(info)
+                val widgetLabel = loadProviderLabel(info)
+                val appLabel = try {
+                    val appInfo = packageManager.getApplicationInfo(info.provider.packageName, 0)
+                    packageManager.getApplicationLabel(appInfo).toString()
+                } catch (_: Exception) {
+                    info.provider.packageName
+                }
+                WidgetPickerEntry(
+                    providerInfo = info,
+                    label = widgetLabel,
+                    appLabel = appLabel,
+                    appIcon = try {
+                        packageManager.getApplicationIcon(info.provider.packageName)
+                    } catch (_: Exception) {
+                        null
+                    },
+                    span = recommendedSpan
+                )
+            }
+            .groupBy { it.providerInfo.provider.packageName }
+            .map { (packageName, widgets) ->
+                WidgetAppGroup(
+                    packageName = packageName,
+                    appLabel = widgets.first().appLabel,
+                    appIcon = widgets.first().appIcon,
+                    widgets = widgets.sortedBy { it.label.lowercase() }
+                )
+            }
+            .sortedBy { it.appLabel.lowercase() }
+            .also { catalog ->
+                synchronized(this) {
+                    widgetPickerCatalogCache = catalog
+                }
+            }
     }
 
     private fun needsInitialConfigure(providerInfo: AppWidgetProviderInfo): Boolean {
