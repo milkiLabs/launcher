@@ -47,7 +47,7 @@ internal class LauncherHostRuntime(
     val surfaceStateCoordinator: SurfaceStateCoordinatorContract = SurfaceStateCoordinator(
         showSearch = { searchViewModel.showSearch() },
         hideSearch = { searchViewModel.hideSearch() },
-        isFolderOpen = { homeViewModel.uiState.value.openFolderItem != null },
+        isFolderOpen = { homeViewModel.openFolderItem.value != null },
         closeFolder = { homeViewModel.closeFolder() }
     )
 

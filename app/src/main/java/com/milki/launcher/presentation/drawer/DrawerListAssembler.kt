@@ -30,30 +30,56 @@ class DrawerListAssembler {
         apps: List<AppInfo>,
         sortSectionsAlphabetically: Boolean
     ): Result {
-        val grouped = apps.groupBy { sectionKeyFor(it) }
-        val groupedEntries = if (sortSectionsAlphabetically) {
-            grouped.entries.sortedBy { keySortToken(it.key) }
-        } else {
-            grouped.entries.toList()
+        if (apps.isEmpty()) {
+            return Result(items = emptyList(), sections = emptyList())
         }
 
-        val items = mutableListOf<DrawerAdapterItem>()
-        val sections = mutableListOf<DrawerSection>()
+        val orderedApps = if (sortSectionsAlphabetically) {
+            apps.sortedWith(
+                compareBy<AppInfo> { keySortToken(sectionKeyFor(it)) }
+                    .thenBy { it.nameLower }
+                    .thenBy { it.packageName }
+                    .thenBy { it.activityName }
+            )
+        } else {
+            apps
+        }
 
-        groupedEntries.forEach { (key, sectionApps) ->
-            val startIndex = items.size
-            items += DrawerAdapterItem.SectionHeader(sectionKey = key, title = key)
-            sectionApps.forEach { app ->
-                items += DrawerAdapterItem.AppEntry(app = app, sectionKey = key)
-            }
+        val items = ArrayList<DrawerAdapterItem>(orderedApps.size + 8)
+        val sections = ArrayList<DrawerSection>()
+
+        var currentSectionKey: String? = null
+        var currentSectionStartIndex = 0
+        var currentSectionCount = 0
+
+        fun flushSection() {
+            val key = currentSectionKey ?: return
             sections += DrawerSection(
                 key = key,
                 title = key,
-                startIndex = startIndex,
-                count = sectionApps.size
+                startIndex = currentSectionStartIndex,
+                count = currentSectionCount
             )
         }
 
+        orderedApps.forEach { app ->
+            val sectionKey = sectionKeyFor(app)
+            if (sectionKey != currentSectionKey) {
+                flushSection()
+                currentSectionKey = sectionKey
+                currentSectionStartIndex = items.size
+                currentSectionCount = 0
+                items += DrawerAdapterItem.SectionHeader(
+                    sectionKey = sectionKey,
+                    title = sectionKey
+                )
+            }
+
+            items += DrawerAdapterItem.AppEntry(app = app, sectionKey = sectionKey)
+            currentSectionCount += 1
+        }
+
+        flushSection()
         return Result(items = items, sections = sections)
     }
 

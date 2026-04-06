@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -122,7 +121,7 @@ internal class HomeAvailabilityPruner(
 
     private suspend fun pruneUnavailableItems(availability: InstalledAppAvailability) {
         mutationCoordinator.withMutationLock {
-            val currentItems = homeRepository.pinnedItems.first()
+            val currentItems = homeRepository.readPinnedItems()
             if (currentItems.isEmpty()) {
                 return@withMutationLock
             }

@@ -20,26 +20,9 @@ data class AppInfo(
     val packageName: String,
     val activityName: String = packageName
 ) {
-    /**
-     * Cached lowercase version of the app name.
-     * 
-     * We use 'by lazy' which means:
-     * - The lowercase string is computed only ONCE (on first access)
-     * - The result is cached for all future accesses
-     * - This speeds up search operations significantly
-     * 
-     * Without caching, every search keystroke would call lowercase()
-     * on all apps, which would be slow for 200+ apps.
-     */
-    val nameLower: String by lazy { name.lowercase() }
-    
-    /**
-     * Cached lowercase version of the package name.
-     * 
-     * Same lazy caching as nameLower. 
-     * Users can search by package name * (e.g., typing "youtube" finds "com.google.android.youtube").
-     */
-    val packageLower: String by lazy { packageName.lowercase() }
+    /** Precomputed lowercase fields used heavily by ranking and sorting paths. */
+    val nameLower: String = name.lowercase()
+    val packageLower: String = packageName.lowercase()
 }
 
 /**

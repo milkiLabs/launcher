@@ -139,6 +139,10 @@ class HomeMutationCoordinatorTest {
 
         override val pinnedItems: Flow<List<HomeItem>> = state
 
+        override suspend fun readPinnedItems(): List<HomeItem> {
+            return state.value
+        }
+
         override suspend fun replacePinnedItems(items: List<HomeItem>) {
             state.value = items
         }

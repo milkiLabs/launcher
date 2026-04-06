@@ -9,7 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
@@ -142,7 +141,7 @@ internal class HomeMutationCoordinator(
         command: HomeModelWriter.Command,
         onApplied: suspend (items: List<HomeItem>) -> Unit = {}
     ): Boolean {
-        val currentItems = homeRepository.pinnedItems.first()
+        val currentItems = homeRepository.readPinnedItems()
         return when (
             val result = modelWriter.apply(
                 currentItems = currentItems,

@@ -14,6 +14,7 @@
  * - Keeping drawer state separate avoids coupling the drawer lifecycle to search
  *   internals and keeps both features easier to reason about for new contributors.
  */
+@file:OptIn(ExperimentalCoroutinesApi::class)
 
 package com.milki.launcher.presentation.drawer
 
@@ -24,17 +25,22 @@ import com.milki.launcher.domain.drawer.DrawerAppStore
 import com.milki.launcher.domain.drawer.DrawerModelFlags
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 
 /**
  * UI state consumed by the app drawer composable.
  *
  * @property isLoading Whether the repository load is still in progress.
- * @property apps Full repository-backed app list.
  * @property adapterItems Drawer-ready section headers + app rows.
  * @property sections Fast section metadata aligned with adapterItems.
  * @property query Current in-drawer search query.
@@ -42,7 +48,6 @@ import kotlinx.coroutines.launch
 @Immutable
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
-    val apps: List<AppInfo> = emptyList(),
     val adapterItems: List<DrawerAdapterItem> = emptyList(),
     val sections: List<DrawerSection> = emptyList(),
     val query: String = ""
@@ -59,11 +64,11 @@ data class AppDrawerUiState(
 class AppDrawerViewModel(
     private val appRepository: AppRepository,
     private val drawerAppStore: DrawerAppStore,
-    private val drawerListAssembler: DrawerListAssembler
+    private val drawerListAssembler: DrawerListAssembler,
+    private val assemblyContext: CoroutineContext = Dispatchers.Default
 ) : ViewModel() {
-
-    private val normalAssemblyListener = DrawerAppStore.Listener { apps, _ ->
-        normalAssembly.value = drawerListAssembler.assembleNormal(apps)
+    companion object {
+        private const val DRAWER_HIDDEN_DEFER_FLAG = "drawer-hidden"
     }
 
     /**
@@ -81,28 +86,56 @@ class AppDrawerViewModel(
     /** Current in-drawer query used to filter visible apps. */
     private val query = MutableStateFlow("")
 
+    /** Whether the drawer surface is currently visible to the user. */
+    private val isDrawerVisible = MutableStateFlow(false)
+
     /** Cached drawer model for the common blank-query case. */
-    private val normalAssembly = MutableStateFlow(DrawerListAssembler.Result(
-        items = emptyList(),
-        sections = emptyList()
-    ))
+    private val normalAssembly = drawerAppStore.apps
+        .mapLatest { apps ->
+            withContext(assemblyContext) {
+                drawerListAssembler.assembleNormal(apps)
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = DrawerListAssembler.Result(
+                items = emptyList(),
+                sections = emptyList()
+            )
+        )
+
+    private val visibleAssembly = combine(
+        drawerAppStore.apps,
+        normalAssembly,
+        query
+    ) { apps, cachedNormalAssembly, searchQuery ->
+        if (searchQuery.isBlank()) {
+            cachedNormalAssembly
+        } else {
+            withContext(assemblyContext) {
+                drawerListAssembler.assembleSearch(apps, searchQuery)
+            }
+        }
+    }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = DrawerListAssembler.Result(
+                items = emptyList(),
+                sections = emptyList()
+            )
+        )
 
     /** Public state observed by Compose. */
     val uiState = combine(
         isLoading,
-        drawerAppStore.apps,
-        normalAssembly,
+        visibleAssembly,
         query
-    ) { loading, apps, cachedNormalAssembly, searchQuery ->
-        val assembly = if (searchQuery.isBlank()) {
-            cachedNormalAssembly
-        } else {
-            drawerListAssembler.assembleSearch(apps, searchQuery)
-        }
-
+    ) { loading, assembly, searchQuery ->
         AppDrawerUiState(
             isLoading = loading,
-            apps = apps,
             adapterItems = assembly.items,
             sections = assembly.sections,
             query = searchQuery
@@ -114,12 +147,12 @@ class AppDrawerViewModel(
     )
 
     init {
-        drawerAppStore.addListener(normalAssemblyListener)
+        drawerAppStore.enableDefer(DRAWER_HIDDEN_DEFER_FLAG)
         observeInstalledApps()
     }
 
     override fun onCleared() {
-        drawerAppStore.removeListener(normalAssemblyListener)
+        drawerAppStore.disableDefer(DRAWER_HIDDEN_DEFER_FLAG)
         super.onCleared()
     }
 
@@ -140,5 +173,16 @@ class AppDrawerViewModel(
 
     fun updateQuery(query: String) {
         this.query.value = query
+    }
+
+    fun setDrawerVisible(isVisible: Boolean) {
+        if (isDrawerVisible.value == isVisible) return
+
+        isDrawerVisible.value = isVisible
+        if (isVisible) {
+            drawerAppStore.disableDefer(DRAWER_HIDDEN_DEFER_FLAG)
+        } else {
+            drawerAppStore.enableDefer(DRAWER_HIDDEN_DEFER_FLAG)
+        }
     }
 }

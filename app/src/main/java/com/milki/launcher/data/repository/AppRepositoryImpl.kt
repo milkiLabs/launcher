@@ -1,6 +1,7 @@
 package com.milki.launcher.data.repository
 
 import android.app.Application
+import android.content.ComponentName
 import com.milki.launcher.data.repository.apps.InstalledAppsCatalog
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.apps.RecentAppsStore
@@ -12,9 +13,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
@@ -36,6 +39,25 @@ class AppRepositoryImpl(
     private val packageChangeMonitor = PackageChangeMonitor(application)
 
     private val installedAppsSnapshot = MutableStateFlow<List<AppInfo>>(emptyList())
+
+    private val recentApps = combine(
+        installedAppsSnapshot,
+        recentAppsStore.observeRecentComponentNames()
+    ) { installedApps, recentComponentNames ->
+        if (installedApps.isEmpty() || recentComponentNames.isEmpty()) {
+            return@combine emptyList()
+        }
+
+        val installedAppsByComponent = installedApps.associateBy { app ->
+            ComponentName(app.packageName, app.activityName).flattenToString()
+        }
+
+        recentComponentNames.mapNotNull(installedAppsByComponent::get)
+    }.stateIn(
+        scope = repositoryScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList()
+    )
 
     private val refreshTriggers = packageChangeMonitor.events
         .onStart { emit(Unit) }
@@ -62,7 +84,7 @@ class AppRepositoryImpl(
     }
 
     override fun getRecentApps(): Flow<List<AppInfo>> {
-        return recentAppsStore.observeRecentApps()
+        return recentApps
     }
 
     override suspend fun saveRecentApp(componentName: String) {

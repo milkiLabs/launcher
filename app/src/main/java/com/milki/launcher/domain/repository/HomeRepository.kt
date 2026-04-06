@@ -31,6 +31,9 @@ interface HomeRepository {
     /** Stream of persisted top-level home items. */
     val pinnedItems: Flow<List<HomeItem>>
 
+    /** Returns the latest home snapshot, preferring the in-memory cache when available. */
+    suspend fun readPinnedItems(): List<HomeItem>
+
     /** Atomically replaces the entire persisted home layout. */
     suspend fun replacePinnedItems(items: List<HomeItem>)
 

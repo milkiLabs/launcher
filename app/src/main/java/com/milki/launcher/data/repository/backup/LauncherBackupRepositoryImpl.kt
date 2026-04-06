@@ -39,7 +39,7 @@ class LauncherBackupRepositoryImpl(
     override suspend fun exportToUri(uri: Uri): LauncherBackupResult {
         return runCatching {
             val settings = settingsRepository.settings.first()
-            val homeItems = homeRepository.pinnedItems.first()
+            val homeItems = homeRepository.readPinnedItems()
 
             val snapshot = LauncherBackupSnapshot(
                 schemaVersion = LauncherBackupSnapshot.CURRENT_SCHEMA_VERSION,
@@ -107,7 +107,7 @@ class LauncherBackupRepositoryImpl(
                 context = importContext
             )
 
-            val existingHomeItems = homeRepository.pinnedItems.first()
+            val existingHomeItems = homeRepository.readPinnedItems()
             collectWidgetIds(existingHomeItems).forEach(widgetHostManager::deallocateWidgetId)
 
             // Replace behavior: imported settings/home overwrite all current state.

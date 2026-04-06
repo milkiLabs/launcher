@@ -36,7 +36,8 @@ internal fun LauncherRootContent(
     widgetHostManager: WidgetHostManager
 ) {
     val searchUiState by searchViewModel.uiState.collectAsStateWithLifecycle()
-    val homeUiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    val pinnedItems by homeViewModel.pinnedItems.collectAsStateWithLifecycle()
+    val openFolderItem by homeViewModel.openFolderItem.collectAsStateWithLifecycle()
     val appDrawerUiState by appDrawerViewModel.uiState.collectAsStateWithLifecycle()
     val launcherSettings by settingsRepository.settings.collectAsStateWithLifecycle(
         initialValue = LauncherSettings()
@@ -65,7 +66,8 @@ internal fun LauncherRootContent(
 
             LauncherScreen(
                 searchUiState = searchUiState,
-                homeUiState = homeUiState,
+                pinnedItems = pinnedItems,
+                openFolderItem = openFolderItem,
                 actions = launcherActions,
                 isHomeSwipeEnabled = launcherSettings.swipeUpAction != SwipeUpAction.DO_NOTHING,
                 isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,

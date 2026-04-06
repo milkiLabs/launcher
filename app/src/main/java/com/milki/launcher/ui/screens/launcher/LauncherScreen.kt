@@ -26,8 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
-import com.milki.launcher.presentation.home.HomeUiState
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.launcher.AppDrawerOverlay
 import com.milki.launcher.ui.components.search.AppSearchDialog
@@ -52,7 +52,8 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun LauncherScreen(
     searchUiState: SearchUiState,
-    homeUiState: HomeUiState,
+    pinnedItems: List<HomeItem>,
+    openFolderItem: HomeItem.FolderItem?,
     actions: LauncherActions = LauncherActions(),
     isHomeSwipeEnabled: Boolean = true,
     isHomescreenMenuOpen: Boolean = false,
@@ -75,8 +76,8 @@ fun LauncherScreen(
         }
     }
 
-    LaunchedEffect(homeUiState.openFolderItem?.id) {
-        if (homeUiState.openFolderItem != null) {
+    LaunchedEffect(openFolderItem?.id) {
+        if (openFolderItem != null) {
             actions.menu.onHomescreenMenuOpenChange(false)
             actions.drawer.onAppDrawerOpenChange(false)
             actions.widget.onWidgetPickerOpenChange(false)
@@ -90,7 +91,7 @@ fun LauncherScreen(
         contentAlignment = Alignment.Center
     ) {
         HomeSurface(
-            homeUiState = homeUiState,
+            pinnedItems = pinnedItems,
             actions = actions,
             canOpenDrawerFromSwipe =
                 isHomeSwipeEnabled &&
@@ -98,7 +99,7 @@ fun LauncherScreen(
                     !isAppDrawerOpen &&
                     !isWidgetPickerOpen &&
                     !searchUiState.isSearchVisible &&
-                    homeUiState.openFolderItem == null,
+                    openFolderItem == null,
             onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
             onItemBoundsMeasured = { itemId, boundsInWindow ->
                 homeItemBoundsById[itemId] = boundsInWindow
@@ -124,9 +125,9 @@ fun LauncherScreen(
         )
 
         FolderOverlayHost(
-            homeUiState = homeUiState,
+            openFolderItem = openFolderItem,
             actions = actions,
-            anchorBounds = homeUiState.openFolderItem?.let { folder ->
+            anchorBounds = openFolderItem?.let { folder ->
                 homeItemBoundsById[folder.id]
             }
         )
@@ -202,7 +203,7 @@ private fun HomescreenMenu(
  */
 @Composable
 private fun HomeSurface(
-    homeUiState: HomeUiState,
+    pinnedItems: List<HomeItem>,
     actions: LauncherActions,
     canOpenDrawerFromSwipe: Boolean,
     onMenuAnchorChanged: (Offset) -> Unit,
@@ -211,7 +212,7 @@ private fun HomeSurface(
     modifier: Modifier = Modifier
 ) {
     DraggablePinnedItemsGrid(
-        items = homeUiState.pinnedItems,
+        items = pinnedItems,
         onItemClick = actions.home.onPinnedItemClick,
         onItemLongPress = actions.home.onPinnedItemLongPress,
         onItemMove = actions.home.onPinnedItemMove,
@@ -246,11 +247,11 @@ private fun HomeSurface(
  */
 @Composable
 private fun FolderOverlayHost(
-    homeUiState: HomeUiState,
+    openFolderItem: HomeItem.FolderItem?,
     actions: LauncherActions,
     anchorBounds: Rect?
 ) {
-    homeUiState.openFolderItem?.let { folder ->
+    openFolderItem?.let { folder ->
         key(folder.id) {
             FolderPopupDialog(
                 folder = folder,

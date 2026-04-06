@@ -2,9 +2,7 @@ package com.milki.launcher.data.repository.apps
 
 import android.app.Application
 import android.content.ComponentName
-import android.content.pm.PackageManager
 import androidx.datastore.preferences.core.edit
-import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.domain.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +10,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /**
- * Encapsulates recent-app persistence and mapping logic.
+ * Encapsulates recent-app persistence.
  */
 internal class RecentAppsStore(
     private val application: Application
@@ -20,17 +18,13 @@ internal class RecentAppsStore(
 
     private val dataStore = application.launcherDataStore
 
-    fun observeRecentApps(): Flow<List<AppInfo>> {
+    fun observeRecentComponentNames(): Flow<List<String>> {
         return dataStore.data
             .map { preferences ->
                 val raw = preferences[AppPreferenceKeys.RECENT_APPS] ?: return@map emptyList()
-                val recentComponentNames = raw
+                raw
                     .split(",")
                     .filter { value -> value.isNotEmpty() }
-
-                recentComponentNames.mapNotNull { flattenedComponentName ->
-                    toAppInfo(flattenedComponentName)
-                }
             }
             .flowOn(Dispatchers.IO)
     }
@@ -89,29 +83,6 @@ internal class RecentAppsStore(
             } else {
                 preferences[AppPreferenceKeys.RECENT_APPS] = normalizedRaw
             }
-        }
-    }
-
-    private fun toAppInfo(flattenedComponentName: String): AppInfo? {
-        val componentName = ComponentName.unflattenFromString(flattenedComponentName)
-            ?: return null
-
-        val packageManager = application.packageManager
-        return try {
-            val applicationInfo = packageManager.getApplicationInfoCompat(componentName.packageName)
-
-            AppIconMemoryCache.preload(
-                packageName = componentName.packageName,
-                icon = packageManager.getApplicationIcon(componentName.packageName)
-            )
-
-            AppInfo(
-                name = packageManager.getApplicationLabel(applicationInfo).toString(),
-                packageName = componentName.packageName,
-                activityName = componentName.className
-            )
-        } catch (_: PackageManager.NameNotFoundException) {
-            null
         }
     }
 }

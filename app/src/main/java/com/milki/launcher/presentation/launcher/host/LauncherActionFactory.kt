@@ -68,6 +68,7 @@ internal class LauncherActionFactory(
         return DrawerActions(
             onAppDrawerOpenChange = { isOpen ->
                 surfaceStateCoordinator.updateAppDrawerOpen(isOpen)
+                appDrawerViewModel.setDrawerVisible(isOpen)
             },
             onQueryChange = appDrawerViewModel::updateQuery
         )

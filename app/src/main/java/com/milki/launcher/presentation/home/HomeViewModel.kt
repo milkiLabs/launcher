@@ -18,6 +18,7 @@ import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -74,32 +75,44 @@ class HomeViewModel(
         super.onCleared()
     }
 
-    /**
-     * Derived home UI state composed from repository data and mutation metadata.
-     */
-    val uiState = combine(
-        homeRepository.pinnedItems,
-        mutationCoordinator.pendingPositionUpdateCount,
-        mutationCoordinator.lastMoveErrorMessage,
+    /** Canonical pinned-item model consumed by the homescreen grid. */
+    val pinnedItems = homeRepository.pinnedItems.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList()
+    )
+
+    /** Resolved folder item for the currently open folder overlay, if any. */
+    val openFolderItem = combine(
+        pinnedItems,
         openFolderIdFlow
-    ) { items, pendingUpdates, moveErrorMessage, openFolderId ->
-        HomeUiState(
-            pinnedItems = items,
-            isLoading = false,
-            isUpdatingPositions = pendingUpdates > 0,
-            lastMoveErrorMessage = moveErrorMessage,
-            openFolderItem = if (openFolderId != null) {
-                items.firstOrNull { it.id == openFolderId } as? HomeItem.FolderItem
-            } else {
-                null
-            }
-        )
-    }
+    ) { items, openFolderId ->
+        if (openFolderId != null) {
+            items.firstOrNull { it.id == openFolderId } as? HomeItem.FolderItem
+        } else {
+            null
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null
+    )
+
+    /** Mutation progress exposed separately from content state. */
+    val isUpdatingPositions = mutationCoordinator.pendingPositionUpdateCount
+        .map { pendingUpdates -> pendingUpdates > 0 }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = HomeUiState(isLoading = true)
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = false
         )
+
+    /** Latest mutation error exposed separately from content state. */
+    val lastMoveErrorMessage = mutationCoordinator.lastMoveErrorMessage.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null
+    )
 
     private fun launchWriterCommand(
         fallbackErrorMessage: String,
