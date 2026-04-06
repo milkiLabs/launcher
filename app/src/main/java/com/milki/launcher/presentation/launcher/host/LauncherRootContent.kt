@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.data.widget.WidgetHostManager
@@ -59,13 +60,17 @@ internal fun LauncherRootContent(
         }
 
         LauncherTheme {
+            val launcherActions = remember(context, launcherSettings.swipeUpAction) {
+                actionFactory.build(
+                    context = context,
+                    swipeUpAction = launcherSettings.swipeUpAction
+                )
+            }
+
             LauncherScreen(
                 searchUiState = searchUiState,
                 homeUiState = homeUiState,
-                actions = actionFactory.build(
-                    context = context,
-                    swipeUpAction = launcherSettings.swipeUpAction
-                ),
+                actions = launcherActions,
                 isHomeSwipeEnabled = launcherSettings.swipeUpAction != SwipeUpAction.DO_NOTHING,
                 isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
                 isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,

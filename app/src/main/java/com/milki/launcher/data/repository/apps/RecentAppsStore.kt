@@ -5,7 +5,6 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import androidx.datastore.preferences.core.edit
 import com.milki.launcher.data.icon.AppIconMemoryCache
-import com.milki.launcher.core.intent.createLauncherActivityIntent
 import com.milki.launcher.domain.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -109,8 +108,7 @@ internal class RecentAppsStore(
             AppInfo(
                 name = packageManager.getApplicationLabel(applicationInfo).toString(),
                 packageName = componentName.packageName,
-                activityName = componentName.className,
-                launchIntent = createLauncherActivityIntent(componentName)
+                activityName = componentName.className
             )
         } catch (_: PackageManager.NameNotFoundException) {
             null

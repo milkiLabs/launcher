@@ -28,7 +28,7 @@
  * 1. Takes a package name and size as parameters
  * 2. Tries to read icon from launcher memory cache synchronously
  * 3. If cache miss, loads icon on a background coroutine and caches it
- * 4. Displays the icon using an ImageView-backed AndroidView
+ * 4. Draws the cached Drawable directly in Compose
  *
  * PERFORMANCE:
  * - In-memory cache avoids per-item image-pipeline overhead
@@ -38,6 +38,7 @@
 
 package com.milki.launcher.ui.components.common
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,11 +46,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.viewinterop.AndroidView
-import android.widget.ImageView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.milki.launcher.data.icon.AppIconMemoryCache
@@ -136,23 +138,22 @@ fun AppIcon(
     val iconToDisplay = iconDrawable
 
     /**
-     * Render via ImageView-backed AndroidView.
+     * Draw directly inside the Compose render tree.
      *
-     * WHY ANDROIDVIEW:
-     * - We already have a Drawable from PackageManager/cache.
-     * - ImageView can display Drawables directly without conversion overhead.
-     * - This keeps the icon path simple and avoids extra image-pipeline layers.
+     * Avoiding AndroidView here removes a View allocation and update path for
+     * every icon cell, which is exactly what home and drawer should not pay.
      */
-    AndroidView(
-        modifier = modifier.then(Modifier.size(size)),
-        factory = { imageViewContext ->
-            ImageView(imageViewContext).apply {
-                scaleType = ImageView.ScaleType.CENTER_CROP
-                setImageDrawable(iconToDisplay)
+    Box(
+        modifier = modifier
+            .size(size)
+            .drawWithCache {
+                onDrawBehind {
+                    val drawable = iconToDisplay ?: return@onDrawBehind
+                    drawable.setBounds(0, 0, this.size.width.toInt(), this.size.height.toInt())
+                    drawIntoCanvas { canvas ->
+                        drawable.draw(canvas.nativeCanvas)
+                    }
+                }
             }
-        },
-        update = { imageView ->
-            imageView.setImageDrawable(iconToDisplay)
-        }
     )
 }

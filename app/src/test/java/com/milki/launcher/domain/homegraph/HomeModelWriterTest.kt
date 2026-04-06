@@ -15,7 +15,7 @@ class HomeModelWriterTest {
     @Test
     fun move_top_level_item_updates_position_when_target_free() {
         val item = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("A", "pkg.a", "Main", null)
+            AppInfo("A", "pkg.a", "Main")
         ).withPosition(GridPosition(0, 0))
 
         val result = writer.apply(
@@ -34,10 +34,10 @@ class HomeModelWriterTest {
     @Test
     fun move_top_level_item_rejects_when_target_occupied() {
         val a = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("A", "pkg.a", "Main", null)
+            AppInfo("A", "pkg.a", "Main")
         ).withPosition(GridPosition(0, 0))
         val b = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("B", "pkg.b", "Main", null)
+            AppInfo("B", "pkg.b", "Main")
         ).withPosition(GridPosition(1, 1))
 
         val result = writer.apply(
@@ -54,13 +54,13 @@ class HomeModelWriterTest {
     @Test
     fun pin_or_move_evicts_from_folder_and_places_on_grid() {
         val child = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("A", "pkg.a", "Main", null)
+            AppInfo("A", "pkg.a", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val folder = HomeItem.FolderItem.create(
             item1 = child,
             item2 = HomeItem.PinnedApp.fromAppInfo(
-                AppInfo("B", "pkg.b", "Main", null)
+                AppInfo("B", "pkg.b", "Main")
             ),
             atPosition = GridPosition(0, 0)
         )
@@ -82,11 +82,11 @@ class HomeModelWriterTest {
     @Test
     fun remove_item_by_id_removes_nested_folder_child_and_promotes_last_child() {
         val staleChild = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("A", "pkg.a", "Main", null)
+            AppInfo("A", "pkg.a", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val healthyChild = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("B", "pkg.b", "Main", null)
+            AppInfo("B", "pkg.b", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val folderPosition = GridPosition(0, 2)
@@ -147,7 +147,7 @@ class HomeModelWriterTest {
             span = GridSpan(columns = 2, rows = 2)
         )
         val blocker = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("B", "pkg.b", "Main", null)
+            AppInfo("B", "pkg.b", "Main")
         ).withPosition(GridPosition(1, 2))
 
         val result = writer.apply(
@@ -165,15 +165,15 @@ class HomeModelWriterTest {
     @Test
     fun remove_items_by_id_removes_top_level_and_folder_children() {
         val staleTopLevel = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("A", "pkg.a", "Main", null)
+            AppInfo("A", "pkg.a", "Main")
         ).withPosition(GridPosition(0, 0))
 
         val staleChild = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("B", "pkg.b", "Main", null)
+            AppInfo("B", "pkg.b", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val healthyChild = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("C", "pkg.c", "Main", null)
+            AppInfo("C", "pkg.c", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val folder = HomeItem.FolderItem.create(
@@ -202,7 +202,7 @@ class HomeModelWriterTest {
     @Test
     fun remove_items_by_id_rejects_when_nothing_removed() {
         val healthy = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("A", "pkg.a", "Main", null)
+            AppInfo("A", "pkg.a", "Main")
         ).withPosition(GridPosition(0, 0))
 
         val result = writer.apply(
@@ -218,15 +218,15 @@ class HomeModelWriterTest {
     @Test
     fun remove_items_by_id_deletes_folder_when_all_children_removed() {
         val staleChildA = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("A", "pkg.a", "Main", null)
+            AppInfo("A", "pkg.a", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val staleChildB = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("B", "pkg.b", "Main", null)
+            AppInfo("B", "pkg.b", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val healthyTopLevel = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("C", "pkg.c", "Main", null)
+            AppInfo("C", "pkg.c", "Main")
         ).withPosition(GridPosition(0, 0))
 
         val folder = HomeItem.FolderItem.create(
@@ -252,11 +252,11 @@ class HomeModelWriterTest {
     @Test
     fun create_folder_rejects_when_target_occupant_is_not_live() {
         val dragged = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Dragged", "pkg.dragged", "Main", null)
+            AppInfo("Dragged", "pkg.dragged", "Main")
         ).withPosition(GridPosition(0, 0))
 
         val staleRemovedOccupant = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Removed", "pkg.removed", "Main", null)
+            AppInfo("Removed", "pkg.removed", "Main")
         ).withPosition(GridPosition(0, 1))
 
         val result = writer.apply(
@@ -276,11 +276,11 @@ class HomeModelWriterTest {
     @Test
     fun create_folder_allows_external_item_when_occupant_is_live() {
         val occupant = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Occupant", "pkg.occupant", "Main", null)
+            AppInfo("Occupant", "pkg.occupant", "Main")
         ).withPosition(GridPosition(1, 1))
 
         val externalItem = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("External", "pkg.external", "Main", null)
+            AppInfo("External", "pkg.external", "Main")
         )
 
         val result = writer.apply(
@@ -306,10 +306,10 @@ class HomeModelWriterTest {
     @Test
     fun extract_folder_child_onto_item_rejects_when_target_not_live() {
         val child = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Child", "pkg.child", "Main", null)
+            AppInfo("Child", "pkg.child", "Main")
         ).withPosition(GridPosition.DEFAULT)
         val sibling = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Sibling", "pkg.sibling", "Main", null)
+            AppInfo("Sibling", "pkg.sibling", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val sourceFolder = HomeItem.FolderItem.create(
@@ -318,7 +318,7 @@ class HomeModelWriterTest {
             atPosition = GridPosition(0, 0)
         )
         val staleTarget = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Removed", "pkg.removed", "Main", null)
+            AppInfo("Removed", "pkg.removed", "Main")
         ).withPosition(GridPosition(0, 2))
 
         val result = writer.apply(
@@ -339,10 +339,10 @@ class HomeModelWriterTest {
     @Test
     fun extract_folder_child_onto_item_creates_folder_with_live_target() {
         val child = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Child", "pkg.child", "Main", null)
+            AppInfo("Child", "pkg.child", "Main")
         ).withPosition(GridPosition.DEFAULT)
         val sibling = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Sibling", "pkg.sibling", "Main", null)
+            AppInfo("Sibling", "pkg.sibling", "Main")
         ).withPosition(GridPosition.DEFAULT)
 
         val sourceFolderPosition = GridPosition(0, 0)
@@ -352,7 +352,7 @@ class HomeModelWriterTest {
             atPosition = sourceFolderPosition
         )
         val target = HomeItem.PinnedApp.fromAppInfo(
-            AppInfo("Target", "pkg.target", "Main", null)
+            AppInfo("Target", "pkg.target", "Main")
         ).withPosition(GridPosition(0, 2))
 
         val result = writer.apply(

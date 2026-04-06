@@ -32,9 +32,11 @@
 
 package com.milki.launcher.domain.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 
 @Serializable
+@Immutable
 data class GridSpan(
     val columns: Int = 1,
     val rows: Int = 1

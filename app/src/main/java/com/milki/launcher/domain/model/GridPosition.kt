@@ -33,6 +33,7 @@
 
 package com.milki.launcher.domain.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 
 /**
@@ -56,6 +57,7 @@ import kotlinx.serialization.Serializable
  * @property column The column index (0-based, left to right)
  */
 @Serializable
+@Immutable
 data class GridPosition(
     val row: Int,
     val column: Int

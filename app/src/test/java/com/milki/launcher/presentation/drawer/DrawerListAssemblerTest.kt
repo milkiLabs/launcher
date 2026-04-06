@@ -10,9 +10,9 @@ class DrawerListAssemblerTest {
     private val assembler = DrawerListAssembler()
 
     private val apps = listOf(
-        AppInfo(name = "Calendar", packageName = "com.android.calendar", launchIntent = null),
-        AppInfo(name = "Maps", packageName = "com.google.android.apps.maps", launchIntent = null),
-        AppInfo(name = "YouTube", packageName = "com.google.android.youtube", launchIntent = null)
+        AppInfo(name = "Calendar", packageName = "com.android.calendar"),
+        AppInfo(name = "Maps", packageName = "com.google.android.apps.maps"),
+        AppInfo(name = "YouTube", packageName = "com.google.android.youtube")
     )
 
     @Test
@@ -50,8 +50,8 @@ class DrawerListAssemblerTest {
     @Test
     fun assemble_search_prioritizes_starts_with_before_contains() {
         val rankingApps = listOf(
-            AppInfo(name = "Axiom Notes", packageName = "com.example.axiom", launchIntent = null),
-            AppInfo(name = "X Player", packageName = "com.example.xplayer", launchIntent = null)
+            AppInfo(name = "Axiom Notes", packageName = "com.example.axiom"),
+            AppInfo(name = "X Player", packageName = "com.example.xplayer")
         )
 
         val result = assembler.assembleSearch(apps = rankingApps, query = "x")

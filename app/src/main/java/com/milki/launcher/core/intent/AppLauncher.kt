@@ -24,6 +24,7 @@
 package com.milki.launcher.core.intent
 
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.os.Build
@@ -36,11 +37,11 @@ import com.milki.launcher.domain.model.HomeItem
  * Launches an application using its AppInfo.
  *
  * This function is used when launching apps from search results.
- * It uses the pre-built launchIntent from AppInfo if available,
- * otherwise falls back to using PackageManager.
+ * It prefers an explicit component launch so we do not keep Intent instances
+ * inside the app model or re-query PackageManager on the hot path.
  *
  * @param context The Android context
- * @param appInfo The AppInfo containing app details and launch intent
+ * @param appInfo The AppInfo containing app details
  * @param onRecentAppSaved Optional callback invoked with the component name
  *                         when the app is successfully launched (for saving recent apps)
  *
@@ -56,37 +57,28 @@ fun launchApp(
     appInfo: AppInfo,
     onRecentAppSaved: ((String) -> Unit)? = null
 ): Boolean {
-    // First try to use the pre-built launchIntent from AppInfo
-    // This is more reliable as it was built from PackageManager.resolveActivity
-    appInfo.launchIntent?.let { intent ->
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        
-        // Check if the intent can be resolved before starting
-        if (intent.resolveActivity(context.packageManager) != null) {
-            context.startActivity(intent)
-            
-            // Save to recent apps if callback provided
-            onRecentAppSaved?.invoke(appInfo.flattenToComponentName())
-            return true
-        }
+    val explicitIntent = Intent(Intent.ACTION_MAIN).apply {
+        addCategory(Intent.CATEGORY_LAUNCHER)
+        component = ComponentName(appInfo.packageName, appInfo.activityName)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    
-    // Fallback: try to get launch intent from PackageManager
-    // This handles cases where launchIntent might be null
-    val fallbackIntent = context.packageManager.getLaunchIntentForPackage(appInfo.packageName)
-    if (fallbackIntent != null) {
-        fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        
-        // If activityName is specified, we might need to be more specific
-        // But getLaunchIntentForPackage usually gets the main launcher activity
-        context.startActivity(fallbackIntent)
-        
-        // Save to recent apps if callback provided
+
+    if (explicitIntent.resolveActivity(context.packageManager) != null) {
+        context.startActivity(explicitIntent)
         onRecentAppSaved?.invoke(appInfo.flattenToComponentName())
         return true
     }
-    
-    // No launch intent found - app might not be launchable
+
+    // Fallback: ask PackageManager for the package's launcher intent in case
+    // the stored activity is no longer valid after an app update.
+    val fallbackIntent = context.packageManager.getLaunchIntentForPackage(appInfo.packageName)
+    if (fallbackIntent != null) {
+        fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(fallbackIntent)
+        onRecentAppSaved?.invoke(appInfo.flattenToComponentName())
+        return true
+    }
+
     return false
 }
 

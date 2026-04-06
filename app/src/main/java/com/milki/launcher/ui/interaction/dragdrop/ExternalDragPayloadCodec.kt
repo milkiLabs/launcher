@@ -254,7 +254,7 @@ object ExternalDragPayloadCodec {
     fun decodeDragItem(dragEvent: DragEvent): ExternalDragItem? {
         val localStateItem = when (val localState = dragEvent.localState) {
             is ExternalDragItem -> localState
-            is AppInfo -> ExternalDragItem.App(localState.copy(launchIntent = null))
+            is AppInfo -> ExternalDragItem.App(localState)
             is FileDocument -> ExternalDragItem.File(localState)
             is Contact -> ExternalDragItem.Contact(localState)
             else -> null
@@ -284,8 +284,7 @@ object ExternalDragPayloadCodec {
                     AppInfo(
                         name = payload.name,
                         packageName = payload.packageName,
-                        activityName = payload.activityName,
-                        launchIntent = null
+                        activityName = payload.activityName
                     )
                 )
             }.getOrNull()
@@ -300,8 +299,7 @@ object ExternalDragPayloadCodec {
                         AppInfo(
                             name = payload.name,
                             packageName = payload.packageName,
-                            activityName = payload.activityName,
-                            launchIntent = null
+                            activityName = payload.activityName
                         )
                     )
                 }

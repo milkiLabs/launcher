@@ -17,6 +17,7 @@
 
 package com.milki.launcher.presentation.drawer
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.drawer.DrawerAppStore
@@ -38,6 +39,7 @@ import kotlinx.coroutines.launch
  * @property sections Fast section metadata aligned with adapterItems.
  * @property query Current in-drawer search query.
  */
+@Immutable
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
     val apps: List<AppInfo> = emptyList(),
@@ -60,6 +62,10 @@ class AppDrawerViewModel(
     private val drawerListAssembler: DrawerListAssembler
 ) : ViewModel() {
 
+    private val normalAssemblyListener = DrawerAppStore.Listener { apps, _ ->
+        normalAssembly.value = drawerListAssembler.assembleNormal(apps)
+    }
+
     /**
      * Shared installed-app stream scoped to this ViewModel.
      */
@@ -75,14 +81,21 @@ class AppDrawerViewModel(
     /** Current in-drawer query used to filter visible apps. */
     private val query = MutableStateFlow("")
 
+    /** Cached drawer model for the common blank-query case. */
+    private val normalAssembly = MutableStateFlow(DrawerListAssembler.Result(
+        items = emptyList(),
+        sections = emptyList()
+    ))
+
     /** Public state observed by Compose. */
     val uiState = combine(
         isLoading,
         drawerAppStore.apps,
+        normalAssembly,
         query
-    ) { loading, apps, searchQuery ->
+    ) { loading, apps, cachedNormalAssembly, searchQuery ->
         val assembly = if (searchQuery.isBlank()) {
-            drawerListAssembler.assembleNormal(apps)
+            cachedNormalAssembly
         } else {
             drawerListAssembler.assembleSearch(apps, searchQuery)
         }
@@ -101,7 +114,13 @@ class AppDrawerViewModel(
     )
 
     init {
+        drawerAppStore.addListener(normalAssemblyListener)
         observeInstalledApps()
+    }
+
+    override fun onCleared() {
+        drawerAppStore.removeListener(normalAssemblyListener)
+        super.onCleared()
     }
 
     /**

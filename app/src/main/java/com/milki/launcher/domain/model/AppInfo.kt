@@ -3,7 +3,8 @@
  */
 
 package com.milki.launcher.domain.model
-import android.content.Intent
+
+import androidx.compose.runtime.Immutable
 
 /**
  * AppInfo represents a single installed application.
@@ -12,13 +13,12 @@ import android.content.Intent
  * @property activityName The fully qualified activity class name for uniqueness
  *                        (e.g., "com.milki.launcher.SettingsActivity")
  *                        Multiple activities can share the same packageName.
- * @property launchIntent The Intent used to launch the app (null if not launchable)
  */
+@Immutable
 data class AppInfo(
     val name: String,
     val packageName: String,
-    val activityName: String = packageName,
-    val launchIntent: Intent?
+    val activityName: String = packageName
 ) {
     /**
      * Cached lowercase version of the app name.

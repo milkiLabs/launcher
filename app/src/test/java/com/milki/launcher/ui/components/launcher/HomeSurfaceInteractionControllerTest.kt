@@ -82,8 +82,7 @@ class HomeSurfaceInteractionControllerTest {
             appInfo = com.milki.launcher.domain.model.AppInfo(
                 name = "Example",
                 packageName = "com.example",
-                activityName = "MainActivity",
-                launchIntent = null
+                activityName = "MainActivity"
             )
         )
 

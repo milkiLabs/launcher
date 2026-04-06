@@ -39,6 +39,7 @@
 package com.milki.launcher.domain.model
 
 import android.content.pm.ShortcutInfo
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.util.UUID
@@ -62,6 +63,7 @@ import java.util.UUID
  * Polymorphic serialization is configured with a "type" discriminator.
  */
 @Serializable
+@Immutable
 sealed class HomeItem {
 
     abstract val id: String
@@ -93,6 +95,7 @@ sealed class HomeItem {
      * @property position Grid position (row, column) on the home screen
      */
     @Serializable
+    @Immutable
     data class PinnedApp(
         override val id: String,
         val packageName: String,
@@ -139,6 +142,7 @@ sealed class HomeItem {
      * @property position Grid position (row, column) on the home screen
      */
     @Serializable
+    @Immutable
     data class PinnedFile(
         override val id: String,
         val uri: String,
@@ -185,6 +189,7 @@ sealed class HomeItem {
      * @property position Grid position (row, column) on the home screen
      */
     @Serializable
+    @Immutable
     data class PinnedContact(
         override val id: String,
         val contactId: Long,
@@ -235,6 +240,7 @@ sealed class HomeItem {
      * @property position Grid position (row, column) on the home screen
      */
     @Serializable
+    @Immutable
     data class AppShortcut(
         override val id: String,
         val packageName: String,
@@ -326,6 +332,7 @@ sealed class HomeItem {
      *                Defaults to 1×1 (single cell), but widgets typically use larger spans.
      */
     @Serializable
+    @Immutable
     data class WidgetItem(
         override val id: String,
         val appWidgetId: Int,
@@ -448,6 +455,7 @@ sealed class HomeItem {
      * @property position Grid position (row, column) on the home screen where the folder icon sits.
      */
     @Serializable
+    @Immutable
     data class FolderItem(
         override val id: String,
         val name: String = "Folder",
