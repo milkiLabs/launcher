@@ -61,6 +61,7 @@ class HomeViewModel(
 
     private val iconWarmupCoordinator = HomeIconWarmupCoordinator(
         homeRepository = homeRepository,
+        appContext = appContext,
         packageManager = appContext.packageManager,
         scope = viewModelScope
     )

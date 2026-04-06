@@ -21,7 +21,6 @@ internal class PinShortcutRequestCoordinator(
     private val homeViewModel: HomeViewModel,
     private val scope: CoroutineScope
 ) {
-
     fun handleIntent(intent: Intent): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return false
@@ -40,7 +39,7 @@ internal class PinShortcutRequestCoordinator(
 
         val shortcutInfo = request.shortcutInfo ?: return false
         val homeShortcut = HomeItem.AppShortcut.fromShortcutInfo(shortcutInfo)
-
+        
         scope.launch {
             val alreadyPinned = homeRepository.isPinned(homeShortcut.id)
             val accepted = runCatching { request.accept() }.getOrDefault(false)

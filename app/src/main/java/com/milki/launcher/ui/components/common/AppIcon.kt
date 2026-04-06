@@ -38,6 +38,7 @@
 
 package com.milki.launcher.ui.components.common
 
+import android.graphics.drawable.Drawable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
@@ -143,15 +144,28 @@ fun AppIcon(
      * Avoiding AndroidView here removes a View allocation and update path for
      * every icon cell, which is exactly what home and drawer should not pay.
      */
+    DrawableIcon(
+        drawable = iconToDisplay,
+        modifier = modifier,
+        size = size
+    )
+}
+
+@Composable
+fun DrawableIcon(
+    drawable: Drawable?,
+    modifier: Modifier = Modifier,
+    size: Dp = IconSize.appList
+) {
     Box(
         modifier = modifier
             .size(size)
             .drawWithCache {
                 onDrawBehind {
-                    val drawable = iconToDisplay ?: return@onDrawBehind
-                    drawable.setBounds(0, 0, this.size.width.toInt(), this.size.height.toInt())
+                    val icon = drawable ?: return@onDrawBehind
+                    icon.setBounds(0, 0, this.size.width.toInt(), this.size.height.toInt())
                     drawIntoCanvas { canvas ->
-                        drawable.draw(canvas.nativeCanvas)
+                        icon.draw(canvas.nativeCanvas)
                     }
                 }
             }

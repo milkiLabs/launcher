@@ -65,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.launcher.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -514,26 +515,4 @@ private fun getFileIconData(mimeType: String, fileName: String): FileIconData {
             iconColor = Color.White
         )
     }
-}
-
-/**
- * Displays an icon for an app shortcut.
- *
- * Ideally, we would load the shortcut's actual icon from the system,
- * but for simplicity, we show a generic shortcut icon with the app's icon
- * as a fallback.
- *
- * TODO: Load actual shortcut icons using LauncherApps.getShortcutIcon()
- */
-@Composable
-private fun ShortcutIcon(
-    shortcut: HomeItem.AppShortcut,
-    size: Dp,
-    modifier: Modifier = Modifier
-) {
-    AppIcon(
-        packageName = shortcut.packageName,
-        size = size,
-        modifier = modifier
-    )
 }

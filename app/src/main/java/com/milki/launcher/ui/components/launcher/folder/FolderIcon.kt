@@ -18,7 +18,7 @@
  * ICON PREVIEW LOGIC:
  * Up to 4 items from [folder.children] are rendered as mini icons.
  * - PinnedApp → uses AppIcon (loads from package manager, memory-cached)
- * - AppShortcut → uses AppIcon (shows parent app icon as fallback)
+ * - AppShortcut → uses ShortcutIcon (same artwork as top-level shortcuts)
  * - PinnedFile → uses a colored square icon matching the file MIME type
  * - PinnedContact → uses a person silhouette icon
  * If there are fewer than 4 children, empty cells are left blank (transparent).
@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -188,7 +189,7 @@ private fun FolderMiniGrid(children: List<HomeItem>) {
  * ITEM TYPE DISPATCH:
  * - null         → blank transparent Box (empty slot)
  * - PinnedApp    → [AppIcon] at mini size
- * - AppShortcut  → [AppIcon] using the parent app's package (best available icon)
+ * - AppShortcut  → [ShortcutIcon] without the browser badge at mini size
  * - PinnedFile   → small colored square derived from MIME type (inline; no code import)
  * - PinnedContact → Material [Icons.Default.Person] on a subtle background
  *
@@ -215,12 +216,11 @@ private fun FolderMiniIconSlot(item: HomeItem?) {
                 )
             }
             is HomeItem.AppShortcut -> {
-                // App shortcuts don't have their own icon API at this size;
-                // show the parent app's icon as the best available proxy.
-                AppIcon(
-                    packageName = item.packageName,
+                ShortcutIcon(
+                    shortcut = item,
                     size = IconSize.small,
-                    modifier = Modifier.size(IconSize.small)
+                    modifier = Modifier.size(IconSize.small),
+                    showBrowserBadge = false
                 )
             }
             is HomeItem.PinnedFile -> {
