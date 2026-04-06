@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.SharedFlow
 /**
  * Emits a signal whenever launcher-relevant package broadcasts are received.
  */
-internal class PackageChangeMonitor(
+class PackageChangeMonitor(
     private val application: Application
 ) {
 

@@ -29,14 +29,14 @@ import kotlinx.coroutines.launch
  * - PackageChangeMonitor: package add/remove/update broadcast signals.
  */
 class AppRepositoryImpl(
-    application: Application
+    application: Application,
+    private val packageChangeMonitor: PackageChangeMonitor
 ) : AppRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val installedAppsCatalog = InstalledAppsCatalog(application)
     private val recentAppsStore = RecentAppsStore(application)
-    private val packageChangeMonitor = PackageChangeMonitor(application)
 
     private val installedAppsSnapshot = MutableStateFlow<List<AppInfo>>(emptyList())
 

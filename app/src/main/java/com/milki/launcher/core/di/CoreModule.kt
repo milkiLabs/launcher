@@ -41,6 +41,7 @@ package com.milki.launcher.core.di
 
 import com.milki.launcher.data.repository.backup.LauncherBackupRepositoryImpl
 import com.milki.launcher.data.repository.AppRepositoryImpl
+import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
@@ -66,6 +67,16 @@ val coreModule = module {
     // in the core module rather than in any single feature module.
 
     /**
+     * PackageChangeMonitor - Shared package add/remove/update signal.
+     *
+     * Shared so app catalogs and widget catalogs react to the same package events
+     * without registering duplicate receivers.
+     */
+    single {
+        PackageChangeMonitor(get())
+    }
+
+    /**
      * AppRepository - Provides access to installed apps and recent apps.
      *
      * SINGLETON: Yes — we want one cache of installed apps shared across features.
@@ -77,9 +88,10 @@ val coreModule = module {
      * DEPENDENCY: Android Context (provided by Koin's androidContext())
      */
     single<AppRepository> {
-        // AppRepositoryImpl needs the Application context.
-        // get() retrieves the Context that was set in startKoin { androidContext() }
-        AppRepositoryImpl(get())
+        AppRepositoryImpl(
+            application = get(),
+            packageChangeMonitor = get()
+        )
     }
 
     /**

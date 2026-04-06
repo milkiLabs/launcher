@@ -13,14 +13,15 @@
  * 3. Allows future expansion (e.g., widget configuration providers, widget preview cache).
  *
  * DEPENDENCIES ON OTHER MODULES:
- * This module has NO dependencies on other feature modules or coreModule.
- * WidgetHostManager only needs the Android Context.
+ * This module depends on the shared package-change monitor from coreModule so
+ * widget catalog caches stay in sync with app install/remove/update broadcasts.
  *
  * For a full explanation of Koin concepts, see: docs/KoinDependencyInjection.md
  */
 
 package com.milki.launcher.core.di
 
+import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.widget.WidgetHostManager
 import org.koin.dsl.module
 
@@ -57,10 +58,13 @@ val widgetModule = module {
      * USED BY: MainActivity (starts/stops the host), HomeViewModel (widget placement),
      *          LauncherScreen (widget rendering)
      *
-     * DEPENDENCY: Android Context (for creating AppWidgetHost and AppWidgetManager)
+     * DEPENDENCY: Android Context + PackageChangeMonitor
      */
     single {
-        WidgetHostManager(get())
+        WidgetHostManager(
+            context = get(),
+            packageChangeMonitor = get<PackageChangeMonitor>()
+        )
     }
 
 }

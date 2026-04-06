@@ -52,6 +52,7 @@ import android.os.Bundle
 import android.util.Log
 import android.util.SizeF
 import android.view.WindowManager
+import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
 import com.milki.launcher.ui.interaction.grid.GridConfig
@@ -61,10 +62,14 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 class WidgetHostManager(
-    private val context: Context
+    private val context: Context,
+    packageChangeMonitor: PackageChangeMonitor
 ) {
     companion object {
         /**
@@ -122,6 +127,15 @@ class WidgetHostManager(
     private var isListening = false
     private var widgetPickerCatalogCache: List<WidgetAppGroup>? = null
     private var widgetPickerCatalogLoad: Deferred<List<WidgetAppGroup>>? = null
+    private var widgetPickerCatalogVersion: Long = 0L
+
+    init {
+        widgetCatalogScope.launch {
+            packageChangeMonitor.events.collectLatest {
+                invalidateWidgetPickerCatalog(prewarmAfterInvalidation = true)
+            }
+        }
+    }
 
     /**
      * Resolves the user-facing label for a widget provider.
@@ -382,6 +396,20 @@ class WidgetHostManager(
         return getOrStartWidgetPickerCatalogLoad().await()
     }
 
+    fun invalidateWidgetPickerCatalog(prewarmAfterInvalidation: Boolean = false) {
+        val previousLoad = synchronized(this) {
+            widgetPickerCatalogVersion += 1L
+            widgetPickerCatalogCache = null
+            widgetPickerCatalogLoad.also {
+                widgetPickerCatalogLoad = null
+            }
+        }
+        previousLoad?.cancel()
+        if (prewarmAfterInvalidation) {
+            prewarmWidgetPickerCatalog()
+        }
+    }
+
     /**
      * Finds a widget provider from installed providers by its component name.
      *
@@ -566,6 +594,7 @@ class WidgetHostManager(
                 return@synchronized existingLoad
             }
 
+            val loadVersion = widgetPickerCatalogVersion
             widgetCatalogScope.async {
                 runCatching {
                     buildWidgetPickerCatalog()
@@ -574,10 +603,21 @@ class WidgetHostManager(
                 }.getOrElse { emptyList() }
             }.also { load ->
                 widgetPickerCatalogLoad = load
-                load.invokeOnCompletion {
-                    synchronized(this@WidgetHostManager) {
-                        if (widgetPickerCatalogLoad === load) {
-                            widgetPickerCatalogLoad = null
+                widgetCatalogScope.launch {
+                    try {
+                        val catalog = load.await()
+                        synchronized(this@WidgetHostManager) {
+                            if (widgetPickerCatalogLoad === load &&
+                                widgetPickerCatalogVersion == loadVersion
+                            ) {
+                                widgetPickerCatalogCache = catalog
+                            }
+                        }
+                    } finally {
+                        synchronized(this@WidgetHostManager) {
+                            if (widgetPickerCatalogLoad === load) {
+                                widgetPickerCatalogLoad = null
+                            }
                         }
                     }
                 }
@@ -617,11 +657,6 @@ class WidgetHostManager(
                 )
             }
             .sortedBy { it.appLabel.lowercase() }
-            .also { catalog ->
-                synchronized(this) {
-                    widgetPickerCatalogCache = catalog
-                }
-            }
     }
 
     private fun needsInitialConfigure(providerInfo: AppWidgetProviderInfo): Boolean {
