@@ -20,20 +20,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import com.milki.launcher.domain.model.AppInfo
-import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
-import com.milki.launcher.ui.components.launcher.createAppInfoAction
-import com.milki.launcher.ui.components.launcher.createPinAction
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.interaction.dragdrop.startExternalAppDrag
@@ -62,8 +55,8 @@ fun AppListItem(
     onExternalDragStarted: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-    var isGestureActive by remember { mutableStateOf(false) }
+    val menuState = rememberAppItemContextMenuState()
+    val menuActions = remember(appInfo) { buildAppItemMenuActions(appInfo) }
     val hostView = LocalView.current
 
     Box(modifier = modifier) {
@@ -74,16 +67,10 @@ fun AppListItem(
                     key = "${appInfo.packageName}/${appInfo.activityName}",
                     dragThreshold = GridConfig.Default.dragThresholdPx,
                     onTap = onClick,
-                    onLongPress = {
-                        showMenu = true
-                        isGestureActive = true
-                    },
-                    onLongPressRelease = {
-                        isGestureActive = false
-                    },
+                    onLongPress = { menuState.onLongPress() },
+                    onLongPressRelease = menuState::onLongPressRelease,
                     onDragStart = {
-                        showMenu = false
-                        isGestureActive = false
+                        menuState.onDragStart()
 
                         val dragStarted = startExternalAppDrag(
                             hostView = hostView,
@@ -99,9 +86,7 @@ fun AppListItem(
                     },
                     onDrag = { change, _ -> change.consume() },
                     onDragEnd = {},
-                    onDragCancel = {
-                        isGestureActive = false
-                    }
+                    onDragCancel = menuState::onDragCancel
                 ),
             color = Color.Transparent
         ) {
@@ -127,19 +112,10 @@ fun AppListItem(
         }
 
         ItemActionMenu(
-            expanded = showMenu,
-            onDismiss = { showMenu = false; isGestureActive = false },
-            focusable = !isGestureActive,
-            actions = listOf(
-                createPinAction(
-                    isPinned = false,
-                    pinAction = SearchResultAction.PinApp(appInfo),
-                    unpinAction = SearchResultAction.UnpinItem(
-                        HomeItem.PinnedApp.fromAppInfo(appInfo).id
-                    )
-                ),
-                createAppInfoAction(appInfo.packageName)
-            )
+            expanded = menuState.showMenu,
+            onDismiss = menuState::dismiss,
+            focusable = menuState.isMenuFocusable,
+            actions = menuActions
         )
     }
 }
