@@ -185,10 +185,10 @@ object IconSize {
     val appLarge: Dp = 48.dp
 
     /**
-        * 52dp - Homescreen compact grid icons
+     * 56dp - Homescreen compact grid icons
      * Used for: Home grid cells that must fit both icon and label in one row height.
      */
-        val appHomeCompact: Dp = 52.dp
+    val appHomeCompact: Dp = 56.dp
 
     /**
      * 72dp - Extra large app icons

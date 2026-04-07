@@ -241,7 +241,10 @@ private fun HomeSurface(
         onUpdateWidgetFrame = actions.widget.onUpdateWidgetFrame,
         onWidgetDroppedToHome = actions.widget.onWidgetDroppedToHome,
         onItemBoundsMeasured = onItemBoundsMeasured,
-        modifier = modifier.padding(Spacing.mediumLarge)
+        modifier = modifier.padding(
+            horizontal = Spacing.mediumLarge,
+            vertical = Spacing.small
+        )
     )
 }
 
