@@ -10,23 +10,17 @@
 package com.milki.launcher.ui.components.common
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
@@ -95,6 +89,12 @@ fun AppGridItem(
      */
     var isGestureActive by remember { mutableStateOf(false) }
     val hostView = LocalView.current
+    val layout = IconLabelLayout(
+        iconSize = IconSize.appGrid,
+        contentPadding = contentPadding,
+        labelTopPadding = Spacing.smallMedium,
+        labelMaxLines = 2
+    )
 
     Box(modifier = modifier) {
         Surface(
@@ -145,33 +145,16 @@ fun AppGridItem(
             color = Color.Transparent,
             shape = RoundedCornerShape(CornerRadius.medium)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(contentPadding),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+            IconLabelCell(
+                label = appInfo.name,
+                layout = layout,
+                labelStyle = MaterialTheme.typography.bodySmall,
+                labelOverflow = TextOverflow.Ellipsis,
+                labelTextAlign = TextAlign.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(IconSize.appGrid),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppIcon(
-                        packageName = appInfo.packageName,
-                        size = IconSize.appGrid
-                    )
-                }
-
-                Text(
-                    text = appInfo.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Spacing.smallMedium)
+                AppIcon(
+                    packageName = appInfo.packageName,
+                    size = layout.iconSize
                 )
             }
         }

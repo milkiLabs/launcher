@@ -26,10 +26,8 @@ package com.milki.launcher.ui.components.launcher
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,7 +44,6 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,6 +62,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.IconLabelCell
+import com.milki.launcher.ui.components.common.IconLabelLayout
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.launcher.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
@@ -221,9 +220,21 @@ private fun PinnedItemContent(
     item: HomeItem,
     compactLayout: Boolean
 ) {
-    val iconSize = if (compactLayout) IconSize.appLarge else IconSize.appGrid
-    val verticalPadding = if (compactLayout) Spacing.none else Spacing.extraSmall
-    val labelTopPadding = if (compactLayout) Spacing.extraSmall else Spacing.smallMedium
+    val layout = if (compactLayout) {
+        IconLabelLayout(
+            iconSize = IconSize.appLarge,
+            contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
+            labelTopPadding = Spacing.extraSmall,
+            labelMaxLines = 1
+        )
+    } else {
+        IconLabelLayout(
+            iconSize = IconSize.appGrid,
+            contentPadding = PaddingValues(vertical = Spacing.extraSmall, horizontal = Spacing.none),
+            labelTopPadding = Spacing.smallMedium,
+            labelMaxLines = 1
+        )
+    }
 
     // ── Folder short-circuit ──────────────────────────────────────────────────
     // FolderItem has its own layout with a 2×2 mini-icon preview grid.
@@ -238,32 +249,15 @@ private fun PinnedItemContent(
     }
 
     // ── Standard single-icon layout ───────────────────────────────────────────
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = verticalPadding, horizontal = Spacing.none),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    IconLabelCell(
+        label = formatHomeItemLabel(item),
+        layout = layout,
+        labelColor = Color.White,
+        labelStyle = MaterialTheme.typography.bodySmall,
+        labelOverflow = TextOverflow.Ellipsis,
+        labelTextAlign = TextAlign.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(iconSize),
-            contentAlignment = Alignment.Center
-        ) {
-            PinnedItemIcon(item = item, size = iconSize)
-        }
-
-        Text(
-            text = formatHomeItemLabel(item),
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = labelTopPadding)
-        )
+        PinnedItemIcon(item = item, size = layout.iconSize)
     }
 }
 

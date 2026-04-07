@@ -36,7 +36,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,7 +48,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,8 +55,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.IconLabelCell
+import com.milki.launcher.ui.components.common.IconLabelLayout
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -85,29 +89,42 @@ fun FolderIcon(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val folderIconSize = if (compact) IconSize.appLarge else IconSize.appGrid
+    val layout = if (compact) {
+        IconLabelLayout(
+            iconSize = IconSize.appLarge,
+            contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
+            labelTopPadding = Spacing.extraSmall,
+            labelMaxLines = 1
+        )
+    } else {
+        IconLabelLayout(
+            iconSize = IconSize.appGrid,
+            contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
+            labelTopPadding = Spacing.smallMedium,
+            labelMaxLines = 1
+        )
+    }
+
     val contentPadding = if (compact) Spacing.extraSmall else Spacing.smallMedium
     val miniIconSize = if (compact) IconSize.extraSmall else IconSize.small
-    val labelTopPadding = if (compact) Spacing.extraSmall else Spacing.smallMedium
     val rootVerticalPadding = if (compact) Spacing.none else Spacing.medium
     val rootHorizontalPadding = if (compact) Spacing.none else Spacing.smallMedium
 
-    // The root column mirrors the layout of PinnedItemContent so the folder
-    // icon aligns correctly with other home-screen items.
-    Column(
+    IconLabelCell(
+        label = folder.name,
+        layout = layout,
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = rootVerticalPadding, horizontal = rootHorizontalPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        labelColor = Color.White,
+        labelStyle = MaterialTheme.typography.bodySmall,
+        labelOverflow = TextOverflow.Ellipsis,
+        labelTextAlign = TextAlign.Center
     ) {
-        // ─── Folder icon container ───────────────────────────────────────────
-        // A fixed-size box matching the standard app icon area ([IconSize.appGrid]).
-        // The frosted surface uses [surfaceVariant] at reduced alpha so the
-        // wallpaper peeks through slightly, maintaining the "launcher glass" aesthetic.
+        // Frosted icon background with a 2x2 mini preview grid.
         Box(
             modifier = Modifier
-                .size(folderIconSize)
+                .fillMaxSize()
                 .clip(RoundedCornerShape(CornerRadius.medium))
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
@@ -115,29 +132,12 @@ fun FolderIcon(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            // Inner 2×2 mini-icon grid.
-            // Padding keeps mini icons away from the rounded corners so they
-            // don't visually clip against the background shape.
             FolderMiniGrid(
                 children = folder.children,
                 contentPadding = contentPadding,
                 miniIconSize = miniIconSize
             )
         }
-
-        // ─── Folder label ────────────────────────────────────────────────────
-        // Same style as other PinnedItem labels for visual consistency.
-        Text(
-            text = folder.name,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = labelTopPadding)
-        )
     }
 }
 
@@ -161,8 +161,8 @@ fun FolderIcon(
 @Composable
 private fun FolderMiniGrid(
     children: List<HomeItem>,
-    contentPadding: androidx.compose.ui.unit.Dp,
-    miniIconSize: androidx.compose.ui.unit.Dp
+    contentPadding: Dp,
+    miniIconSize: Dp
 ) {
     // Take at most 4 items for the preview. If fewer are available,
     // the remaining cells are filled with null (rendered as blank space).
@@ -214,7 +214,7 @@ private fun FolderMiniGrid(
 @Composable
 private fun FolderMiniIconSlot(
     item: HomeItem?,
-    miniIconSize: androidx.compose.ui.unit.Dp
+    miniIconSize: Dp
 ) {
     // All slots occupy IconSize.small so the 2×2 grid stays perfectly square.
     Box(
@@ -275,7 +275,7 @@ private fun FolderMiniIconSlot(
 @Composable
 private fun MiniFileIconSlot(
     item: HomeItem.PinnedFile,
-    miniIconSize: androidx.compose.ui.unit.Dp
+    miniIconSize: Dp
 ) {
     // Pick a background color that communicates the file category at a glance.
     val backgroundColor = when {
@@ -301,7 +301,7 @@ private fun MiniFileIconSlot(
  * MiniContactIconSlot renders a small person silhouette for pinned contacts.
  */
 @Composable
-private fun MiniContactIconSlot(miniIconSize: androidx.compose.ui.unit.Dp) {
+private fun MiniContactIconSlot(miniIconSize: Dp) {
     Surface(
         modifier = Modifier.size(miniIconSize),
         shape = RoundedCornerShape(CornerRadius.extraSmall),
