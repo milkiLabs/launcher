@@ -116,7 +116,7 @@ internal fun DropHighlightLayer(
                         width = with(LocalDensity.current) { (cellWidthPx * previewSpan.columns).toDp() },
                         height = with(LocalDensity.current) { (cellHeightPx * previewSpan.rows).toDp() }
                     )
-                    .padding(Spacing.extraSmall)
+                    .padding(Spacing.none)
                     .zIndex(config.previewZIndex)
                     .graphicsLayer {
                         scaleX = config.previewScale
@@ -129,7 +129,8 @@ internal fun DropHighlightLayer(
                     item = activeSession.item,
                     onClick = {},
                     onLongClick = {},
-                    handleLongPress = false
+                    handleLongPress = false,
+                    compactLayout = true
                 )
             }
         }
@@ -246,7 +247,8 @@ private fun DropPreviewContent(
                     item = item,
                     onClick = {},
                     onLongClick = {},
-                    handleLongPress = false
+                    handleLongPress = false,
+                    compactLayout = true
                 )
             }
         }

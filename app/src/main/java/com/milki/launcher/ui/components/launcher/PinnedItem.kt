@@ -222,9 +222,9 @@ private fun PinnedItemContent(
 ) {
     val layout = if (compactLayout) {
         IconLabelLayout(
-            iconSize = IconSize.appLarge,
+            iconSize = IconSize.appHomeCompact,
             contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
-            labelTopPadding = Spacing.extraSmall,
+            labelTopPadding = Spacing.none,
             labelMaxLines = 1
         )
     } else {

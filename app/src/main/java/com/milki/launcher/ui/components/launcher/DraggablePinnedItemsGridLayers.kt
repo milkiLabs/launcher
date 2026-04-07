@@ -161,7 +161,7 @@ internal fun InternalGridDragLayer(
                             width = with(LocalDensity.current) { (cellWidthPx * span.columns).toDp() },
                             height = with(LocalDensity.current) { (cellHeightPx * span.rows).toDp() }
                         )
-                        .padding(Spacing.extraSmall)
+                        .padding(Spacing.none)
                         .zIndex(visuals.zIndex)
                         .graphicsLayer {
                             scaleX = visuals.scale

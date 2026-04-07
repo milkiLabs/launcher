@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.launcher.MenuAction
@@ -14,7 +15,7 @@ import com.milki.launcher.ui.components.launcher.createAppInfoAction
 import com.milki.launcher.ui.components.launcher.createPinAction
 
 @Stable
-class AppItemContextMenuState {
+class ItemContextMenuState {
     var showMenu by mutableStateOf(false)
         private set
 
@@ -49,8 +50,8 @@ class AppItemContextMenuState {
 }
 
 @Composable
-fun rememberAppItemContextMenuState(): AppItemContextMenuState {
-    return remember { AppItemContextMenuState() }
+fun rememberItemContextMenuState(): ItemContextMenuState {
+    return remember { ItemContextMenuState() }
 }
 
 fun buildAppItemMenuActions(appInfo: AppInfo): List<MenuAction> {
@@ -64,4 +65,23 @@ fun buildAppItemMenuActions(appInfo: AppInfo): List<MenuAction> {
         ),
         createAppInfoAction(appInfo.packageName)
     )
+}
+
+fun buildFileItemMenuActions(file: FileDocument): List<MenuAction> {
+    return listOf(
+        createPinAction(
+            isPinned = false,
+            pinAction = SearchResultAction.PinFile(file),
+            unpinAction = SearchResultAction.UnpinItem(
+                HomeItem.PinnedFile.fromFileDocument(file).id
+            )
+        )
+    )
+}
+
+typealias AppItemContextMenuState = ItemContextMenuState
+
+@Composable
+fun rememberAppItemContextMenuState(): AppItemContextMenuState {
+    return rememberItemContextMenuState()
 }

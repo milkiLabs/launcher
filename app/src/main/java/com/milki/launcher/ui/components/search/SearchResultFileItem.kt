@@ -10,15 +10,11 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Slideshow
 import androidx.compose.material.icons.outlined.TableChart
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import com.milki.launcher.domain.model.FileDocumentSearchResult
-import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.formattedSize
 import com.milki.launcher.domain.model.isEpub
 import com.milki.launcher.domain.model.isExcelSpreadsheet
@@ -26,9 +22,9 @@ import com.milki.launcher.domain.model.isPdf
 import com.milki.launcher.domain.model.isPowerPoint
 import com.milki.launcher.domain.model.isTextFile
 import com.milki.launcher.domain.model.isWordDocument
-import com.milki.launcher.presentation.search.SearchResultAction
+import com.milki.launcher.ui.components.common.buildFileItemMenuActions
+import com.milki.launcher.ui.components.common.rememberItemContextMenuState
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
-import com.milki.launcher.ui.components.launcher.createPinAction
 import com.milki.launcher.ui.interaction.dragdrop.startExternalFileDrag
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
@@ -45,8 +41,8 @@ fun FileDocumentSearchResultItem(
 ) {
     val file = result.file
     val hostView = LocalView.current
-    var showMenu by remember { mutableStateOf(false) }
-    var isGestureActive by remember { mutableStateOf(false) }
+    val menuState = rememberItemContextMenuState()
+    val menuActions = remember(file) { buildFileItemMenuActions(file) }
 
     val fileIcon = when {
         file.isPdf() -> Icons.Outlined.PictureAsPdf
@@ -73,16 +69,10 @@ fun FileDocumentSearchResultItem(
             key = "file:${file.id}:${file.uri}",
             dragThreshold = GridConfig.Default.dragThresholdPx,
             onTap = onClick,
-            onLongPress = {
-                showMenu = true
-                isGestureActive = true
-            },
-            onLongPressRelease = {
-                isGestureActive = false
-            },
+            onLongPress = { menuState.onLongPress() },
+            onLongPressRelease = menuState::onLongPressRelease,
             onDragStart = {
-                showMenu = false
-                isGestureActive = false
+                menuState.onDragStart()
 
                 val dragStarted = startExternalFileDrag(
                     hostView = hostView,
@@ -97,9 +87,7 @@ fun FileDocumentSearchResultItem(
             },
             onDrag = { change, _ -> change.consume() },
             onDragEnd = {},
-            onDragCancel = {
-                isGestureActive = false
-            }
+            onDragCancel = menuState::onDragCancel
         )
     ) {
         SearchResultListItem(
@@ -111,18 +99,10 @@ fun FileDocumentSearchResultItem(
         )
 
         ItemActionMenu(
-            expanded = showMenu,
-            onDismiss = { showMenu = false; isGestureActive = false },
-            focusable = !isGestureActive,
-            actions = listOf(
-                createPinAction(
-                    isPinned = false,
-                    pinAction = SearchResultAction.PinFile(file),
-                    unpinAction = SearchResultAction.UnpinItem(
-                        HomeItem.PinnedFile.fromFileDocument(file).id
-                    )
-                )
-            )
+            expanded = menuState.showMenu,
+            onDismiss = menuState::dismiss,
+            focusable = menuState.isMenuFocusable,
+            actions = menuActions
         )
     }
 }

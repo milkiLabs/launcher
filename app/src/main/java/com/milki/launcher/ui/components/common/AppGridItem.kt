@@ -67,7 +67,7 @@ fun AppGridItem(
     ),
     modifier: Modifier = Modifier
 ) {
-    val menuState = rememberAppItemContextMenuState()
+    val menuState = rememberItemContextMenuState()
     val menuActions = remember(appInfo) { buildAppItemMenuActions(appInfo) }
     val hostView = LocalView.current
     val layout = IconLabelLayout(

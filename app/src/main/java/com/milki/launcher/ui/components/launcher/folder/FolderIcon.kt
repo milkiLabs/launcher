@@ -91,9 +91,9 @@ fun FolderIcon(
 ) {
     val layout = if (compact) {
         IconLabelLayout(
-            iconSize = IconSize.appLarge,
+            iconSize = IconSize.appHomeCompact,
             contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
-            labelTopPadding = Spacing.extraSmall,
+            labelTopPadding = Spacing.none,
             labelMaxLines = 1
         )
     } else {
@@ -105,8 +105,8 @@ fun FolderIcon(
         )
     }
 
-    val contentPadding = if (compact) Spacing.extraSmall else Spacing.smallMedium
-    val miniIconSize = if (compact) IconSize.extraSmall else IconSize.small
+    val contentPadding = Spacing.smallMedium
+    val miniIconSize = IconSize.small
     val rootVerticalPadding = if (compact) Spacing.none else Spacing.medium
     val rootHorizontalPadding = if (compact) Spacing.none else Spacing.smallMedium
 

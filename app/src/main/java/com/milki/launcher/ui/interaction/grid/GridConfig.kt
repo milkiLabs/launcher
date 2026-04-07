@@ -69,11 +69,11 @@ data class GridConfig(
     val dragThresholdPx: Float = 20f,
     
     // Drag visual effects
-    val dragScale: Float = 1.15f,
+    val dragScale: Float = 1f,
     val dragAlpha: Float = 0.6f,
     
     // Preview visual effects (item following finger)
-    val previewScale: Float = 1.2f,
+    val previewScale: Float = 1f,
     val previewAlpha: Float = 0.9f,
     
     // Drop target highlight
@@ -111,8 +111,8 @@ data class GridConfig(
         val Accessibility = GridConfig(
             columns = 3,
             dragThresholdPx = 30f,
-            dragScale = 1.1f,
-            previewScale = 1.15f
+            dragScale = 1f,
+            previewScale = 1f
         )
     }
     
