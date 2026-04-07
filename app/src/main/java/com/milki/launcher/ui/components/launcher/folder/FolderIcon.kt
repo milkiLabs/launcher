@@ -82,14 +82,22 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun FolderIcon(
     folder: HomeItem.FolderItem,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val folderIconSize = if (compact) IconSize.appLarge else IconSize.appGrid
+    val contentPadding = if (compact) Spacing.extraSmall else Spacing.smallMedium
+    val miniIconSize = if (compact) IconSize.extraSmall else IconSize.small
+    val labelTopPadding = if (compact) Spacing.extraSmall else Spacing.smallMedium
+    val rootVerticalPadding = if (compact) Spacing.none else Spacing.medium
+    val rootHorizontalPadding = if (compact) Spacing.none else Spacing.smallMedium
+
     // The root column mirrors the layout of PinnedItemContent so the folder
     // icon aligns correctly with other home-screen items.
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.medium, horizontal = Spacing.smallMedium),
+            .padding(vertical = rootVerticalPadding, horizontal = rootHorizontalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -99,7 +107,7 @@ fun FolderIcon(
         // wallpaper peeks through slightly, maintaining the "launcher glass" aesthetic.
         Box(
             modifier = Modifier
-                .size(IconSize.appGrid)
+                .size(folderIconSize)
                 .clip(RoundedCornerShape(CornerRadius.medium))
                 .background(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
@@ -110,7 +118,11 @@ fun FolderIcon(
             // Inner 2×2 mini-icon grid.
             // Padding keeps mini icons away from the rounded corners so they
             // don't visually clip against the background shape.
-            FolderMiniGrid(children = folder.children)
+            FolderMiniGrid(
+                children = folder.children,
+                contentPadding = contentPadding,
+                miniIconSize = miniIconSize
+            )
         }
 
         // ─── Folder label ────────────────────────────────────────────────────
@@ -124,7 +136,7 @@ fun FolderIcon(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = Spacing.smallMedium)
+                .padding(top = labelTopPadding)
         )
     }
 }
@@ -147,7 +159,11 @@ fun FolderIcon(
  * @param children The folder's children list (only the first 4 are rendered).
  */
 @Composable
-private fun FolderMiniGrid(children: List<HomeItem>) {
+private fun FolderMiniGrid(
+    children: List<HomeItem>,
+    contentPadding: androidx.compose.ui.unit.Dp,
+    miniIconSize: androidx.compose.ui.unit.Dp
+) {
     // Take at most 4 items for the preview. If fewer are available,
     // the remaining cells are filled with null (rendered as blank space).
     val previews: List<HomeItem?> = (0 until 4).map { i ->
@@ -156,7 +172,7 @@ private fun FolderMiniGrid(children: List<HomeItem>) {
 
     // Two rows, each containing two mini-icon slots.
     Column(
-        modifier = Modifier.padding(Spacing.smallMedium),
+        modifier = Modifier.padding(contentPadding),
         verticalArrangement = Arrangement.spacedBy(Spacing.none),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -165,16 +181,16 @@ private fun FolderMiniGrid(children: List<HomeItem>) {
             horizontalArrangement = Arrangement.spacedBy(Spacing.none),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FolderMiniIconSlot(item = previews[0])
-            FolderMiniIconSlot(item = previews[1])
+            FolderMiniIconSlot(item = previews[0], miniIconSize = miniIconSize)
+            FolderMiniIconSlot(item = previews[1], miniIconSize = miniIconSize)
         }
         // Row 2: slots 2 and 3
         Row(
             horizontalArrangement = Arrangement.spacedBy(Spacing.none),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FolderMiniIconSlot(item = previews[2])
-            FolderMiniIconSlot(item = previews[3])
+            FolderMiniIconSlot(item = previews[2], miniIconSize = miniIconSize)
+            FolderMiniIconSlot(item = previews[3], miniIconSize = miniIconSize)
         }
     }
 }
@@ -196,10 +212,13 @@ private fun FolderMiniGrid(children: List<HomeItem>) {
  * @param item The home item to render, or null for an empty slot.
  */
 @Composable
-private fun FolderMiniIconSlot(item: HomeItem?) {
+private fun FolderMiniIconSlot(
+    item: HomeItem?,
+    miniIconSize: androidx.compose.ui.unit.Dp
+) {
     // All slots occupy IconSize.small so the 2×2 grid stays perfectly square.
     Box(
-        modifier = Modifier.size(IconSize.small),
+        modifier = Modifier.size(miniIconSize),
         contentAlignment = Alignment.Center
     ) {
         when (item) {
@@ -211,15 +230,15 @@ private fun FolderMiniIconSlot(item: HomeItem?) {
                 // The in-memory icon cache means this is fast and doesn't cause recomposition churn.
                 AppIcon(
                     packageName = item.packageName,
-                    size = IconSize.small,
-                    modifier = Modifier.size(IconSize.small)
+                    size = miniIconSize,
+                    modifier = Modifier.size(miniIconSize)
                 )
             }
             is HomeItem.AppShortcut -> {
                 ShortcutIcon(
                     shortcut = item,
-                    size = IconSize.small,
-                    modifier = Modifier.size(IconSize.small),
+                    size = miniIconSize,
+                    modifier = Modifier.size(miniIconSize),
                     showBrowserBadge = false
                 )
             }
@@ -227,11 +246,11 @@ private fun FolderMiniIconSlot(item: HomeItem?) {
                 // Inline a small colored square for files (avoids importing the private
                 // getFileIconData composable from PinnedItem.kt).
                 // The color gives a quick MIME-category visual cue.
-                MiniFileIconSlot(item = item)
+                MiniFileIconSlot(item = item, miniIconSize = miniIconSize)
             }
             is HomeItem.PinnedContact -> {
                 // Show a small person silhouette on a subtle background.
-                MiniContactIconSlot()
+                MiniContactIconSlot(miniIconSize = miniIconSize)
             }
             is HomeItem.FolderItem -> {
                 // Nested FolderItems should never appear as children (the nesting
@@ -254,7 +273,10 @@ private fun FolderMiniIconSlot(item: HomeItem?) {
  * providing a consistent visual language at the mini preview size.
  */
 @Composable
-private fun MiniFileIconSlot(item: HomeItem.PinnedFile) {
+private fun MiniFileIconSlot(
+    item: HomeItem.PinnedFile,
+    miniIconSize: androidx.compose.ui.unit.Dp
+) {
     // Pick a background color that communicates the file category at a glance.
     val backgroundColor = when {
         item.mimeType == "application/pdf" -> Color(0xFFE53935)        // Red for PDF
@@ -269,7 +291,7 @@ private fun MiniFileIconSlot(item: HomeItem.PinnedFile) {
 
     Box(
         modifier = Modifier
-            .size(IconSize.small)
+            .size(miniIconSize)
             .clip(RoundedCornerShape(CornerRadius.extraSmall))
             .background(color = backgroundColor.copy(alpha = 0.8f))
     )
@@ -279,9 +301,9 @@ private fun MiniFileIconSlot(item: HomeItem.PinnedFile) {
  * MiniContactIconSlot renders a small person silhouette for pinned contacts.
  */
 @Composable
-private fun MiniContactIconSlot() {
+private fun MiniContactIconSlot(miniIconSize: androidx.compose.ui.unit.Dp) {
     Surface(
-        modifier = Modifier.size(IconSize.small),
+        modifier = Modifier.size(miniIconSize),
         shape = RoundedCornerShape(CornerRadius.extraSmall),
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
     ) {

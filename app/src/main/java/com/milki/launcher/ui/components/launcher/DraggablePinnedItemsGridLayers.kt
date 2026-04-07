@@ -261,6 +261,7 @@ internal fun InternalGridDragLayer(
                             onClick = {},
                             onLongClick = {},
                             handleLongPress = false,
+                            compactLayout = true,
                             showMenu = interactionController.menuShownForItemId == item.id,
                             onMenuDismiss = {
                                 interactionController.dismissMenu()

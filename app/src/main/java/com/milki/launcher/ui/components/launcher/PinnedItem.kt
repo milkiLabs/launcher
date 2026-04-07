@@ -71,6 +71,8 @@ import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
+private const val HOME_ITEM_LABEL_MAX_LENGTH = 18
+
 /**
  * PinnedItem displays a single pinned item in the home screen grid.
  *
@@ -108,6 +110,7 @@ fun PinnedItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     handleLongPress: Boolean = true,
+    compactLayout: Boolean = false,
     showMenu: Boolean = false,
     onMenuDismiss: () -> Unit = {},
     menuFocusable: Boolean = true,
@@ -166,7 +169,7 @@ fun PinnedItem(
                 color = Color.Transparent,
                 shape = RoundedCornerShape(CornerRadius.medium)
             ) {
-                PinnedItemContent(item)
+                PinnedItemContent(item = item, compactLayout = compactLayout)
             }
         } else {
             // No gesture handling - parent handles all gestures
@@ -175,7 +178,7 @@ fun PinnedItem(
                 modifier = Modifier
                     .fillMaxWidth()
             ) {
-                PinnedItemContent(item)
+                PinnedItemContent(item = item, compactLayout = compactLayout)
             }
         }
 
@@ -214,13 +217,23 @@ fun PinnedItem(
  * and return so the standard Column below is never built for folders.
  */
 @Composable
-private fun PinnedItemContent(item: HomeItem) {
+private fun PinnedItemContent(
+    item: HomeItem,
+    compactLayout: Boolean
+) {
+    val iconSize = if (compactLayout) IconSize.appLarge else IconSize.appGrid
+    val verticalPadding = if (compactLayout) Spacing.none else Spacing.extraSmall
+    val labelTopPadding = if (compactLayout) Spacing.extraSmall else Spacing.smallMedium
+
     // ── Folder short-circuit ──────────────────────────────────────────────────
     // FolderItem has its own layout with a 2×2 mini-icon preview grid.
     // Delegate directly to FolderIcon and return early to skip the standard
     // single-icon + label column below.
     if (item is HomeItem.FolderItem) {
-        FolderIcon(folder = item)
+        FolderIcon(
+            folder = item,
+            compact = compactLayout
+        )
         return
     }
 
@@ -228,20 +241,20 @@ private fun PinnedItemContent(item: HomeItem) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = Spacing.extraSmall, horizontal = Spacing.none),
+            .padding(vertical = verticalPadding, horizontal = Spacing.none),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
             modifier = Modifier
-                .size(IconSize.appGrid),
+                .size(iconSize),
             contentAlignment = Alignment.Center
         ) {
-            PinnedItemIcon(item = item, size = IconSize.appGrid)
+            PinnedItemIcon(item = item, size = iconSize)
         }
 
         Text(
-            text = getItemLabel(item),
+            text = formatHomeItemLabel(item),
             style = MaterialTheme.typography.bodySmall,
             color = Color.White,
             maxLines = 1,
@@ -249,9 +262,25 @@ private fun PinnedItemContent(item: HomeItem) {
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = Spacing.smallMedium)
+                .padding(top = labelTopPadding)
         )
     }
+}
+
+private fun formatHomeItemLabel(item: HomeItem): String {
+    return truncateHomeItemLabel(getItemLabel(item))
+}
+
+private fun truncateHomeItemLabel(label: String): String {
+    val trimmedLabel = label.trim()
+    if (trimmedLabel.length <= HOME_ITEM_LABEL_MAX_LENGTH) {
+        return trimmedLabel
+    }
+
+    return trimmedLabel
+        .take(HOME_ITEM_LABEL_MAX_LENGTH - 3)
+        .trimEnd()
+        .plus("...")
 }
 
 /**
@@ -311,7 +340,7 @@ private fun getItemLabel(item: HomeItem): String {
         is HomeItem.PinnedApp -> item.label
         is HomeItem.PinnedFile -> item.name
         is HomeItem.PinnedContact -> item.displayName
-        is HomeItem.AppShortcut -> item.shortLabel
+        is HomeItem.AppShortcut -> item.shortLabel.ifBlank { item.longLabel }
         // Folder name is set by the user (defaults to "Folder").
         is HomeItem.FolderItem -> item.name
         // Widget label comes from the provider metadata.
