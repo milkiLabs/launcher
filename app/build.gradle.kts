@@ -67,6 +67,14 @@ android {
             // Reuse release-compatible dependency/resource variants when needed.
             matchingFallbacks += listOf("release")
         }
+
+        // Release-like variant used by macrobenchmarks on connected devices.
+        create("benchmark") {
+            initWith(getByName("release"))
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
         
     }
     
@@ -86,6 +94,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.profileinstaller)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -110,4 +119,35 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+tasks.register("importBaselineProfileFromConnectedTest") {
+    group = "benchmark"
+    description = "Runs baseline profile instrumentation and copies the newest generated baseline-prof.txt into app/src/main/."
+    dependsOn(":baselineprofile:connectedAndroidTest")
+
+    doLast {
+        val outputRoot = project(":baselineprofile")
+            .layout
+            .buildDirectory
+            .dir("outputs/connected_android_test_additional_output")
+            .get()
+            .asFile
+
+        val generatedProfiles = outputRoot
+            .walkTopDown()
+            .filter { it.isFile && it.name == "baseline-prof.txt" }
+            .toList()
+
+        check(generatedProfiles.isNotEmpty()) {
+            "No baseline-prof.txt found under ${outputRoot.absolutePath}. Run baselineprofile tests on a connected device and retry."
+        }
+
+        val newestProfile = generatedProfiles.maxByOrNull { it.lastModified() }
+            ?: error("Unable to select a generated baseline profile.")
+
+        val destination = layout.projectDirectory.file("src/main/baseline-prof.txt").asFile
+        newestProfile.copyTo(destination, overwrite = true)
+        println("Imported baseline profile: ${newestProfile.absolutePath} -> ${destination.absolutePath}")
+    }
 }

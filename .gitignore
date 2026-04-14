@@ -13,4 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
-/baselineprofile
+
+# Benchmark/profile module source should be tracked.
+/baselineprofile/build

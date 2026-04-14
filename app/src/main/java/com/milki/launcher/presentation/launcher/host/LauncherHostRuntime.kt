@@ -4,9 +4,10 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
-import com.milki.launcher.core.intent.isBenchmarkOpenDrawerIntent
-import com.milki.launcher.core.intent.isBenchmarkOpenHomeIntent
+import com.milki.launcher.core.intent.LauncherBenchmarkAction
+import com.milki.launcher.core.intent.toLauncherBenchmarkActionOrNull
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.core.permission.PermissionHandler
@@ -25,6 +26,8 @@ import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.presentation.search.shouldCloseSearch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 
 /**
  * Owns MainActivity orchestration that is not UI rendering.
@@ -37,6 +40,7 @@ internal class LauncherHostRuntime(
     private val searchViewModel: SearchViewModel,
     private val homeViewModel: HomeViewModel,
     private val appDrawerViewModel: AppDrawerViewModel,
+    private val appRepository: AppRepository,
     private val contactsRepository: ContactsRepository,
     private val homeRepository: HomeRepository,
     private val widgetHostManager: WidgetHostManager
@@ -47,6 +51,11 @@ internal class LauncherHostRuntime(
     private lateinit var pinShortcutRequestCoordinator: PinShortcutRequestCoordinator
 
     private val searchSessionController = SearchSessionController(searchViewModel)
+    private val benchmarkHomeSeeder = LauncherBenchmarkHomeSeeder(
+        appRepository = appRepository,
+        homeRepository = homeRepository,
+        ownPackageName = activity.packageName
+    )
 
     val surfaceStateCoordinator: SurfaceStateCoordinatorContract = SurfaceStateCoordinator(
         showSearch = { searchViewModel.showSearch() },
@@ -115,10 +124,10 @@ internal class LauncherHostRuntime(
             return
         }
 
-        when {
-            intent.isBenchmarkOpenDrawerIntent() -> showDrawerForBenchmark()
-            intent.isBenchmarkOpenHomeIntent() -> showHomeForBenchmark()
+        if (handleBenchmarkIntent(intent)) {
+            return
         }
+
     }
 
     fun onNewIntent(intent: Intent) {
@@ -126,15 +135,11 @@ internal class LauncherHostRuntime(
             return
         }
 
+        if (handleBenchmarkIntent(intent)) {
+            return
+        }
+
         when {
-            intent.isBenchmarkOpenDrawerIntent() -> {
-                showDrawerForBenchmark()
-            }
-
-            intent.isBenchmarkOpenHomeIntent() -> {
-                showHomeForBenchmark()
-            }
-
             isLauncherHomeIntent(intent) -> {
                 homeIntentCoordinator.onHomeButtonPressed(
                     isSearchVisible = searchViewModel.uiState.value.isSearchVisible
@@ -143,8 +148,39 @@ internal class LauncherHostRuntime(
         }
     }
 
+    private fun handleBenchmarkIntent(intent: Intent): Boolean {
+        return when (intent.toLauncherBenchmarkActionOrNull()) {
+            LauncherBenchmarkAction.PREPARE_HOME -> {
+                prepareHomeForBenchmark()
+                true
+            }
+
+            LauncherBenchmarkAction.OPEN_DRAWER -> {
+                showDrawerForBenchmark()
+                true
+            }
+
+            LauncherBenchmarkAction.OPEN_HOME -> {
+                showHomeForBenchmark()
+                true
+            }
+
+            null -> false
+        }
+    }
+
     private fun showHomeForBenchmark() {
         resetTransientSurfacesForBenchmark()
+        surfaceStateCoordinator.updateAppDrawerOpen(false)
+    }
+
+    private fun prepareHomeForBenchmark() {
+        resetTransientSurfacesForBenchmark()
+
+        runBlocking(Dispatchers.IO) {
+            benchmarkHomeSeeder.seed()
+        }
+
         surfaceStateCoordinator.updateAppDrawerOpen(false)
     }
 

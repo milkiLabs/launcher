@@ -32,6 +32,7 @@ Comprehensive documentation is available in the [docs/](docs/) directory:
 - **[Architecture](docs/Architecture.md)** - Current package map, layer boundaries, and runtime flow
 - **[Conventions](docs/Conventions.md)** - Placement rules, naming standards, and engineering guardrails
 - **[Contributing](docs/Contributing.md)** - New-contributor setup, workflow, and review checklist
+- **[Performance](docs/Performance.md)** - Benchmarking, baseline profiles, and real-device profiling workflow
 - **[Distilled Learnings](docs/Distilled-Learnings.md)** - Hard-earned lessons from refactors and production-adjacent fixes
 
 ## Quick Start
