@@ -130,10 +130,7 @@ class SettingsViewModel(
         onValidationResult: (String) -> Unit
     ) {
         viewModelScope.launch {
-            val normalizedPrefixes = prefixes
-                .map(SearchSource.Companion::normalizePrefix)
-                .filter { it.isNotBlank() && !it.contains(" ") }
-                .distinct()
+            val normalizedPrefixes = normalizePrefixes(prefixes)
 
             val newSource = SearchSource.create(
                 name = name.trim(),
@@ -159,10 +156,7 @@ class SettingsViewModel(
         onValidationResult: (String) -> Unit
     ) {
         viewModelScope.launch {
-            val normalizedPrefixes = prefixes
-                .map(SearchSource.Companion::normalizePrefix)
-                .filter { it.isNotBlank() && !it.contains(" ") }
-                .distinct()
+            val normalizedPrefixes = normalizePrefixes(prefixes)
 
             val mutationResult = settingsRepository.updateSearchSource(
                 sourceId = sourceId,
@@ -271,9 +265,14 @@ class SettingsViewModel(
     * @param providerId The provider ID (contacts/files)
      * @param prefixes List of prefixes to set for this provider
      */
-    fun setProviderPrefixes(providerId: String, prefixes: List<String>) {
+    fun setProviderPrefixes(
+        providerId: String,
+        prefixes: List<String>,
+        onValidationResult: (String) -> Unit = {}
+    ) {
         viewModelScope.launch {
-            settingsRepository.setProviderPrefixes(providerId, prefixes)
+            val mutationResult = settingsRepository.setProviderPrefixes(providerId, prefixes)
+            onValidationResult(mutationResult.toPrefixUserMessage())
         }
     }
 
@@ -344,11 +343,14 @@ class SettingsViewModel(
      * @return The default prefix for this provider
      */
     private fun getDefaultPrefix(providerId: String): String {
-        return when (providerId) {
-            ProviderId.CONTACTS -> "c"
-            ProviderId.FILES -> "f"
-            else -> ""
-        }
+        return PrefixConfig.defaults[providerId]?.primaryPrefix.orEmpty()
+    }
+
+    private fun normalizePrefixes(prefixes: List<String>): List<String> {
+        return prefixes
+            .map(SearchSource.Companion::normalizePrefix)
+            .filter { it.isNotBlank() && !it.contains(" ") }
+            .distinct()
     }
 
     // ========================================================================

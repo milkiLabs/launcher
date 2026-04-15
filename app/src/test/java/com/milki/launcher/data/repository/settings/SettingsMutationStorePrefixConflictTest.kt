@@ -131,6 +131,36 @@ class SettingsMutationStorePrefixConflictTest {
         )
     }
 
+    @Test
+    fun set_provider_prefixes_rejects_conflict_with_custom_source_prefix() {
+        val preferences = mutablePreferencesOf()
+
+        val result = store.setProviderPrefixes(
+            preferences = preferences,
+            providerId = ProviderId.FILES,
+            prefixes = listOf("g")
+        )
+
+        assertEquals(
+            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_google"),
+            result
+        )
+        assertTrue(storedPrefixConfigurations(preferences).isEmpty())
+    }
+
+    @Test
+    fun set_provider_prefixes_returns_target_not_found_for_unknown_provider() {
+        val preferences = mutablePreferencesOf()
+
+        val result = store.setProviderPrefixes(
+            preferences = preferences,
+            providerId = "unknown_provider",
+            prefixes = listOf("u")
+        )
+
+        assertEquals(PrefixMutationResult.TargetNotFound, result)
+    }
+
     private fun storedPrefixConfigurations(preferences: MutablePreferences): Map<String, List<String>> {
         val json = preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS] ?: return emptyMap()
         return settingsStorageJson.decodeFromString(json)

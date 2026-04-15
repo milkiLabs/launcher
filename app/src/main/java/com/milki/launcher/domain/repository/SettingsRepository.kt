@@ -136,7 +136,10 @@ interface SettingsRepository {
      * @param providerId Stable provider key (see ProviderId constants)
      * @param prefixes New prefixes for this provider; empty means remove custom override
      */
-    suspend fun setProviderPrefixes(providerId: String, prefixes: List<String>)
+    suspend fun setProviderPrefixes(
+        providerId: String,
+        prefixes: List<String>
+    ): PrefixMutationResult
 
     /**
      * Add a prefix for a provider with duplicate protection.

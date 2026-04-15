@@ -24,18 +24,21 @@ import com.milki.launcher.ui.theme.Spacing
 fun AddPrefixDialog(
     existingPrefixes: List<String>,
     onDismiss: () -> Unit,
-    onAdd: (String, (String) -> Unit) -> Unit
+    onAdd: (String, (String) -> Unit) -> Unit,
+    title: String = "Add Prefix",
+    description: String = "Enter a new prefix. It can be one or more characters.",
+    duplicatePrefixMessage: String = "This prefix already exists"
 ) {
     var text by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Prefix") },
+        title = { Text(title) },
         text = {
             Column {
                 Text(
-                    text = "Enter a new prefix for this provider. It can be one or more characters.",
+                    text = description,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -62,7 +65,7 @@ fun AddPrefixDialog(
                     when {
                         trimmed.isEmpty() -> error = "Prefix cannot be empty"
                         trimmed.contains(" ") -> error = "Prefix cannot contain spaces"
-                        trimmed in existingPrefixes -> error = "This prefix already exists"
+                        trimmed in existingPrefixes -> error = duplicatePrefixMessage
                         else -> {
                             onAdd(trimmed) { validationMessage ->
                                 error = validationMessage.ifBlank { null }

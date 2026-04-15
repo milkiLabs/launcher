@@ -167,14 +167,21 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun setProviderPrefixes(providerId: String, prefixes: List<String>) {
+    override suspend fun setProviderPrefixes(
+        providerId: String,
+        prefixes: List<String>
+    ): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
+
         context.settingsDataStore.edit { preferences ->
-            mutationStore.setProviderPrefixes(
+            result = mutationStore.setProviderPrefixes(
                 preferences = preferences,
                 providerId = providerId,
                 prefixes = prefixes
             )
         }
+
+        return result
     }
 
     override suspend fun addProviderPrefix(

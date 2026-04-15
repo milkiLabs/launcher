@@ -151,7 +151,7 @@ fun SourceSettingItem(
             }
 
             if (showAddPrefixDialog) {
-                AddSourcePrefixDialog(
+                AddPrefixDialog(
                     existingPrefixes = source.prefixes,
                     onDismiss = { showAddPrefixDialog = false },
                     onAdd = { newPrefix, onResult ->
@@ -161,7 +161,9 @@ fun SourceSettingItem(
                                 showAddPrefixDialog = false
                             }
                         }
-                    }
+                    },
+                    description = "Enter a new prefix for this source. It can be one or more characters.",
+                    duplicatePrefixMessage = "Prefix already exists in this source"
                 )
             }
         }
@@ -286,60 +288,6 @@ fun SourceEditorDialog(
                 }
             ) {
                 Text(if (initialSource == null) "Add" else "Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-/**
- * Prefix dialog specialized for source-prefix validation feedback flow.
- */
-@Composable
-private fun AddSourcePrefixDialog(
-    existingPrefixes: List<String>,
-    onDismiss: () -> Unit,
-    onAdd: (String, (String) -> Unit) -> Unit
-) {
-    var text by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Prefix") },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = {
-                    text = it
-                    error = null
-                },
-                label = { Text("Prefix") },
-                isError = error != null,
-                supportingText = error?.let { { Text(it) } },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                val normalized = SearchSource.normalizePrefix(text)
-                when {
-                    normalized.isBlank() -> error = "Prefix cannot be empty"
-                    normalized.contains(" ") -> error = "Prefix cannot contain spaces"
-                    existingPrefixes.map(SearchSource.Companion::normalizePrefix).contains(normalized) -> error = "Prefix already exists in this source"
-                    else -> {
-                        onAdd(normalized) { validationMessage ->
-                            error = validationMessage.ifBlank { null }
-                        }
-                    }
-                }
-            }) {
-                Text("Add")
             }
         },
         dismissButton = {

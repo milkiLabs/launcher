@@ -161,9 +161,9 @@ internal class SettingsMutationStore {
         preferences: MutablePreferences,
         providerId: String,
         prefixes: List<String>
-    ) {
+    ): PrefixMutationResult {
         if (providerId !in ProviderId.all) {
-            return
+            return PrefixMutationResult.TargetNotFound
         }
 
         val currentConfigurations =
@@ -183,7 +183,7 @@ internal class SettingsMutationStore {
         )
 
         if (conflictingOwner != null) {
-            return
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner(conflictingOwner.id)
         }
 
         if (normalizedPrefixes.isNotEmpty()) {
@@ -193,6 +193,7 @@ internal class SettingsMutationStore {
         }
 
         writePrefixConfigurations(updatedConfigurations, preferences)
+        return PrefixMutationResult.Success
     }
 
     fun addProviderPrefix(
