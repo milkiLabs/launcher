@@ -63,8 +63,16 @@ internal class LauncherHostRuntime(
     }
 
     val surfaceStateCoordinator = SurfaceStateCoordinator(
-        showSearch = { searchViewModelProvider().showSearch() },
-        hideSearch = { searchViewModelProvider().hideSearch() },
+        showSearch = {
+            traceSection("launcher.search.show") {
+                searchViewModelProvider().showSearch()
+            }
+        },
+        hideSearch = {
+            traceSection("launcher.search.hide") {
+                searchViewModelProvider().hideSearch()
+            }
+        },
         isSearchVisible = { searchViewModelProvider().uiState.value.isSearchVisible },
         isFolderOpen = { homeViewModel.openFolderItem.value != null },
         closeFolder = { homeViewModel.closeFolder() },
@@ -173,7 +181,9 @@ internal class LauncherHostRuntime(
         }
 
         when {
-            isLauncherHomeIntent(intent) -> surfaceStateCoordinator.handleHomeIntent()
+            isLauncherHomeIntent(intent) -> traceSection("launcher.homeIntent.handle") {
+                surfaceStateCoordinator.handleHomeIntent()
+            }
         }
     }
 

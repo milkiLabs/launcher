@@ -59,6 +59,15 @@ import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
+internal fun drawerGridItemKey(index: Int, item: DrawerAdapterItem): String {
+    return when (item) {
+        // Search ranking can interleave the same section key more than once (e.g. C, M, C).
+        // Include index to keep Lazy grid keys unique and avoid duplicate-key crashes.
+        is DrawerAdapterItem.SectionHeader -> "header:${item.sectionKey}:$index"
+        is DrawerAdapterItem.AppEntry -> "app:${item.app.packageName}/${item.app.activityName}"
+    }
+}
+
 /**
  * AppDrawerOverlay - Full-screen drawer surface.
  *
@@ -183,26 +192,27 @@ fun AppDrawerOverlay(
                     verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
                 ) {
                     items(
-                        items = uiState.adapterItems,
-                        key = { item ->
-                            when (item) {
-                                is DrawerAdapterItem.SectionHeader -> "header:${item.sectionKey}"
-                                is DrawerAdapterItem.AppEntry -> "app:${item.app.packageName}/${item.app.activityName}"
-                            }
+                        count = uiState.adapterItems.size,
+                        key = { index ->
+                            val item = uiState.adapterItems[index]
+                            drawerGridItemKey(index = index, item = item)
                         },
-                        span = { item ->
+                        span = { index ->
+                            val item = uiState.adapterItems[index]
                             when (item) {
                                 is DrawerAdapterItem.SectionHeader -> GridItemSpan(maxLineSpan)
                                 is DrawerAdapterItem.AppEntry -> GridItemSpan(1)
                             }
                         },
-                        contentType = { item ->
+                        contentType = { index ->
+                            val item = uiState.adapterItems[index]
                             when (item) {
                                 is DrawerAdapterItem.SectionHeader -> "drawer_section_header"
                                 is DrawerAdapterItem.AppEntry -> "drawer_app_item"
                             }
                         }
-                    ) { item ->
+                    ) { index ->
+                        val item = uiState.adapterItems[index]
                         when (item) {
                             is DrawerAdapterItem.SectionHeader -> {
                                 Text(

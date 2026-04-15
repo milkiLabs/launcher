@@ -104,7 +104,7 @@ data class LauncherSettings(
     val homeTapAction: HomeTapAction = HomeTapAction.OPEN_SEARCH,
 
     /** What happens when the user swipes up on the homescreen */
-    val swipeUpAction: SwipeUpAction = SwipeUpAction.OPEN_SEARCH,
+    val swipeUpAction: SwipeUpAction = SwipeUpAction.OPEN_APP_DRAWER,
 
     // ========================================================================
     // SEARCH PROVIDERS
