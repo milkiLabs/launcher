@@ -23,7 +23,6 @@ import kotlin.coroutines.CoroutineContext
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
     val adapterItems: List<DrawerAdapterItem> = emptyList(),
-    val sections: List<DrawerSection> = emptyList(),
     val query: String = ""
 )
 
@@ -48,53 +47,36 @@ class AppDrawerViewModel(
     private var pendingAppsWhileHidden: List<AppInfo>? = null
     private var resetQueryOnNextOpen = false
 
-    private val normalAssembly = visibleApps
-        .mapLatest { apps ->
-            withContext(assemblyContext) {
-                drawerListAssembler.assembleNormal(apps)
-            }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = DrawerListAssembler.Result(
-                items = emptyList(),
-                sections = emptyList()
-            )
-        )
-
-    private val visibleAssembly = combine(
+    private val visibleAssemblyItems = combine(
         visibleApps,
-        normalAssembly,
         query
-    ) { apps, cachedNormalAssembly, searchQuery ->
-        if (searchQuery.isBlank()) {
-            cachedNormalAssembly
-        } else {
+    ) { apps, searchQuery ->
+        apps to searchQuery
+    }
+        .mapLatest { (apps, searchQuery) ->
             withContext(assemblyContext) {
+                if (searchQuery.isBlank()) {
+                    drawerListAssembler.assembleNormal(apps)
+                } else {
                 drawerListAssembler.assembleSearch(apps, searchQuery)
+                }
             }
         }
-    }
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = DrawerListAssembler.Result(
-                items = emptyList(),
-                sections = emptyList()
-            )
+            initialValue = emptyList()
         )
 
     val uiState = combine(
         isLoading,
-        visibleAssembly,
+        visibleAssemblyItems,
         query
-    ) { loading, assembly, searchQuery ->
+    ) { loading, assemblyItems, searchQuery ->
         AppDrawerUiState(
             isLoading = loading,
-            adapterItems = assembly.items,
-            sections = assembly.sections,
+            adapterItems = assemblyItems,
             query = searchQuery
         )
     }.stateIn(

@@ -4,17 +4,11 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.search.AppQueryRanker
 
 class DrawerListAssembler {
-
-    data class Result(
-        val items: List<DrawerAdapterItem>,
-        val sections: List<DrawerSection>
-    )
-
-    fun assembleNormal(apps: List<AppInfo>): Result {
-        return assembleFromApps(apps = apps, sortSectionsAlphabetically = true)
+    fun assembleNormal(apps: List<AppInfo>): List<DrawerAdapterItem> {
+        return assembleItems(apps = apps, preserveInputOrder = false)
     }
 
-    fun assembleSearch(apps: List<AppInfo>, query: String): Result {
+    fun assembleSearch(apps: List<AppInfo>, query: String): List<DrawerAdapterItem> {
         val normalizedQuery = query.trim()
         if (normalizedQuery.isEmpty()) return assembleNormal(apps)
 
@@ -23,64 +17,39 @@ class DrawerListAssembler {
             query = normalizedQuery,
             includePackageNameMatches = true
         )
-        return assembleFromApps(apps = ranked, sortSectionsAlphabetically = false)
+        return assembleItems(apps = ranked, preserveInputOrder = true)
     }
 
-    private fun assembleFromApps(
+    private fun assembleItems(
         apps: List<AppInfo>,
-        sortSectionsAlphabetically: Boolean
-    ): Result {
-        if (apps.isEmpty()) {
-            return Result(items = emptyList(), sections = emptyList())
-        }
+        preserveInputOrder: Boolean
+    ): List<DrawerAdapterItem> {
+        if (apps.isEmpty()) return emptyList()
 
-        val orderedApps = if (sortSectionsAlphabetically) {
+        val orderedApps = if (preserveInputOrder) {
+            apps
+        } else {
             apps.sortedWith(
                 compareBy<AppInfo> { keySortToken(sectionKeyFor(it)) }
                     .thenBy { it.nameLower }
                     .thenBy { it.packageName }
                     .thenBy { it.activityName }
             )
-        } else {
-            apps
         }
 
-        val items = ArrayList<DrawerAdapterItem>(orderedApps.size + 8)
-        val sections = ArrayList<DrawerSection>()
+        return buildList(orderedApps.size + 8) {
+            var currentSectionKey: String? = null
 
-        var currentSectionKey: String? = null
-        var currentSectionStartIndex = 0
-        var currentSectionCount = 0
+            orderedApps.forEach { app ->
+                val sectionKey = sectionKeyFor(app)
+                if (sectionKey != currentSectionKey) {
+                    currentSectionKey = sectionKey
+                    add(DrawerAdapterItem.SectionHeader(title = sectionKey))
+                }
 
-        fun flushSection() {
-            val key = currentSectionKey ?: return
-            sections += DrawerSection(
-                key = key,
-                title = key,
-                startIndex = currentSectionStartIndex,
-                count = currentSectionCount
-            )
-        }
-
-        orderedApps.forEach { app ->
-            val sectionKey = sectionKeyFor(app)
-            if (sectionKey != currentSectionKey) {
-                flushSection()
-                currentSectionKey = sectionKey
-                currentSectionStartIndex = items.size
-                currentSectionCount = 0
-                items += DrawerAdapterItem.SectionHeader(
-                    sectionKey = sectionKey,
-                    title = sectionKey
-                )
+                add(DrawerAdapterItem.AppEntry(app = app))
             }
-
-            items += DrawerAdapterItem.AppEntry(app = app, sectionKey = sectionKey)
-            currentSectionCount += 1
         }
-
-        flushSection()
-        return Result(items = items, sections = sections)
     }
 
     private fun sectionKeyFor(app: AppInfo): String {
@@ -91,5 +60,4 @@ class DrawerListAssembler {
     private fun keySortToken(key: String): String {
         return if (key == "#") "{" else key
     }
-
 }

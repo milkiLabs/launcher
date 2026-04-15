@@ -2,7 +2,6 @@ package com.milki.launcher.presentation.drawer
 
 import com.milki.launcher.domain.model.AppInfo
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DrawerListAssemblerTest {
@@ -19,7 +18,7 @@ class DrawerListAssemblerTest {
     fun assemble_search_filters_by_app_name_case_insensitive() {
         val result = assembler.assembleSearch(apps = apps, query = "mAp")
 
-        val entries = result.items.filterIsInstance<DrawerAdapterItem.AppEntry>()
+        val entries = result.filterIsInstance<DrawerAdapterItem.AppEntry>()
         assertEquals(1, entries.size)
         assertEquals("Maps", entries.first().app.name)
     }
@@ -28,7 +27,7 @@ class DrawerListAssemblerTest {
     fun assemble_search_filters_by_package_name() {
         val result = assembler.assembleSearch(apps = apps, query = "android.apps.maps")
 
-        val entries = result.items.filterIsInstance<DrawerAdapterItem.AppEntry>()
+        val entries = result.filterIsInstance<DrawerAdapterItem.AppEntry>()
         assertEquals(1, entries.size)
         assertEquals("Maps", entries.first().app.name)
     }
@@ -37,14 +36,13 @@ class DrawerListAssemblerTest {
     fun assemble_search_keeps_only_matching_sections() {
         val result = assembler.assembleSearch(apps = apps, query = "ca")
 
-        val sectionHeaders = result.items.filterIsInstance<DrawerAdapterItem.SectionHeader>()
-        val entries = result.items.filterIsInstance<DrawerAdapterItem.AppEntry>()
+        val sectionHeaders = result.filterIsInstance<DrawerAdapterItem.SectionHeader>()
+        val entries = result.filterIsInstance<DrawerAdapterItem.AppEntry>()
 
         assertEquals(1, sectionHeaders.size)
         assertEquals("C", sectionHeaders.first().title)
         assertEquals(1, entries.size)
         assertEquals("Calendar", entries.first().app.name)
-        assertTrue(result.sections.all { it.key == "C" })
     }
 
     @Test
@@ -55,7 +53,7 @@ class DrawerListAssemblerTest {
         )
 
         val result = assembler.assembleSearch(apps = rankingApps, query = "x")
-        val entries = result.items.filterIsInstance<DrawerAdapterItem.AppEntry>()
+        val entries = result.filterIsInstance<DrawerAdapterItem.AppEntry>()
 
         assertEquals(2, entries.size)
         assertEquals("X Player", entries[0].app.name)

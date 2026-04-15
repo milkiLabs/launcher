@@ -7,13 +7,11 @@ import com.milki.launcher.domain.model.AppInfo
 sealed interface DrawerAdapterItem {
     @Immutable
     data class SectionHeader(
-        val sectionKey: String,
         val title: String
     ) : DrawerAdapterItem
 
     @Immutable
     data class AppEntry(
-        val app: AppInfo,
-        val sectionKey: String
+        val app: AppInfo
     ) : DrawerAdapterItem
 }

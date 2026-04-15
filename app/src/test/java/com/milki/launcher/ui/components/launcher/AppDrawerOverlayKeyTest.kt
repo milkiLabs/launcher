@@ -12,11 +12,11 @@ class AppDrawerOverlayKeyTest {
     fun drawerGridItemKey_repeated_section_headers_produce_unique_keys() {
         val first = drawerGridItemKey(
             index = 0,
-            item = DrawerAdapterItem.SectionHeader(sectionKey = "C", title = "C")
+            item = DrawerAdapterItem.SectionHeader(title = "C")
         )
         val repeated = drawerGridItemKey(
             index = 3,
-            item = DrawerAdapterItem.SectionHeader(sectionKey = "C", title = "C")
+            item = DrawerAdapterItem.SectionHeader(title = "C")
         )
 
         assertNotEquals(first, repeated)
@@ -32,7 +32,7 @@ class AppDrawerOverlayKeyTest {
 
         val key = drawerGridItemKey(
             index = 99,
-            item = DrawerAdapterItem.AppEntry(app = app, sectionKey = "C")
+            item = DrawerAdapterItem.AppEntry(app = app)
         )
 
         assertEquals("app:com.android.calendar/com.android.calendar.LaunchActivity", key)

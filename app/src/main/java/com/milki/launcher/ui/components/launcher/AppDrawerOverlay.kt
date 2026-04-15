@@ -63,7 +63,7 @@ internal fun drawerGridItemKey(index: Int, item: DrawerAdapterItem): String {
     return when (item) {
         // Search ranking can interleave the same section key more than once (e.g. C, M, C).
         // Include index to keep Lazy grid keys unique and avoid duplicate-key crashes.
-        is DrawerAdapterItem.SectionHeader -> "header:${item.sectionKey}:$index"
+        is DrawerAdapterItem.SectionHeader -> "header:${item.title}:$index"
         is DrawerAdapterItem.AppEntry -> "app:${item.app.packageName}/${item.app.activityName}"
     }
 }
