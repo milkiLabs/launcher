@@ -69,7 +69,7 @@ object LauncherInteractionCatalog {
 
     fun defaultActionFor(trigger: LauncherTrigger): LauncherTriggerAction {
         return when (trigger) {
-            LauncherTrigger.HOME_TAP -> LauncherTriggerAction.OPEN_SEARCH
+            LauncherTrigger.HOME_TAP -> LauncherTriggerAction.DO_NOTHING
             LauncherTrigger.HOME_SWIPE_UP -> LauncherTriggerAction.OPEN_APP_DRAWER
         }
     }
@@ -145,7 +145,7 @@ data class LauncherSettings(
      *
      * This is the new unified model for:
      * - Web engines (Google, DuckDuckGo, etc.)
-     * - Social/search sources (YouTube, Instagram, Twitter/X, ...)
+    * - Social/search sources (YouTube, Instagram, ...)
      * - Any custom source created in Settings
      *
      * Behavior notes:

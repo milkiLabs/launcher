@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
  * WHY THIS MODEL EXISTS:
  * Historically, web and YouTube searches were hard-coded in provider classes.
  * That made it hard for users to:
- * - Add new sources like Instagram or Twitter/X
+ * - Add new sources like Instagram
  * - Change prefixes without being constrained to one predefined source
  * - Customize source visuals (accent colors) in the UI
  * - Delete sources they do not need
@@ -95,23 +95,13 @@ data class SearchSource(
         /**
          * Default starter sources used for first run and reset fallback.
          *
-         * These defaults intentionally include the user-requested examples:
+         * These defaults intentionally include a compact starter set:
+         * - DuckDuckGo
          * - YouTube
          * - Instagram
-         * - Twitter/X
-         *
-         * We also include web engines so web search and source search are unified.
          */
         fun defaultSources(): List<SearchSource> {
             return listOf(
-                SearchSource(
-                    id = "source_google",
-                    name = "Google",
-                    urlTemplate = "https://www.google.com/search?q={query}",
-                    prefixes = listOf("g"),
-                    isEnabled = true,
-                    accentColorHex = "#4285F4"
-                ),
                 SearchSource(
                     id = "source_duckduckgo",
                     name = "DuckDuckGo",
@@ -135,14 +125,6 @@ data class SearchSource(
                     prefixes = listOf("ig"),
                     isEnabled = true,
                     accentColorHex = "#E1306C"
-                ),
-                SearchSource(
-                    id = "source_twitter",
-                    name = "Twitter/X",
-                    urlTemplate = "https://x.com/search?q={query}",
-                    prefixes = listOf("x", "tw"),
-                    isEnabled = true,
-                    accentColorHex = "#1D9BF0"
                 )
             )
         }

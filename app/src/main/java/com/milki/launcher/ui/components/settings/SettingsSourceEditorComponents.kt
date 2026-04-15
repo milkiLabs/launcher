@@ -33,11 +33,69 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+
+/**
+ * Card styled like a source item for built-in local providers.
+ */
+@Composable
+fun SourceLikeToggleSettingItem(
+    name: String,
+    subtitle: String,
+    icon: ImageVector,
+    isEnabled: Boolean,
+    onToggleEnabled: (Boolean) -> Unit,
+    accentColor: Color
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
+        shape = RoundedCornerShape(CornerRadius.medium),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = Spacing.none
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(IconSize.standard)
+            )
+
+            Spacer(modifier = Modifier.size(Spacing.smallMedium))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = onToggleEnabled
+            )
+        }
+    }
+}
 
 /**
  * Card that displays one user-configured source with quick actions.

@@ -21,12 +21,12 @@ class SettingsMutationStorePrefixConflictTest {
         val result = store.addProviderPrefix(
             preferences = preferences,
             providerId = ProviderId.CONTACTS,
-            prefix = "g",
+            prefix = "d",
             defaultPrefix = "c"
         )
 
         assertEquals(
-            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_google"),
+            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_duckduckgo"),
             result
         )
         assertTrue(storedPrefixConfigurations(preferences).isEmpty())
@@ -38,7 +38,7 @@ class SettingsMutationStorePrefixConflictTest {
 
         val result = store.addPrefixToSource(
             preferences = preferences,
-            sourceId = "source_google",
+            sourceId = "source_duckduckgo",
             prefix = "c"
         )
 
@@ -78,11 +78,11 @@ class SettingsMutationStorePrefixConflictTest {
 
         val result = store.updateSearchSource(
             preferences = preferences,
-            sourceId = "source_google",
-            name = "Google",
-            urlTemplate = "https://www.google.com/search?q={query}",
+            sourceId = "source_duckduckgo",
+            name = "DuckDuckGo",
+            urlTemplate = "https://duckduckgo.com/?q={query}",
             prefixes = listOf("f"),
-            accentColorHex = "#4285F4"
+            accentColorHex = "#DE5833"
         )
 
         assertEquals(
@@ -138,11 +138,11 @@ class SettingsMutationStorePrefixConflictTest {
         val result = store.setProviderPrefixes(
             preferences = preferences,
             providerId = ProviderId.FILES,
-            prefixes = listOf("g")
+            prefixes = listOf("d")
         )
 
         assertEquals(
-            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_google"),
+            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_duckduckgo"),
             result
         )
         assertTrue(storedPrefixConfigurations(preferences).isEmpty())

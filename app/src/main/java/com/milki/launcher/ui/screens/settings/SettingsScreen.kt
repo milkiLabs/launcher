@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FileDownload
@@ -28,8 +27,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -55,9 +52,9 @@ import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.DropdownSettingItem
 import com.milki.launcher.ui.components.settings.PrefixSettingItem
 import com.milki.launcher.ui.components.settings.SettingsCategory
+import com.milki.launcher.ui.components.settings.SourceLikeToggleSettingItem
 import com.milki.launcher.ui.components.settings.SourceEditorDialog
 import com.milki.launcher.ui.components.settings.SourceSettingItem
-import com.milki.launcher.ui.components.settings.SwitchSettingItem
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -92,14 +89,6 @@ fun SettingsScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
@@ -128,13 +117,9 @@ fun SettingsScreen(
                 actions = actions.homeScreen
             )
 
-            LocalProvidersSection(
-                settings = settings,
-                actions = actions.localProviders
-            )
-
             CustomSourcesSection(
                 settings = settings,
+                localProviderActions = actions.localProviders,
                 actions = actions.customSources,
                 onRequestAddSource = { showAddSourceDialog = true },
                 onRequestEditSource = { editingSource = it },
@@ -333,51 +318,45 @@ private fun HomeScreenSection(
 }
 
 /**
- * Section: Local providers enabled/disabled toggles.
- */
-@Composable
-private fun LocalProvidersSection(
-    settings: LauncherSettings,
-    actions: SettingsLocalProviderActions
-) {
-    SettingsCategory(title = "Search Providers")
-
-    SwitchSettingItem(
-        title = "Contacts search",
-        subtitle = "Search contacts with prefix \"c\"",
-        checked = settings.contactsSearchEnabled,
-        onCheckedChange = actions.onSetContactsSearchEnabled
-    )
-
-    SwitchSettingItem(
-        title = "Files search",
-        subtitle = "Search files with prefix \"f\"",
-        checked = settings.filesSearchEnabled,
-        onCheckedChange = actions.onSetFilesSearchEnabled
-    )
-}
-
-/**
  * Section: Dynamic/custom source CRUD and source-prefix edits.
  */
 @Composable
 private fun CustomSourcesSection(
     settings: LauncherSettings,
+    localProviderActions: SettingsLocalProviderActions,
     actions: SettingsCustomSourceActions,
     onRequestAddSource: () -> Unit,
     onRequestEditSource: (SearchSource) -> Unit,
     onRequestDeleteSource: (String) -> Unit
 ) {
-    SettingsCategory(title = "Custom Sources")
+    SettingsCategory(title = "Search Sources")
 
     Text(
-        text = "Create your own search sources (YouTube, Instagram, Twitter/X, engines, or any URL template). You can configure prefixes, fallback behavior via URL handlers, and custom colors.",
+        text = "Manage local and custom search sources. Add your own URL-template sources, configure prefixes, and control which providers are enabled.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
             horizontal = Spacing.mediumLarge,
             vertical = Spacing.small
         )
+    )
+
+    SourceLikeToggleSettingItem(
+        name = "Contacts",
+        subtitle = "Local provider • Prefix \"c\"",
+        icon = Icons.Default.Person,
+        isEnabled = settings.contactsSearchEnabled,
+        onToggleEnabled = localProviderActions.onSetContactsSearchEnabled,
+        accentColor = MaterialTheme.colorScheme.secondary
+    )
+
+    SourceLikeToggleSettingItem(
+        name = "Files",
+        subtitle = "Local provider • Prefix \"f\"",
+        icon = Icons.AutoMirrored.Filled.InsertDriveFile,
+        isEnabled = settings.filesSearchEnabled,
+        onToggleEnabled = localProviderActions.onSetFilesSearchEnabled,
+        accentColor = MaterialTheme.colorScheme.primary
     )
 
     ActionSettingItem(
