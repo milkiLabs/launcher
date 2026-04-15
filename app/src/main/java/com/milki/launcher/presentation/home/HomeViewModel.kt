@@ -15,6 +15,9 @@ import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -36,8 +39,13 @@ class HomeViewModel(
     private val appContext: Context
 ) : ViewModel(), HomeMutationHandler {
 
+    private companion object {
+        private const val DEFERRED_STARTUP_DELAY_MS = 250L
+    }
+
     private val modelWriter = HomeModelWriter()
     private val openFolderIdFlow = MutableStateFlow<String?>(null)
+    private var deferredStartupJob: Job? = null
 
     private val mutationCoordinator = HomeMutationCoordinator(
         homeRepository = homeRepository,
@@ -66,14 +74,25 @@ class HomeViewModel(
         scope = viewModelScope
     )
 
-    init {
-        iconWarmupCoordinator.start()
-        availabilityPruner.start()
-    }
-
     override fun onCleared() {
+        deferredStartupJob?.cancel()
         availabilityPruner.stop()
         super.onCleared()
+    }
+
+    /**
+     * Starts background-only home maintenance after the first frame is already visible.
+     */
+    fun startDeferredStartupWork() {
+        if (deferredStartupJob != null) {
+            return
+        }
+
+        deferredStartupJob = viewModelScope.launch {
+            delay(DEFERRED_STARTUP_DELAY_MS)
+            iconWarmupCoordinator.start()
+            availabilityPruner.start()
+        }
     }
 
     /** Canonical pinned-item model consumed by the homescreen grid. */

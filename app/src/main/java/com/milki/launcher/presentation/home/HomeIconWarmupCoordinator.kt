@@ -22,6 +22,8 @@ internal class HomeIconWarmupCoordinator(
     private val packageManager: PackageManager,
     private val scope: CoroutineScope
 ) {
+    @Volatile
+    private var started = false
 
     private data class VisibleHomeIcons(
         val packageNames: Set<String>,
@@ -29,6 +31,11 @@ internal class HomeIconWarmupCoordinator(
     )
 
     fun start() {
+        if (started) {
+            return
+        }
+        started = true
+
         scope.launch(Dispatchers.IO) {
             homeRepository.pinnedItems
                 .map(::collectVisibleHomeIcons)

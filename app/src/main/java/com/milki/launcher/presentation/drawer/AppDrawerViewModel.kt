@@ -71,6 +71,8 @@ class AppDrawerViewModel(
         private const val DRAWER_HIDDEN_DEFER_FLAG = "drawer-hidden"
     }
 
+    private var resetQueryOnNextOpen = false
+
     /**
      * Shared installed-app stream scoped to this ViewModel.
      */
@@ -172,10 +174,22 @@ class AppDrawerViewModel(
     }
 
     fun updateQuery(query: String) {
+        if (this.query.value == query) return
+
         this.query.value = query
+        if (query.isNotBlank()) {
+            resetQueryOnNextOpen = false
+        }
     }
 
     fun setDrawerVisible(isVisible: Boolean) {
+        if (!isVisible && query.value.isNotBlank()) {
+            resetQueryOnNextOpen = true
+        } else if (isVisible && resetQueryOnNextOpen) {
+            query.value = ""
+            resetQueryOnNextOpen = false
+        }
+
         if (isDrawerVisible.value == isVisible) return
 
         isDrawerVisible.value = isVisible

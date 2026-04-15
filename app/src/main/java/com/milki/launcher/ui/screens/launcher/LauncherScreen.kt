@@ -292,7 +292,6 @@ private fun DrawerHost(
         isOpen = isAppDrawerOpen,
         sheetState = appDrawerSheetState,
         onDismissRequest = { actions.drawer.onAppDrawerOpenChange(false) },
-        onClosed = { actions.drawer.onQueryChange("") },
         keepMountedWhenClosed = true
     ) {
         AppDrawerOverlay(

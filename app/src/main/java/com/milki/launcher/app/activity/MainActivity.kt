@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
                 appDrawerViewModel = appDrawerViewModel,
                 settingsRepository = settingsRepository,
                 widgetHostManager = widgetHostManager,
-                widgetPickerCatalogStore = widgetPickerCatalogStore
+                obtainWidgetPickerCatalogStore = { widgetPickerCatalogStore }
             )
         }
     }

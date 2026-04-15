@@ -5,7 +5,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -38,7 +41,7 @@ internal fun LauncherRootContent(
     appDrawerViewModel: AppDrawerViewModel,
     settingsRepository: SettingsRepository,
     widgetHostManager: WidgetHostManager,
-    widgetPickerCatalogStore: WidgetPickerCatalogStore
+    obtainWidgetPickerCatalogStore: () -> WidgetPickerCatalogStore
 ) {
     val searchUiState by searchViewModel.uiState.collectAsStateWithLifecycle()
     val pinnedItems by homeViewModel.pinnedItems.collectAsStateWithLifecycle()
@@ -52,6 +55,7 @@ internal fun LauncherRootContent(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val surfaceStateCoordinator = runtime.surfaceStateCoordinator
+    var widgetPickerCatalogStore by remember { mutableStateOf<WidgetPickerCatalogStore?>(null) }
 
     CompositionLocalProvider(
         LocalSearchActionHandler provides runtime::dispatchSearchResultAction,
@@ -63,12 +67,11 @@ internal fun LauncherRootContent(
             )
         }
 
-        LaunchedEffect(surfaceStateCoordinator.isAppDrawerOpen) {
-            appDrawerViewModel.setDrawerVisible(surfaceStateCoordinator.isAppDrawerOpen)
-        }
-
-        LaunchedEffect(widgetPickerCatalogStore) {
-            widgetPickerCatalogStore.prewarm()
+        LaunchedEffect(runtime) {
+            withFrameNanos { }
+            val catalogStore = obtainWidgetPickerCatalogStore()
+            widgetPickerCatalogStore = catalogStore
+            runtime.completeDeferredStartup(catalogStore)
         }
 
         LaunchedEffect(

@@ -110,6 +110,7 @@ interface SurfaceStateCoordinatorContract {
 class SurfaceStateCoordinator(
     private val showSearch: () -> Unit,
     private val hideSearch: () -> Unit,
+    private val isSearchVisible: () -> Boolean = { false },
     private val isFolderOpen: () -> Boolean,
     private val closeFolder: () -> Unit,
     private val onAppDrawerVisibilityChanged: (Boolean) -> Unit = {}
@@ -148,6 +149,9 @@ class SurfaceStateCoordinator(
      * Updates homescreen menu visibility.
      */
     override fun updateHomescreenMenuOpen(isOpen: Boolean) {
+        if (isHomescreenMenuOpen == isOpen) {
+            return
+        }
         if (isOpen) {
             dismissContextMenus()
         }
@@ -158,6 +162,9 @@ class SurfaceStateCoordinator(
      * Updates app drawer visibility.
      */
     override fun updateAppDrawerOpen(isOpen: Boolean) {
+        if (isAppDrawerOpen == isOpen) {
+            return
+        }
         dismissContextMenus()
         applyDrawerVisibility(isOpen)
     }
@@ -166,6 +173,9 @@ class SurfaceStateCoordinator(
      * Updates widget picker visibility.
      */
     override fun updateWidgetPickerOpen(isOpen: Boolean) {
+        if (isWidgetPickerOpen == isOpen) {
+            return
+        }
         dismissContextMenus()
         isWidgetPickerOpen = isOpen
         if (!isOpen) {
@@ -191,20 +201,40 @@ class SurfaceStateCoordinator(
         when (action) {
             SwipeUpAction.OPEN_SEARCH -> {
                 dismissContextMenus()
-                isHomescreenMenuOpen = false
-                applyDrawerVisibility(false)
-                isWidgetPickerOpen = false
-                closeFolder()
-                showSearch()
+                if (isHomescreenMenuOpen) {
+                    isHomescreenMenuOpen = false
+                }
+                if (isAppDrawerOpen) {
+                    applyDrawerVisibility(false)
+                }
+                if (isWidgetPickerOpen) {
+                    isWidgetPickerOpen = false
+                }
+                if (isFolderOpen()) {
+                    closeFolder()
+                }
+                if (!isSearchVisible()) {
+                    showSearch()
+                }
             }
 
             SwipeUpAction.OPEN_APP_DRAWER -> {
                 dismissContextMenus()
-                isHomescreenMenuOpen = false
-                hideSearch()
-                isWidgetPickerOpen = false
-                closeFolder()
-                applyDrawerVisibility(true)
+                if (isHomescreenMenuOpen) {
+                    isHomescreenMenuOpen = false
+                }
+                if (isSearchVisible()) {
+                    hideSearch()
+                }
+                if (isWidgetPickerOpen) {
+                    isWidgetPickerOpen = false
+                }
+                if (isFolderOpen()) {
+                    closeFolder()
+                }
+                if (!isAppDrawerOpen) {
+                    applyDrawerVisibility(true)
+                }
             }
 
             SwipeUpAction.DO_NOTHING -> Unit

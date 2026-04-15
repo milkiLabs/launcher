@@ -27,21 +27,15 @@ class DrawerAppStore {
     private var deferred: DrawerDeferredUpdates? = null
 
     fun setApps(apps: List<AppInfo>, flags: DrawerModelFlags) {
-        val normalized = apps
-            .distinctBy { "${it.packageName}/${it.activityName}" }
-            .sortedWith(compareBy<AppInfo> { it.name.lowercase() }
-                .thenBy { it.packageName }
-                .thenBy { it.activityName })
-
         if (deferFlags.isNotEmpty()) {
             deferred = DrawerDeferredUpdates(
-                apps = normalized,
+                apps = apps,
                 flags = flags.copy(deferredReason = deferFlags.joinToString(","))
             )
             return
         }
 
-        commit(normalized, flags)
+        commit(apps, flags)
     }
 
     fun enableDefer(flag: String) {
@@ -72,8 +66,16 @@ class DrawerAppStore {
     }
 
     private fun commit(apps: List<AppInfo>, flags: DrawerModelFlags) {
-        lookup = DrawerAppLookup(apps)
-        _apps.value = apps
-        listeners.forEach { it.onAppsUpdated(apps, flags) }
+        val normalized = apps
+            .distinctBy { "${it.packageName}/${it.activityName}" }
+            .sortedWith(
+                compareBy<AppInfo> { it.name.lowercase() }
+                    .thenBy { it.packageName }
+                    .thenBy { it.activityName }
+            )
+
+        lookup = DrawerAppLookup(normalized)
+        _apps.value = normalized
+        listeners.forEach { it.onAppsUpdated(normalized, flags) }
     }
 }

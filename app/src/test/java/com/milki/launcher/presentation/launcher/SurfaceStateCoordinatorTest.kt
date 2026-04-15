@@ -133,6 +133,7 @@ class SurfaceStateCoordinatorTest {
         val coordinator = SurfaceStateCoordinator(
             showSearch = { showSearchCalls++ },
             hideSearch = { hideSearchCalls++ },
+            isSearchVisible = { true },
             isFolderOpen = { folderOpen },
             closeFolder = {
                 closeFolderCalls++
@@ -168,6 +169,43 @@ class SurfaceStateCoordinatorTest {
         coordinator.handleBackPressed(isSearchVisible = false)
 
         assertEquals(listOf(true, false), visibilityChanges)
+    }
+
+    @Test
+    fun repeated_drawer_visibility_updates_are_noops() {
+        val visibilityChanges = mutableListOf<Boolean>()
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
+            hideSearch = { },
+            isFolderOpen = { false },
+            closeFolder = { },
+            onAppDrawerVisibilityChanged = visibilityChanges::add
+        )
+
+        coordinator.updateAppDrawerOpen(true)
+        coordinator.updateAppDrawerOpen(true)
+        coordinator.updateAppDrawerOpen(false)
+        coordinator.updateAppDrawerOpen(false)
+
+        assertEquals(listOf(true, false), visibilityChanges)
+    }
+
+    @Test
+    fun swipe_open_drawer_does_not_hide_search_when_search_already_hidden() {
+        var hideSearchCalls = 0
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { },
+            hideSearch = { hideSearchCalls++ },
+            isSearchVisible = { false },
+            isFolderOpen = { false },
+            closeFolder = { }
+        )
+
+        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_APP_DRAWER)
+
+        assertEquals(0, hideSearchCalls)
     }
 
     @Test

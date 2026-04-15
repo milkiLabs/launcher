@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
+import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.core.intent.LauncherBenchmarkAction
 import com.milki.launcher.core.intent.toLauncherBenchmarkActionOrNull
 import com.milki.launcher.data.widget.WidgetHostManager
@@ -45,6 +46,9 @@ internal class LauncherHostRuntime(
     private val homeRepository: HomeRepository,
     private val widgetHostManager: WidgetHostManager
 ) {
+    @Volatile
+    private var deferredStartupCompleted = false
+
     private lateinit var permissionHandler: PermissionHandler
     private lateinit var actionExecutor: ActionExecutor
     private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
@@ -60,6 +64,7 @@ internal class LauncherHostRuntime(
     val surfaceStateCoordinator: SurfaceStateCoordinatorContract = SurfaceStateCoordinator(
         showSearch = { searchViewModel.showSearch() },
         hideSearch = { searchViewModel.hideSearch() },
+        isSearchVisible = { searchViewModel.uiState.value.isSearchVisible },
         isFolderOpen = { homeViewModel.openFolderItem.value != null },
         closeFolder = { homeViewModel.closeFolder() },
         onAppDrawerVisibilityChanged = appDrawerViewModel::setDrawerVisible
@@ -80,6 +85,19 @@ internal class LauncherHostRuntime(
         initializeHandlers()
         initializeBackButtonBehavior()
         widgetPlacementCoordinator.initialize()
+    }
+
+    /**
+     * Runs startup work that can wait until the first frame is already visible.
+     */
+    fun completeDeferredStartup(widgetPickerCatalogStore: WidgetPickerCatalogStore) {
+        if (deferredStartupCompleted) {
+            return
+        }
+        deferredStartupCompleted = true
+
+        homeViewModel.startDeferredStartupWork()
+        widgetPickerCatalogStore.prewarm()
     }
 
     /**

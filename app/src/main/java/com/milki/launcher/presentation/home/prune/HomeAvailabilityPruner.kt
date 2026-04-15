@@ -35,6 +35,8 @@ internal class HomeAvailabilityPruner(
     private val mutationCoordinator: HomeMutationCoordinator,
     private val scope: CoroutineScope
 ) {
+    @Volatile
+    private var started = false
 
     private data class InstalledAppAvailability(
         val validPackages: Set<String>,
@@ -60,6 +62,11 @@ internal class HomeAvailabilityPruner(
     }
 
     fun start() {
+        if (started) {
+            return
+        }
+        started = true
+
         observePruneRequests()
         observeInstalledAvailability()
         registerFileStorageObservers()
