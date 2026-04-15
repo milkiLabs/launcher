@@ -23,14 +23,6 @@ data class SettingsHomeScreenActions(
 )
 
 /**
- * Actions used by local-provider on/off switches.
- */
-data class SettingsLocalProviderActions(
-    val onSetContactsSearchEnabled: (Boolean) -> Unit,
-    val onSetFilesSearchEnabled: (Boolean) -> Unit
-)
-
-/**
  * Actions used by dynamic/custom source management section.
  */
 data class SettingsCustomSourceActions(
@@ -59,6 +51,8 @@ data class SettingsCustomSourceActions(
  * Actions used by local-provider prefix editing section.
  */
 data class SettingsLocalPrefixActions(
+    val onSetContactsSearchEnabled: (Boolean) -> Unit,
+    val onSetFilesSearchEnabled: (Boolean) -> Unit,
     val onAddProviderPrefix: (String, String, (String) -> Unit) -> Unit,
     val onRemoveProviderPrefix: (String, String) -> Unit,
     val onResetProviderPrefixes: (String) -> Unit
@@ -79,7 +73,6 @@ data class SettingsAdvancedActions(
 data class SettingsActions(
     val onOpenDefaultLauncherSettings: () -> Unit,
     val homeScreen: SettingsHomeScreenActions,
-    val localProviders: SettingsLocalProviderActions,
     val customSources: SettingsCustomSourceActions,
     val localPrefixes: SettingsLocalPrefixActions,
     val advanced: SettingsAdvancedActions

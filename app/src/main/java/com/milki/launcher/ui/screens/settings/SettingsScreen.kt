@@ -52,7 +52,6 @@ import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.DropdownSettingItem
 import com.milki.launcher.ui.components.settings.PrefixSettingItem
 import com.milki.launcher.ui.components.settings.SettingsCategory
-import com.milki.launcher.ui.components.settings.SourceLikeToggleSettingItem
 import com.milki.launcher.ui.components.settings.SourceEditorDialog
 import com.milki.launcher.ui.components.settings.SourceSettingItem
 import com.milki.launcher.ui.theme.Spacing
@@ -119,7 +118,6 @@ fun SettingsScreen(
 
             CustomSourcesSection(
                 settings = settings,
-                localProviderActions = actions.localProviders,
                 actions = actions.customSources,
                 onRequestAddSource = { showAddSourceDialog = true },
                 onRequestEditSource = { editingSource = it },
@@ -323,7 +321,6 @@ private fun HomeScreenSection(
 @Composable
 private fun CustomSourcesSection(
     settings: LauncherSettings,
-    localProviderActions: SettingsLocalProviderActions,
     actions: SettingsCustomSourceActions,
     onRequestAddSource: () -> Unit,
     onRequestEditSource: (SearchSource) -> Unit,
@@ -332,31 +329,13 @@ private fun CustomSourcesSection(
     SettingsCategory(title = "Search Sources")
 
     Text(
-        text = "Manage local and custom search sources. Add your own URL-template sources, configure prefixes, and control which providers are enabled.",
+        text = "Manage custom URL-template search sources and their prefixes.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
             horizontal = Spacing.mediumLarge,
             vertical = Spacing.small
         )
-    )
-
-    SourceLikeToggleSettingItem(
-        name = "Contacts",
-        subtitle = "Local provider • Prefix \"c\"",
-        icon = Icons.Default.Person,
-        isEnabled = settings.contactsSearchEnabled,
-        onToggleEnabled = localProviderActions.onSetContactsSearchEnabled,
-        accentColor = MaterialTheme.colorScheme.secondary
-    )
-
-    SourceLikeToggleSettingItem(
-        name = "Files",
-        subtitle = "Local provider • Prefix \"f\"",
-        icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-        isEnabled = settings.filesSearchEnabled,
-        onToggleEnabled = localProviderActions.onSetFilesSearchEnabled,
-        accentColor = MaterialTheme.colorScheme.primary
     )
 
     ActionSettingItem(
@@ -393,7 +372,7 @@ private fun LocalPrefixesSection(
     SettingsCategory(title = "Local Prefixes")
 
     Text(
-        text = "Customize prefixes for local providers. External source prefixes are configured in the Custom Sources section.",
+        text = "Customize local provider prefixes and enable or disable each provider.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
@@ -407,6 +386,8 @@ private fun LocalPrefixesSection(
         providerIcon = Icons.Default.Person,
         providerColor = MaterialTheme.colorScheme.secondary,
         defaultPrefix = "c",
+        isEnabled = settings.contactsSearchEnabled,
+        onToggleEnabled = actions.onSetContactsSearchEnabled,
         currentPrefixes = settings.prefixConfigurations[ProviderId.CONTACTS]?.prefixes
             ?: listOf("c"),
         onAddPrefix = { prefix, onResult ->
@@ -421,6 +402,8 @@ private fun LocalPrefixesSection(
         providerIcon = Icons.AutoMirrored.Filled.InsertDriveFile,
         providerColor = MaterialTheme.colorScheme.primaryContainer,
         defaultPrefix = "f",
+        isEnabled = settings.filesSearchEnabled,
+        onToggleEnabled = actions.onSetFilesSearchEnabled,
         currentPrefixes = settings.prefixConfigurations[ProviderId.FILES]?.prefixes
             ?: listOf("f"),
         onAddPrefix = { prefix, onResult ->

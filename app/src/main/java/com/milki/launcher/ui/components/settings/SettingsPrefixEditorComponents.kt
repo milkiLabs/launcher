@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,6 +49,8 @@ fun PrefixSettingItem(
     providerIcon: ImageVector,
     providerColor: Color,
     defaultPrefix: String,
+    isEnabled: Boolean? = null,
+    onToggleEnabled: ((Boolean) -> Unit)? = null,
     currentPrefixes: List<String>,
     onAddPrefix: (String, (String) -> Unit) -> Unit,
     onRemovePrefix: (String) -> Unit,
@@ -82,6 +85,13 @@ fun PrefixSettingItem(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.weight(1f))
+                if (isEnabled != null && onToggleEnabled != null) {
+                    Switch(
+                        checked = isEnabled,
+                        onCheckedChange = onToggleEnabled
+                    )
+                    Spacer(modifier = Modifier.width(Spacing.small))
+                }
                 if (currentPrefixes != listOf(defaultPrefix) && currentPrefixes.isNotEmpty()) {
                     TextButton(
                         onClick = onReset,

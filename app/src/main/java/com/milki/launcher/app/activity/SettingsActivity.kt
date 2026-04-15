@@ -26,7 +26,6 @@ import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
 import com.milki.launcher.ui.screens.settings.SettingsCustomSourceActions
 import com.milki.launcher.ui.screens.settings.SettingsHomeScreenActions
 import com.milki.launcher.ui.screens.settings.SettingsLocalPrefixActions
-import com.milki.launcher.ui.screens.settings.SettingsLocalProviderActions
 import com.milki.launcher.ui.screens.settings.SettingsScreen
 import com.milki.launcher.ui.theme.LauncherTheme
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -100,10 +99,6 @@ class SettingsActivity : ComponentActivity() {
                     homeScreen = SettingsHomeScreenActions(
                         onSetTriggerAction = settingsViewModel::setTriggerAction
                     ),
-                    localProviders = SettingsLocalProviderActions(
-                        onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,
-                        onSetFilesSearchEnabled = settingsViewModel::setFilesSearchEnabled
-                    ),
                     customSources = SettingsCustomSourceActions(
                         onAddSearchSource = settingsViewModel::addSearchSource,
                         onUpdateSearchSource = settingsViewModel::updateSearchSource,
@@ -113,6 +108,8 @@ class SettingsActivity : ComponentActivity() {
                         onRemovePrefixFromSource = settingsViewModel::removePrefixFromSource
                     ),
                     localPrefixes = SettingsLocalPrefixActions(
+                        onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,
+                        onSetFilesSearchEnabled = settingsViewModel::setFilesSearchEnabled,
                         onAddProviderPrefix = settingsViewModel::addProviderPrefix,
                         onRemoveProviderPrefix = settingsViewModel::removeProviderPrefix,
                         onResetProviderPrefixes = settingsViewModel::resetProviderPrefixes
