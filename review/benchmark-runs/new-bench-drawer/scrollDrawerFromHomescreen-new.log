@@ -1,0 +1,79 @@
+
+com.milki.launcher.benchmark.LauncherHomeBenchmark:INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter001_2026-04-15-22-10-06.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter001_2026-04-15-22-10-06.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter002_2026-04-15-22-10-10.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter002_2026-04-15-22-10-10.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter003_2026-04-15-22-10-14.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter003_2026-04-15-22-10-14.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter004_2026-04-15-22-10-18.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter004_2026-04-15-22-10-18.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter005_2026-04-15-22-10-22.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter005_2026-04-15-22-10-22.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter006_2026-04-15-22-10-26.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter006_2026-04-15-22-10-26.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter008_2026-04-15-22-10-34.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter008_2026-04-15-22-10-34.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter009_2026-04-15-22-10-38.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter009_2026-04-15-22-10-38.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter010_2026-04-15-22-10-42.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter010_2026-04-15-22-10-42.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter011_2026-04-15-22-10-46.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter011_2026-04-15-22-10-46.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter013_2026-04-15-22-10-55.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter013_2026-04-15-22-10-55.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter014_2026-04-15-22-10-59.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter014_2026-04-15-22-10-59.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=Delay to await runtime image flush
+Unable to clear Runtime Image, subsequent launches/iterations may exhibit faster startup than production due to accelerated class loading.
+
+LauncherHomeBenchmark_scrollDrawerFromHomescreen
+  frameCount           [min  12.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace),   [median  53.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace),   [max  69.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace)
+  frameDurationCpuMs   P50    9.5,   P90   75.6,   P95  118.1,   P99  190.4
+  frameOverrunMs       P50    4.3,   P90  127.7,   P95  207.8,   P99  297.4
+    Traces: Iteration [0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace) [1](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter001_2026-04-15-22-10-06.perfetto-trace) [2](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter002_2026-04-15-22-10-10.perfetto-trace) [3](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter003_2026-04-15-22-10-14.perfetto-trace) [4](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter004_2026-04-15-22-10-18.perfetto-trace) [5](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter005_2026-04-15-22-10-22.perfetto-trace) [6](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter006_2026-04-15-22-10-26.perfetto-trace) [7](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace) [8](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter008_2026-04-15-22-10-34.perfetto-trace) [9](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter009_2026-04-15-22-10-38.perfetto-trace) [10](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter010_2026-04-15-22-10-42.perfetto-trace) [11](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter011_2026-04-15-22-10-46.perfetto-trace) [12](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace) [13](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter013_2026-04-15-22-10-55.perfetto-trace) [14](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter014_2026-04-15-22-10-59.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=Delay to await runtime image flush
+Unable to clear Runtime Image, subsequent launches/iterations may exhibit faster startup than production due to accelerated class loading.
+
+LauncherHomeBenchmark_scrollDrawerFromHomescreen
+  frameCount           [min  12.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace),   [median  53.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace),   [max  69.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace)
+  frameDurationCpuMs   P50    9.5,   P90   75.6,   P95  118.1,   P99  190.4
+  frameOverrunMs       P50    4.3,   P90  127.7,   P95  207.8,   P99  297.4
+    Traces: Iteration [0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace) [1](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter001_2026-04-15-22-10-06.perfetto-trace) [2](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter002_2026-04-15-22-10-10.perfetto-trace) [3](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter003_2026-04-15-22-10-14.perfetto-trace) [4](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter004_2026-04-15-22-10-18.perfetto-trace) [5](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter005_2026-04-15-22-10-22.perfetto-trace) [6](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter006_2026-04-15-22-10-26.perfetto-trace) [7](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace) [8](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter008_2026-04-15-22-10-34.perfetto-trace) [9](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter009_2026-04-15-22-10-38.perfetto-trace) [10](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter010_2026-04-15-22-10-42.perfetto-trace) [11](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter011_2026-04-15-22-10-46.perfetto-trace) [12](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace) [13](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter013_2026-04-15-22-10-55.perfetto-trace) [14](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter014_2026-04-15-22-10-59.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=Delay to await runtime image flush
+Unable to clear Runtime Image, subsequent launches/iterations may exhibit faster startup than production due to accelerated class loading.
+
+LauncherHomeBenchmark_scrollDrawerFromHomescreen
+  frameCount           [min  12.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace),   [median  53.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace),   [max  69.0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace)
+  frameDurationCpuMs   P50    9.5,   P90   75.6,   P95  118.1,   P99  190.4
+  frameOverrunMs       P50    4.3,   P90  127.7,   P95  207.8,   P99  297.4
+    Traces: Iteration [0](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter000_2026-04-15-22-10-02.perfetto-trace) [1](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter001_2026-04-15-22-10-06.perfetto-trace) [2](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter002_2026-04-15-22-10-10.perfetto-trace) [3](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter003_2026-04-15-22-10-14.perfetto-trace) [4](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter004_2026-04-15-22-10-18.perfetto-trace) [5](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter005_2026-04-15-22-10-22.perfetto-trace) [6](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter006_2026-04-15-22-10-26.perfetto-trace) [7](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter007_2026-04-15-22-10-30.perfetto-trace) [8](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter008_2026-04-15-22-10-34.perfetto-trace) [9](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter009_2026-04-15-22-10-38.perfetto-trace) [10](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter010_2026-04-15-22-10-42.perfetto-trace) [11](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter011_2026-04-15-22-10-46.perfetto-trace) [12](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter012_2026-04-15-22-10-50.perfetto-trace) [13](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter013_2026-04-15-22-10-55.perfetto-trace) [14](file://LauncherHomeBenchmark_scrollDrawerFromHomescreen_iter014_2026-04-15-22-10-59.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile
+INSTRUMENTATION_STATUS: frame_count_median=53.0
+INSTRUMENTATION_STATUS: frame_count_min=12.0
+INSTRUMENTATION_STATUS: frame_count_stddev=13.262191157034131
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p50=9.533177
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p90=75.64809379999991
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p95=118.09237744999997
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p99=190.3581576199999
+INSTRUMENTATION_STATUS: frame_overrun_millis_p50=4.299898000000001
+INSTRUMENTATION_STATUS: frame_overrun_millis_p90=127.68369419999995
+INSTRUMENTATION_STATUS: frame_overrun_millis_p95=207.76407204999995
+INSTRUMENTATION_STATUS: frame_overrun_millis_p99=297.3535818799993
+INSTRUMENTATION_STATUS_CODE: 2
+.
+
+Time: 128.551
+
+OK (1 test)
+
+

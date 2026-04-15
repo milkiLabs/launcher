@@ -12,6 +12,17 @@ import kotlinx.coroutines.withContext
 /**
  * Scans launcher activities and maps them into AppInfo models.
  *
+ * COLD START OPTIMIZATION:
+ * Label resolution via PackageManager IPC dominates cold start time
+ * (~673ms for 28 apps). On the first load after process creation, this
+ * catalog reads labels from a SharedPreferences cache instead of PM IPC.
+ * Cache misses (new installs) fall back to PM. After resolution, the
+ * cache is updated so the next cold start benefits.
+ *
+ * Subsequent loads (triggered by package change broadcasts) always resolve
+ * fresh from PM because the PM process is warm by then, and the cache is
+ * updated with fresh values.
+ *
  * ARCHITECTURE DECISION:
  * This catalog intentionally does NOT load icons. Icon loading is the most
  * expensive part of app enumeration (~6s for 60 apps) and is handled by
@@ -19,13 +30,16 @@ import kotlinx.coroutines.withContext
  * - HomeIconWarmupCoordinator: preloads icons for home screen items
  * - AppIcon composable: loads icons on-demand when they become visible
  *
- * This keeps catalog scans fast (~130ms) and avoids flooding IO threads
+ * This keeps catalog scans fast and avoids flooding IO threads
  * during startup with icon work that no consumer needs yet.
  */
 internal class InstalledAppsCatalog(
     private val application: Application,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
+
+    private val labelCache = AppLabelCache(application)
+    private var isFirstLoad = true
 
     suspend fun loadInstalledApps(): List<AppInfo> {
         return withContext(dispatcher) {
@@ -39,13 +53,29 @@ internal class InstalledAppsCatalog(
                 packageManager.queryIntentActivitiesCompat(launcherQueryIntent)
             }
 
-            activities.map { resolveInfo ->
+            // On first load: read cached labels to skip expensive PM IPC.
+            // On subsequent loads (package changes): resolve fresh from PM.
+            val useLabelCache = isFirstLoad
+            isFirstLoad = false
+            val cachedLabels = if (useLabelCache) labelCache.readAll() else emptyMap()
+
+            var hadCacheMiss = false
+
+            val apps = activities.map { resolveInfo ->
                 val activityInfo = resolveInfo.activityInfo
                 val packageName = activityInfo.packageName
+                val activityName = activityInfo.name
 
-                val label = traceSection("launcher.appsCatalog.resolveLabel") {
-                    resolveInfo.loadLabel(packageManager).toString()
+                val cachedLabel = if (useLabelCache) {
+                    cachedLabels[AppLabelCache.cacheKey(packageName, activityName)]
+                } else {
+                    null
                 }
+
+                val label = cachedLabel
+                    ?: traceSection("launcher.appsCatalog.resolveLabel") {
+                        resolveInfo.loadLabel(packageManager).toString()
+                    }.also { hadCacheMiss = true }
 
                 val installedOrUpdatedAtMillis = packageTimestampCache.getOrPut(packageName) {
                     resolveRecencyTimestampMillis(
@@ -57,10 +87,17 @@ internal class InstalledAppsCatalog(
                 AppInfo(
                     name = label,
                     packageName = packageName,
-                    activityName = activityInfo.name,
+                    activityName = activityName,
                     installedOrUpdatedAtMillis = installedOrUpdatedAtMillis
                 )
             }.sortedBy { app -> app.nameLower }
+
+            // Persist labels so the next cold start benefits.
+            if (hadCacheMiss || cachedLabels.size != apps.size) {
+                labelCache.writeAll(apps)
+            }
+
+            apps
         }
     }
 
