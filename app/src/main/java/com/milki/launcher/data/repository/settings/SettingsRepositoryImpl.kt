@@ -8,10 +8,10 @@ import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.model.SourcePrefixMutationResult
 import com.milki.launcher.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -112,13 +112,17 @@ class SettingsRepositoryImpl(
         writeBooleanSetting(SettingsPreferenceKeys.FILES_SEARCH_ENABLED, value)
     }
 
-    override suspend fun addSearchSource(source: SearchSource) {
+    override suspend fun addSearchSource(source: SearchSource): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.Success
+
         context.settingsDataStore.edit { preferences ->
-            mutationStore.addSearchSource(
+            result = mutationStore.addSearchSource(
                 preferences = preferences,
                 source = source
             )
         }
+
+        return result
     }
 
     override suspend fun updateSearchSource(
@@ -127,9 +131,11 @@ class SettingsRepositoryImpl(
         urlTemplate: String,
         prefixes: List<String>,
         accentColorHex: String
-    ) {
+    ): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
+
         context.settingsDataStore.edit { preferences ->
-            mutationStore.updateSearchSource(
+            result = mutationStore.updateSearchSource(
                 preferences = preferences,
                 sourceId = sourceId,
                 name = name,
@@ -138,6 +144,8 @@ class SettingsRepositoryImpl(
                 accentColorHex = accentColorHex
             )
         }
+
+        return result
     }
 
     override suspend fun deleteSearchSource(sourceId: String) {
@@ -169,15 +177,23 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun addProviderPrefix(providerId: String, prefix: String, defaultPrefix: String) {
+    override suspend fun addProviderPrefix(
+        providerId: String,
+        prefix: String,
+        defaultPrefix: String
+    ): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
+
         context.settingsDataStore.edit { preferences ->
-            mutationStore.addProviderPrefix(
+            result = mutationStore.addProviderPrefix(
                 preferences = preferences,
                 providerId = providerId,
                 prefix = prefix,
                 defaultPrefix = defaultPrefix
             )
         }
+
+        return result
     }
 
     override suspend fun removeProviderPrefix(providerId: String, prefix: String) {
@@ -232,8 +248,8 @@ class SettingsRepositoryImpl(
     override suspend fun addPrefixToSource(
         sourceId: String,
         prefix: String
-    ): SourcePrefixMutationResult {
-        var result: SourcePrefixMutationResult = SourcePrefixMutationResult.SourceNotFound
+    ): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
 
         context.settingsDataStore.edit { preferences ->
             result = mutationStore.addPrefixToSource(
@@ -249,8 +265,8 @@ class SettingsRepositoryImpl(
     override suspend fun removePrefixFromSource(
         sourceId: String,
         prefix: String
-    ): SourcePrefixMutationResult {
-        var result: SourcePrefixMutationResult = SourcePrefixMutationResult.SourceNotFound
+    ): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
 
         context.settingsDataStore.edit { preferences ->
             result = mutationStore.removePrefixFromSource(

@@ -1,10 +1,11 @@
 package com.milki.launcher.data.repository.settings
 
 import androidx.datastore.preferences.core.MutablePreferences
+import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.PrefixConfig
+import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.model.SourcePrefixMutationResult
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 
@@ -28,12 +29,48 @@ import kotlinx.serialization.encodeToString
  */
 internal class SettingsMutationStore {
 
+    private enum class PrefixOwnerKind {
+        PROVIDER,
+        SOURCE
+    }
+
+    private data class PrefixOwner(
+        val id: String,
+        val kind: PrefixOwnerKind
+    )
+
     fun addSearchSource(
         preferences: MutablePreferences,
         source: SearchSource
-    ) {
+    ): PrefixMutationResult {
         val currentSources = parseSearchSources(preferences)
-        writeSearchSources(currentSources + source, preferences)
+        val currentProviderConfigurations =
+            parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
+
+        val normalizedSource = source.copy(
+            name = source.name.trim().ifBlank { "Source" },
+            urlTemplate = if (SearchSource.isValidUrlTemplate(source.urlTemplate)) {
+                source.urlTemplate.trim()
+            } else {
+                "https://www.google.com/search?q={query}"
+            },
+            prefixes = normalizePrefixes(source.prefixes),
+            accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex)
+        )
+
+        val conflictingOwner = findConflictingOwner(
+            prefixesToClaim = normalizedSource.prefixes,
+            ignoredOwner = null,
+            sources = currentSources,
+            providerConfigurations = currentProviderConfigurations
+        )
+
+        if (conflictingOwner != null) {
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner(conflictingOwner.id)
+        }
+
+        writeSearchSources(currentSources + normalizedSource, preferences)
+        return PrefixMutationResult.Success
     }
 
     fun updateSearchSource(
@@ -43,20 +80,37 @@ internal class SettingsMutationStore {
         urlTemplate: String,
         prefixes: List<String>,
         accentColorHex: String
-    ) {
+    ): PrefixMutationResult {
         val currentSources = parseSearchSources(preferences)
+        val currentProviderConfigurations =
+            parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
 
         if (currentSources.none { it.id == sourceId }) {
-            return
+            return PrefixMutationResult.TargetNotFound
+        }
+
+        val normalizedPrefixes = normalizePrefixes(prefixes)
+        val conflictingOwner = findConflictingOwner(
+            prefixesToClaim = normalizedPrefixes,
+            ignoredOwner = PrefixOwner(
+                id = sourceId,
+                kind = PrefixOwnerKind.SOURCE
+            ),
+            sources = currentSources,
+            providerConfigurations = currentProviderConfigurations
+        )
+
+        if (conflictingOwner != null) {
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner(conflictingOwner.id)
         }
 
         val updatedSources = currentSources.map { existing ->
             if (existing.id == sourceId) {
                 existing.copy(
-                    name = name,
-                    urlTemplate = urlTemplate,
-                    prefixes = prefixes,
-                    accentColorHex = accentColorHex
+                    name = name.trim(),
+                    urlTemplate = urlTemplate.trim(),
+                    prefixes = normalizedPrefixes,
+                    accentColorHex = SearchSource.normalizeHexColor(accentColorHex)
                 )
             } else {
                 existing
@@ -64,6 +118,7 @@ internal class SettingsMutationStore {
         }
 
         writeSearchSources(updatedSources, preferences)
+        return PrefixMutationResult.Success
     }
 
     fun deleteSearchSource(
@@ -107,12 +162,32 @@ internal class SettingsMutationStore {
         providerId: String,
         prefixes: List<String>
     ) {
+        if (providerId !in ProviderId.all) {
+            return
+        }
+
         val currentConfigurations =
             parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
+        val currentSources = parseSearchSources(preferences)
         val updatedConfigurations = currentConfigurations.toMutableMap()
+        val normalizedPrefixes = normalizePrefixes(prefixes)
 
-        if (prefixes.isNotEmpty()) {
-            updatedConfigurations[providerId] = PrefixConfig(prefixes)
+        val conflictingOwner = findConflictingOwner(
+            prefixesToClaim = normalizedPrefixes,
+            ignoredOwner = PrefixOwner(
+                id = providerId,
+                kind = PrefixOwnerKind.PROVIDER
+            ),
+            sources = currentSources,
+            providerConfigurations = currentConfigurations
+        )
+
+        if (conflictingOwner != null) {
+            return
+        }
+
+        if (normalizedPrefixes.isNotEmpty()) {
+            updatedConfigurations[providerId] = PrefixConfig(normalizedPrefixes)
         } else {
             updatedConfigurations.remove(providerId)
         }
@@ -125,18 +200,52 @@ internal class SettingsMutationStore {
         providerId: String,
         prefix: String,
         defaultPrefix: String
-    ) {
-        val currentConfigurations =
-            parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
-        val currentPrefixes = currentConfigurations[providerId]?.prefixes ?: listOf(defaultPrefix)
-
-        if (prefix in currentPrefixes) {
-            return
+    ): PrefixMutationResult {
+        if (providerId !in ProviderId.all) {
+            return PrefixMutationResult.TargetNotFound
         }
 
+        val normalizedPrefix = SearchSource.normalizePrefix(prefix)
+
+        if (normalizedPrefix.isEmpty()) {
+            return PrefixMutationResult.InvalidPrefixEmpty
+        }
+
+        if (normalizedPrefix.contains(" ")) {
+            return PrefixMutationResult.InvalidPrefixContainsSpaces
+        }
+
+        val currentConfigurations =
+            parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
+        val currentSources = parseSearchSources(preferences)
+        val currentPrefixes = normalizePrefixes(
+            currentConfigurations[providerId]?.prefixes ?: listOf(defaultPrefix)
+        )
+
+        if (normalizedPrefix in currentPrefixes) {
+            return PrefixMutationResult.PrefixAlreadyExistsOnTarget
+        }
+
+        val conflictingOwner = findConflictingOwner(
+            prefixesToClaim = listOf(normalizedPrefix),
+            ignoredOwner = PrefixOwner(
+                id = providerId,
+                kind = PrefixOwnerKind.PROVIDER
+            ),
+            sources = currentSources,
+            providerConfigurations = currentConfigurations
+        )
+
+        if (conflictingOwner != null) {
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner(conflictingOwner.id)
+        }
+
+        val updatedPrefixes = (currentPrefixes + normalizedPrefix).distinct()
+
         val updatedConfigurations = currentConfigurations.toMutableMap()
-        updatedConfigurations[providerId] = PrefixConfig(currentPrefixes + prefix)
+        updatedConfigurations[providerId] = PrefixConfig(updatedPrefixes)
         writePrefixConfigurations(updatedConfigurations, preferences)
+        return PrefixMutationResult.Success
     }
 
     fun removeProviderPrefix(
@@ -191,41 +300,42 @@ internal class SettingsMutationStore {
         preferences: MutablePreferences,
         sourceId: String,
         prefix: String
-    ): SourcePrefixMutationResult {
+    ): PrefixMutationResult {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
+        val currentProviderConfigurations =
+            parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
 
         if (normalizedPrefix.isEmpty()) {
-            return SourcePrefixMutationResult.InvalidPrefixEmpty
+            return PrefixMutationResult.InvalidPrefixEmpty
         }
 
         if (normalizedPrefix.contains(" ")) {
-            return SourcePrefixMutationResult.InvalidPrefixContainsSpaces
+            return PrefixMutationResult.InvalidPrefixContainsSpaces
         }
 
         val currentSources = parseSearchSources(preferences)
         val targetSource = currentSources.firstOrNull { it.id == sourceId }
-            ?: return SourcePrefixMutationResult.SourceNotFound
+            ?: return PrefixMutationResult.TargetNotFound
 
         val normalizedTargetPrefixes = targetSource.prefixes
             .map(SearchSource.Companion::normalizePrefix)
 
         if (normalizedPrefix in normalizedTargetPrefixes) {
-            return SourcePrefixMutationResult.PrefixAlreadyExistsOnTargetSource
+            return PrefixMutationResult.PrefixAlreadyExistsOnTarget
         }
 
-        val conflictingSource = currentSources
-            .asSequence()
-            .filter { it.id != sourceId }
-            .firstOrNull { source ->
-                source.prefixes
-                    .map(SearchSource.Companion::normalizePrefix)
-                    .contains(normalizedPrefix)
-            }
+        val conflictingOwner = findConflictingOwner(
+            prefixesToClaim = listOf(normalizedPrefix),
+            ignoredOwner = PrefixOwner(
+                id = sourceId,
+                kind = PrefixOwnerKind.SOURCE
+            ),
+            sources = currentSources,
+            providerConfigurations = currentProviderConfigurations
+        )
 
-        if (conflictingSource != null) {
-            return SourcePrefixMutationResult.DuplicatePrefixOnAnotherSource(
-                ownerSourceId = conflictingSource.id
-            )
+        if (conflictingOwner != null) {
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner(conflictingOwner.id)
         }
 
         val updatedSources = currentSources.map { source ->
@@ -242,29 +352,29 @@ internal class SettingsMutationStore {
         }
 
         writeSearchSources(updatedSources, preferences)
-        return SourcePrefixMutationResult.Success
+        return PrefixMutationResult.Success
     }
 
     fun removePrefixFromSource(
         preferences: MutablePreferences,
         sourceId: String,
         prefix: String
-    ): SourcePrefixMutationResult {
+    ): PrefixMutationResult {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
 
         if (normalizedPrefix.isEmpty()) {
-            return SourcePrefixMutationResult.InvalidPrefixEmpty
+            return PrefixMutationResult.InvalidPrefixEmpty
         }
 
         val currentSources = parseSearchSources(preferences)
         val targetSource = currentSources.firstOrNull { it.id == sourceId }
-            ?: return SourcePrefixMutationResult.SourceNotFound
+            ?: return PrefixMutationResult.TargetNotFound
 
         val normalizedTargetPrefixes = targetSource.prefixes
             .map(SearchSource.Companion::normalizePrefix)
 
         if (normalizedPrefix !in normalizedTargetPrefixes) {
-            return SourcePrefixMutationResult.PrefixNotFoundOnTargetSource
+            return PrefixMutationResult.PrefixNotFoundOnTarget
         }
 
         val updatedSources = currentSources.map { source ->
@@ -280,7 +390,55 @@ internal class SettingsMutationStore {
         }
 
         writeSearchSources(updatedSources, preferences)
-        return SourcePrefixMutationResult.Success
+        return PrefixMutationResult.Success
+    }
+
+    private fun normalizePrefixes(prefixes: List<String>): List<String> {
+        return prefixes
+            .map(SearchSource.Companion::normalizePrefix)
+            .filter { it.isNotBlank() && !it.contains(" ") }
+            .distinct()
+    }
+
+    private fun findConflictingOwner(
+        prefixesToClaim: List<String>,
+        ignoredOwner: PrefixOwner?,
+        sources: List<SearchSource>,
+        providerConfigurations: ProviderPrefixConfiguration
+    ): PrefixOwner? {
+        if (prefixesToClaim.isEmpty()) {
+            return null
+        }
+
+        val requested = prefixesToClaim.toSet()
+
+        val effectiveProviderPrefixes = ProviderId.all.associateWith { providerId ->
+            val prefixes = providerConfigurations[providerId]?.prefixes
+                ?: PrefixConfig.defaults[providerId]?.prefixes.orEmpty()
+            normalizePrefixes(prefixes)
+        }
+
+        for ((providerId, providerPrefixes) in effectiveProviderPrefixes) {
+            val owner = PrefixOwner(id = providerId, kind = PrefixOwnerKind.PROVIDER)
+            if (owner == ignoredOwner) {
+                continue
+            }
+            if (providerPrefixes.any(requested::contains)) {
+                return owner
+            }
+        }
+
+        for (source in sources) {
+            val owner = PrefixOwner(id = source.id, kind = PrefixOwnerKind.SOURCE)
+            if (owner == ignoredOwner) {
+                continue
+            }
+            if (normalizePrefixes(source.prefixes).any(requested::contains)) {
+                return owner
+            }
+        }
+
+        return null
     }
 
     private fun writePrefixConfigurations(

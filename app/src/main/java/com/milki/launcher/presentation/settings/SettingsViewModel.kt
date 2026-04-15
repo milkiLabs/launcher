@@ -39,7 +39,7 @@ class SettingsViewModel(
         const val PREFIX_ADD_SUCCESS = ""
         const val PREFIX_ERROR_EMPTY = "Prefix cannot be empty"
         const val PREFIX_ERROR_SPACES = "Prefix cannot contain spaces"
-        const val PREFIX_ERROR_DUPLICATE = "Prefix is already used by another source"
+        const val PREFIX_ERROR_DUPLICATE = "Prefix is already used by another source or provider"
         const val PREFIX_ERROR_SOURCE_NOT_FOUND = "Source no longer exists"
     }
 
@@ -126,7 +126,8 @@ class SettingsViewModel(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String
+        accentColorHex: String,
+        onValidationResult: (String) -> Unit
     ) {
         viewModelScope.launch {
             val normalizedPrefixes = prefixes
@@ -141,7 +142,8 @@ class SettingsViewModel(
                 accentColorHex = accentColorHex
             )
 
-            settingsRepository.addSearchSource(newSource)
+            val mutationResult = settingsRepository.addSearchSource(newSource)
+            onValidationResult(mutationResult.toPrefixUserMessage())
         }
     }
 
@@ -153,7 +155,8 @@ class SettingsViewModel(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String
+        accentColorHex: String,
+        onValidationResult: (String) -> Unit
     ) {
         viewModelScope.launch {
             val normalizedPrefixes = prefixes
@@ -161,13 +164,14 @@ class SettingsViewModel(
                 .filter { it.isNotBlank() && !it.contains(" ") }
                 .distinct()
 
-            settingsRepository.updateSearchSource(
+            val mutationResult = settingsRepository.updateSearchSource(
                 sourceId = sourceId,
                 name = name.trim(),
                 urlTemplate = urlTemplate.trim(),
                 prefixes = normalizedPrefixes,
                 accentColorHex = SearchSource.normalizeHexColor(accentColorHex)
             )
+            onValidationResult(mutationResult.toPrefixUserMessage())
         }
     }
 
@@ -218,7 +222,7 @@ class SettingsViewModel(
                 sourceId = sourceId,
                 prefix = normalizedPrefix
             )
-            onValidationResult(mutationResult.toAddPrefixUserMessage())
+            onValidationResult(mutationResult.toPrefixUserMessage())
         }
     }
 
@@ -242,15 +246,15 @@ class SettingsViewModel(
     /**
      * Translates repository mutation outcomes into existing dialog contract.
      */
-    private fun SourcePrefixMutationResult.toAddPrefixUserMessage(): String {
+    private fun PrefixMutationResult.toPrefixUserMessage(): String {
         return when (this) {
-            SourcePrefixMutationResult.Success -> PREFIX_ADD_SUCCESS
-            SourcePrefixMutationResult.PrefixAlreadyExistsOnTargetSource -> PREFIX_ADD_SUCCESS
-            is SourcePrefixMutationResult.DuplicatePrefixOnAnotherSource -> PREFIX_ERROR_DUPLICATE
-            SourcePrefixMutationResult.InvalidPrefixEmpty -> PREFIX_ERROR_EMPTY
-            SourcePrefixMutationResult.InvalidPrefixContainsSpaces -> PREFIX_ERROR_SPACES
-            SourcePrefixMutationResult.SourceNotFound -> PREFIX_ERROR_SOURCE_NOT_FOUND
-            SourcePrefixMutationResult.PrefixNotFoundOnTargetSource -> PREFIX_ADD_SUCCESS
+            PrefixMutationResult.Success -> PREFIX_ADD_SUCCESS
+            PrefixMutationResult.PrefixAlreadyExistsOnTarget -> PREFIX_ADD_SUCCESS
+            is PrefixMutationResult.DuplicatePrefixOnAnotherOwner -> PREFIX_ERROR_DUPLICATE
+            PrefixMutationResult.InvalidPrefixEmpty -> PREFIX_ERROR_EMPTY
+            PrefixMutationResult.InvalidPrefixContainsSpaces -> PREFIX_ERROR_SPACES
+            PrefixMutationResult.TargetNotFound -> PREFIX_ERROR_SOURCE_NOT_FOUND
+            PrefixMutationResult.PrefixNotFoundOnTarget -> PREFIX_ADD_SUCCESS
         }
     }
 
@@ -282,13 +286,14 @@ class SettingsViewModel(
      * @param providerId The provider ID
      * @param prefix The prefix to add
      */
-    fun addProviderPrefix(providerId: String, prefix: String) {
+    fun addProviderPrefix(providerId: String, prefix: String, onValidationResult: (String) -> Unit) {
         viewModelScope.launch {
-            settingsRepository.addProviderPrefix(
+            val mutationResult = settingsRepository.addProviderPrefix(
                 providerId = providerId,
                 prefix = prefix,
                 defaultPrefix = getDefaultPrefix(providerId)
             )
+            onValidationResult(mutationResult.toPrefixUserMessage())
         }
     }
 

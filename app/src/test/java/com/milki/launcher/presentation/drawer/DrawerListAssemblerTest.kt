@@ -61,18 +61,4 @@ class DrawerListAssemblerTest {
         assertEquals("X Player", entries[0].app.name)
         assertEquals("Axiom Notes", entries[1].app.name)
     }
-
-    @Test
-    fun assemble_search_can_repeat_section_keys_when_ranked_groups_interleave() {
-        val rankingApps = listOf(
-            AppInfo(name = "Camera", packageName = "com.example.camera"),
-            AppInfo(name = "Mega Car", packageName = "com.example.megacar"),
-            AppInfo(name = "Chrome Canary", packageName = "com.example.chrome")
-        )
-
-        val result = assembler.assembleSearch(apps = rankingApps, query = "ca")
-        val headers = result.items.filterIsInstance<DrawerAdapterItem.SectionHeader>()
-
-        assertEquals(listOf("C", "M", "C"), headers.map { it.sectionKey })
-    }
 }

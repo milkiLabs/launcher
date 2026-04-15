@@ -179,7 +179,8 @@ fun SourceEditorDialog(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String
+        accentColorHex: String,
+        onValidationResult: (String) -> Unit
     ) -> Unit
 ) {
     var name by remember { mutableStateOf(initialSource?.name.orEmpty()) }
@@ -271,12 +272,16 @@ fun SourceEditorDialog(
                         !SearchSource.isValidUrlTemplate(normalizedTemplate) -> errorText = "URL template must start with http/https and include {query}"
                         normalizedPrefixes.isEmpty() -> errorText = "At least one prefix is required"
                         normalizedPrefixes.any { it.contains(" ") } -> errorText = "Prefixes cannot contain spaces"
-                        else -> onConfirm(
-                            normalizedName,
-                            normalizedTemplate,
-                            normalizedPrefixes,
-                            SearchSource.normalizeHexColor(colorHex)
-                        )
+                        else -> {
+                            onConfirm(
+                                normalizedName,
+                                normalizedTemplate,
+                                normalizedPrefixes,
+                                SearchSource.normalizeHexColor(colorHex)
+                            ) { validationMessage ->
+                                errorText = validationMessage.ifBlank { null }
+                            }
+                        }
                     }
                 }
             ) {

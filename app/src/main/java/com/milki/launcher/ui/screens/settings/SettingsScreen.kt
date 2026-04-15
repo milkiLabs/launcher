@@ -184,9 +184,19 @@ fun SettingsScreen(
         SourceEditorDialog(
             initialSource = null,
             onDismiss = { showAddSourceDialog = false },
-            onConfirm = { name, urlTemplate, prefixes, accentColorHex ->
-                actions.customSources.onAddSearchSource(name, urlTemplate, prefixes, accentColorHex)
-                showAddSourceDialog = false
+            onConfirm = { name, urlTemplate, prefixes, accentColorHex, onValidationResult ->
+                actions.customSources.onAddSearchSource(
+                    name,
+                    urlTemplate,
+                    prefixes,
+                    accentColorHex,
+                    { validationMessage ->
+                        onValidationResult(validationMessage)
+                        if (validationMessage.isBlank()) {
+                            showAddSourceDialog = false
+                        }
+                    }
+                )
             }
         )
     }
@@ -195,16 +205,21 @@ fun SettingsScreen(
         SourceEditorDialog(
             initialSource = editingSource,
             onDismiss = { editingSource = null },
-            onConfirm = { name, urlTemplate, prefixes, accentColorHex ->
+            onConfirm = { name, urlTemplate, prefixes, accentColorHex, onValidationResult ->
                 val sourceId = editingSource?.id ?: return@SourceEditorDialog
                 actions.customSources.onUpdateSearchSource(
                     sourceId,
                     name,
                     urlTemplate,
                     prefixes,
-                    accentColorHex
+                    accentColorHex,
+                    { validationMessage ->
+                        onValidationResult(validationMessage)
+                        if (validationMessage.isBlank()) {
+                            editingSource = null
+                        }
+                    }
                 )
-                editingSource = null
             }
         )
     }
@@ -415,7 +430,9 @@ private fun LocalPrefixesSection(
         defaultPrefix = "c",
         currentPrefixes = settings.prefixConfigurations[ProviderId.CONTACTS]?.prefixes
             ?: listOf("c"),
-        onAddPrefix = { actions.onAddProviderPrefix(ProviderId.CONTACTS, it) },
+        onAddPrefix = { prefix, onResult ->
+            actions.onAddProviderPrefix(ProviderId.CONTACTS, prefix, onResult)
+        },
         onRemovePrefix = { actions.onRemoveProviderPrefix(ProviderId.CONTACTS, it) },
         onReset = { actions.onResetProviderPrefixes(ProviderId.CONTACTS) }
     )
@@ -427,7 +444,9 @@ private fun LocalPrefixesSection(
         defaultPrefix = "f",
         currentPrefixes = settings.prefixConfigurations[ProviderId.FILES]?.prefixes
             ?: listOf("f"),
-        onAddPrefix = { actions.onAddProviderPrefix(ProviderId.FILES, it) },
+        onAddPrefix = { prefix, onResult ->
+            actions.onAddProviderPrefix(ProviderId.FILES, prefix, onResult)
+        },
         onRemovePrefix = { actions.onRemoveProviderPrefix(ProviderId.FILES, it) },
         onReset = { actions.onResetProviderPrefixes(ProviderId.FILES) }
     )

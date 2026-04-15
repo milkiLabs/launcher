@@ -38,14 +38,16 @@ data class SettingsCustomSourceActions(
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String
+        accentColorHex: String,
+        onValidationResult: (String) -> Unit
     ) -> Unit,
     val onUpdateSearchSource: (
         sourceId: String,
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
-        accentColorHex: String
+        accentColorHex: String,
+        onValidationResult: (String) -> Unit
     ) -> Unit,
     val onDeleteSearchSource: (String) -> Unit,
     val onSetSearchSourceEnabled: (String, Boolean) -> Unit,
@@ -57,7 +59,7 @@ data class SettingsCustomSourceActions(
  * Actions used by local-provider prefix editing section.
  */
 data class SettingsLocalPrefixActions(
-    val onAddProviderPrefix: (String, String) -> Unit,
+    val onAddProviderPrefix: (String, String, (String) -> Unit) -> Unit,
     val onRemoveProviderPrefix: (String, String) -> Unit,
     val onResetProviderPrefixes: (String) -> Unit
 )

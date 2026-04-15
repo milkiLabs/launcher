@@ -49,7 +49,7 @@ fun PrefixSettingItem(
     providerColor: Color,
     defaultPrefix: String,
     currentPrefixes: List<String>,
-    onAddPrefix: (String) -> Unit,
+    onAddPrefix: (String, (String) -> Unit) -> Unit,
     onRemovePrefix: (String) -> Unit,
     onReset: () -> Unit
 ) {
@@ -133,9 +133,13 @@ fun PrefixSettingItem(
         AddPrefixDialog(
             existingPrefixes = currentPrefixes,
             onDismiss = { showAddDialog = false },
-            onAdd = { prefix ->
-                onAddPrefix(prefix)
-                showAddDialog = false
+            onAdd = { prefix, onResult ->
+                onAddPrefix(prefix) { validationMessage ->
+                    onResult(validationMessage)
+                    if (validationMessage.isBlank()) {
+                        showAddDialog = false
+                    }
+                }
             }
         )
     }

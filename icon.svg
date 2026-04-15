@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+    <defs>
+        <!-- Subtle Drop Shadow for depth against the flat background -->
+        <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#4A3B32" flood-opacity="0.12"/>
+        </filter>
+    </defs>
+
+    <!-- Flat, Single-Color Full Background (No rounded corners, no white) -->
+    <rect width="100%" height="100%" fill="#D4C5B0" />
+
+    <!-- Entire House Stack -->
+    <g filter="url(#shadow)" transform="translate(0, -10)">
+        
+        <!-- HOUSE SIGN (THE PERSONAL HOME) -->
+        
+        <!-- House Base Outline and Fill -->
+        <polygon points="120,220 250,105 380,220 380,450 120,450" fill="#FAF6F0" stroke="#2C363F" stroke-width="7" stroke-linejoin="round"/>
+        
+        <!-- Subtle Side Borders/Shadows to give House depth -->
+        <polyline points="125,223 125,445 375,445" fill="none" stroke="#EAE0D3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- ROOF (Terracotta / Vintage Brick) -->
+        <polygon points="250,70 435,235 415,255 250,105 85,255 65,235" fill="#A64B36" stroke="#2C363F" stroke-width="7" stroke-linejoin="round"/>
+        
+        <!-- Roof Inner Detail Bevel (Adds 3D architectural feel) -->
+        <polygon points="250,87 410,229 395,243 250,115 105,243 90,229" fill="none" stroke="#D16347" stroke-width="4" stroke-linejoin="round"/>
+        
+        <!-- Roof Tile/Slat Details -->
+        <line x1="205" y1="110" x2="185" y2="128" stroke="#2C363F" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="295" y1="110" x2="315" y2="128" stroke="#2C363F" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="150" y1="159" x2="130" y2="177" stroke="#2C363F" stroke-width="3.5" stroke-linecap="round"/>
+        <line x1="350" y1="159" x2="370" y2="177" stroke="#2C363F" stroke-width="3.5" stroke-linecap="round"/>
+
+        <!-- GABLE WINDOW: Command Prompt Terminal (Launcher Cue) -->
+        <circle cx="250" cy="155" r="18" fill="#2C363F" stroke="#2C363F" stroke-width="4"/>
+        <polyline points="241,149 247,155 241,161" fill="none" stroke="#FAF6F0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="250" y1="161" x2="258" y2="161" stroke="#FAF6F0" stroke-width="2.5" stroke-linecap="round"/>
+
+        <!-- WOODEN SIGN UNDER ROOF (SEARCH INPUT) -->
+        <g transform="translate(0, 10)">
+            <!-- Sign Board Wood Base (Widened to fit new text) -->
+            <rect x="120" y="190" width="260" height="48" rx="6" fill="#C18C5D" stroke="#2C363F" stroke-width="5"/>
+            
+            <!-- Wood Grain Lines -->
+            <path d="M 125 200 Q 180 195 250 205 T 375 200" stroke="#A97142" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M 135 215 Q 220 210 260 220 T 365 215" stroke="#A97142" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path d="M 125 230 Q 200 235 280 225 T 375 230" stroke="#A97142" stroke-width="2" fill="none" stroke-linecap="round"/>
+            
+            <!-- Search Text Input Container -->
+            <rect x="130" y="199" width="240" height="30" rx="15" fill="#FFFDFB" stroke="#2C363F" stroke-width="4"/>
+            
+            <!-- Magnifying Glass Icon -->
+            <circle cx="150" cy="214" r="5" fill="none" stroke="#2C363F" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="154" y1="218" x2="160" y2="224" stroke="#2C363F" stroke-width="2.5" stroke-linecap="round"/>
+            
+            <!-- "Milki launcher" Placeholder Text (Elegant Font) -->
+            <text x="170" y="219" font-family="'Playfair Display', Georgia, 'Times New Roman', serif" font-size="14.5" font-style="italic" fill="#2C363F" font-weight="700">Milki launcher</text>
+            
+            <!-- Blinking Cursor -->
+            <line x1="285" y1="207" x2="285" y2="221" stroke="#2C363F" stroke-width="2" stroke-linecap="round">
+                <animate attributeName="opacity" values="1;0;1" dur="1.2s" repeatCount="indefinite"/>
+            </line>
+        </g>
+
+        <!-- DOOR (SUBTLY SHAPED LIKE THE ANDROID MASCOT HEAD) -->
+        <g transform="translate(0, 0)">
+            <!-- Main Door Shape (Semi-circle top + Rectangular body) -->
+            <path d="M 195 450 L 195 340 A 55 55 0 0 1 305 340 L 305 450 Z" fill="#8CA287" stroke="#2C363F" stroke-width="6" stroke-linejoin="round"/>
+            
+            <!-- Horizontal Split Groove (Mimics Android Head/Neck Separation) -->
+            <line x1="195" y1="340" x2="305" y2="340" stroke="#2C363F" stroke-width="4"/>
+            
+            <!-- Android Antennas -->
+            <line x1="225" y1="300" x2="210" y2="275" stroke="#2C363F" stroke-width="5" stroke-linecap="round"/>
+            <line x1="275" y1="300" x2="290" y2="275" stroke="#2C363F" stroke-width="5" stroke-linecap="round"/>
+            
+            <!-- Android Eyes (Styled as round door windows) -->
+            <circle cx="225" cy="315" r="5" fill="#FFFDFB" stroke="#2C363F" stroke-width="2.5"/>
+            <circle cx="275" cy="315" r="5" fill="#FFFDFB" stroke="#2C363F" stroke-width="2.5"/>
+            
+            <!-- Vintage Doorknob -->
+            <circle cx="285" cy="400" r="5" fill="#C18C5D" stroke="#2C363F" stroke-width="2.5"/>
+            
+            <!-- Subtle Vintage Door Panels -->
+            <line x1="225" y1="355" x2="225" y2="435" stroke="#798E74" stroke-width="2" stroke-linecap="round"/>
+            <line x1="250" y1="355" x2="250" y2="435" stroke="#798E74" stroke-width="2" stroke-linecap="round"/>
+            <line x1="275" y1="355" x2="275" y2="385" stroke="#798E74" stroke-width="2" stroke-linecap="round"/>
+            <line x1="275" y1="415" x2="275" y2="435" stroke="#798E74" stroke-width="2" stroke-linecap="round"/>
+        </g>
+
+    </g>
+</svg>

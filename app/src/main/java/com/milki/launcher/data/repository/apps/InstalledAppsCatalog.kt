@@ -2,6 +2,7 @@ package com.milki.launcher.data.repository.apps
 
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageManager
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.domain.model.AppInfo
 import kotlinx.coroutines.CoroutineDispatcher
@@ -37,6 +38,17 @@ internal class InstalledAppsCatalog(
                 packageManager.queryIntentActivitiesCompat(launcherQueryIntent)
             }
 
+            // Resolve package timestamps once per package, then reuse for each launcher activity.
+            val packageRecencyByPackageName = traceSection("launcher.appsCatalog.queryPackageRecency") {
+                activities
+                    .asSequence()
+                    .map { it.activityInfo.packageName }
+                    .distinct()
+                    .associateWith { packageName ->
+                        resolvePackageRecencyMillis(packageManager, packageName)
+                    }
+            }
+
             activities.map { resolveInfo ->
                 val activityInfo = resolveInfo.activityInfo
 
@@ -47,9 +59,21 @@ internal class InstalledAppsCatalog(
                 AppInfo(
                     name = label,
                     packageName = activityInfo.packageName,
-                    activityName = activityInfo.name
+                    activityName = activityInfo.name,
                 )
             }.sortedBy { app -> app.nameLower }
+        }
+    }
+
+    private fun resolvePackageRecencyMillis(
+        packageManager: PackageManager,
+        packageName: String
+    ): Long {
+        return try {
+            val packageInfo = packageManager.getPackageInfoCompat(packageName)
+            maxOf(packageInfo.lastUpdateTime, packageInfo.firstInstallTime)
+        } catch (_: PackageManager.NameNotFoundException) {
+            0L
         }
     }
 }

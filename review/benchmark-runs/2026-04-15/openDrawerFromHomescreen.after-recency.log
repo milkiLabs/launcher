@@ -1,0 +1,35 @@
+
+com.milki.launcher.benchmark.LauncherHomeBenchmark:
+Error in openDrawerFromHomescreen(com.milki.launcher.benchmark.LauncherHomeBenchmark):
+java.lang.IllegalStateException: Unable to install com.milki.launcher (out=Failure [INSTALL_FAILED_USER_RESTRICTED: Install canceled by user]
+)
+	at androidx.benchmark.macro.CompilationMode.installPackageFromPaths(CompilationMode.kt:212)
+	at androidx.benchmark.macro.CompilationMode.reinstallPackage(CompilationMode.kt:152)
+	at androidx.benchmark.macro.CompilationMode.resetAndCompile$benchmark_macro_release(CompilationMode.kt:112)
+	at androidx.benchmark.macro.CompilationMode.resetAndCompile$benchmark_macro_release$default(CompilationMode.kt:69)
+	at androidx.benchmark.macro.MacrobenchmarkKt.macrobenchmark(Macrobenchmark.kt:253)
+	at androidx.benchmark.macro.MacrobenchmarkKt.macrobenchmarkWithStartupMode(Macrobenchmark.kt:400)
+	at androidx.benchmark.macro.junit4.MacrobenchmarkRule.measureRepeated(MacrobenchmarkRule.kt:87)
+	at androidx.benchmark.macro.junit4.MacrobenchmarkRule.measureRepeated$default(MacrobenchmarkRule.kt:77)
+	at com.milki.launcher.benchmark.LauncherHomeBenchmark.openDrawerFromHomescreen(LauncherHomeBenchmark.kt:106)
+
+
+Time: 14.107
+There was 1 failure:
+1) openDrawerFromHomescreen(com.milki.launcher.benchmark.LauncherHomeBenchmark)
+java.lang.IllegalStateException: Unable to install com.milki.launcher (out=Failure [INSTALL_FAILED_USER_RESTRICTED: Install canceled by user]
+)
+	at androidx.benchmark.macro.CompilationMode.installPackageFromPaths(CompilationMode.kt:212)
+	at androidx.benchmark.macro.CompilationMode.reinstallPackage(CompilationMode.kt:152)
+	at androidx.benchmark.macro.CompilationMode.resetAndCompile$benchmark_macro_release(CompilationMode.kt:112)
+	at androidx.benchmark.macro.CompilationMode.resetAndCompile$benchmark_macro_release$default(CompilationMode.kt:69)
+	at androidx.benchmark.macro.MacrobenchmarkKt.macrobenchmark(Macrobenchmark.kt:253)
+	at androidx.benchmark.macro.MacrobenchmarkKt.macrobenchmarkWithStartupMode(Macrobenchmark.kt:400)
+	at androidx.benchmark.macro.junit4.MacrobenchmarkRule.measureRepeated(MacrobenchmarkRule.kt:87)
+	at androidx.benchmark.macro.junit4.MacrobenchmarkRule.measureRepeated$default(MacrobenchmarkRule.kt:77)
+	at com.milki.launcher.benchmark.LauncherHomeBenchmark.openDrawerFromHomescreen(LauncherHomeBenchmark.kt:106)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
+
+

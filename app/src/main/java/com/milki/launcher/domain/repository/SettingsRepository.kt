@@ -14,10 +14,10 @@ package com.milki.launcher.domain.repository
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.model.SourcePrefixMutationResult
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -100,7 +100,7 @@ interface SettingsRepository {
      * The implementation normalizes/validates the resulting list before
      * persistence, matching existing repository behavior.
      */
-    suspend fun addSearchSource(source: SearchSource)
+    suspend fun addSearchSource(source: SearchSource): PrefixMutationResult
 
     /**
      * Update one existing custom search source by ID.
@@ -113,7 +113,7 @@ interface SettingsRepository {
         urlTemplate: String,
         prefixes: List<String>,
         accentColorHex: String
-    )
+    ): PrefixMutationResult
 
     /**
      * Delete one custom search source by ID.
@@ -148,7 +148,11 @@ interface SettingsRepository {
      * @param prefix Prefix to add
      * @param defaultPrefix Default provider prefix when no custom prefixes exist
      */
-    suspend fun addProviderPrefix(providerId: String, prefix: String, defaultPrefix: String)
+    suspend fun addProviderPrefix(
+        providerId: String,
+        prefix: String,
+        defaultPrefix: String
+    ): PrefixMutationResult
 
     /**
      * Remove a single prefix from a provider configuration.
@@ -195,7 +199,7 @@ interface SettingsRepository {
      * @param prefix Raw user input prefix
      * @return Structured mutation result for deterministic UI handling
      */
-    suspend fun addPrefixToSource(sourceId: String, prefix: String): SourcePrefixMutationResult
+    suspend fun addPrefixToSource(sourceId: String, prefix: String): PrefixMutationResult
 
     /**
      * Remove one prefix from a custom source with atomic repository-level lookup.
@@ -204,5 +208,5 @@ interface SettingsRepository {
      * @param prefix Raw user input prefix to remove
      * @return Structured mutation result for deterministic UI handling/debugging
      */
-    suspend fun removePrefixFromSource(sourceId: String, prefix: String): SourcePrefixMutationResult
+    suspend fun removePrefixFromSource(sourceId: String, prefix: String): PrefixMutationResult
 }
