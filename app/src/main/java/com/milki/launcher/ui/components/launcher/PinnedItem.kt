@@ -210,6 +210,13 @@ fun PinnedItem(
                 }
             },
             focusable = menuFocusable,
+            onExternalDragStarted = {
+                if (handleLongPress) {
+                    internalShowMenu = false
+                } else {
+                    onMenuDismiss()
+                }
+            },
             actions = buildPinnedItemActions(item, quickActions)
         )
     }

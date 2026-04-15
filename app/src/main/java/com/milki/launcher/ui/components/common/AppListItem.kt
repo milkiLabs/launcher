@@ -121,6 +121,10 @@ fun AppListItem(
             expanded = menuState.showMenu,
             onDismiss = menuState::dismiss,
             focusable = menuState.isMenuFocusable,
+            onExternalDragStarted = {
+                menuState.dismiss()
+                onExternalDragStarted()
+            },
             actions = menuActions
         )
     }

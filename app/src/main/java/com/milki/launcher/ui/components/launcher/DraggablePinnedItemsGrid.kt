@@ -252,6 +252,7 @@ internal fun ExternalDragDropItem.toPreviewHomeItem(): HomeItem? {
         is ExternalDragItem.App -> HomeItem.PinnedApp.fromAppInfo(appInfo)
         is ExternalDragItem.File -> HomeItem.PinnedFile.fromFileDocument(fileDocument)
         is ExternalDragItem.Contact -> HomeItem.PinnedContact.fromContact(contact)
+        is ExternalDragItem.Shortcut -> shortcut
         is ExternalDragItem.FolderChild -> childItem
         is ExternalDragItem.Widget -> null
     }

@@ -322,6 +322,7 @@ fun FolderPopupDialog(
                                 onWindowPositionMeasured = { itemId, windowOffset ->
                                     itemWindowOffsets[itemId] = windowOffset
                                 },
+                                onExternalDragStarted = onClose,
                                 onDragStart = { item ->
                                     isDraggingInternally = true
                                     draggedItemId = item.id

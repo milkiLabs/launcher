@@ -10,6 +10,7 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.domain.model.HomeItem
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -49,6 +50,7 @@ object ExternalDragPayloadCodec {
         data class App(val appInfo: AppInfo) : ExternalDragItem()
         data class File(val fileDocument: FileDocument) : ExternalDragItem()
         data class Contact(val contact: com.milki.launcher.domain.model.Contact) : ExternalDragItem()
+        data class Shortcut(val shortcut: HomeItem.AppShortcut) : ExternalDragItem()
 
         /**
          * An item being dragged OUT of a folder popup onto the home screen.
@@ -132,6 +134,15 @@ object ExternalDragPayloadCodec {
         ) : ExternalPayloadDto()
 
         @Serializable
+        data class ShortcutPayload(
+            override val type: String = "shortcut",
+            val packageName: String,
+            val shortcutId: String,
+            val shortLabel: String,
+            val longLabel: String
+        ) : ExternalPayloadDto()
+
+        @Serializable
         data class WidgetPayload(
             override val type: String = "widget",
             val providerPackage: String,
@@ -190,6 +201,18 @@ object ExternalDragPayloadCodec {
                 )
             }
 
+            is ExternalDragItem.Shortcut -> {
+                val shortcut = item.shortcut
+                json.encodeToString(
+                    ExternalPayloadDto.ShortcutPayload(
+                        packageName = shortcut.packageName,
+                        shortcutId = shortcut.shortcutId,
+                        shortLabel = shortcut.shortLabel,
+                        longLabel = shortcut.longLabel
+                    )
+                )
+            }
+
             is ExternalDragItem.FolderChild -> {
                 // FolderChild is decoded entirely from localState (the object is passed
                 // directly and read back in decodeDragItem before any JSON parsing).
@@ -232,7 +255,8 @@ object ExternalDragPayloadCodec {
             return dragEvent.localState is ExternalDragItem ||
                 dragEvent.localState is AppInfo ||
                 dragEvent.localState is FileDocument ||
-                dragEvent.localState is Contact
+                dragEvent.localState is Contact ||
+                dragEvent.localState is HomeItem.AppShortcut
         }
 
         val label = description.label?.toString()
@@ -257,6 +281,7 @@ object ExternalDragPayloadCodec {
             is AppInfo -> ExternalDragItem.App(localState)
             is FileDocument -> ExternalDragItem.File(localState)
             is Contact -> ExternalDragItem.Contact(localState)
+            is HomeItem.AppShortcut -> ExternalDragItem.Shortcut(localState)
             else -> null
         }
 
@@ -329,6 +354,19 @@ object ExternalDragPayloadCodec {
                             emails = payload.emails,
                             photoUri = payload.photoUri,
                             lookupKey = payload.lookupKey
+                        )
+                    )
+                }
+
+                "shortcut" -> {
+                    val payload = json.decodeFromString(ExternalPayloadDto.ShortcutPayload.serializer(), rawText)
+                    ExternalDragItem.Shortcut(
+                        HomeItem.AppShortcut(
+                            id = "shortcut:${payload.packageName}/${payload.shortcutId}",
+                            packageName = payload.packageName,
+                            shortcutId = payload.shortcutId,
+                            shortLabel = payload.shortLabel,
+                            longLabel = payload.longLabel
                         )
                     )
                 }

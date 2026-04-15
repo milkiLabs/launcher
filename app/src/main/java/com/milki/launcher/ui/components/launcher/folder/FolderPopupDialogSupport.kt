@@ -142,6 +142,7 @@ internal fun FolderGridPage(
     onLongPress: (String) -> Unit,
     onRemoveFromFolder: (String) -> Unit,
     onWindowPositionMeasured: (String, Offset) -> Unit,
+    onExternalDragStarted: () -> Unit,
     onDragStart: (HomeItem) -> Unit,
     onDragDelta: (Offset) -> Unit,
     onDragEnd: () -> Unit,
@@ -203,6 +204,7 @@ internal fun FolderGridPage(
                                     onWindowPositionMeasured = { offset ->
                                         onWindowPositionMeasured(item.id, offset)
                                     },
+                                    onExternalDragStarted = onExternalDragStarted,
                                     onDragStart = { onDragStart(item) },
                                     onDragDelta = onDragDelta,
                                     onDragEnd = onDragEnd,
@@ -258,6 +260,7 @@ private fun FolderPopupItem(
     onLongPress: () -> Unit,
     onRemoveFromFolder: () -> Unit,
     onWindowPositionMeasured: (Offset) -> Unit,
+    onExternalDragStarted: () -> Unit,
     onDragStart: () -> Unit,
     onDragDelta: (Offset) -> Unit,
     onDragEnd: () -> Unit,
@@ -318,6 +321,7 @@ private fun FolderPopupItem(
             expanded = showMenu,
             onDismiss = onMenuDismiss,
             focusable = !isLongPressGestureActive,
+            onExternalDragStarted = onExternalDragStarted,
             actions = buildList {
                 if (item is HomeItem.PinnedApp) {
                     addAll(quickActions.map(::createLaunchShortcutAction))

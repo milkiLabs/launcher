@@ -1,7 +1,9 @@
 package com.milki.launcher.ui.components.launcher
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -51,6 +54,7 @@ import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.presentation.launcher.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
+import com.milki.launcher.ui.interaction.dragdrop.startExternalShortcutDrag
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -77,11 +81,13 @@ internal data class ItemActionMenuPlacement(
 )
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun ItemActionMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     actions: List<MenuAction>,
     focusable: Boolean = true,
+    onExternalDragStarted: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (!expanded || actions.isEmpty()) return
@@ -123,6 +129,7 @@ fun ItemActionMenu(
             actions = actions,
             placement = positionProvider.placement,
             modifier = modifier,
+            onExternalDragStarted = onExternalDragStarted,
             onActionSelected = { menuAction ->
                 hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm)
                 menuAction.onClick?.invoke() ?: menuAction.action?.let(actionHandler)
@@ -133,16 +140,20 @@ fun ItemActionMenu(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun ItemActionMenuBubble(
     actions: List<MenuAction>,
     placement: ItemActionMenuPlacement,
     onActionSelected: (MenuAction) -> Unit,
+    onExternalDragStarted: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val surfaceColor = Color(0xFF2F323A).copy(alpha = 0.97f)
     val iconTintDefault = Color.White.copy(alpha = 0.96f)
     val textColorDefault = Color.White.copy(alpha = 0.98f)
     val destructiveColor = Color(0xFFFFB4AB)
+    val hapticFeedback = LocalHapticFeedback.current
+    val hostView = LocalView.current
     val arrowOffset = with(LocalDensity.current) { placement.arrowOffsetPx.toDp() }
     val arrowHalf = 8.dp
 
@@ -174,14 +185,39 @@ private fun ItemActionMenuBubble(
                 actions.forEach { action ->
                     val tint = if (action.isDestructive) destructiveColor else iconTintDefault
                     val textColor = if (action.isDestructive) destructiveColor else textColorDefault
+                    val draggableShortcut = action.shortcutIcon
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(Color.Transparent, RoundedCornerShape(CornerRadius.large))
-                            .clickable(
-                                enabled = action.enabled,
-                                onClick = { onActionSelected(action) }
+                            .then(
+                                if (draggableShortcut != null) {
+                                    Modifier.combinedClickable(
+                                        enabled = action.enabled,
+                                        onClick = { onActionSelected(action) },
+                                        onLongClick = {
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+
+                                            val dragStarted = startExternalShortcutDrag(
+                                                hostView = hostView,
+                                                shortcut = draggableShortcut,
+                                                dragShadowSize = IconSize.appList
+                                            )
+
+                                            if (dragStarted) {
+                                                onExternalDragStarted?.let { callback ->
+                                                    hostView.post { callback() }
+                                                }
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    Modifier.clickable(
+                                        enabled = action.enabled,
+                                        onClick = { onActionSelected(action) }
+                                    )
+                                }
                             )
                             .padding(
                                 horizontal = Spacing.mediumLarge,

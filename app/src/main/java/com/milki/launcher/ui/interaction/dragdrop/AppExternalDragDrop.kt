@@ -39,7 +39,9 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.data.icon.AppIconMemoryCache
+import com.milki.launcher.data.icon.ShortcutIconLoader
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.theme.IconSize
 
@@ -183,6 +185,42 @@ fun startExternalContactDrag(
         localState = dragItem,
         dragShadowBuilder = dragShadowBuilder,
         failureLogLabel = "contact:${contact.id}/${contact.displayName}"
+    )
+}
+
+/**
+ * Starts an external app-shortcut drag operation.
+ */
+fun startExternalShortcutDrag(
+    hostView: View,
+    shortcut: HomeItem.AppShortcut,
+    dragShadowSize: Dp = IconSize.appList
+): Boolean {
+    val dragItem = ExternalDragItem.Shortcut(shortcut)
+    ExternalDragItemCache.currentItem = dragItem
+
+    val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
+    val density = dragHostView.context.resources.displayMetrics.density
+    val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
+    val shortcutIcon = ShortcutIconLoader.getCached(shortcut)
+    val fallbackIcon = ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
+    val iconDrawable = shortcutIcon ?: fallbackIcon
+    val clipData = AppExternalDragDropPayload.createClipData(dragItem)
+    val dragShadowBuilder = if (iconDrawable != null) {
+        AppIconDragShadowBuilder(
+            iconDrawable = iconDrawable,
+            shadowSizePx = shadowSizePx
+        )
+    } else {
+        View.DragShadowBuilder(hostView)
+    }
+
+    return startExternalDragWithFallbackHosts(
+        hostView = hostView,
+        clipData = clipData,
+        localState = dragItem,
+        dragShadowBuilder = dragShadowBuilder,
+        failureLogLabel = "shortcut:${shortcut.packageName}/${shortcut.shortcutId}"
     )
 }
 

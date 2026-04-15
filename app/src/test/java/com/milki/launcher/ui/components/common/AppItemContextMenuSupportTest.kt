@@ -32,6 +32,7 @@ class AppItemContextMenuSupportTest {
         assertEquals(3, menuActions.size)
         assertEquals("New chat", menuActions[0].label)
         assertTrue(menuActions[0].action is SearchResultAction.LaunchAppShortcut)
+        assertEquals(quickAction, menuActions[0].shortcutIcon)
         assertEquals("Pin to home", menuActions[1].label)
         assertEquals("App info", menuActions[2].label)
     }
