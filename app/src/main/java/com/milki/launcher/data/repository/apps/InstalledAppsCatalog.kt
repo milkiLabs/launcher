@@ -1,7 +1,6 @@
 package com.milki.launcher.data.repository.apps
 
 import android.app.Application
-import android.content.ComponentName
 import android.content.Intent
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.domain.model.AppInfo
@@ -39,10 +38,7 @@ internal class InstalledAppsCatalog(
             }
 
             activities.map { resolveInfo ->
-                val componentName = ComponentName(
-                    resolveInfo.activityInfo.packageName,
-                    resolveInfo.activityInfo.name
-                )
+                val activityInfo = resolveInfo.activityInfo
 
                 val label = traceSection("launcher.appsCatalog.resolveLabel") {
                     resolveInfo.loadLabel(packageManager).toString()
@@ -50,8 +46,8 @@ internal class InstalledAppsCatalog(
 
                 AppInfo(
                     name = label,
-                    packageName = componentName.packageName,
-                    activityName = componentName.className
+                    packageName = activityInfo.packageName,
+                    activityName = activityInfo.name
                 )
             }.sortedBy { app -> app.nameLower }
         }

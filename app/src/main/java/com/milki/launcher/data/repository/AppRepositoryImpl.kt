@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
  * Production implementation of AppRepository.
  *
  * Responsibilities are intentionally split:
- * - InstalledAppsCatalog: launcher app enumeration and icon preloading.
+ * - InstalledAppsCatalog: launcher app enumeration (without icon loading).
  * - RecentAppsStore: recents persistence and flow mapping.
  * - PackageChangeMonitor: package add/remove/update broadcast signals.
  */
@@ -119,8 +119,7 @@ class AppRepositoryImpl(
             return null
         }
 
-        val appLabel = activityInfo.loadLabel(packageManager)?.toString()
-            ?: componentName.packageName
+        val appLabel = activityInfo.loadLabel(packageManager).toString()
 
         return AppInfo(
             name = appLabel,

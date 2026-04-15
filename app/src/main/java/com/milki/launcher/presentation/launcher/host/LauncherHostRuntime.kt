@@ -1,6 +1,7 @@
 package com.milki.launcher.presentation.launcher.host
 
 import android.content.Intent
+import android.content.pm.LauncherApps
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
@@ -83,6 +84,7 @@ internal class LauncherHostRuntime(
      */
     fun initialize() {
         traceSection("launcher.startup.runtime.initialize") {
+            initializePermissionHandler()
             initializeBackButtonBehavior()
             widgetPlacementCoordinator.initialize()
         }
@@ -102,7 +104,7 @@ internal class LauncherHostRuntime(
         deferredStartupCompleted = true
 
         traceSection("launcher.startup.deferred") {
-            initializeHandlers()
+            initializeDeferredHandlers()
             homeViewModel.startDeferredStartupWork()
             widgetPickerCatalogStore.prewarm()
         }
@@ -112,6 +114,9 @@ internal class LauncherHostRuntime(
      * Executes a search result action using current permission state.
      */
     fun dispatchSearchResultAction(action: SearchResultAction) {
+        if (!::actionExecutor.isInitialized) {
+            initializeDeferredHandlers()
+        }
         actionExecutor.execute(action, permissionHandler::hasPermission)
     }
 
@@ -128,7 +133,7 @@ internal class LauncherHostRuntime(
     fun onResume() {
         widgetHostManager.setActivityResumed(true)
         widgetHostManager.setStateIsNormal(true)
-        if (::permissionHandler.isInitialized) {
+        if (::actionExecutor.isInitialized) {
             permissionHandler.updateStates()
         }
         surfaceStateCoordinator.onResume()
@@ -173,9 +178,14 @@ internal class LauncherHostRuntime(
     }
 
     private fun handlePinShortcutIntent(intent: Intent): Boolean {
+        if (intent.action != LauncherApps.ACTION_CONFIRM_PIN_SHORTCUT) {
+            return false
+        }
+
         if (!::pinShortcutRequestCoordinator.isInitialized) {
-            // Force-initialize handlers if a pin shortcut arrives before deferred startup
-            initializeHandlers()
+            // Force-initialize handlers only when we actually received
+            // a pin-shortcut confirmation intent.
+            initializeDeferredHandlers()
         }
         return pinShortcutRequestCoordinator.handleIntent(intent)
     }
@@ -213,7 +223,7 @@ internal class LauncherHostRuntime(
         return widgetPlacementCoordinator.onActivityResult(requestCode, resultCode)
     }
 
-    private fun initializeHandlers() {
+    private fun initializePermissionHandler() {
         if (::permissionHandler.isInitialized) return
 
         permissionHandler = PermissionHandler(
@@ -229,6 +239,12 @@ internal class LauncherHostRuntime(
             }
         )
         permissionHandler.setup()
+    }
+
+    private fun initializeDeferredHandlers() {
+        if (::actionExecutor.isInitialized) return
+
+        initializePermissionHandler()
 
         actionExecutor = ActionExecutor(
             activity,
@@ -250,6 +266,7 @@ internal class LauncherHostRuntime(
             searchViewModel = searchViewModelProvider()
         )
         permissionRequestCoordinator.bind()
+        permissionHandler.updateStates()
     }
 
     private fun initializeBackButtonBehavior() {
