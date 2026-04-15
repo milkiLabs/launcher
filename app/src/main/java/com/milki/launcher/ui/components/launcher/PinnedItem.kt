@@ -65,6 +65,7 @@ import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconLabelCell
 import com.milki.launcher.ui.components.common.IconLabelLayout
 import com.milki.launcher.ui.components.common.ShortcutIcon
+import com.milki.launcher.ui.components.common.buildAppUtilityMenuActions
 import com.milki.launcher.ui.components.common.rememberAppQuickActions
 import com.milki.launcher.ui.components.launcher.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
@@ -317,7 +318,12 @@ private fun buildPinnedItemActions(
     val actions = mutableListOf<MenuAction>()
 
     if (item is HomeItem.PinnedApp) {
-        actions.addAll(quickActions.map(::createLaunchShortcutAction))
+        actions.addAll(
+            buildAppUtilityMenuActions(
+                packageName = item.packageName,
+                quickActions = quickActions
+            )
+        )
     }
 
     /**
@@ -328,20 +334,6 @@ private fun buildPinnedItemActions(
      * For folders, "unpin" removes the entire folder AND all its children.
      */
     actions.add(createUnpinAction(item.id))
-
-    /**
-     * For pinned apps, add the "App info" action.
-     * We use the createAppInfoAction() helper for consistency.
-     *
-     * This opens the system's app info screen where the user can:
-     * - View app permissions
-     * - Clear cache/data
-     * - Uninstall the app
-     * - Force stop the app
-     */
-    if (item is HomeItem.PinnedApp) {
-        actions.add(createAppInfoAction(item.packageName))
-    }
 
     // FolderItem does NOT get any extra actions beyond unpin.
     // Rename is handled inline by tapping the title inside the FolderPopupDialog.

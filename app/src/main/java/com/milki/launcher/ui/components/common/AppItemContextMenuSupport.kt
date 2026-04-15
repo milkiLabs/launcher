@@ -90,10 +90,27 @@ fun buildAppItemMenuActions(
     appInfo: AppInfo,
     quickActions: List<HomeItem.AppShortcut> = emptyList()
 ): List<MenuAction> {
+    return buildAppUtilityMenuActions(
+        packageName = appInfo.packageName,
+        quickActions = quickActions
+    )
+}
+
+fun buildAppUtilityMenuActions(
+    packageName: String,
+    quickActions: List<HomeItem.AppShortcut> = emptyList()
+): List<MenuAction> {
     return buildList {
         addAll(quickActions.map(::createLaunchShortcutAction))
+        add(createAppInfoAction(packageName))
+    }
+}
 
-        add(createAppInfoAction(appInfo.packageName))
+fun HomeItem.appInfoPackageNameOrNull(): String? {
+    return when (this) {
+        is HomeItem.PinnedApp -> packageName
+        is HomeItem.AppShortcut -> packageName
+        else -> null
     }
 }
 

@@ -45,12 +45,12 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.common.appInfoPackageNameOrNull
+import com.milki.launcher.ui.components.common.buildAppUtilityMenuActions
 import com.milki.launcher.ui.components.common.rememberAppQuickActions
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.components.launcher.PinnedItem
-import com.milki.launcher.ui.components.launcher.createAppInfoAction
-import com.milki.launcher.ui.components.launcher.createLaunchShortcutAction
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
@@ -268,11 +268,7 @@ private fun FolderPopupItem(
     modifier: Modifier = Modifier
 ) {
     var isLongPressGestureActive by remember { mutableStateOf(false) }
-    val appInfoPackageName = when (item) {
-        is HomeItem.PinnedApp -> item.packageName
-        is HomeItem.AppShortcut -> item.packageName
-        else -> null
-    }
+    val appInfoPackageName = item.appInfoPackageNameOrNull()
     val quickActions = if (item is HomeItem.PinnedApp) {
         rememberAppQuickActions(
             packageName = item.packageName,
@@ -329,11 +325,14 @@ private fun FolderPopupItem(
             onExternalDragStarted = onExternalDragStarted,
             actions = buildList {
                 if (item is HomeItem.PinnedApp) {
-                    addAll(quickActions.map(::createLaunchShortcutAction))
-                }
-
-                if (appInfoPackageName != null) {
-                    add(createAppInfoAction(appInfoPackageName))
+                    addAll(
+                        buildAppUtilityMenuActions(
+                            packageName = item.packageName,
+                            quickActions = quickActions
+                        )
+                    )
+                } else if (appInfoPackageName != null) {
+                    addAll(buildAppUtilityMenuActions(packageName = appInfoPackageName))
                 }
 
                 add(
