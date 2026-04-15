@@ -56,7 +56,13 @@ fun AppListItem(
     modifier: Modifier = Modifier
 ) {
     val menuState = rememberItemContextMenuState()
-    val menuActions = remember(appInfo) { buildAppItemMenuActions(appInfo) }
+    val quickActions = rememberAppQuickActions(
+        packageName = appInfo.packageName,
+        shouldLoad = menuState.showMenu
+    )
+    val menuActions = remember(appInfo, quickActions) {
+        buildAppItemMenuActions(appInfo, quickActions)
+    }
     val hostView = LocalView.current
 
     Box(modifier = modifier) {

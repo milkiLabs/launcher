@@ -27,6 +27,7 @@ import android.content.Context
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.LauncherApps
+import android.content.pm.ShortcutInfo
 import android.os.Build
 import android.os.Process
 import android.widget.Toast
@@ -177,6 +178,47 @@ fun launchAppShortcut(
     }
     
     return false
+}
+
+/**
+ * Returns launcher quick actions (shortcuts) published by an app.
+ *
+ * These shortcuts are shown in long-press menus across launcher surfaces.
+ */
+fun queryAppQuickShortcuts(
+    context: Context,
+    packageName: String,
+    maxCount: Int = 4
+): List<HomeItem.AppShortcut> {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) {
+        return emptyList()
+    }
+
+    val launcherApps = context.getSystemService(LauncherApps::class.java) ?: return emptyList()
+    val query = LauncherApps.ShortcutQuery()
+        .setPackage(packageName)
+        .setQueryFlags(
+            LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or
+                LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or
+                LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+        )
+
+    val shortcuts = runCatching {
+        launcherApps.getShortcuts(query, Process.myUserHandle()).orEmpty()
+    }.getOrElse {
+        emptyList()
+    }
+
+    return shortcuts
+        .asSequence()
+        .filter { it.isEnabled }
+        .sortedWith(
+            compareBy<ShortcutInfo>({ !it.isDynamic }, { !it.isDeclaredInManifest }, { it.rank })
+        )
+        .map(HomeItem.AppShortcut::fromShortcutInfo)
+        .distinctBy { it.shortcutId }
+        .take(maxCount)
+        .toList()
 }
 
 /**

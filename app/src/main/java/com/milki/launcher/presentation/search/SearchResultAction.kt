@@ -157,6 +157,11 @@ sealed class SearchResultAction {
      * @property packageName The package name of the app
      */
     data class OpenAppInfo(val packageName: String) : SearchResultAction()
+
+    /**
+     * User wants to launch an app-published quick action (dynamic/manifest shortcut).
+     */
+    data class LaunchAppShortcut(val shortcut: HomeItem.AppShortcut) : SearchResultAction()
     
     // ========================================================================
     // PERMISSION ACTIONS
@@ -197,5 +202,6 @@ fun SearchResultAction.shouldCloseSearch(): Boolean = when (this) {
     is SearchResultAction.PinContact -> false
     is SearchResultAction.UnpinItem -> false
     is SearchResultAction.OpenAppInfo -> false
+    is SearchResultAction.LaunchAppShortcut -> true
     is SearchResultAction.RequestPermission -> false
 }

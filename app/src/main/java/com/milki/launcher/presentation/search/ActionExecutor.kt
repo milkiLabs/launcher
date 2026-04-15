@@ -28,6 +28,7 @@ import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.presentation.home.HomeMutationHandler
 import com.milki.launcher.core.intent.openFile
 import com.milki.launcher.core.intent.launchApp
+import com.milki.launcher.core.intent.launchAppShortcut
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -107,6 +108,7 @@ class ActionExecutor(
             is SearchResultAction.PinContact -> handlePinContact(action)
             is SearchResultAction.UnpinItem -> handleUnpinItem(action)
             is SearchResultAction.OpenAppInfo -> handleOpenAppInfo(action)
+            is SearchResultAction.LaunchAppShortcut -> handleLaunchAppShortcut(action)
             is SearchResultAction.RequestPermission -> handleRequestPermission(action)
         }
         
@@ -309,6 +311,12 @@ class ActionExecutor(
         } catch (e: ActivityNotFoundException) {
             Log.w(TAG, "Could not open app info screen", e)
             Toast.makeText(context, "Unable to open app info", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun handleLaunchAppShortcut(action: SearchResultAction.LaunchAppShortcut) {
+        if (!launchAppShortcut(context, action.shortcut)) {
+            Toast.makeText(context, "Shortcut unavailable", Toast.LENGTH_SHORT).show()
         }
     }
 

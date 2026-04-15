@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.presentation.launcher.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
@@ -59,7 +61,8 @@ data class MenuAction(
     val action: SearchResultAction? = null,
     val onClick: (() -> Unit)? = null,
     val isDestructive: Boolean = false,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val shortcutIcon: HomeItem.AppShortcut? = null
 )
 
 internal enum class ItemActionMenuVerticalPlacement {
@@ -186,12 +189,21 @@ private fun ItemActionMenuBubble(
                             ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = action.icon,
-                            contentDescription = null,
-                            tint = tint,
-                            modifier = Modifier.size(IconSize.standard)
-                        )
+                        val shortcutIcon = action.shortcutIcon
+                        if (shortcutIcon != null) {
+                            ShortcutIcon(
+                                shortcut = shortcutIcon,
+                                size = IconSize.standard,
+                                showBrowserBadge = false
+                            )
+                        } else {
+                            Icon(
+                                imageVector = action.icon,
+                                contentDescription = null,
+                                tint = tint,
+                                modifier = Modifier.size(IconSize.standard)
+                            )
+                        }
                         Spacer(modifier = Modifier.width(Spacing.mediumLarge))
                         Text(
                             text = action.label,
@@ -343,6 +355,19 @@ fun createAppInfoAction(packageName: String): MenuAction {
         label = "App info",
         icon = Icons.Filled.Info,
         action = SearchResultAction.OpenAppInfo(packageName)
+    )
+}
+
+fun createLaunchShortcutAction(shortcut: HomeItem.AppShortcut): MenuAction {
+    val label = shortcut.shortLabel.ifBlank {
+        shortcut.longLabel.ifBlank { "Open shortcut" }
+    }
+
+    return MenuAction(
+        label = label,
+        icon = Icons.AutoMirrored.Filled.OpenInNew,
+        action = SearchResultAction.LaunchAppShortcut(shortcut),
+        shortcutIcon = shortcut
     )
 }
 

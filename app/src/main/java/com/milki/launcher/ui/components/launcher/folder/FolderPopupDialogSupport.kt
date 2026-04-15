@@ -45,9 +45,12 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.common.rememberAppQuickActions
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.components.launcher.PinnedItem
+import com.milki.launcher.ui.components.launcher.createAppInfoAction
+import com.milki.launcher.ui.components.launcher.createLaunchShortcutAction
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
@@ -262,6 +265,14 @@ private fun FolderPopupItem(
     modifier: Modifier = Modifier
 ) {
     var isLongPressGestureActive by remember { mutableStateOf(false) }
+    val quickActions = if (item is HomeItem.PinnedApp) {
+        rememberAppQuickActions(
+            packageName = item.packageName,
+            shouldLoad = showMenu
+        )
+    } else {
+        emptyList()
+    }
 
     Box(
         modifier = modifier
@@ -307,14 +318,21 @@ private fun FolderPopupItem(
             expanded = showMenu,
             onDismiss = onMenuDismiss,
             focusable = !isLongPressGestureActive,
-            actions = listOf(
-                MenuAction(
-                    label = "Remove from folder",
-                    icon = Icons.Filled.Delete,
-                    onClick = onRemoveFromFolder,
-                    isDestructive = true
+            actions = buildList {
+                if (item is HomeItem.PinnedApp) {
+                    addAll(quickActions.map(::createLaunchShortcutAction))
+                    add(createAppInfoAction(item.packageName))
+                }
+
+                add(
+                    MenuAction(
+                        label = "Remove from folder",
+                        icon = Icons.Filled.Delete,
+                        onClick = onRemoveFromFolder,
+                        isDestructive = true
+                    )
                 )
-            )
+            }
         )
     }
 }

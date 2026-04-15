@@ -65,6 +65,7 @@ import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconLabelCell
 import com.milki.launcher.ui.components.common.IconLabelLayout
 import com.milki.launcher.ui.components.common.ShortcutIcon
+import com.milki.launcher.ui.components.common.rememberAppQuickActions
 import com.milki.launcher.ui.components.launcher.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -140,6 +141,14 @@ fun PinnedItem(
      * If handleLongPress is false, use external showMenu parameter (parent controls menu).
      */
     val isMenuVisible = if (handleLongPress) internalShowMenu else showMenu
+    val quickActions = if (item is HomeItem.PinnedApp) {
+        rememberAppQuickActions(
+            packageName = item.packageName,
+            shouldLoad = isMenuVisible
+        )
+    } else {
+        emptyList()
+    }
 
     /**
      * We wrap the entire item in a Box to allow the dropdown menu to be
@@ -201,7 +210,7 @@ fun PinnedItem(
                 }
             },
             focusable = menuFocusable,
-            actions = buildPinnedItemActions(item)
+            actions = buildPinnedItemActions(item, quickActions)
         )
     }
 }
@@ -290,12 +299,19 @@ private fun truncateHomeItemLabel(label: String): String {
  * @param item The pinned item to build actions for
  * @return List of MenuAction objects to display in the dropdown menu
  */
-private fun buildPinnedItemActions(item: HomeItem): List<MenuAction> {
+private fun buildPinnedItemActions(
+    item: HomeItem,
+    quickActions: List<HomeItem.AppShortcut>
+): List<MenuAction> {
     /**
      * Create a mutable list to hold the actions.
      * We use the helper functions from ItemActionMenu.kt to ensure consistency.
      */
     val actions = mutableListOf<MenuAction>()
+
+    if (item is HomeItem.PinnedApp) {
+        actions.addAll(quickActions.map(::createLaunchShortcutAction))
+    }
 
     /**
      * The unpin action removes the item from the home screen.
