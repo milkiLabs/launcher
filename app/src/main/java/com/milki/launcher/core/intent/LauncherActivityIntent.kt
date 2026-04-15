@@ -3,15 +3,19 @@ package com.milki.launcher.core.intent
 import android.content.ComponentName
 import android.content.Intent
 
-const val ACTION_BENCHMARK_OPEN_HOME = "com.milki.launcher.action.BENCHMARK_OPEN_HOME"
-const val ACTION_BENCHMARK_OPEN_DRAWER = "com.milki.launcher.action.BENCHMARK_OPEN_DRAWER"
-const val ACTION_BENCHMARK_PREPARE_HOME = "com.milki.launcher.action.BENCHMARK_PREPARE_HOME"
+const val ACTION_BENCHMARK = "com.milki.launcher.action.BENCHMARK"
+const val EXTRA_BENCHMARK_TARGET = "com.milki.launcher.extra.BENCHMARK_TARGET"
+const val EXTRA_BENCHMARK_SEED_HOME = "com.milki.launcher.extra.BENCHMARK_SEED_HOME"
 
-enum class LauncherBenchmarkAction {
-    OPEN_HOME,
-    OPEN_DRAWER,
-    PREPARE_HOME
+enum class LauncherBenchmarkTarget {
+    HOME,
+    DRAWER
 }
+
+data class LauncherBenchmarkRequest(
+    val target: LauncherBenchmarkTarget,
+    val seedHome: Boolean = false
+)
 
 /**
  * Creates an explicit launcher intent for a specific launcher activity component.
@@ -24,23 +28,29 @@ fun createLauncherActivityIntent(componentName: ComponentName): Intent {
     }
 }
 
-fun Intent.isBenchmarkOpenHomeIntent(): Boolean {
-    return action == ACTION_BENCHMARK_OPEN_HOME
-}
-
-fun Intent.isBenchmarkOpenDrawerIntent(): Boolean {
-    return action == ACTION_BENCHMARK_OPEN_DRAWER
-}
-
-fun Intent.isBenchmarkPrepareHomeIntent(): Boolean {
-    return action == ACTION_BENCHMARK_PREPARE_HOME
-}
-
-fun Intent.toLauncherBenchmarkActionOrNull(): LauncherBenchmarkAction? {
-    return when (action) {
-        ACTION_BENCHMARK_OPEN_HOME -> LauncherBenchmarkAction.OPEN_HOME
-        ACTION_BENCHMARK_OPEN_DRAWER -> LauncherBenchmarkAction.OPEN_DRAWER
-        ACTION_BENCHMARK_PREPARE_HOME -> LauncherBenchmarkAction.PREPARE_HOME
-        else -> null
+fun Intent.toLauncherBenchmarkRequestOrNull(): LauncherBenchmarkRequest? {
+    if (action != ACTION_BENCHMARK) {
+        return null
     }
+
+    return parseLauncherBenchmarkRequest(
+        targetName = getStringExtra(EXTRA_BENCHMARK_TARGET),
+        seedHome = getBooleanExtra(EXTRA_BENCHMARK_SEED_HOME, false)
+    )
+}
+
+internal fun parseLauncherBenchmarkRequest(
+    targetName: String?,
+    seedHome: Boolean
+): LauncherBenchmarkRequest? {
+    val target = when (targetName) {
+        LauncherBenchmarkTarget.HOME.name -> LauncherBenchmarkTarget.HOME
+        LauncherBenchmarkTarget.DRAWER.name -> LauncherBenchmarkTarget.DRAWER
+        else -> return null
+    }
+
+    return LauncherBenchmarkRequest(
+        target = target,
+        seedHome = seedHome
+    )
 }

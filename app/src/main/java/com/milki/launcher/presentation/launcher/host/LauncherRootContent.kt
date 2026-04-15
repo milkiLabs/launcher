@@ -23,7 +23,14 @@ import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.launcher.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchViewModel
+import com.milki.launcher.ui.screens.launcher.DrawerActions
+import com.milki.launcher.ui.screens.launcher.FolderActions
+import com.milki.launcher.ui.screens.launcher.HomeActions
+import com.milki.launcher.ui.screens.launcher.LauncherActions
 import com.milki.launcher.ui.screens.launcher.LauncherScreen
+import com.milki.launcher.ui.screens.launcher.MenuActions
+import com.milki.launcher.ui.screens.launcher.SearchActions
+import com.milki.launcher.ui.screens.launcher.WidgetActions
 import com.milki.launcher.ui.theme.LauncherTheme
 
 /**
@@ -35,7 +42,7 @@ import com.milki.launcher.ui.theme.LauncherTheme
 @Composable
 internal fun LauncherRootContent(
     runtime: LauncherHostRuntime,
-    actionFactory: LauncherActionFactory,
+    onOpenSettings: () -> Unit,
     searchViewModel: SearchViewModel,
     homeViewModel: HomeViewModel,
     appDrawerViewModel: AppDrawerViewModel,
@@ -55,6 +62,13 @@ internal fun LauncherRootContent(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val surfaceStateCoordinator = runtime.surfaceStateCoordinator
+    val homeController = remember(homeViewModel, runtime.widgetPlacementCoordinator, widgetHostManager) {
+        LauncherHomeController(
+            homeViewModel = homeViewModel,
+            widgetPlacementCoordinator = runtime.widgetPlacementCoordinator,
+            widgetHostManager = widgetHostManager
+        )
+    }
     var widgetPickerCatalogStore by remember { mutableStateOf<WidgetPickerCatalogStore?>(null) }
 
     CompositionLocalProvider(
@@ -94,10 +108,56 @@ internal fun LauncherRootContent(
         }
 
         LauncherTheme {
-            val launcherActions = remember(context, launcherSettings.swipeUpAction) {
-                actionFactory.build(
-                    context = context,
-                    swipeUpAction = launcherSettings.swipeUpAction
+            val launcherActions = remember(
+                context,
+                launcherSettings.swipeUpAction,
+                onOpenSettings
+            ) {
+                LauncherActions(
+                    search = SearchActions(
+                        onQueryChange = searchViewModel::onQueryChange,
+                        onDismissSearch = {
+                            surfaceStateCoordinator.dismissContextMenus()
+                            searchViewModel.hideSearch()
+                        }
+                    ),
+                    menu = MenuActions(
+                        onOpenSettings = onOpenSettings,
+                        onHomescreenMenuOpenChange = surfaceStateCoordinator::updateHomescreenMenuOpen
+                    ),
+                    drawer = DrawerActions(
+                        onAppDrawerOpenChange = surfaceStateCoordinator::updateAppDrawerOpen,
+                        onQueryChange = appDrawerViewModel::updateQuery
+                    ),
+                    home = HomeActions(
+                        onHomeSwipeUp = {
+                            surfaceStateCoordinator.handleHomeSwipeUp(launcherSettings.swipeUpAction)
+                        },
+                        onPinnedItemClick = { item -> homeController.onPinnedItemClick(item, context) },
+                        onPinnedItemLongPress = {},
+                        onPinnedItemMove = homeController::onPinnedItemMove,
+                        onItemDroppedToHome = homeController::onItemDroppedToHome
+                    ),
+                    folder = FolderActions(
+                        onCreateFolder = homeController::onCreateFolder,
+                        onAddItemToFolder = homeController::onAddItemToFolder,
+                        onMergeFolders = homeController::onMergeFolders,
+                        onFolderClose = homeController::onFolderClose,
+                        onFolderRename = homeController::onFolderRename,
+                        onFolderItemClick = { item -> homeController.onFolderItemClick(item, context) },
+                        onFolderItemRemove = homeController::onRemoveItemFromFolder,
+                        onFolderItemReorder = homeController::onReorderFolderItems,
+                        onExtractItemFromFolder = homeController::onExtractItemFromFolder,
+                        onMoveFolderItemToFolder = homeController::onMoveFolderItemToFolder,
+                        onFolderChildDroppedOnItem = homeController::onFolderChildDroppedOnItem
+                    ),
+                    widget = WidgetActions(
+                        onWidgetPickerOpenChange = surfaceStateCoordinator::updateWidgetPickerOpen,
+                        onWidgetPickerQueryChange = surfaceStateCoordinator::updateWidgetPickerQuery,
+                        onRemoveWidget = { widgetId, _ -> homeController.onRemoveWidget(widgetId) },
+                        onUpdateWidgetFrame = homeController::onUpdateWidgetFrame,
+                        onWidgetDroppedToHome = homeController::onWidgetDroppedToHome
+                    )
                 )
             }
 

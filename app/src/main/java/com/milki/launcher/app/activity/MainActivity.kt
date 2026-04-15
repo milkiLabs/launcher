@@ -13,7 +13,6 @@ import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.presentation.launcher.host.LauncherActionFactory
 import com.milki.launcher.presentation.launcher.host.LauncherHostRuntime
 import com.milki.launcher.presentation.launcher.host.LauncherRootContent
 import org.koin.android.ext.android.inject
@@ -24,7 +23,6 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
  *
  * Architecture split:
  * - [LauncherHostRuntime] owns lifecycle side effects and coordinator orchestration.
- * - [LauncherActionFactory] assembles screen callback APIs.
  * - [LauncherRootContent] collects ViewModel state and renders Compose UI.
  */
 class MainActivity : ComponentActivity() {
@@ -40,7 +38,6 @@ class MainActivity : ComponentActivity() {
     private val widgetPickerCatalogStore: WidgetPickerCatalogStore by inject()
 
     private lateinit var runtime: LauncherHostRuntime
-    private lateinit var actionFactory: LauncherActionFactory
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,22 +52,13 @@ class MainActivity : ComponentActivity() {
             homeRepository = homeRepository,
             widgetHostManager = widgetHostManager
         )
-        actionFactory = LauncherActionFactory(
-            onOpenSettings = ::openSettings,
-            homeViewModel = homeViewModel,
-            appDrawerViewModel = appDrawerViewModel,
-            searchViewModel = searchViewModel,
-            surfaceStateCoordinator = runtime.surfaceStateCoordinator,
-            widgetPlacementCoordinator = runtime.widgetPlacementCoordinator,
-            widgetHostManager = widgetHostManager
-        )
         runtime.initialize()
         runtime.handleInitialIntent(intent)
 
         setContent {
             LauncherRootContent(
                 runtime = runtime,
-                actionFactory = actionFactory,
+                onOpenSettings = ::openSettings,
                 searchViewModel = searchViewModel,
                 homeViewModel = homeViewModel,
                 appDrawerViewModel = appDrawerViewModel,

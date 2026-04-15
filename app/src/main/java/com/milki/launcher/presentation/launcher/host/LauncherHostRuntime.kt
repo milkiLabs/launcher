@@ -4,24 +4,19 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
+import com.milki.launcher.core.intent.LauncherBenchmarkTarget
+import com.milki.launcher.core.intent.toLauncherBenchmarkRequestOrNull
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
-import com.milki.launcher.core.intent.LauncherBenchmarkAction
-import com.milki.launcher.core.intent.toLauncherBenchmarkActionOrNull
 import com.milki.launcher.data.widget.WidgetHostManager
-import com.milki.launcher.domain.repository.AppRepository
+import com.milki.launcher.core.permission.PermissionHandler
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.HomeRepository
-import com.milki.launcher.core.permission.PermissionHandler
+import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
-import com.milki.launcher.presentation.launcher.PinShortcutRequestCoordinator
-import com.milki.launcher.presentation.launcher.HomeButtonPolicy
-import com.milki.launcher.presentation.launcher.HomeIntentCoordinator
-import com.milki.launcher.presentation.launcher.HomeIntentCoordinatorContract
 import com.milki.launcher.presentation.launcher.PermissionRequestCoordinator
-import com.milki.launcher.presentation.launcher.SearchSessionController
+import com.milki.launcher.presentation.launcher.PinShortcutRequestCoordinator
 import com.milki.launcher.presentation.launcher.SurfaceStateCoordinator
-import com.milki.launcher.presentation.launcher.SurfaceStateCoordinatorContract
 import com.milki.launcher.presentation.launcher.WidgetPlacementCoordinator
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.SearchResultAction
@@ -54,14 +49,13 @@ internal class LauncherHostRuntime(
     private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
     private lateinit var pinShortcutRequestCoordinator: PinShortcutRequestCoordinator
 
-    private val searchSessionController = SearchSessionController(searchViewModel)
     private val benchmarkHomeSeeder = LauncherBenchmarkHomeSeeder(
         appRepository = appRepository,
         homeRepository = homeRepository,
         ownPackageName = activity.packageName
     )
 
-    val surfaceStateCoordinator: SurfaceStateCoordinatorContract = SurfaceStateCoordinator(
+    val surfaceStateCoordinator = SurfaceStateCoordinator(
         showSearch = { searchViewModel.showSearch() },
         hideSearch = { searchViewModel.hideSearch() },
         isSearchVisible = { searchViewModel.uiState.value.isSearchVisible },
@@ -69,8 +63,6 @@ internal class LauncherHostRuntime(
         closeFolder = { homeViewModel.closeFolder() },
         onAppDrawerVisibilityChanged = appDrawerViewModel::setDrawerVisible
     )
-
-    val homeIntentCoordinator: HomeIntentCoordinatorContract = createHomeIntentCoordinator()
 
     val widgetPlacementCoordinator: WidgetPlacementCoordinator = WidgetPlacementCoordinator(
         activity = activity,
@@ -120,7 +112,7 @@ internal class LauncherHostRuntime(
         widgetHostManager.setActivityResumed(true)
         widgetHostManager.setStateIsNormal(true)
         permissionHandler.updateStates()
-        homeIntentCoordinator.onResume()
+        surfaceStateCoordinator.onResume()
     }
 
     fun onPause() {
@@ -133,7 +125,6 @@ internal class LauncherHostRuntime(
 
     fun onStop() {
         widgetHostManager.setActivityStarted(false)
-        homeIntentCoordinator.onStop()
         surfaceStateCoordinator.onStop()
     }
 
@@ -158,48 +149,35 @@ internal class LauncherHostRuntime(
         }
 
         when {
-            isLauncherHomeIntent(intent) -> {
-                homeIntentCoordinator.onHomeButtonPressed(
-                    isSearchVisible = searchViewModel.uiState.value.isSearchVisible
-                )
-            }
+            isLauncherHomeIntent(intent) -> surfaceStateCoordinator.handleHomeIntent()
         }
     }
 
     private fun handleBenchmarkIntent(intent: Intent): Boolean {
-        return when (intent.toLauncherBenchmarkActionOrNull()) {
-            LauncherBenchmarkAction.PREPARE_HOME -> {
-                prepareHomeForBenchmark()
-                true
-            }
+        val request = intent.toLauncherBenchmarkRequestOrNull() ?: return false
 
-            LauncherBenchmarkAction.OPEN_DRAWER -> {
-                showDrawerForBenchmark()
-                true
-            }
-
-            LauncherBenchmarkAction.OPEN_HOME -> {
-                showHomeForBenchmark()
-                true
-            }
-
-            null -> false
-        }
+        applyBenchmarkRequest(
+            target = request.target,
+            seedHome = request.seedHome
+        )
+        return true
     }
 
-    private fun showHomeForBenchmark() {
-        resetTransientSurfacesForBenchmark()
-        surfaceStateCoordinator.updateAppDrawerOpen(false)
-    }
-
-    private fun prepareHomeForBenchmark() {
+    private fun applyBenchmarkRequest(
+        target: LauncherBenchmarkTarget,
+        seedHome: Boolean
+    ) {
         resetTransientSurfacesForBenchmark()
 
-        runBlocking(Dispatchers.IO) {
-            benchmarkHomeSeeder.seed()
+        if (seedHome) {
+            runBlocking(Dispatchers.IO) {
+                benchmarkHomeSeeder.seed()
+            }
         }
 
-        surfaceStateCoordinator.updateAppDrawerOpen(false)
+        if (target == LauncherBenchmarkTarget.DRAWER) {
+            surfaceStateCoordinator.updateAppDrawerOpen(true)
+        }
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int): Boolean {
@@ -248,41 +226,8 @@ internal class LauncherHostRuntime(
             activity,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    surfaceStateCoordinator.handleBackPressed(
-                        isSearchVisible = searchViewModel.uiState.value.isSearchVisible
-                    )
+                    surfaceStateCoordinator.handleBackPressed()
                 }
-            }
-        )
-    }
-
-    private fun createHomeIntentCoordinator(): HomeIntentCoordinatorContract {
-        return HomeIntentCoordinator(
-            homeButtonPolicy = HomeButtonPolicy(),
-            isHomescreenMenuOpen = { surfaceStateCoordinator.isHomescreenMenuOpen },
-            consumeLayeredHomePress = {
-                if (surfaceStateCoordinator.isAppDrawerOpen) {
-                    surfaceStateCoordinator.updateAppDrawerOpen(false)
-                    return@HomeIntentCoordinator true
-                }
-
-                if (surfaceStateCoordinator.isWidgetPickerOpen) {
-                    surfaceStateCoordinator.updateWidgetPickerOpen(false)
-                    return@HomeIntentCoordinator true
-                }
-
-                surfaceStateCoordinator.consumeHomePressForLayeredSurface()
-            },
-            applyDecision = { decision ->
-                searchSessionController.applyHomeButtonDecision(
-                    decision = decision,
-                    dismissContextMenus = {
-                        surfaceStateCoordinator.dismissContextMenus()
-                    },
-                    closeHomescreenMenu = {
-                        surfaceStateCoordinator.updateHomescreenMenuOpen(false)
-                    }
-                )
             }
         )
     }
@@ -291,13 +236,9 @@ internal class LauncherHostRuntime(
         return intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
     }
 
-    private fun showDrawerForBenchmark() {
-        resetTransientSurfacesForBenchmark()
-        surfaceStateCoordinator.updateAppDrawerOpen(true)
-    }
-
     private fun resetTransientSurfacesForBenchmark() {
         surfaceStateCoordinator.dismissContextMenus()
+        surfaceStateCoordinator.updateAppDrawerOpen(false)
         surfaceStateCoordinator.updateHomescreenMenuOpen(false)
         surfaceStateCoordinator.updateWidgetPickerOpen(false)
         appDrawerViewModel.updateQuery("")

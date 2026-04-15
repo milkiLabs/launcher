@@ -19,9 +19,18 @@ Benchmark setup now seeds a deterministic non-empty homescreen before each measu
 Seeding details:
 
 1. 16 pinned apps are placed in a 4x4 grid.
-2. This is done via benchmark-only intent action `com.milki.launcher.action.BENCHMARK_PREPARE_HOME`.
-3. Seeding logic now lives in `LauncherBenchmarkHomeSeeder.seed()` and is invoked by benchmark intent handling in `LauncherHostRuntime`.
-4. Widget auto-seeding is intentionally not included (provider binding/config is device and provider dependent).
+2. Benchmarks now use one benchmark-only intent action `com.milki.launcher.action.BENCHMARK`.
+3. The benchmark intent carries two explicit inputs:
+4. `BENCHMARK_TARGET` -> target launcher surface (`HOME` or `DRAWER`)
+5. `BENCHMARK_SEED_HOME` -> whether to reseed the homescreen before opening that surface
+6. Seeding logic lives in `LauncherBenchmarkHomeSeeder.seed()` and is invoked by benchmark intent handling in `LauncherHostRuntime`.
+7. Widget auto-seeding is intentionally not included (provider binding/config is device and provider dependent).
+
+Why this changed:
+
+1. The old harness split setup across separate `PREPARE_HOME`, `OPEN_HOME`, and `OPEN_DRAWER` actions.
+2. Macrobenchmarks and baseline profile collection also duplicated the scenario flow in different files.
+3. The new harness uses one request model and one shared driver, so setup and measured transitions are defined in one place.
 
 Files involved:
 
@@ -29,9 +38,9 @@ Files involved:
 2. `app/src/main/java/com/milki/launcher/app/activity/MainActivity.kt`
 3. `app/src/main/java/com/milki/launcher/presentation/launcher/host/LauncherHostRuntime.kt`
 4. `app/src/main/java/com/milki/launcher/presentation/launcher/host/LauncherBenchmarkHomeSeeder.kt`
-5. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherBenchmarkTarget.kt`
-6. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherBenchmarkScenario.kt`
-7. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherHomeBenchmark.kt`
+5. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherBenchmarkDriver.kt`
+6. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherHomeBenchmark.kt`
+7. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherBaselineProfile.kt`
 
 ## Reproduction Workflow (Use This)
 

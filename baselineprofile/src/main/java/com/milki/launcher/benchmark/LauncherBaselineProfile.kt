@@ -16,20 +16,19 @@ class LauncherBaselineProfile {
 
     @Test
     fun generate() = baselineProfileRule.collect(
-        packageName = LauncherBenchmarkTarget.packageName,
+        packageName = LauncherBenchmarkTargetApp.packageName,
         includeInStartupProfile = true
     ) {
-        pressHome()
-        startActivityAndWait(LauncherBenchmarkTarget.prepareHomeIntent())
-        device.waitForIdle()
+        val benchmarkDriver = LauncherBenchmarkDriver(this)
+        benchmarkDriver.moveTo(
+            targetSurface = LauncherBenchmarkSurface.HOME,
+            seedHome = true
+        )
 
         repeat(3) {
-            openHomeAndAwaitIdle()
-
-            startActivityAndWait(LauncherBenchmarkTarget.drawerIntent())
-            device.waitForIdle()
-
-            openHomeAndAwaitIdle()
+            benchmarkDriver.open(LauncherBenchmarkSurface.HOME)
+            benchmarkDriver.open(LauncherBenchmarkSurface.DRAWER)
+            benchmarkDriver.open(LauncherBenchmarkSurface.HOME)
         }
     }
 }

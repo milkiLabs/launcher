@@ -13,17 +13,20 @@ This project uses `:baselineprofile` for repeatable launcher startup and homescr
 
 ### App-side benchmark commands
 
-The launcher host responds to benchmark-only intent actions:
+The launcher host responds to one benchmark-only intent action:
 
-1. `com.milki.launcher.action.BENCHMARK_PREPARE_HOME`
-2. `com.milki.launcher.action.BENCHMARK_OPEN_HOME`
-3. `com.milki.launcher.action.BENCHMARK_OPEN_DRAWER`
+1. `com.milki.launcher.action.BENCHMARK`
+
+That intent carries a small request model:
+
+1. `BENCHMARK_TARGET` selects the target surface (`HOME` or `DRAWER`).
+2. `BENCHMARK_SEED_HOME` controls whether the homescreen is reseeded before opening the target surface.
 
 Responsibilities:
 
-1. `BENCHMARK_PREPARE_HOME` resets transient UI and seeds a deterministic homescreen (16 pinned apps).
-2. `BENCHMARK_OPEN_HOME` enters homescreen state from a clean transient state.
-3. `BENCHMARK_OPEN_DRAWER` enters drawer state from a clean transient state.
+1. Reset transient UI before every benchmark request.
+2. Optionally seed a deterministic homescreen (16 pinned apps).
+3. Open the requested launcher surface from that clean state.
 
 Key files:
 
@@ -39,9 +42,9 @@ Key files:
 2. `coldStartupToHomescreenWithoutBaselineProfile`
 3. `returnToHomescreenFromDrawer`
 
-Shared setup/navigation helpers live in:
+Shared setup/navigation now lives in:
 
-1. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherBenchmarkScenario.kt`
+1. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherBenchmarkDriver.kt`
 
 ## Device Matrix
 
@@ -109,8 +112,8 @@ Manual deterministic launches:
 
 ```bash
 adb shell am force-stop com.milki.launcher
-adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK_PREPARE_HOME
-adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK_OPEN_HOME
+adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET HOME --ez com.milki.launcher.extra.BENCHMARK_SEED_HOME true
+adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET HOME
 ```
 
 ## Troubleshooting
@@ -152,16 +155,16 @@ Resolution:
 
 ### Add a new benchmark scenario
 
-1. Add/setup helpers in `LauncherBenchmarkScenario.kt` if behavior is reusable.
+1. Add/setup helpers in `LauncherBenchmarkDriver.kt` if behavior is reusable.
 2. Add the scenario in `LauncherHomeBenchmark.kt` with explicit setup and metric list.
 3. Keep setup deterministic and use benchmark-only intents where possible.
 4. Update this document with run commands and expected outputs.
 
 ### Add a new benchmark command
 
-1. Add action constant and action mapping in `LauncherActivityIntent.kt`.
-2. Add intent factory in `LauncherBenchmarkTarget.kt`.
-3. Handle action in `LauncherHostRuntime.handleBenchmarkIntent`.
+1. Extend the request model in `LauncherActivityIntent.kt` only if the existing `target + seedHome` shape cannot express the new case.
+2. Update `LauncherBenchmarkDriver.kt` so baseline profile collection and macrobenchmarks keep using the same scenario API.
+3. Handle the new request in `LauncherHostRuntime.handleBenchmarkIntent`.
 4. Keep command side effects isolated and idempotent.
 
 ### Data quality rules

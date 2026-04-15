@@ -1,6 +1,8 @@
 package com.milki.launcher.presentation.home
 
+import android.app.Activity
 import android.appwidget.AppWidgetProviderInfo
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
@@ -17,21 +19,24 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Home screen ViewModel.
  *
- * This class intentionally stays thin and delegates heavy logic to focused
- * collaborators:
- * - HomeMutationCoordinator: serialized write path and error/loading bookkeeping
- * - HomeAvailabilityPruner: installed-app and file availability cleanup
- * - HomeWidgetPlacementController: bind/configure/place widget state machine
+ * This version keeps the write path straightforward:
+ * - one mutation lock
+ * - one writer
+ * - one place that persists updates
  */
 class HomeViewModel(
     private val homeRepository: HomeRepository,
@@ -43,28 +48,36 @@ class HomeViewModel(
         private const val DEFERRED_STARTUP_DELAY_MS = 250L
     }
 
-    private val modelWriter = HomeModelWriter()
-    private val openFolderIdFlow = MutableStateFlow<String?>(null)
-    private var deferredStartupJob: Job? = null
+    sealed interface WidgetPlacementCommand {
+        data class LaunchBindPermission(val appWidgetId: Int, val intent: Intent) : WidgetPlacementCommand
+        data class LaunchConfigure(val appWidgetId: Int) : WidgetPlacementCommand
+        data object NoOp : WidgetPlacementCommand
+    }
 
-    private val mutationCoordinator = HomeMutationCoordinator(
-        homeRepository = homeRepository,
-        modelWriter = modelWriter,
-        openFolderIdFlow = openFolderIdFlow,
-        scope = viewModelScope
+    private data class PendingWidget(
+        val appWidgetId: Int,
+        val providerComponent: ComponentName,
+        val providerLabel: String,
+        val targetPosition: GridPosition,
+        val span: GridSpan
     )
+
+    private val modelWriter = HomeModelWriter()
+    private val mutationMutex = Mutex()
+    private val openFolderIdFlow = MutableStateFlow<String?>(null)
+    private val pendingMutationCount = MutableStateFlow(0)
+    private val _lastMoveErrorMessage = MutableStateFlow<String?>(null)
+    private val pendingWidgets = linkedMapOf<Int, PendingWidget>()
+    private var deferredStartupJob: Job? = null
 
     private val availabilityPruner = HomeAvailabilityPruner(
         appRepository = appRepository,
         appContext = appContext,
         homeRepository = homeRepository,
         modelWriter = modelWriter,
-        mutationCoordinator = mutationCoordinator,
+        mutationMutex = mutationMutex,
+        persistUpdatedItems = ::persistUpdatedItems,
         scope = viewModelScope
-    )
-
-    private val widgetPlacementController = HomeWidgetPlacementController(
-        mutationCoordinator = mutationCoordinator
     )
 
     private val iconWarmupCoordinator = HomeIconWarmupCoordinator(
@@ -80,9 +93,6 @@ class HomeViewModel(
         super.onCleared()
     }
 
-    /**
-     * Starts background-only home maintenance after the first frame is already visible.
-     */
     fun startDeferredStartupWork() {
         if (deferredStartupJob != null) {
             return
@@ -95,14 +105,12 @@ class HomeViewModel(
         }
     }
 
-    /** Canonical pinned-item model consumed by the homescreen grid. */
     val pinnedItems = homeRepository.pinnedItems.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
     )
 
-    /** Resolved folder item for the currently open folder overlay, if any. */
     val openFolderItem = combine(
         pinnedItems,
         openFolderIdFlow
@@ -118,8 +126,7 @@ class HomeViewModel(
         initialValue = null
     )
 
-    /** Mutation progress exposed separately from content state. */
-    val isUpdatingPositions = mutationCoordinator.pendingPositionUpdateCount
+    val isUpdatingPositions = pendingMutationCount
         .map { pendingUpdates -> pendingUpdates > 0 }
         .stateIn(
             scope = viewModelScope,
@@ -127,31 +134,73 @@ class HomeViewModel(
             initialValue = false
         )
 
-    /** Latest mutation error exposed separately from content state. */
-    val lastMoveErrorMessage = mutationCoordinator.lastMoveErrorMessage.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = null
-    )
+    val lastMoveErrorMessage: StateFlow<String?> = _lastMoveErrorMessage
 
-    private fun launchWriterCommand(
+    private fun launchMutation(
         fallbackErrorMessage: String,
         command: HomeModelWriter.Command,
         onApplied: suspend (items: List<HomeItem>) -> Unit = {}
     ) {
-        mutationCoordinator.launchSerializedMutation(
-            fallbackErrorMessage = fallbackErrorMessage,
-            coalescingKey = command.coalescingKey()
-        ) {
-            mutationCoordinator.applyWriterCommand(
-                command = command,
-                onApplied = onApplied
-            )
+        viewModelScope.launch {
+            pendingMutationCount.update { it + 1 }
+            _lastMoveErrorMessage.value = null
+
+            val wasApplied = runCatching {
+                applyWriterCommand(command, onApplied)
+            }.getOrElse { exception ->
+                _lastMoveErrorMessage.value = exception.message ?: fallbackErrorMessage
+                false
+            }
+
+            if (!wasApplied && _lastMoveErrorMessage.value == null) {
+                _lastMoveErrorMessage.value = fallbackErrorMessage
+            }
+
+            pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
+        }
+    }
+
+    private suspend fun applyWriterCommand(
+        command: HomeModelWriter.Command,
+        onApplied: suspend (items: List<HomeItem>) -> Unit = {}
+    ): Boolean {
+        return mutationMutex.withLock {
+            val currentItems = homeRepository.readPinnedItems()
+            when (
+                val result = modelWriter.apply(
+                    currentItems = currentItems,
+                    command = command
+                )
+            ) {
+                is HomeModelWriter.Result.Applied -> {
+                    persistUpdatedItems(currentItems, result.items)
+                    onApplied(result.items)
+                    true
+                }
+
+                is HomeModelWriter.Result.Rejected -> false
+            }
+        }
+    }
+
+    private suspend fun persistUpdatedItems(
+        currentItems: List<HomeItem>,
+        updatedItems: List<HomeItem>
+    ) {
+        if (updatedItems == currentItems) {
+            return
+        }
+
+        homeRepository.replacePinnedItems(updatedItems)
+
+        val openFolderId = openFolderIdFlow.value
+        if (openFolderId != null && updatedItems.none { it.id == openFolderId }) {
+            openFolderIdFlow.value = null
         }
     }
 
     fun moveItemToPosition(itemId: String, newPosition: GridPosition) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Target position is occupied or item no longer exists",
             command = HomeModelWriter.Command.MoveTopLevelItem(
                 itemId = itemId,
@@ -168,7 +217,7 @@ class HomeViewModel(
     }
 
     fun pinOrMoveHomeItemToPosition(item: HomeItem, dropPosition: GridPosition) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Target position is occupied",
             command = HomeModelWriter.Command.PinOrMoveToPosition(
                 item = item,
@@ -178,7 +227,7 @@ class HomeViewModel(
     }
 
     override fun pinApp(appInfo: AppInfo) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Failed to pin app",
             command = HomeModelWriter.Command.AddPinnedItem(
                 item = HomeItem.PinnedApp.fromAppInfo(appInfo)
@@ -187,7 +236,7 @@ class HomeViewModel(
     }
 
     override fun pinFile(file: FileDocument) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Failed to pin file",
             command = HomeModelWriter.Command.AddPinnedItem(
                 item = HomeItem.PinnedFile.fromFileDocument(file)
@@ -196,7 +245,7 @@ class HomeViewModel(
     }
 
     override fun pinContact(contact: Contact) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Failed to pin contact",
             command = HomeModelWriter.Command.AddPinnedItem(
                 item = HomeItem.PinnedContact.fromContact(contact)
@@ -205,21 +254,21 @@ class HomeViewModel(
     }
 
     fun pinAppShortcut(shortcut: HomeItem.AppShortcut) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Failed to pin shortcut",
             command = HomeModelWriter.Command.AddPinnedItem(item = shortcut)
         )
     }
 
     override fun unpinItem(itemId: String) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Failed to remove item",
             command = HomeModelWriter.Command.RemoveItemById(itemId = itemId)
         )
     }
 
     fun clearMoveError() {
-        mutationCoordinator.clearMoveError()
+        _lastMoveErrorMessage.value = null
     }
 
     fun openFolder(folderId: String) {
@@ -231,7 +280,7 @@ class HomeViewModel(
     }
 
     fun createFolder(item1: HomeItem, item2: HomeItem, atPosition: GridPosition) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not create folder",
             command = HomeModelWriter.Command.CreateFolder(
                 draggedItem = item1,
@@ -242,7 +291,7 @@ class HomeViewModel(
     }
 
     fun addItemToFolder(folderId: String, item: HomeItem) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not add item to folder",
             command = HomeModelWriter.Command.AddItemToFolder(
                 folderId = folderId,
@@ -252,7 +301,7 @@ class HomeViewModel(
     }
 
     fun removeItemFromFolder(folderId: String, itemId: String) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not remove item from folder",
             command = HomeModelWriter.Command.RemoveItemFromFolder(
                 folderId = folderId,
@@ -262,7 +311,7 @@ class HomeViewModel(
     }
 
     fun reorderFolderItems(folderId: String, newChildren: List<HomeItem>) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not reorder folder items",
             command = HomeModelWriter.Command.ReorderFolderItems(
                 folderId = folderId,
@@ -276,7 +325,7 @@ class HomeViewModel(
         itemId: String,
         targetFolderId: String
     ) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not move item between folders",
             command = HomeModelWriter.Command.MoveItemBetweenFolders(
                 sourceFolderId = sourceFolderId,
@@ -292,7 +341,7 @@ class HomeViewModel(
         occupantItem: HomeItem,
         atPosition: GridPosition
     ) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not create folder from drag",
             command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
                 sourceFolderId = sourceFolderId,
@@ -304,7 +353,7 @@ class HomeViewModel(
     }
 
     fun mergeFolders(sourceFolderId: String, targetFolderId: String) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not merge folders",
             command = HomeModelWriter.Command.MergeFolders(
                 sourceFolderId = sourceFolderId,
@@ -314,7 +363,7 @@ class HomeViewModel(
     }
 
     fun renameFolder(folderId: String, newName: String) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Could not rename folder",
             command = HomeModelWriter.Command.RenameFolder(
                 folderId = folderId,
@@ -324,7 +373,7 @@ class HomeViewModel(
     }
 
     fun extractItemFromFolder(folderId: String, itemId: String, targetPosition: GridPosition) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Target position is occupied",
             command = HomeModelWriter.Command.ExtractItemFromFolder(
                 folderId = folderId,
@@ -337,24 +386,40 @@ class HomeViewModel(
         )
     }
 
-    sealed interface WidgetPlacementCommand {
-        data class LaunchBindPermission(val appWidgetId: Int, val intent: Intent) : WidgetPlacementCommand
-        data class LaunchConfigure(val appWidgetId: Int) : WidgetPlacementCommand
-        data object NoOp : WidgetPlacementCommand
-    }
-
     fun startWidgetPlacement(
         providerInfo: AppWidgetProviderInfo,
         targetPosition: GridPosition,
         span: GridSpan,
         widgetHostManager: WidgetHostManager
     ): WidgetPlacementCommand {
-        return widgetPlacementController.startWidgetPlacement(
-            providerInfo = providerInfo,
+        val appWidgetId = widgetHostManager.allocateWidgetId()
+        val bindOptions = widgetHostManager.createBindOptions(span)
+        pendingWidgets[appWidgetId] = PendingWidget(
+            appWidgetId = appWidgetId,
+            providerComponent = providerInfo.provider,
+            providerLabel = widgetHostManager.loadProviderLabel(providerInfo),
             targetPosition = targetPosition,
-            span = span,
-            widgetHostManager = widgetHostManager
+            span = span
         )
+
+        val boundImmediately = widgetHostManager.bindWidget(
+            appWidgetId = appWidgetId,
+            providerInfo = providerInfo,
+            options = bindOptions
+        )
+
+        return if (boundImmediately) {
+            resolvePostBindCommand(appWidgetId, widgetHostManager)
+        } else {
+            WidgetPlacementCommand.LaunchBindPermission(
+                appWidgetId = appWidgetId,
+                intent = widgetHostManager.createBindPermissionIntent(
+                    appWidgetId = appWidgetId,
+                    providerInfo = providerInfo,
+                    options = bindOptions
+                )
+            )
+        }
     }
 
     fun handleWidgetBindResult(
@@ -362,11 +427,13 @@ class HomeViewModel(
         widgetHostManager: WidgetHostManager,
         appWidgetId: Int
     ): WidgetPlacementCommand {
-        return widgetPlacementController.handleWidgetBindResult(
-            resultCode = resultCode,
-            widgetHostManager = widgetHostManager,
-            appWidgetId = appWidgetId
-        )
+        val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
+        return if (resultCode == Activity.RESULT_OK) {
+            resolvePostBindCommand(appWidgetId, widgetHostManager)
+        } else {
+            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
+            WidgetPlacementCommand.NoOp
+        }
     }
 
     fun handleWidgetConfigureResult(
@@ -374,32 +441,27 @@ class HomeViewModel(
         widgetHostManager: WidgetHostManager,
         appWidgetId: Int
     ): WidgetPlacementCommand {
-        return widgetPlacementController.handleWidgetConfigureResult(
-            resultCode = resultCode,
-            widgetHostManager = widgetHostManager,
-            appWidgetId = appWidgetId
-        )
+        val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
+        return if (resultCode == Activity.RESULT_OK) {
+            persistPendingWidget(appWidgetId, pending, widgetHostManager)
+            WidgetPlacementCommand.NoOp
+        } else {
+            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
+            WidgetPlacementCommand.NoOp
+        }
     }
 
     fun removeWidget(
         widgetId: String,
         widgetHostManager: WidgetHostManager
     ) {
-        mutationCoordinator.launchSerializedMutation(
-            fallbackErrorMessage = "Could not remove widget"
-        ) {
-            val appWidgetId = widgetId
-                .substringAfter(delimiter = "widget:", missingDelimiterValue = "")
-                .toIntOrNull()
-                ?: return@launchSerializedMutation false
-
-            mutationCoordinator.applyWriterCommand(
-                command = HomeModelWriter.Command.RemoveItemById(itemId = widgetId),
-                onApplied = {
-                    widgetHostManager.deallocateWidgetId(appWidgetId)
-                }
-            )
-        }
+        launchMutation(
+            fallbackErrorMessage = "Could not remove widget",
+            command = HomeModelWriter.Command.RemoveItemById(itemId = widgetId),
+            onApplied = {
+                widgetId.substringAfter("widget:", "").toIntOrNull()?.let(widgetHostManager::deallocateWidgetId)
+            }
+        )
     }
 
     fun updateWidgetFrame(
@@ -407,7 +469,7 @@ class HomeViewModel(
         newPosition: GridPosition,
         newSpan: GridSpan
     ) {
-        launchWriterCommand(
+        launchMutation(
             fallbackErrorMessage = "Cannot update widget - cells are occupied",
             command = HomeModelWriter.Command.UpdateWidgetFrame(
                 widgetId = widgetId,
@@ -417,12 +479,69 @@ class HomeViewModel(
         )
     }
 
-    private fun HomeModelWriter.Command.coalescingKey(): String? {
-        return when (this) {
-            is HomeModelWriter.Command.MoveTopLevelItem -> "move:$itemId"
-            is HomeModelWriter.Command.PinOrMoveToPosition -> "pin-or-move:${item.id}"
-            is HomeModelWriter.Command.UpdateWidgetFrame -> "widget-frame:$widgetId"
-            else -> null
+    private fun resolvePostBindCommand(
+        appWidgetId: Int,
+        widgetHostManager: WidgetHostManager
+    ): WidgetPlacementCommand {
+        val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
+        val boundProviderInfo = widgetHostManager.getProviderInfo(appWidgetId)
+        if (boundProviderInfo == null) {
+            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
+            return WidgetPlacementCommand.NoOp
         }
+
+        return if (widgetHostManager.needsConfigure(appWidgetId)) {
+            WidgetPlacementCommand.LaunchConfigure(appWidgetId = appWidgetId)
+        } else {
+            persistPendingWidget(appWidgetId, pending, widgetHostManager)
+            WidgetPlacementCommand.NoOp
+        }
+    }
+
+    private fun persistPendingWidget(
+        appWidgetId: Int,
+        pending: PendingWidget,
+        widgetHostManager: WidgetHostManager
+    ) {
+        val widgetItem = HomeItem.WidgetItem.create(
+            appWidgetId = pending.appWidgetId,
+            providerPackage = pending.providerComponent.packageName,
+            providerClass = pending.providerComponent.className,
+            label = pending.providerLabel,
+            position = pending.targetPosition,
+            span = pending.span
+        )
+
+        pendingWidgets.remove(appWidgetId)
+
+        viewModelScope.launch {
+            pendingMutationCount.update { it + 1 }
+            _lastMoveErrorMessage.value = null
+
+            val wasApplied = runCatching {
+                applyWriterCommand(
+                    command = HomeModelWriter.Command.PinOrMoveToPosition(
+                        item = widgetItem,
+                        targetPosition = pending.targetPosition
+                    )
+                )
+            }.getOrElse { false }
+
+            if (!wasApplied) {
+                widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+                _lastMoveErrorMessage.value = "Could not place widget"
+            }
+
+            pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
+        }
+    }
+
+    private fun cancelPendingWidget(
+        appWidgetId: Int,
+        widgetHostManager: WidgetHostManager,
+        pending: PendingWidget
+    ) {
+        widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+        pendingWidgets.remove(appWidgetId)
     }
 }

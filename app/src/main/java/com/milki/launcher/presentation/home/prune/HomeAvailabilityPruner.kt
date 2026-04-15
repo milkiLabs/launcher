@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -32,7 +34,8 @@ internal class HomeAvailabilityPruner(
     private val appContext: Context,
     private val homeRepository: HomeRepository,
     private val modelWriter: HomeModelWriter,
-    private val mutationCoordinator: HomeMutationCoordinator,
+    private val mutationMutex: Mutex,
+    private val persistUpdatedItems: suspend (currentItems: List<HomeItem>, updatedItems: List<HomeItem>) -> Unit,
     private val scope: CoroutineScope
 ) {
     @Volatile
@@ -127,10 +130,10 @@ internal class HomeAvailabilityPruner(
     }
 
     private suspend fun pruneUnavailableItems(availability: InstalledAppAvailability) {
-        mutationCoordinator.withMutationLock {
+        mutationMutex.withLock {
             val currentItems = homeRepository.readPinnedItems()
             if (currentItems.isEmpty()) {
-                return@withMutationLock
+                return
             }
 
             val unavailableItemIds = withContext(Dispatchers.IO) {
@@ -142,7 +145,7 @@ internal class HomeAvailabilityPruner(
             }
 
             if (unavailableItemIds.isEmpty()) {
-                return@withMutationLock
+                return
             }
 
             when (
@@ -151,9 +154,9 @@ internal class HomeAvailabilityPruner(
                     command = HomeModelWriter.Command.RemoveItemsById(itemIds = unavailableItemIds.toSet())
                 )
             ) {
-                is HomeModelWriter.Result.Applied -> mutationCoordinator.persistUpdatedItems(
-                    currentItems = currentItems,
-                    updatedItems = result.items
+                is HomeModelWriter.Result.Applied -> persistUpdatedItems(
+                    currentItems,
+                    result.items
                 )
 
                 is HomeModelWriter.Result.Rejected -> Unit

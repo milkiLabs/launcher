@@ -21,45 +21,48 @@ class LauncherHomeBenchmark {
 
     @Test
     fun coldStartupToHomescreen() = benchmarkRule.measureRepeated(
-        packageName = LauncherBenchmarkTarget.packageName,
+        packageName = LauncherBenchmarkTargetApp.packageName,
         metrics = listOf(StartupTimingMetric()),
-        compilationMode = LauncherBenchmarkScenario.startupCompilationMode,
+        compilationMode = LauncherBenchmarkConfig.startupCompilationMode,
         startupMode = StartupMode.COLD,
-        iterations = LauncherBenchmarkScenario.startupIterations,
+        iterations = LauncherBenchmarkConfig.startupIterations,
         setupBlock = {
-            prepareSeededHomeForColdStart()
+            LauncherBenchmarkDriver(this).prepareForColdStart(LauncherBenchmarkSurface.HOME)
         }
     ) {
-        openHomeAndAwaitIdle()
+        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
     }
 
     @Test
     fun coldStartupToHomescreenWithoutBaselineProfile() = benchmarkRule.measureRepeated(
-        packageName = LauncherBenchmarkTarget.packageName,
+        packageName = LauncherBenchmarkTargetApp.packageName,
         metrics = listOf(StartupTimingMetric()),
         compilationMode = CompilationMode.Partial(
             baselineProfileMode = BaselineProfileMode.Disable,
             warmupIterations = 3
         ),
         startupMode = StartupMode.COLD,
-        iterations = LauncherBenchmarkScenario.startupIterations,
+        iterations = LauncherBenchmarkConfig.startupIterations,
         setupBlock = {
-            prepareSeededHomeForColdStart()
+            LauncherBenchmarkDriver(this).prepareForColdStart(LauncherBenchmarkSurface.HOME)
         }
     ) {
-        openHomeAndAwaitIdle()
+        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
     }
 
     @Test
     fun returnToHomescreenFromDrawer() = benchmarkRule.measureRepeated(
-        packageName = LauncherBenchmarkTarget.packageName,
+        packageName = LauncherBenchmarkTargetApp.packageName,
         metrics = listOf(FrameTimingMetric()),
-        compilationMode = LauncherBenchmarkScenario.startupCompilationMode,
-        iterations = LauncherBenchmarkScenario.returnHomeIterations,
+        compilationMode = LauncherBenchmarkConfig.startupCompilationMode,
+        iterations = LauncherBenchmarkConfig.returnHomeIterations,
         setupBlock = {
-            prepareSeededHomeFromDrawerState()
+            LauncherBenchmarkDriver(this).moveTo(
+                targetSurface = LauncherBenchmarkSurface.DRAWER,
+                seedHome = true
+            )
         }
     ) {
-        openHomeAndAwaitIdle()
+        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
     }
 }
