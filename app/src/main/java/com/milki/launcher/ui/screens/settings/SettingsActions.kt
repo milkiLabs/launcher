@@ -1,7 +1,7 @@
 package com.milki.launcher.ui.screens.settings
 
-import com.milki.launcher.domain.model.HomeTapAction
-import com.milki.launcher.domain.model.SwipeUpAction
+import com.milki.launcher.domain.model.LauncherTrigger
+import com.milki.launcher.domain.model.LauncherTriggerAction
 
 /**
  * SettingsActions.kt - Grouped action contracts for Settings UI
@@ -19,8 +19,7 @@ import com.milki.launcher.domain.model.SwipeUpAction
  * Actions used by Home Screen settings section.
  */
 data class SettingsHomeScreenActions(
-    val onSetHomeTapAction: (HomeTapAction) -> Unit,
-    val onSetSwipeUpAction: (SwipeUpAction) -> Unit
+    val onSetTriggerAction: (LauncherTrigger, LauncherTriggerAction) -> Unit
 )
 
 /**

@@ -35,22 +35,48 @@ enum class SearchResultLayout(val displayName: String) {
 }
 
 /**
- * Home screen tap behavior options.
+ * Home surface trigger types that can be mapped to launcher actions.
  */
 @Serializable
-enum class HomeTapAction(val displayName: String) {
+enum class LauncherTrigger(val displayName: String) {
+    HOME_TAP(displayName = "Homescreen tap"),
+    HOME_SWIPE_UP(displayName = "Swipe up")
+}
+
+/**
+ * Actions that can be assigned to launcher triggers.
+ */
+@Serializable
+enum class LauncherTriggerAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
+    OPEN_APP_DRAWER("Open app drawer"),
     DO_NOTHING("Do nothing")
 }
 
 /**
- * Swipe-up behavior on homescreen.
+ * Central catalog for trigger/action mapping.
+ *
+ * Add new triggers/actions here and they automatically become available to
+ * settings UI and runtime mapping logic.
  */
-@Serializable
-enum class SwipeUpAction(val displayName: String) {
-    OPEN_SEARCH("Open search dialog"),
-    OPEN_APP_DRAWER("Open app drawer"),
-    DO_NOTHING("Do nothing")
+object LauncherInteractionCatalog {
+    val configurableTriggers: List<LauncherTrigger> = LauncherTrigger.entries
+    val allActions: List<LauncherTriggerAction> = LauncherTriggerAction.entries
+
+    fun availableActions(_trigger: LauncherTrigger): List<LauncherTriggerAction> {
+        return allActions
+    }
+
+    fun defaultActionFor(trigger: LauncherTrigger): LauncherTriggerAction {
+        return when (trigger) {
+            LauncherTrigger.HOME_TAP -> LauncherTriggerAction.OPEN_SEARCH
+            LauncherTrigger.HOME_SWIPE_UP -> LauncherTriggerAction.OPEN_APP_DRAWER
+        }
+    }
+
+    fun defaultTriggerActions(): Map<LauncherTrigger, LauncherTriggerAction> {
+        return configurableTriggers.associateWith(::defaultActionFor)
+    }
 }
 
 /**
@@ -100,11 +126,9 @@ data class LauncherSettings(
     // HOME SCREEN
     // ========================================================================
 
-    /** What happens when the user taps on the homescreen */
-    val homeTapAction: HomeTapAction = HomeTapAction.OPEN_SEARCH,
-
-    /** What happens when the user swipes up on the homescreen */
-    val swipeUpAction: SwipeUpAction = SwipeUpAction.OPEN_APP_DRAWER,
+    /** Trigger -> action mapping for homescreen interactions */
+    val triggerActions: Map<LauncherTrigger, LauncherTriggerAction> =
+        LauncherInteractionCatalog.defaultTriggerActions(),
 
     // ========================================================================
     // SEARCH PROVIDERS
@@ -166,3 +190,10 @@ data class LauncherSettings(
     /** Package names of apps hidden from search results */
     val hiddenApps: Set<String> = emptySet()
 )
+
+/**
+ * Resolves effective action for a trigger with default fallback for missing keys.
+ */
+fun LauncherSettings.actionForTrigger(trigger: LauncherTrigger): LauncherTriggerAction {
+    return triggerActions[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
+}

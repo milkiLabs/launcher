@@ -4,8 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.milki.launcher.domain.model.HomeTapAction
-import com.milki.launcher.domain.model.SwipeUpAction
+import com.milki.launcher.domain.model.LauncherTriggerAction
 
 /**
  * Simple state owner for launcher surfaces.
@@ -77,9 +76,9 @@ class SurfaceStateCoordinator(
         contextMenuDismissSignal += 1
     }
 
-    fun handleHomeSwipeUp(action: SwipeUpAction) {
+    fun handleHomeTriggerAction(action: LauncherTriggerAction) {
         when (action) {
-            SwipeUpAction.OPEN_SEARCH -> {
+            LauncherTriggerAction.OPEN_SEARCH -> {
                 dismissContextMenus()
                 closeTransientSurfaces(keepSearch = true)
                 if (!isSearchVisible()) {
@@ -87,27 +86,13 @@ class SurfaceStateCoordinator(
                 }
             }
 
-            SwipeUpAction.OPEN_APP_DRAWER -> {
+            LauncherTriggerAction.OPEN_APP_DRAWER -> {
                 dismissContextMenus()
                 closeTransientSurfaces(keepSearch = false)
                 applyAppDrawerVisibility(true)
             }
 
-            SwipeUpAction.DO_NOTHING -> Unit
-        }
-    }
-
-    fun handleHomeTap(action: HomeTapAction) {
-        when (action) {
-            HomeTapAction.OPEN_SEARCH -> {
-                dismissContextMenus()
-                closeTransientSurfaces(keepSearch = true)
-                if (!isSearchVisible()) {
-                    showSearch()
-                }
-            }
-
-            HomeTapAction.DO_NOTHING -> Unit
+            LauncherTriggerAction.DO_NOTHING -> Unit
         }
     }
 

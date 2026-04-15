@@ -15,9 +15,10 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
-import com.milki.launcher.domain.model.HomeTapAction
 import com.milki.launcher.domain.model.LauncherSettings
-import com.milki.launcher.domain.model.SwipeUpAction
+import com.milki.launcher.domain.model.LauncherTrigger
+import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
@@ -134,11 +135,14 @@ internal fun LauncherRootContent(
             }
         }
 
+        val homeTapAction = launcherSettings.actionForTrigger(LauncherTrigger.HOME_TAP)
+        val homeSwipeUpAction = launcherSettings.actionForTrigger(LauncherTrigger.HOME_SWIPE_UP)
+
         LauncherTheme {
             val launcherActions = remember(
                 context,
-                launcherSettings.homeTapAction,
-                launcherSettings.swipeUpAction,
+                homeTapAction,
+                homeSwipeUpAction,
                 onOpenSettings,
                 resolvedSearchVm,
                 resolvedDrawerVm
@@ -165,10 +169,10 @@ internal fun LauncherRootContent(
                     ),
                     home = HomeActions(
                         onHomeTap = {
-                            surfaceStateCoordinator.handleHomeTap(launcherSettings.homeTapAction)
+                            surfaceStateCoordinator.handleHomeTriggerAction(homeTapAction)
                         },
                         onHomeSwipeUp = {
-                            surfaceStateCoordinator.handleHomeSwipeUp(launcherSettings.swipeUpAction)
+                            surfaceStateCoordinator.handleHomeTriggerAction(homeSwipeUpAction)
                         },
                         onPinnedItemClick = { item -> homeController.onPinnedItemClick(item, context) },
                         onPinnedItemLongPress = {},
@@ -203,7 +207,7 @@ internal fun LauncherRootContent(
                 pinnedItems = pinnedItems,
                 openFolderItem = openFolderItem,
                 actions = launcherActions,
-                isHomeSwipeEnabled = launcherSettings.swipeUpAction != SwipeUpAction.DO_NOTHING,
+                isHomeSwipeEnabled = homeSwipeUpAction != LauncherTriggerAction.DO_NOTHING,
                 isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
                 isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
                 appDrawerUiState = appDrawerUiState,

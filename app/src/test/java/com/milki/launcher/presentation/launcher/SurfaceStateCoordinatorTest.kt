@@ -1,7 +1,6 @@
 package com.milki.launcher.presentation.launcher
 
-import com.milki.launcher.domain.model.HomeTapAction
-import com.milki.launcher.domain.model.SwipeUpAction
+import com.milki.launcher.domain.model.LauncherTriggerAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -187,7 +186,7 @@ class SurfaceStateCoordinatorTest {
         )
 
         coordinator.updateHomescreenMenuOpen(true)
-        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_APP_DRAWER)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.OPEN_APP_DRAWER)
 
         assertFalse(coordinator.isHomescreenMenuOpen)
         assertTrue(coordinator.isAppDrawerOpen)
@@ -210,7 +209,7 @@ class SurfaceStateCoordinatorTest {
             onAppDrawerVisibilityChanged = visibilityChanges::add
         )
 
-        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_APP_DRAWER)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.OPEN_APP_DRAWER)
         coordinator.handleBackPressed()
 
         assertEquals(listOf(true, false), visibilityChanges)
@@ -249,7 +248,7 @@ class SurfaceStateCoordinatorTest {
             closeFolder = { }
         )
 
-        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_APP_DRAWER)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.OPEN_APP_DRAWER)
 
         assertEquals(0, hideSearchCalls)
     }
@@ -275,7 +274,7 @@ class SurfaceStateCoordinatorTest {
         coordinator.updateHomescreenMenuOpen(true)
         coordinator.updateAppDrawerOpen(true)
         coordinator.updateWidgetPickerOpen(true)
-        coordinator.handleHomeSwipeUp(SwipeUpAction.OPEN_SEARCH)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.OPEN_SEARCH)
 
         assertFalse(coordinator.isHomescreenMenuOpen)
         assertFalse(coordinator.isAppDrawerOpen)
@@ -302,7 +301,7 @@ class SurfaceStateCoordinatorTest {
         )
 
         coordinator.updateHomescreenMenuOpen(true)
-        coordinator.handleHomeSwipeUp(SwipeUpAction.DO_NOTHING)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.DO_NOTHING)
 
         assertTrue(coordinator.isHomescreenMenuOpen)
         assertEquals(0, showSearchCalls)
@@ -331,7 +330,7 @@ class SurfaceStateCoordinatorTest {
         coordinator.updateHomescreenMenuOpen(true)
         coordinator.updateAppDrawerOpen(true)
         coordinator.updateWidgetPickerOpen(true)
-        coordinator.handleHomeTap(HomeTapAction.OPEN_SEARCH)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.OPEN_SEARCH)
 
         assertFalse(coordinator.isHomescreenMenuOpen)
         assertFalse(coordinator.isAppDrawerOpen)
@@ -357,7 +356,7 @@ class SurfaceStateCoordinatorTest {
         )
 
         coordinator.updateHomescreenMenuOpen(true)
-        coordinator.handleHomeTap(HomeTapAction.DO_NOTHING)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.DO_NOTHING)
 
         assertTrue(coordinator.isHomescreenMenuOpen)
         assertEquals(0, showSearchCalls)

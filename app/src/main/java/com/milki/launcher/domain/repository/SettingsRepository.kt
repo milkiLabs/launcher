@@ -12,12 +12,12 @@
 package com.milki.launcher.domain.repository
 
 import com.milki.launcher.domain.model.LauncherSettings
-import com.milki.launcher.domain.model.HomeTapAction
+import com.milki.launcher.domain.model.LauncherTrigger
+import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.SourcePrefixMutationResult
-import com.milki.launcher.domain.model.SwipeUpAction
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -80,14 +80,9 @@ interface SettingsRepository {
     suspend fun setShowAppIcons(value: Boolean)
 
     /**
-     * Update homescreen tap action.
+     * Update one trigger -> action mapping.
      */
-    suspend fun setHomeTapAction(action: HomeTapAction)
-
-    /**
-     * Update homescreen swipe-up action.
-     */
-    suspend fun setSwipeUpAction(action: SwipeUpAction)
+    suspend fun setTriggerAction(trigger: LauncherTrigger, action: LauncherTriggerAction)
 
     /**
      * Update contacts provider enabled state.

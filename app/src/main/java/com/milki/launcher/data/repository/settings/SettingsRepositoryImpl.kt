@@ -4,13 +4,14 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
-import com.milki.launcher.domain.model.HomeTapAction
+import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
+import com.milki.launcher.domain.model.LauncherTrigger
+import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.SourcePrefixMutationResult
-import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -87,12 +88,20 @@ class SettingsRepositoryImpl(
         writeBooleanSetting(SettingsPreferenceKeys.SHOW_APP_ICONS, value)
     }
 
-    override suspend fun setHomeTapAction(action: HomeTapAction) {
-        writeStringSetting(SettingsPreferenceKeys.HOME_TAP_ACTION, action.name)
-    }
-
-    override suspend fun setSwipeUpAction(action: SwipeUpAction) {
-        writeStringSetting(SettingsPreferenceKeys.SWIPE_UP_ACTION, action.name)
+    override suspend fun setTriggerAction(
+        trigger: LauncherTrigger,
+        action: LauncherTriggerAction
+    ) {
+        context.settingsDataStore.edit { preferences ->
+            val currentActions = parseTriggerActions(preferences)
+            val currentAction =
+                currentActions[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
+            if (currentAction == action) {
+                return@edit
+            }
+            val updatedActions = currentActions + (trigger to action)
+            writeTriggerActions(updatedActions, preferences)
+        }
     }
 
     override suspend fun setContactsSearchEnabled(value: Boolean) {
@@ -289,16 +298,7 @@ class SettingsRepositoryImpl(
             showAppIcons =
                 preferences[SettingsPreferenceKeys.SHOW_APP_ICONS] ?: defaults.showAppIcons,
 
-            homeTapAction =
-                preferences[SettingsPreferenceKeys.HOME_TAP_ACTION]?.let {
-                    runCatching { HomeTapAction.valueOf(it) }
-                        .getOrDefault(defaults.homeTapAction)
-                } ?: defaults.homeTapAction,
-            swipeUpAction =
-                preferences[SettingsPreferenceKeys.SWIPE_UP_ACTION]?.let {
-                    runCatching { SwipeUpAction.valueOf(it) }
-                        .getOrDefault(defaults.swipeUpAction)
-                } ?: defaults.swipeUpAction,
+            triggerActions = parseTriggerActions(preferences),
 
             contactsSearchEnabled =
                 preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED]
@@ -350,11 +350,8 @@ class SettingsRepositoryImpl(
             preferences[SettingsPreferenceKeys.SHOW_APP_ICONS] = newSettings.showAppIcons
         }
 
-        if (currentSettings.homeTapAction != newSettings.homeTapAction) {
-            preferences[SettingsPreferenceKeys.HOME_TAP_ACTION] = newSettings.homeTapAction.name
-        }
-        if (currentSettings.swipeUpAction != newSettings.swipeUpAction) {
-            preferences[SettingsPreferenceKeys.SWIPE_UP_ACTION] = newSettings.swipeUpAction.name
+        if (currentSettings.triggerActions != newSettings.triggerActions) {
+            writeTriggerActions(newSettings.triggerActions, preferences)
         }
 
         if (currentSettings.contactsSearchEnabled != newSettings.contactsSearchEnabled) {
@@ -434,6 +431,19 @@ class SettingsRepositoryImpl(
             settingsStorageJson.encodeToString(normalized)
     }
 
+    private fun writeTriggerActions(
+        triggerActions: Map<LauncherTrigger, LauncherTriggerAction>,
+        preferences: androidx.datastore.preferences.core.MutablePreferences
+    ) {
+        val normalized = mergeWithDefaultTriggerActions(triggerActions)
+        val serialized: SerializedTriggerActions = normalized
+            .mapKeys { (trigger, _) -> trigger.name }
+            .mapValues { (_, action) -> action.name }
+
+        preferences[SettingsPreferenceKeys.TRIGGER_ACTIONS] =
+            settingsStorageJson.encodeToString(serialized)
+    }
+
     private fun parsePrefixConfigurations(json: String?): ProviderPrefixConfiguration {
         if (json.isNullOrBlank()) {
             return emptyMap()
@@ -481,6 +491,56 @@ class SettingsRepositoryImpl(
                     emptyList()
                 }
             }
+        }
+    }
+
+    private fun parseTriggerActions(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerAction> {
+        val storedJson = preferences[SettingsPreferenceKeys.TRIGGER_ACTIONS]
+        if (!storedJson.isNullOrBlank()) {
+            val parsed = runCatching {
+                val decoded: SerializedTriggerActions = settingsStorageJson.decodeFromString(storedJson)
+                decoded.mapNotNull { (triggerName, actionName) ->
+                    val trigger = runCatching { LauncherTrigger.valueOf(triggerName) }.getOrNull()
+                    val action = runCatching { LauncherTriggerAction.valueOf(actionName) }.getOrNull()
+                    if (trigger == null || action == null) {
+                        null
+                    } else {
+                        trigger to action
+                    }
+                }.toMap()
+            }.getOrDefault(emptyMap())
+
+            return mergeWithDefaultTriggerActions(parsed)
+        }
+
+        return mergeWithDefaultTriggerActions(parseLegacyTriggerActions(preferences))
+    }
+
+    private fun parseLegacyTriggerActions(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerAction> {
+        val legacyMappings = mutableMapOf<LauncherTrigger, LauncherTriggerAction>()
+
+        preferences[SettingsPreferenceKeys.HOME_TAP_ACTION]?.let { storedActionName ->
+            val action = runCatching { LauncherTriggerAction.valueOf(storedActionName) }.getOrNull()
+            if (action != null) {
+                legacyMappings[LauncherTrigger.HOME_TAP] = action
+            }
+        }
+
+        preferences[SettingsPreferenceKeys.SWIPE_UP_ACTION]?.let { storedActionName ->
+            val action = runCatching { LauncherTriggerAction.valueOf(storedActionName) }.getOrNull()
+            if (action != null) {
+                legacyMappings[LauncherTrigger.HOME_SWIPE_UP] = action
+            }
+        }
+
+        return legacyMappings
+    }
+
+    private fun mergeWithDefaultTriggerActions(
+        overrides: Map<LauncherTrigger, LauncherTriggerAction>
+    ): Map<LauncherTrigger, LauncherTriggerAction> {
+        return LauncherInteractionCatalog.configurableTriggers.associateWith { trigger ->
+            overrides[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
         }
     }
 

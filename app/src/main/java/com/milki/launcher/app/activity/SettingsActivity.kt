@@ -96,8 +96,7 @@ class SettingsActivity : ComponentActivity() {
                 SettingsActions(
                     onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings,
                     homeScreen = SettingsHomeScreenActions(
-                        onSetHomeTapAction = settingsViewModel::setHomeTapAction,
-                        onSetSwipeUpAction = settingsViewModel::setSwipeUpAction
+                        onSetTriggerAction = settingsViewModel::setTriggerAction
                     ),
                     localProviders = SettingsLocalProviderActions(
                         onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,

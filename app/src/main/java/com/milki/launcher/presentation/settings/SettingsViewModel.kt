@@ -90,15 +90,12 @@ class SettingsViewModel(
     // HOME SCREEN
     // ========================================================================
 
-    fun setHomeTapAction(action: HomeTapAction) {
+    fun setTriggerAction(
+        trigger: LauncherTrigger,
+        action: LauncherTriggerAction
+    ) {
         viewModelScope.launch {
-            settingsRepository.setHomeTapAction(action)
-        }
-    }
-
-    fun setSwipeUpAction(action: SwipeUpAction) {
-        viewModelScope.launch {
-            settingsRepository.setSwipeUpAction(action)
+            settingsRepository.setTriggerAction(trigger, action)
         }
     }
 

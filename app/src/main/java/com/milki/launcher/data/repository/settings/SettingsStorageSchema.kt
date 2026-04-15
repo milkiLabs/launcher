@@ -32,6 +32,11 @@ internal typealias SerializedPrefixConfiguration = Map<String, List<String>>
 internal typealias SerializedSearchSources = List<SearchSource>
 
 /**
+ * Shared serialized representation for trigger -> action mappings.
+ */
+internal typealias SerializedTriggerActions = Map<String, String>
+
+/**
  * DataStore instance for launcher settings, scoped to application context.
  */
 internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -57,6 +62,9 @@ internal object SettingsPreferenceKeys {
     val SHOW_APP_ICONS = booleanPreferencesKey("show_app_icons")
 
     // Home Screen
+    val TRIGGER_ACTIONS = stringPreferencesKey("trigger_actions")
+
+    // Legacy Home Screen keys (read fallback only)
     val HOME_TAP_ACTION = stringPreferencesKey("home_tap_action")
     val SWIPE_UP_ACTION = stringPreferencesKey("swipe_up_action")
 

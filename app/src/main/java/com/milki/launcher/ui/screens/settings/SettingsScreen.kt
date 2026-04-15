@@ -44,11 +44,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
-import com.milki.launcher.domain.model.HomeTapAction
+import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.model.SwipeUpAction
+import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.ui.components.settings.ActionSettingItem
@@ -304,21 +304,17 @@ private fun HomeScreenSection(
 ) {
     SettingsCategory(title = "Home Screen")
 
-    DropdownSettingItem(
-        title = "Homescreen tap action",
-        subtitle = "What happens when you tap the homescreen",
-        selectedValue = settings.homeTapAction.displayName,
-        options = HomeTapAction.entries.map { it.displayName to it },
-        onOptionSelected = actions.onSetHomeTapAction
-    )
-
-    DropdownSettingItem(
-        title = "Swipe up action",
-        subtitle = "What happens when you swipe up on the homescreen",
-        selectedValue = settings.swipeUpAction.displayName,
-        options = SwipeUpAction.entries.map { it.displayName to it },
-        onOptionSelected = actions.onSetSwipeUpAction
-    )
+    LauncherInteractionCatalog.configurableTriggers.forEach { trigger ->
+        DropdownSettingItem(
+            title = trigger.displayName,
+            selectedValue = settings.actionForTrigger(trigger).displayName,
+            options = LauncherInteractionCatalog.availableActions(trigger)
+                .map { action -> action.displayName to action },
+            onOptionSelected = { selectedAction ->
+                actions.onSetTriggerAction(trigger, selectedAction)
+            }
+        )
+    }
 }
 
 /**
