@@ -9,7 +9,6 @@
  * When users type in the search field, we want to provide quick actions based on
  * what they're typing. For example:
  * - If they type a URL, offer to open it in a browser or specific app
- * - If they type a phone number, offer to call it
  * - If they type an email, offer to compose an email
  * - If they type plain text, offer to search the web
  *
@@ -41,9 +40,7 @@ import com.milki.launcher.domain.model.UrlSearchResult
  *
  * TYPES OF SUGGESTIONS:
  * - OpenUrl: The query looks like a URL that can be opened in a browser or app
- * - DialNumber: The query looks like a phone number
  * - ComposeEmail: The query looks like an email address
- * - OpenMapLocation: The query looks like a location/address
  * - SearchWeb: The query is plain text that can be searched on the web
  */
 sealed class QuerySuggestion {
@@ -72,19 +69,6 @@ sealed class QuerySuggestion {
     ) : QuerySuggestion()
 
     /**
-     * Suggestion for opening the dialer with a phone number.
-     *
-     * EXAMPLE:
-     * Query: "+1234567890"
-     * Suggestion: DialNumber
-     * UI shows: "Call +1234567890"
-     */
-    data class DialNumber(
-        val phoneNumber: String,
-        override val rawQuery: String
-    ) : QuerySuggestion()
-
-    /**
      * Suggestion for composing an email.
      *
      * EXAMPLE:
@@ -98,26 +82,10 @@ sealed class QuerySuggestion {
     ) : QuerySuggestion()
 
     /**
-     * Suggestion for opening map search/location handling.
-     *
-     * This is modeled as a free-form query string so map apps can choose whether
-     * to resolve it as an address, place name, or coordinate input.
-     *
-     * EXAMPLE:
-     * Query: "1600 Amphitheatre Parkway"
-     * Suggestion: OpenMapLocation
-     * UI shows: "Open in maps"
-     */
-    data class OpenMapLocation(
-        val locationQuery: String,
-        override val rawQuery: String
-    ) : QuerySuggestion()
-
-    /**
      * Suggestion for searching the query on the web.
      *
      * This is the fallback suggestion for plain text queries that don't match
-     * any other pattern (URL, phone, email, location).
+    * any other pattern (URL or email).
      *
      * EXAMPLE:
      * Query: "how to make pasta"

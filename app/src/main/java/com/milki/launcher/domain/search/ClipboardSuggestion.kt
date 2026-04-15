@@ -8,9 +8,7 @@ import com.milki.launcher.domain.model.UrlSearchResult
  * WHY THIS MODEL EXISTS:
  * The clipboard can contain many different kinds of text:
  * - URLs
- * - phone numbers
  * - email addresses
- * - map coordinates or map-like locations
  * - plain text
  *
  * The UI does not want to re-implement this classification logic, and the action
@@ -42,29 +40,10 @@ sealed class ClipboardSuggestion {
     ) : ClipboardSuggestion()
 
     /**
-     * Suggestion for opening the dialer with a phone number.
-     */
-    data class DialNumber(
-        val phoneNumber: String,
-        override val rawText: String
-    ) : ClipboardSuggestion()
-
-    /**
      * Suggestion for composing an email.
      */
     data class ComposeEmail(
         val emailAddress: String,
-        override val rawText: String
-    ) : ClipboardSuggestion()
-
-    /**
-     * Suggestion for opening map search/location handling.
-     *
-     * This is modeled as a free-form query string so map apps can choose whether
-     * to resolve it as an address, place name, or coordinate input.
-     */
-    data class OpenMapLocation(
-        val locationQuery: String,
         override val rawText: String
     ) : ClipboardSuggestion()
 

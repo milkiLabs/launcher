@@ -16,10 +16,8 @@ import com.milki.launcher.domain.model.UrlSearchResult
  *
  * PRIORITY ORDER (highest to lowest):
  * 1) URL
- * 2) Phone number
- * 3) Email address
- * 4) Map-like text
- * 5) Plain text search
+ * 2) Email address
+ * 3) Plain text search
  *
  * WHY PRIORITY MATTERS:
  * We intentionally return exactly one suggestion to keep the UI simple and avoid
@@ -59,24 +57,9 @@ class ClipboardSuggestionResolver(
         val urlSuggestion = resolveUrlSuggestion(rawText)
         if (urlSuggestion != null) return urlSuggestion
 
-        val normalizedPhone = SuggestionPatternMatcher.normalizePhone(rawText)
-        if (normalizedPhone != null) {
-            return ClipboardSuggestion.DialNumber(
-                phoneNumber = normalizedPhone,
-                rawText = rawText
-            )
-        }
-
         if (Patterns.EMAIL_ADDRESS.matcher(rawText).matches()) {
             return ClipboardSuggestion.ComposeEmail(
                 emailAddress = rawText,
-                rawText = rawText
-            )
-        }
-
-        if (SuggestionPatternMatcher.looksLikeMapLocation(rawText)) {
-            return ClipboardSuggestion.OpenMapLocation(
-                locationQuery = rawText,
                 rawText = rawText
             )
         }

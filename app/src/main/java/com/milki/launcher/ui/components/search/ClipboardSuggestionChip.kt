@@ -3,18 +3,16 @@ package com.milki.launcher.ui.components.search
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,9 +39,7 @@ fun ClipboardSuggestionBottomChip(
     suggestion: ClipboardSuggestion,
     onSearchTextInBrowser: (String) -> Unit,
     onOpenUrl: (UrlSearchResult) -> Unit,
-    onOpenDialer: (String) -> Unit,
-    onComposeEmail: (String) -> Unit,
-    onOpenMapLocation: (String) -> Unit
+    onComposeEmail: (String) -> Unit
 ) {
     val content = remember(suggestion) {
         createChipContent(suggestion)
@@ -65,9 +61,7 @@ fun ClipboardSuggestionBottomChip(
             onClick = {
                 when (suggestion) {
                     is ClipboardSuggestion.OpenUrl -> onOpenUrl(suggestion.urlResult)
-                    is ClipboardSuggestion.DialNumber -> onOpenDialer(suggestion.phoneNumber)
                     is ClipboardSuggestion.ComposeEmail -> onComposeEmail(suggestion.emailAddress)
-                    is ClipboardSuggestion.OpenMapLocation -> onOpenMapLocation(suggestion.locationQuery)
                     is ClipboardSuggestion.SearchText -> onSearchTextInBrowser(suggestion.queryText)
                 }
             },
@@ -127,27 +121,11 @@ private fun createChipContent(suggestion: ClipboardSuggestion): ClipboardChipCon
             )
         }
 
-        is ClipboardSuggestion.DialNumber -> {
-            ClipboardChipContent(
-                label = "Call ${suggestion.phoneNumber}",
-                supportingText = null,
-                icon = Icons.Filled.Call
-            )
-        }
-
         is ClipboardSuggestion.ComposeEmail -> {
             ClipboardChipContent(
                 label = "Email ${suggestion.emailAddress}",
                 supportingText = null,
                 icon = Icons.Filled.Email
-            )
-        }
-
-        is ClipboardSuggestion.OpenMapLocation -> {
-            ClipboardChipContent(
-                label = "Open in maps",
-                supportingText = suggestion.locationQuery,
-                icon = Icons.Filled.Map
             )
         }
 

@@ -404,14 +404,8 @@ private fun SearchDialogBody(
                     onOpenUrl = { urlResult ->
                         actionHandler(SearchResultAction.Tap(urlResult))
                     },
-                    onOpenDialer = { phoneNumber ->
-                        actionHandler(SearchResultAction.OpenDialer(phoneNumber))
-                    },
                     onComposeEmail = { emailAddress ->
                         actionHandler(SearchResultAction.ComposeEmail(emailAddress))
-                    },
-                    onOpenMapLocation = { locationQuery ->
-                        actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
                     }
                 )
             }
@@ -433,14 +427,8 @@ private fun SearchDialogBody(
                     onOpenUrl = { urlResult ->
                         actionHandler(SearchResultAction.Tap(urlResult))
                     },
-                    onOpenDialer = { phoneNumber ->
-                        actionHandler(SearchResultAction.OpenDialer(phoneNumber))
-                    },
                     onComposeEmail = { emailAddress ->
                         actionHandler(SearchResultAction.ComposeEmail(emailAddress))
-                    },
-                    onOpenMapLocation = { locationQuery ->
-                        actionHandler(SearchResultAction.OpenMapLocation(locationQuery))
                     }
                 )
             }

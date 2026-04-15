@@ -12,9 +12,7 @@
  *
  * TYPES OF SUGGESTIONS:
  * - OpenUrl: "Open in [App]" for URLs (e.g., "youtube.com" → "Open in YouTube")
- * - DialNumber: "Call [number]" for phone numbers
  * - ComposeEmail: "Email [address]" for email addresses
- * - OpenMapLocation: "Open in maps" for location-like text
  * - SearchWeb: "Search with Google" for plain text queries
  *
  * WHY A DEDICATED COMPOSABLE:
@@ -28,10 +26,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
@@ -61,18 +57,14 @@ import com.milki.launcher.ui.theme.Spacing
  * @param suggestion The query-derived suggestion to display
  * @param onSearchWeb Callback to search the query on the web
  * @param onOpenUrl Callback to open a URL in its handler app
- * @param onOpenDialer Callback to open the dialer with a phone number
  * @param onComposeEmail Callback to compose an email
- * @param onOpenMapLocation Callback to open a location in maps
  */
 @Composable
 fun QuerySuggestionBottomChip(
     suggestion: QuerySuggestion,
     onSearchWeb: (String) -> Unit,
     onOpenUrl: (UrlSearchResult) -> Unit,
-    onOpenDialer: (String) -> Unit,
-    onComposeEmail: (String) -> Unit,
-    onOpenMapLocation: (String) -> Unit
+    onComposeEmail: (String) -> Unit
 ) {
     val content = remember(suggestion) {
         createQueryChipContent(suggestion)
@@ -94,9 +86,7 @@ fun QuerySuggestionBottomChip(
             onClick = {
                 when (suggestion) {
                     is QuerySuggestion.OpenUrl -> onOpenUrl(suggestion.urlResult)
-                    is QuerySuggestion.DialNumber -> onOpenDialer(suggestion.phoneNumber)
                     is QuerySuggestion.ComposeEmail -> onComposeEmail(suggestion.emailAddress)
-                    is QuerySuggestion.OpenMapLocation -> onOpenMapLocation(suggestion.locationQuery)
                     is QuerySuggestion.SearchWeb -> onSearchWeb(suggestion.searchQuery)
                 }
             },
@@ -150,9 +140,7 @@ private data class QueryChipContent(
  * of suggestion. Each suggestion type has a specific visual representation:
  *
  * - OpenUrl: Language icon, shows "Open in [App Name]" or "Open in browser"
- * - DialNumber: Call icon, shows "Call [number]"
  * - ComposeEmail: Email icon, shows "Email [address]"
- * - OpenMapLocation: Map icon, shows "Open in maps"
  * - SearchWeb: Search icon, shows "Search with Google"
  *
  * @param suggestion The suggestion to convert to chip content
@@ -172,27 +160,11 @@ private fun createQueryChipContent(suggestion: QuerySuggestion): QueryChipConten
             )
         }
 
-        is QuerySuggestion.DialNumber -> {
-            QueryChipContent(
-                label = "Call ${suggestion.phoneNumber}",
-                supportingText = null,
-                icon = Icons.Filled.Call
-            )
-        }
-
         is QuerySuggestion.ComposeEmail -> {
             QueryChipContent(
                 label = "Email ${suggestion.emailAddress}",
                 supportingText = null,
                 icon = Icons.Filled.Email
-            )
-        }
-
-        is QuerySuggestion.OpenMapLocation -> {
-            QueryChipContent(
-                label = "Open in maps",
-                supportingText = suggestion.locationQuery,
-                icon = Icons.Filled.Map
             )
         }
 

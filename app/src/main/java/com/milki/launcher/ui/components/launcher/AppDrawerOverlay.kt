@@ -139,21 +139,6 @@ fun AppDrawerOverlay(
                 onClear = { onQueryChange("") }
             )
 
-            if (shouldShowTopRecentRow) {
-                RecentlyChangedAppsRow(
-                    apps = topRecentApps,
-                    rowCapacity = recentRowCapacity,
-                    onAppClick = { app ->
-                        actionHandler(SearchResultAction.Tap(AppSearchResult(app)))
-                        onDismiss()
-                    },
-                    onExternalDragStarted = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = Spacing.medium)
-                )
-            }
-
             if (uiState.isLoading) {
                 // Keep loading state scrollable so downward drag can also
                 // propagate to LauncherSheet while results are still loading.
@@ -212,6 +197,28 @@ fun AppDrawerOverlay(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
                     verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
                 ) {
+                    if (shouldShowTopRecentRow) {
+                        items(
+                            count = 1,
+                            key = { "drawer_recently_changed_row" },
+                            span = { GridItemSpan(maxLineSpan) },
+                            contentType = { "drawer_recently_changed_row" }
+                        ) {
+                            RecentlyChangedAppsRow(
+                                apps = topRecentApps,
+                                rowCapacity = recentRowCapacity,
+                                onAppClick = { app ->
+                                    actionHandler(SearchResultAction.Tap(AppSearchResult(app)))
+                                    onDismiss()
+                                },
+                                onExternalDragStarted = onDismiss,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = Spacing.small)
+                            )
+                        }
+                    }
+
                     items(
                         count = uiState.adapterItems.size,
                         key = { index ->

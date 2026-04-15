@@ -12,10 +12,8 @@
  *
  * PRIORITY ORDER (highest to lowest):
  * 1) URL - Most specific, indicates intent to visit a website
- * 2) Phone number - Strong signal for calling
- * 3) Email address - Clear intent to send email
- * 4) Map-like text - Could be an address or coordinates
- * 5) Plain text search - Fallback for everything else
+ * 2) Email address - Clear intent to send email
+ * 3) Plain text search - Fallback for everything else
  *
  * WHY EXACTLY ONE SUGGESTION:
  * We intentionally return exactly one suggestion to keep the UI simple and avoid
@@ -31,8 +29,7 @@ import android.util.Patterns
  *
  * This class encapsulates all the logic for determining what action to suggest
  * based on what the user is typing. It uses a combination of:
- * - Android's built-in patterns (URL, phone, email)
- * - Custom heuristics (map locations)
+ * - Android's built-in patterns (URL, email)
  * - URL validation and handler resolution
  *
  * THREADING:
@@ -66,10 +63,8 @@ class QuerySuggestionResolver(
      *
      * PRIORITY ORDER:
      * 1. URL detection (via UrlValidator)
-     * 2. Phone number detection (via Patterns.PHONE)
-     * 3. Email address detection (via Patterns.EMAIL_ADDRESS)
-     * 4. Map/location heuristics
-     * 5. Plain text search fallback
+    * 2. Email address detection (via Patterns.EMAIL_ADDRESS)
+    * 3. Plain text search fallback
      *
      * @param rawText The trimmed query text
      * @return Exactly one suggestion based on priority rules
@@ -79,16 +74,7 @@ class QuerySuggestionResolver(
         val urlSuggestion = resolveUrlSuggestion(rawText)
         if (urlSuggestion != null) return urlSuggestion
 
-        // Priority 2: Phone number detection
-        val normalizedPhone = SuggestionPatternMatcher.normalizePhone(rawText)
-        if (normalizedPhone != null) {
-            return QuerySuggestion.DialNumber(
-                phoneNumber = normalizedPhone,
-                rawQuery = rawText
-            )
-        }
-
-        // Priority 3: Email address detection
+        // Priority 2: Email address detection
         if (Patterns.EMAIL_ADDRESS.matcher(rawText).matches()) {
             return QuerySuggestion.ComposeEmail(
                 emailAddress = rawText,
@@ -96,15 +82,7 @@ class QuerySuggestionResolver(
             )
         }
 
-        // Priority 4: Map/location heuristics
-        if (SuggestionPatternMatcher.looksLikeMapLocation(rawText)) {
-            return QuerySuggestion.OpenMapLocation(
-                locationQuery = rawText,
-                rawQuery = rawText
-            )
-        }
-
-        // Priority 5: Plain text search fallback
+        // Priority 3: Plain text search fallback
         return QuerySuggestion.SearchWeb(
             searchQuery = rawText,
             rawQuery = rawText

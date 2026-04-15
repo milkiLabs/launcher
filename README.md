@@ -50,3 +50,6 @@ If these secrets are not set, the workflow fails because release signing is requ
 git tag v1.0.0
 git push origin v1.0.0
 ```
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+ base64 -w 0 release-keystore.jks | wl-copy

@@ -93,26 +93,10 @@ sealed class SearchResultAction {
     data class OpenUrlInBrowser(val url: String) : SearchResultAction()
 
     /**
-     * User tapped a clipboard suggestion to open the dialer with a phone number.
-     *
-     * This uses ACTION_DIAL (not ACTION_CALL), so no runtime permission is required.
-     */
-    data class OpenDialer(
-        val phoneNumber: String
-    ) : SearchResultAction()
-
-    /**
      * User tapped a clipboard suggestion to compose an email.
      */
     data class ComposeEmail(
         val emailAddress: String
-    ) : SearchResultAction()
-
-    /**
-     * User tapped a clipboard suggestion to open a location in map apps.
-     */
-    data class OpenMapLocation(
-        val locationQuery: String
     ) : SearchResultAction()
     
     // ========================================================================
@@ -187,9 +171,7 @@ fun SearchResultAction.shouldCloseSearch(): Boolean = when (this) {
     is SearchResultAction.Tap -> true
     is SearchResultAction.DialContact -> true
     is SearchResultAction.OpenUrlInBrowser -> true
-    is SearchResultAction.OpenDialer -> true
     is SearchResultAction.ComposeEmail -> true
-    is SearchResultAction.OpenMapLocation -> true
     is SearchResultAction.PinFile -> false
     is SearchResultAction.PinContact -> false
     is SearchResultAction.UnpinItem -> false

@@ -100,9 +100,7 @@ class ActionExecutor(
             is SearchResultAction.Tap -> handleTap(action)
             is SearchResultAction.DialContact -> handleDialContact(action)
             is SearchResultAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
-            is SearchResultAction.OpenDialer -> handleOpenDialer(action)
             is SearchResultAction.ComposeEmail -> handleComposeEmail(action)
-            is SearchResultAction.OpenMapLocation -> handleOpenMapLocation(action)
             is SearchResultAction.PinFile -> handlePinFile(action)
             is SearchResultAction.PinContact -> handlePinContact(action)
             is SearchResultAction.UnpinItem -> handleUnpinItem(action)
@@ -327,26 +325,6 @@ class ActionExecutor(
     // ========================================================================
 
     /**
-     * Opens the dialer with the number pre-filled.
-     */
-    private fun handleOpenDialer(action: SearchResultAction.OpenDialer) {
-        val intent = Intent(Intent.ACTION_DIAL).apply {
-            data = Uri.parse("tel:${action.phoneNumber}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No dialer app available", e)
-            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while opening dialer", e)
-            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    /**
      * Opens email compose screen with recipient pre-filled.
      */
     private fun handleComposeEmail(action: SearchResultAction.ComposeEmail) {
@@ -363,26 +341,6 @@ class ActionExecutor(
         } catch (e: SecurityException) {
             Log.w(TAG, "Security exception while opening email compose", e)
             Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    /**
-     * Opens map apps for a location query.
-     */
-    private fun handleOpenMapLocation(action: SearchResultAction.OpenMapLocation) {
-        val geoIntent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse("geo:0,0?q=${Uri.encode(action.locationQuery)}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        try {
-            context.startActivity(geoIntent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No map app available; falling back to browser", e)
-            openUrlInBrowser("https://www.google.com/maps/search/?api=1&query=${Uri.encode(action.locationQuery)}")
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while opening map app; falling back to browser", e)
-            openUrlInBrowser("https://www.google.com/maps/search/?api=1&query=${Uri.encode(action.locationQuery)}")
         }
     }
 
