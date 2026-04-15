@@ -291,8 +291,7 @@ private fun DrawerHost(
     ManagedLauncherSheet(
         isOpen = isAppDrawerOpen,
         sheetState = appDrawerSheetState,
-        onDismissRequest = { actions.drawer.onAppDrawerOpenChange(false) },
-        keepMountedWhenClosed = true
+        onDismissRequest = { actions.drawer.onAppDrawerOpenChange(false) }
     ) {
         AppDrawerOverlay(
             uiState = appDrawerUiState,

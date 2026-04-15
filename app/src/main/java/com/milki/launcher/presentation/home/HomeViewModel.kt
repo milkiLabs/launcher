@@ -45,7 +45,6 @@ class HomeViewModel(
 ) : ViewModel(), HomeMutationHandler {
 
     private companion object {
-        private const val ICON_WARMUP_START_DELAY_MS = 250L
         private const val AVAILABILITY_PRUNE_START_DELAY_MS = 1_500L
     }
 
@@ -88,6 +87,12 @@ class HomeViewModel(
         scope = viewModelScope
     )
 
+    init {
+        // Start icon warmup immediately so home screen icons begin loading
+        // as soon as DataStore emits pinned items — not after an artificial delay.
+        iconWarmupCoordinator.start()
+    }
+
     override fun onCleared() {
         deferredStartupJob?.cancel()
         availabilityPruner.stop()
@@ -100,9 +105,6 @@ class HomeViewModel(
         }
 
         deferredStartupJob = viewModelScope.launch {
-            delay(ICON_WARMUP_START_DELAY_MS)
-            iconWarmupCoordinator.start()
-
             // App availability pruning can trigger full installed-app scans.
             // Delay it to avoid contending with first-draw startup work.
             delay(AVAILABILITY_PRUNE_START_DELAY_MS)

@@ -29,16 +29,19 @@ import kotlinx.coroutines.runBlocking
 /**
  * Owns MainActivity orchestration that is not UI rendering.
  *
- * This keeps Activity code focused on Android host responsibilities while this runtime
- * encapsulates callback wiring, policy coordinators, and lifecycle side effects.
+ * STARTUP OPTIMIZATION:
+ * Dependencies not needed for the first visible frame are accepted as provider
+ * functions (lazy lambdas) so that Koin construction is deferred until actual use.
+ * Only homeViewModel and widgetHostManager are resolved eagerly because they feed
+ * the first frame and widget host lifecycle.
  */
 internal class LauncherHostRuntime(
     private val activity: ComponentActivity,
-    private val searchViewModel: SearchViewModel,
+    private val searchViewModelProvider: () -> SearchViewModel,
     private val homeViewModel: HomeViewModel,
-    private val appDrawerViewModel: AppDrawerViewModel,
-    private val appRepository: AppRepository,
-    private val contactsRepository: ContactsRepository,
+    private val appDrawerViewModelProvider: () -> AppDrawerViewModel,
+    private val appRepositoryProvider: () -> AppRepository,
+    private val contactsRepositoryProvider: () -> ContactsRepository,
     private val homeRepository: HomeRepository,
     private val widgetHostManager: WidgetHostManager
 ) {
@@ -50,19 +53,23 @@ internal class LauncherHostRuntime(
     private lateinit var permissionRequestCoordinator: PermissionRequestCoordinator
     private lateinit var pinShortcutRequestCoordinator: PinShortcutRequestCoordinator
 
-    private val benchmarkHomeSeeder = LauncherBenchmarkHomeSeeder(
-        appRepository = appRepository,
-        homeRepository = homeRepository,
-        ownPackageName = activity.packageName
-    )
+    private val benchmarkHomeSeeder by lazy {
+        LauncherBenchmarkHomeSeeder(
+            appRepository = appRepositoryProvider(),
+            homeRepository = homeRepository,
+            ownPackageName = activity.packageName
+        )
+    }
 
     val surfaceStateCoordinator = SurfaceStateCoordinator(
-        showSearch = { searchViewModel.showSearch() },
-        hideSearch = { searchViewModel.hideSearch() },
-        isSearchVisible = { searchViewModel.uiState.value.isSearchVisible },
+        showSearch = { searchViewModelProvider().showSearch() },
+        hideSearch = { searchViewModelProvider().hideSearch() },
+        isSearchVisible = { searchViewModelProvider().uiState.value.isSearchVisible },
         isFolderOpen = { homeViewModel.openFolderItem.value != null },
         closeFolder = { homeViewModel.closeFolder() },
-        onAppDrawerVisibilityChanged = appDrawerViewModel::setDrawerVisible
+        onAppDrawerVisibilityChanged = { isVisible ->
+            appDrawerViewModelProvider().setDrawerVisible(isVisible)
+        }
     )
 
     val widgetPlacementCoordinator: WidgetPlacementCoordinator = WidgetPlacementCoordinator(
@@ -76,7 +83,6 @@ internal class LauncherHostRuntime(
      */
     fun initialize() {
         traceSection("launcher.startup.runtime.initialize") {
-            initializeHandlers()
             initializeBackButtonBehavior()
             widgetPlacementCoordinator.initialize()
         }
@@ -84,6 +90,10 @@ internal class LauncherHostRuntime(
 
     /**
      * Runs startup work that can wait until the first frame is already visible.
+     *
+     * Permission and action handlers are initialized here instead of in [initialize]
+     * because they require SearchViewModel and ContactsRepository which are not
+     * needed for the first frame.
      */
     fun completeDeferredStartup(widgetPickerCatalogStore: WidgetPickerCatalogStore) {
         if (deferredStartupCompleted) {
@@ -92,6 +102,7 @@ internal class LauncherHostRuntime(
         deferredStartupCompleted = true
 
         traceSection("launcher.startup.deferred") {
+            initializeHandlers()
             homeViewModel.startDeferredStartupWork()
             widgetPickerCatalogStore.prewarm()
         }
@@ -108,6 +119,7 @@ internal class LauncherHostRuntime(
      * Applies the policy that decides whether launching an action should dismiss search.
      */
     fun updateSearchClosePolicy(closeSearchOnLaunch: Boolean) {
+        if (!::actionExecutor.isInitialized) return
         actionExecutor.shouldCloseSearchForAction = { action ->
             closeSearchOnLaunch && action.shouldCloseSearch()
         }
@@ -116,7 +128,9 @@ internal class LauncherHostRuntime(
     fun onResume() {
         widgetHostManager.setActivityResumed(true)
         widgetHostManager.setStateIsNormal(true)
-        permissionHandler.updateStates()
+        if (::permissionHandler.isInitialized) {
+            permissionHandler.updateStates()
+        }
         surfaceStateCoordinator.onResume()
     }
 
@@ -134,7 +148,7 @@ internal class LauncherHostRuntime(
     }
 
     fun handleInitialIntent(intent: Intent) {
-        if (pinShortcutRequestCoordinator.handleIntent(intent)) {
+        if (handlePinShortcutIntent(intent)) {
             return
         }
 
@@ -145,7 +159,7 @@ internal class LauncherHostRuntime(
     }
 
     fun onNewIntent(intent: Intent) {
-        if (pinShortcutRequestCoordinator.handleIntent(intent)) {
+        if (handlePinShortcutIntent(intent)) {
             return
         }
 
@@ -156,6 +170,14 @@ internal class LauncherHostRuntime(
         when {
             isLauncherHomeIntent(intent) -> surfaceStateCoordinator.handleHomeIntent()
         }
+    }
+
+    private fun handlePinShortcutIntent(intent: Intent): Boolean {
+        if (!::pinShortcutRequestCoordinator.isInitialized) {
+            // Force-initialize handlers if a pin shortcut arrives before deferred startup
+            initializeHandlers()
+        }
+        return pinShortcutRequestCoordinator.handleIntent(intent)
     }
 
     private fun handleBenchmarkIntent(intent: Intent): Boolean {
@@ -192,15 +214,17 @@ internal class LauncherHostRuntime(
     }
 
     private fun initializeHandlers() {
+        if (::permissionHandler.isInitialized) return
+
         permissionHandler = PermissionHandler(
             activity = activity,
             permissionStateSink = object : com.milki.launcher.core.permission.PermissionStateSink {
                 override fun updateContactsPermission(hasPermission: Boolean) {
-                    searchViewModel.updateContactsPermission(hasPermission)
+                    searchViewModelProvider().updateContactsPermission(hasPermission)
                 }
 
                 override fun updateFilesPermission(hasPermission: Boolean) {
-                    searchViewModel.updateFilesPermission(hasPermission)
+                    searchViewModelProvider().updateFilesPermission(hasPermission)
                 }
             }
         )
@@ -208,7 +232,7 @@ internal class LauncherHostRuntime(
 
         actionExecutor = ActionExecutor(
             activity,
-            contactsRepository,
+            contactsRepositoryProvider(),
             homeViewModel,
             activity.lifecycleScope
         )
@@ -223,7 +247,7 @@ internal class LauncherHostRuntime(
         permissionRequestCoordinator = PermissionRequestCoordinator(
             permissionHandler = permissionHandler,
             actionExecutor = actionExecutor,
-            searchViewModel = searchViewModel
+            searchViewModel = searchViewModelProvider()
         )
         permissionRequestCoordinator.bind()
     }
@@ -248,8 +272,8 @@ internal class LauncherHostRuntime(
         surfaceStateCoordinator.updateAppDrawerOpen(false)
         surfaceStateCoordinator.updateHomescreenMenuOpen(false)
         surfaceStateCoordinator.updateWidgetPickerOpen(false)
-        appDrawerViewModel.updateQuery("")
-        searchViewModel.hideSearch()
+        appDrawerViewModelProvider().updateQuery("")
+        searchViewModelProvider().hideSearch()
         homeViewModel.closeFolder()
     }
 }

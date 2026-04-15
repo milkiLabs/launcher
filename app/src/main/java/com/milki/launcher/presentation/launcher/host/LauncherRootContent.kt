@@ -36,27 +36,35 @@ import com.milki.launcher.ui.theme.LauncherTheme
 /**
  * Composable root for launcher home.
  *
- * This host keeps UI state collection and CompositionLocal setup together,
- * while MainActivity stays a thin Android lifecycle shell.
+ * STARTUP OPTIMIZATION:
+ * SearchViewModel and AppDrawerViewModel are accepted as provider functions so
+ * their Koin construction is deferred until actual use. On the first frame, only
+ * HomeViewModel state (pinnedItems) and SettingsRepository (launcherSettings)
+ * are collected. Search and drawer state collection is deferred until the VMs
+ * are resolved (which happens after the first frame via deferred startup or
+ * user interaction).
  */
 @Composable
 internal fun LauncherRootContent(
     runtime: LauncherHostRuntime,
     onOpenSettings: () -> Unit,
-    searchViewModel: SearchViewModel,
+    searchViewModelProvider: () -> SearchViewModel,
     homeViewModel: HomeViewModel,
-    appDrawerViewModel: AppDrawerViewModel,
+    appDrawerViewModelProvider: () -> AppDrawerViewModel,
     settingsRepository: SettingsRepository,
     widgetHostManager: WidgetHostManager,
     obtainWidgetPickerCatalogStore: () -> WidgetPickerCatalogStore
 ) {
-    val searchUiState by searchViewModel.uiState.collectAsStateWithLifecycle()
     val pinnedItems by homeViewModel.pinnedItems.collectAsStateWithLifecycle()
     val openFolderItem by homeViewModel.openFolderItem.collectAsStateWithLifecycle()
-    val appDrawerUiState by appDrawerViewModel.uiState.collectAsStateWithLifecycle()
     val launcherSettings by settingsRepository.settings.collectAsStateWithLifecycle(
         initialValue = LauncherSettings()
     )
+
+    // Lazily resolve VMs that are not needed for the first frame.
+    // The remember block ensures VMs are only constructed once per composition root.
+    var searchViewModel by remember { mutableStateOf<SearchViewModel?>(null) }
+    var appDrawerViewModel by remember { mutableStateOf<AppDrawerViewModel?>(null) }
 
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -82,11 +90,31 @@ internal fun LauncherRootContent(
         }
 
         LaunchedEffect(runtime) {
+            // Wait for the first frame to be drawn, then kick off deferred work.
             withFrameNanos { }
+
+            // Now resolve the lazy VMs — this is post-first-frame so it won't
+            // impact TTID. Once resolved, the UI will recompose to collect their state.
+            searchViewModel = searchViewModelProvider()
+            appDrawerViewModel = appDrawerViewModelProvider()
+
             val catalogStore = obtainWidgetPickerCatalogStore()
             widgetPickerCatalogStore = catalogStore
             runtime.completeDeferredStartup(catalogStore)
         }
+
+        // Collect search/drawer state only after VMs are resolved.
+        // Before that, use safe defaults (search hidden, drawer empty).
+        val resolvedSearchVm = searchViewModel
+        val resolvedDrawerVm = appDrawerViewModel
+
+        val searchUiState by (resolvedSearchVm?.uiState
+            ?: remember { kotlinx.coroutines.flow.MutableStateFlow(com.milki.launcher.presentation.search.SearchUiState()) })
+            .collectAsStateWithLifecycle()
+
+        val appDrawerUiState by (resolvedDrawerVm?.uiState
+            ?: remember { kotlinx.coroutines.flow.MutableStateFlow(com.milki.launcher.presentation.drawer.AppDrawerUiState()) })
+            .collectAsStateWithLifecycle()
 
         LaunchedEffect(
             searchUiState.isSearchVisible,
@@ -94,8 +122,6 @@ internal fun LauncherRootContent(
             surfaceStateCoordinator.isWidgetPickerOpen,
             openFolderItem?.id
         ) {
-            // Keep IME cleanup at the launcher host level so overlapping surface
-            // transitions do not fight each other by hiding the keyboard too early.
             val hasImeOwningSurface =
                 searchUiState.isSearchVisible ||
                     surfaceStateCoordinator.isAppDrawerOpen ||
@@ -111,14 +137,18 @@ internal fun LauncherRootContent(
             val launcherActions = remember(
                 context,
                 launcherSettings.swipeUpAction,
-                onOpenSettings
+                onOpenSettings,
+                resolvedSearchVm,
+                resolvedDrawerVm
             ) {
                 LauncherActions(
                     search = SearchActions(
-                        onQueryChange = searchViewModel::onQueryChange,
+                        onQueryChange = { query ->
+                            searchViewModelProvider().onQueryChange(query)
+                        },
                         onDismissSearch = {
                             surfaceStateCoordinator.dismissContextMenus()
-                            searchViewModel.hideSearch()
+                            searchViewModelProvider().hideSearch()
                         }
                     ),
                     menu = MenuActions(
@@ -127,7 +157,9 @@ internal fun LauncherRootContent(
                     ),
                     drawer = DrawerActions(
                         onAppDrawerOpenChange = surfaceStateCoordinator::updateAppDrawerOpen,
-                        onQueryChange = appDrawerViewModel::updateQuery
+                        onQueryChange = { query ->
+                            appDrawerViewModelProvider().updateQuery(query)
+                        }
                     ),
                     home = HomeActions(
                         onHomeSwipeUp = {

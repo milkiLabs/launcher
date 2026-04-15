@@ -22,20 +22,28 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 /**
  * Android host shell for launcher home.
  *
+ * STARTUP OPTIMIZATION:
+ * Only dependencies that feed the first visible frame are resolved eagerly
+ * (HomeViewModel, HomeRepository, WidgetHostManager). Everything else is wrapped
+ * in provider lambdas so Koin construction is deferred until first actual use.
+ *
  * Architecture split:
  * - [LauncherHostRuntime] owns lifecycle side effects and coordinator orchestration.
  * - [LauncherRootContent] collects ViewModel state and renders Compose UI.
  */
 class MainActivity : ComponentActivity() {
 
-    private val searchViewModel: SearchViewModel by viewModel()
+    // ── Eagerly resolved: needed for the first visible frame ──────────
     private val homeViewModel: HomeViewModel by viewModel()
-    private val appDrawerViewModel: AppDrawerViewModel by viewModel()
-    private val appRepository: AppRepository by inject()
-    private val contactsRepository: ContactsRepository by inject()
     private val homeRepository: HomeRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
     private val widgetHostManager: WidgetHostManager by inject()
+
+    // ── Lazily resolved: not needed for the first frame ───────────────
+    private val searchViewModel: SearchViewModel by viewModel()
+    private val appDrawerViewModel: AppDrawerViewModel by viewModel()
+    private val appRepository: AppRepository by inject()
+    private val contactsRepository: ContactsRepository by inject()
     private val widgetPickerCatalogStore: WidgetPickerCatalogStore by inject()
 
     private lateinit var runtime: LauncherHostRuntime
@@ -47,11 +55,11 @@ class MainActivity : ComponentActivity() {
             traceSection("launcher.startup.runtime.setup") {
                 runtime = LauncherHostRuntime(
                     activity = this,
-                    searchViewModel = searchViewModel,
+                    searchViewModelProvider = { searchViewModel },
                     homeViewModel = homeViewModel,
-                    appDrawerViewModel = appDrawerViewModel,
-                    appRepository = appRepository,
-                    contactsRepository = contactsRepository,
+                    appDrawerViewModelProvider = { appDrawerViewModel },
+                    appRepositoryProvider = { appRepository },
+                    contactsRepositoryProvider = { contactsRepository },
                     homeRepository = homeRepository,
                     widgetHostManager = widgetHostManager
                 )
@@ -64,9 +72,9 @@ class MainActivity : ComponentActivity() {
                     LauncherRootContent(
                         runtime = runtime,
                         onOpenSettings = ::openSettings,
-                        searchViewModel = searchViewModel,
+                        searchViewModelProvider = { searchViewModel },
                         homeViewModel = homeViewModel,
-                        appDrawerViewModel = appDrawerViewModel,
+                        appDrawerViewModelProvider = { appDrawerViewModel },
                         settingsRepository = settingsRepository,
                         widgetHostManager = widgetHostManager,
                         obtainWidgetPickerCatalogStore = { widgetPickerCatalogStore }

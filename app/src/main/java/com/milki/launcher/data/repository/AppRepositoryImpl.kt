@@ -60,6 +60,10 @@ class AppRepositoryImpl(
 
     init {
         repositoryScope.launch {
+            // Yield once so DataStore reads for home items get IO priority
+            // during cold start. The app catalog is only needed when the
+            // drawer or search first opens — the home screen doesn't need it.
+            kotlinx.coroutines.yield()
             refreshTriggers.collectLatest {
                 refreshInstalledAppsSnapshot()
             }
