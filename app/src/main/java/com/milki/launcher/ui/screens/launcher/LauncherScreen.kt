@@ -129,7 +129,7 @@ fun LauncherScreen(
 
         FolderOverlayHost(
             openFolderItem = openFolderItem,
-            actions = actions,
+            folderActions = actions.folder,
             anchorBounds = openFolderItem?.let { folder ->
                 homeItemBoundsById[folder.id]
             }
@@ -139,7 +139,7 @@ fun LauncherScreen(
             appDrawerSheetState = appDrawerSheetState,
             isAppDrawerOpen = isAppDrawerOpen,
             appDrawerUiState = appDrawerUiState,
-            actions = actions
+            drawerActions = actions.drawer
         )
 
         WidgetPickerHost(
@@ -147,13 +147,13 @@ fun LauncherScreen(
             isWidgetPickerOpen = isWidgetPickerOpen,
             widgetPickerQuery = widgetPickerQuery,
             widgetPickerCatalogStore = widgetPickerCatalogStore,
-            actions = actions
+            widgetActions = actions.widget
         )
     }
 
     SearchOverlayHost(
         searchUiState = searchUiState,
-        actions = actions
+        searchActions = actions.search
     )
 }
 
@@ -255,7 +255,7 @@ private fun HomeSurface(
 @Composable
 private fun FolderOverlayHost(
     openFolderItem: HomeItem.FolderItem?,
-    actions: LauncherActions,
+    folderActions: FolderActions,
     anchorBounds: Rect?
 ) {
     openFolderItem?.let { folder ->
@@ -263,16 +263,16 @@ private fun FolderOverlayHost(
             FolderPopupDialog(
                 folder = folder,
                 anchorBounds = anchorBounds,
-                onClose = actions.folder.onFolderClose,
+                onClose = folderActions.onFolderClose,
                 onRenameFolder = { newName ->
-                    actions.folder.onFolderRename(folder.id, newName)
+                    folderActions.onFolderRename(folder.id, newName)
                 },
-                onItemClick = actions.folder.onFolderItemClick,
+                onItemClick = folderActions.onFolderItemClick,
                 onReorderFolderItems = { newChildren ->
-                    actions.folder.onFolderItemReorder(folder.id, newChildren)
+                    folderActions.onFolderItemReorder(folder.id, newChildren)
                 },
                 onRemoveItemFromFolder = { itemId ->
-                    actions.folder.onFolderItemRemove(folder.id, itemId)
+                    folderActions.onFolderItemRemove(folder.id, itemId)
                 }
             )
         }
@@ -287,20 +287,20 @@ private fun DrawerHost(
     appDrawerSheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
     isAppDrawerOpen: Boolean,
     appDrawerUiState: AppDrawerUiState,
-    actions: LauncherActions
+    drawerActions: DrawerActions
 ) {
     ManagedLauncherSheet(
         isOpen = isAppDrawerOpen,
         sheetState = appDrawerSheetState,
-        onDismissRequest = { actions.drawer.onAppDrawerOpenChange(false) }
+        onDismissRequest = { drawerActions.onAppDrawerOpenChange(false) }
     ) {
         AppDrawerOverlay(
             uiState = appDrawerUiState,
-            onQueryChange = actions.drawer.onQueryChange,
-            onDismiss = { actions.drawer.onAppDrawerOpenChange(false) },
+            onQueryChange = drawerActions.onQueryChange,
+            onDismiss = { drawerActions.onAppDrawerOpenChange(false) },
             headerDragHandleModifier = Modifier.launcherSheetDragHandle(
                 state = appDrawerSheetState,
-                onDismissedByUser = { actions.drawer.onAppDrawerOpenChange(false) }
+                onDismissedByUser = { drawerActions.onAppDrawerOpenChange(false) }
             ),
             modifier = Modifier.fillMaxSize()
         )
@@ -316,24 +316,24 @@ private fun WidgetPickerHost(
     isWidgetPickerOpen: Boolean,
     widgetPickerQuery: String,
     widgetPickerCatalogStore: WidgetPickerCatalogStore?,
-    actions: LauncherActions
+    widgetActions: WidgetActions
 ) {
     if (widgetPickerCatalogStore == null) return
     ManagedLauncherSheet(
         isOpen = isWidgetPickerOpen,
         sheetState = widgetPickerSheetState,
-        onDismissRequest = { actions.widget.onWidgetPickerOpenChange(false) }
+        onDismissRequest = { widgetActions.onWidgetPickerOpenChange(false) }
     ) {
         WidgetPickerBottomSheet(
             catalogStore = widgetPickerCatalogStore,
             searchQuery = widgetPickerQuery,
-            onSearchQueryChange = actions.widget.onWidgetPickerQueryChange,
+            onSearchQueryChange = widgetActions.onWidgetPickerQueryChange,
             headerDragHandleModifier = Modifier.launcherSheetDragHandle(
                 state = widgetPickerSheetState,
-                onDismissedByUser = { actions.widget.onWidgetPickerOpenChange(false) }
+                onDismissedByUser = { widgetActions.onWidgetPickerOpenChange(false) }
             ),
             onExternalDragStarted = {
-                actions.widget.onWidgetPickerOpenChange(false)
+                widgetActions.onWidgetPickerOpenChange(false)
             }
         )
     }
@@ -342,14 +342,14 @@ private fun WidgetPickerHost(
 @Composable
 private fun SearchOverlayHost(
     searchUiState: SearchUiState,
-    actions: LauncherActions
+    searchActions: SearchActions
 ) {
     if (!searchUiState.isSearchVisible) return
 
     AppSearchDialog(
         uiState = searchUiState,
-        onQueryChange = actions.search.onQueryChange,
-        onDismiss = actions.search.onDismissSearch
+        onQueryChange = searchActions.onQueryChange,
+        onDismiss = searchActions.onDismissSearch
     )
 }
 

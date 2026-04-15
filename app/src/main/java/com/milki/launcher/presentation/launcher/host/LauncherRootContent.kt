@@ -20,10 +20,12 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.launcher.LocalContextMenuDismissSignal
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
+import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.presentation.search.SearchViewModel
 import com.milki.launcher.ui.screens.launcher.DrawerActions
 import com.milki.launcher.ui.screens.launcher.FolderActions
@@ -34,6 +36,7 @@ import com.milki.launcher.ui.screens.launcher.MenuActions
 import com.milki.launcher.ui.screens.launcher.SearchActions
 import com.milki.launcher.ui.screens.launcher.WidgetActions
 import com.milki.launcher.ui.theme.LauncherTheme
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Composable root for launcher home.
@@ -111,11 +114,11 @@ internal fun LauncherRootContent(
         val resolvedDrawerVm = appDrawerViewModel
 
         val searchUiState by (resolvedSearchVm?.uiState
-            ?: remember { kotlinx.coroutines.flow.MutableStateFlow(com.milki.launcher.presentation.search.SearchUiState()) })
+            ?: remember { MutableStateFlow(SearchUiState()) })
             .collectAsStateWithLifecycle()
 
         val appDrawerUiState by (resolvedDrawerVm?.uiState
-            ?: remember { kotlinx.coroutines.flow.MutableStateFlow(com.milki.launcher.presentation.drawer.AppDrawerUiState()) })
+            ?: remember { MutableStateFlow(AppDrawerUiState()) })
             .collectAsStateWithLifecycle()
 
         LaunchedEffect(
@@ -150,11 +153,11 @@ internal fun LauncherRootContent(
                 LauncherActions(
                     search = SearchActions(
                         onQueryChange = { query ->
-                            searchViewModelProvider().onQueryChange(query)
+                            resolvedSearchVm?.onQueryChange(query)
                         },
                         onDismissSearch = {
                             surfaceStateCoordinator.dismissContextMenus()
-                            searchViewModelProvider().hideSearch()
+                            resolvedSearchVm?.hideSearch()
                         }
                     ),
                     menu = MenuActions(
@@ -164,7 +167,7 @@ internal fun LauncherRootContent(
                     drawer = DrawerActions(
                         onAppDrawerOpenChange = surfaceStateCoordinator::updateAppDrawerOpen,
                         onQueryChange = { query ->
-                            appDrawerViewModelProvider().updateQuery(query)
+                            resolvedDrawerVm?.updateQuery(query)
                         }
                     ),
                     home = HomeActions(
