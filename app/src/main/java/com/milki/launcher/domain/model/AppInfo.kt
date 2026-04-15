@@ -18,7 +18,8 @@ import androidx.compose.runtime.Immutable
 data class AppInfo(
     val name: String,
     val packageName: String,
-    val activityName: String = packageName
+    val activityName: String = packageName,
+    val installedOrUpdatedAtMillis: Long = 0L
 ) {
     /** Precomputed lowercase fields used heavily by ranking and sorting paths. */
     val nameLower: String = name.lowercase()

@@ -59,4 +59,70 @@ class DrawerListAssemblerTest {
         assertEquals("X Player", entries[0].app.name)
         assertEquals("Axiom Notes", entries[1].app.name)
     }
+
+    @Test
+    fun select_recently_updated_or_installed_orders_by_recency_desc() {
+        val appsWithRecency = listOf(
+            AppInfo(
+                name = "Calendar",
+                packageName = "com.android.calendar",
+                installedOrUpdatedAtMillis = 100L
+            ),
+            AppInfo(
+                name = "Maps",
+                packageName = "com.google.android.apps.maps",
+                installedOrUpdatedAtMillis = 300L
+            ),
+            AppInfo(
+                name = "YouTube",
+                packageName = "com.google.android.youtube",
+                installedOrUpdatedAtMillis = 200L
+            )
+        )
+
+        val result = assembler.selectRecentlyUpdatedOrInstalled(appsWithRecency, limit = 3)
+
+        assertEquals(listOf("Maps", "YouTube", "Calendar"), result.map { it.name })
+    }
+
+    @Test
+    fun select_recently_updated_or_installed_dedupes_by_package() {
+        val appsWithDuplicates = listOf(
+            AppInfo(
+                name = "Mail",
+                packageName = "com.example.mail",
+                activityName = "com.example.mail.Main",
+                installedOrUpdatedAtMillis = 500L
+            ),
+            AppInfo(
+                name = "Mail Settings",
+                packageName = "com.example.mail",
+                activityName = "com.example.mail.Settings",
+                installedOrUpdatedAtMillis = 500L
+            ),
+            AppInfo(
+                name = "Clock",
+                packageName = "com.example.clock",
+                installedOrUpdatedAtMillis = 400L
+            )
+        )
+
+        val result = assembler.selectRecentlyUpdatedOrInstalled(appsWithDuplicates, limit = 5)
+
+        assertEquals(2, result.size)
+        assertEquals(listOf("com.example.mail", "com.example.clock"), result.map { it.packageName })
+    }
+
+    @Test
+    fun select_recently_updated_or_installed_applies_limit() {
+        val appsWithRecency = listOf(
+            AppInfo(name = "A", packageName = "pkg.a", installedOrUpdatedAtMillis = 10L),
+            AppInfo(name = "B", packageName = "pkg.b", installedOrUpdatedAtMillis = 20L),
+            AppInfo(name = "C", packageName = "pkg.c", installedOrUpdatedAtMillis = 30L)
+        )
+
+        val result = assembler.selectRecentlyUpdatedOrInstalled(appsWithRecency, limit = 2)
+
+        assertEquals(listOf("C", "B"), result.map { it.name })
+    }
 }

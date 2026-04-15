@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,42 +70,47 @@ internal fun FolderNameHeader(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onEditRequested
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            BasicTextField(
-                value = name,
-                onValueChange = onNameChange,
-                textStyle = LocalTextStyle.current.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = MaterialTheme.typography.titleMedium.fontSize,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center
-                ),
-                singleLine = true,
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .onFocusChanged { focusState ->
-                        onEditingChanged(focusState.isFocused)
-                    },
-                readOnly = !isEditing
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onEditRequested
+                    )
+            ) {
+                BasicTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    textStyle = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = MaterialTheme.typography.titleMedium.fontSize,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    ),
+                    singleLine = true,
+                    modifier = Modifier
+                        .widthIn(max = 220.dp)
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { focusState ->
+                            onEditingChanged(focusState.isFocused)
+                        },
+                    readOnly = !isEditing
+                )
+            }
+
+            Spacer(modifier = Modifier.width(Spacing.extraSmall))
+            Text(
+                text = if (itemCount == 1) "1 item" else "$itemCount items",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
             )
         }
-
-        Spacer(modifier = Modifier.height(Spacing.extraSmall))
-        Text(
-            text = if (itemCount == 1) "1 item" else "$itemCount items",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-        )
 
         if (isEditing) {
             Spacer(modifier = Modifier.height(Spacing.extraSmall))

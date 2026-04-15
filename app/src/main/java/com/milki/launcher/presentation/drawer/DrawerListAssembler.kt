@@ -8,6 +8,21 @@ class DrawerListAssembler {
         return assembleItems(apps = apps, preserveInputOrder = false)
     }
 
+    fun selectRecentlyUpdatedOrInstalled(apps: List<AppInfo>, limit: Int): List<AppInfo> {
+        if (limit <= 0 || apps.isEmpty()) return emptyList()
+
+        return apps.asSequence()
+            .sortedWith(
+                compareByDescending<AppInfo> { it.installedOrUpdatedAtMillis }
+                    .thenBy { it.nameLower }
+                    .thenBy { it.packageName }
+                    .thenBy { it.activityName }
+            )
+            .distinctBy { it.packageName }
+            .take(limit)
+            .toList()
+    }
+
     fun assembleSearch(apps: List<AppInfo>, query: String): List<DrawerAdapterItem> {
         val normalizedQuery = query.trim()
         if (normalizedQuery.isEmpty()) return assembleNormal(apps)

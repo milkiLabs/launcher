@@ -30,6 +30,7 @@ internal class InstalledAppsCatalog(
     suspend fun loadInstalledApps(): List<AppInfo> {
         return withContext(dispatcher) {
             val packageManager = application.packageManager
+            val packageTimestampCache = mutableMapOf<String, Long>()
             val launcherQueryIntent = Intent(Intent.ACTION_MAIN, null).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
@@ -38,40 +39,38 @@ internal class InstalledAppsCatalog(
                 packageManager.queryIntentActivitiesCompat(launcherQueryIntent)
             }
 
-            // Resolve package timestamps once per package, then reuse for each launcher activity.
-            val packageRecencyByPackageName = traceSection("launcher.appsCatalog.queryPackageRecency") {
-                activities
-                    .asSequence()
-                    .map { it.activityInfo.packageName }
-                    .distinct()
-                    .associateWith { packageName ->
-                        resolvePackageRecencyMillis(packageManager, packageName)
-                    }
-            }
-
             activities.map { resolveInfo ->
                 val activityInfo = resolveInfo.activityInfo
+                val packageName = activityInfo.packageName
 
                 val label = traceSection("launcher.appsCatalog.resolveLabel") {
                     resolveInfo.loadLabel(packageManager).toString()
                 }
 
+                val installedOrUpdatedAtMillis = packageTimestampCache.getOrPut(packageName) {
+                    resolveRecencyTimestampMillis(
+                        packageManager = packageManager,
+                        packageName = packageName
+                    )
+                }
+
                 AppInfo(
                     name = label,
-                    packageName = activityInfo.packageName,
+                    packageName = packageName,
                     activityName = activityInfo.name,
+                    installedOrUpdatedAtMillis = installedOrUpdatedAtMillis
                 )
             }.sortedBy { app -> app.nameLower }
         }
     }
 
-    private fun resolvePackageRecencyMillis(
+    private fun resolveRecencyTimestampMillis(
         packageManager: PackageManager,
         packageName: String
     ): Long {
         return try {
             val packageInfo = packageManager.getPackageInfoCompat(packageName)
-            maxOf(packageInfo.lastUpdateTime, packageInfo.firstInstallTime)
+            maxOf(packageInfo.firstInstallTime, packageInfo.lastUpdateTime)
         } catch (_: PackageManager.NameNotFoundException) {
             0L
         }

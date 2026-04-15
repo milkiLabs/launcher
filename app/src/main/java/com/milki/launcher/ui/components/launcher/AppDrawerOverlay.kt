@@ -28,6 +28,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -49,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.drawer.DrawerAdapterItem
@@ -86,6 +89,9 @@ fun AppDrawerOverlay(
     val actionHandler = LocalSearchActionHandler.current
     val gridState = rememberLazyGridState()
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
+    val recentRowCapacity = if (isPortrait) 4 else 6
+    val topRecentApps = uiState.recentlyChangedApps.take(recentRowCapacity)
+    val shouldShowTopRecentRow = uiState.query.isBlank() && topRecentApps.isNotEmpty()
 
     LaunchedEffect(uiState.query) {
         if (uiState.adapterItems.isNotEmpty()) {
@@ -132,6 +138,21 @@ fun AppDrawerOverlay(
                     .padding(top = Spacing.small),
                 onClear = { onQueryChange("") }
             )
+
+            if (shouldShowTopRecentRow) {
+                RecentlyChangedAppsRow(
+                    apps = topRecentApps,
+                    rowCapacity = recentRowCapacity,
+                    onAppClick = { app ->
+                        actionHandler(SearchResultAction.Tap(AppSearchResult(app)))
+                        onDismiss()
+                    },
+                    onExternalDragStarted = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = Spacing.medium)
+                )
+            }
 
             if (uiState.isLoading) {
                 // Keep loading state scrollable so downward drag can also
@@ -245,6 +266,45 @@ fun AppDrawerOverlay(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentlyChangedAppsRow(
+    apps: List<AppInfo>,
+    rowCapacity: Int,
+    onAppClick: (AppInfo) -> Unit,
+    onExternalDragStarted: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+    ) {
+        Text(
+            text = "Recently updated",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+        ) {
+            apps.forEach { app ->
+                Box(modifier = Modifier.weight(1f)) {
+                    AppGridItem(
+                        appInfo = app,
+                        onClick = { onAppClick(app) },
+                        onExternalDragStarted = onExternalDragStarted
+                    )
+                }
+            }
+
+            repeat((rowCapacity - apps.size).coerceAtLeast(0)) {
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
     }

@@ -1,6 +1,6 @@
 # Milki Launcher
 
-A custom Android Launcher app built with modern Android development practices. Features a searchable app drawer with multi-mode search capabilities.
+A custom Android Launcher app built from scratch with kotlin and compose.
 
 ## Features
 
@@ -14,16 +14,6 @@ A custom Android Launcher app built with modern Android development practices. F
 - **Recent Apps**: Saves 8 most recently used apps
 - **Material Design 3**: Modern UI with dynamic colors support
 - **Performance Optimized**: O(n) search, controlled parallelism, memory caching
-
-## Tech Stack
-
-- **Language**: Kotlin
-- **UI**: Jetpack Compose + Material Design 3
-- **Architecture**: MVVM + Clean Architecture
-- **Image Loading**: Coil
-- **Data**: DataStore Preferences
-- **Async**: Kotlin Coroutines + Flow
-
 ## Documentation
 
 Comprehensive documentation is available in the [docs/](docs/) directory:
@@ -33,44 +23,30 @@ Comprehensive documentation is available in the [docs/](docs/) directory:
 - **[Conventions](docs/Conventions.md)** - Placement rules, naming standards, and engineering guardrails
 - **[Contributing](docs/Contributing.md)** - New-contributor setup, workflow, and review checklist
 - **[Performance](docs/Performance.md)** - Benchmarking, baseline profiles, and real-device profiling workflow
-- **[Distilled Learnings](docs/Distilled-Learnings.md)** - Hard-earned lessons from refactors and production-adjacent fixes
 
-## Quick Start
+## CI/CD (Tag-Based APK Releases)
 
-1. Open in Android Studio
-2. Sync Gradle files
-3. Run on device/emulator (API 24+)
-4. Set as default launcher when prompted
+This repository includes a GitHub Actions workflow at `.github/workflows/android-release.yml`.
 
-## Requirements
+- It does **not** run on every commit.
+- It runs only when you push a tag like `v1.0.0` or `release-2026-04-15`.
+- It builds and uploads a signed `release` APK artifact.
+- For tag builds, generated APKs are attached to a GitHub Release automatically.
 
-- Minimum SDK: API 24 (Android 7.0)
-- Target/Compile SDK: API 36 (Android 16)
-- JDK: 11 or higher
+### Required GitHub Secrets (for signed release APK)
 
-## License
+Add these repository secrets in GitHub:
 
-Educational project - feel free to learn from and modify!
+- `ANDROID_KEYSTORE_BASE64` (base64 content of your `.jks` file)
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
 
----
+If these secrets are not set, the workflow fails because release signing is required.
 
-## Feature Roadmap
+### Create and Push a Release Tag
 
-### Planned Features
-
-- [ ] Long-press actions on apps (info, uninstall, split screen)
-- [ ] Home screen gestures (swipe up for search, double-tap to lock)
-- [ ] Custom user macros/automation
-- [ ] Fuzzy matching for app names
-- [ ] Prefix localization (Arabic: س, ي, ت)
-- change empty state for search,youtube
-
-### Performance Notes
-
-- Current search is O(n) - suitable for ~200 apps
-- Future additions (contacts, shortcuts, settings) may require indexing
-- Need to implement lifecycle handling for app install/uninstall/update
-
----
-
-See the [`docs/`](docs/) folder for detailed documentation on architecture, components, and features.
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```

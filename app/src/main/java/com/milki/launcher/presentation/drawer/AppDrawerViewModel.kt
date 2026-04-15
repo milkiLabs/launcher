@@ -23,6 +23,7 @@ import kotlin.coroutines.CoroutineContext
 data class AppDrawerUiState(
     val isLoading: Boolean = true,
     val adapterItems: List<DrawerAdapterItem> = emptyList(),
+    val recentlyChangedApps: List<AppInfo> = emptyList(),
     val query: String = ""
 )
 
@@ -39,6 +40,10 @@ class AppDrawerViewModel(
     private val drawerListAssembler: DrawerListAssembler,
     private val assemblyContext: CoroutineContext = Dispatchers.Default
 ) : ViewModel() {
+    private companion object {
+        const val RECENTLY_CHANGED_ROW_LIMIT = 8
+    }
+
     private val isLoading = MutableStateFlow(true)
     private val query = MutableStateFlow("")
     private val visibleApps = MutableStateFlow<List<AppInfo>>(emptyList())
@@ -58,8 +63,24 @@ class AppDrawerViewModel(
                 if (searchQuery.isBlank()) {
                     drawerListAssembler.assembleNormal(apps)
                 } else {
-                drawerListAssembler.assembleSearch(apps, searchQuery)
+                    drawerListAssembler.assembleSearch(apps, searchQuery)
                 }
+            }
+        }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    private val recentlyChangedApps = visibleApps
+        .mapLatest { apps ->
+            withContext(assemblyContext) {
+                drawerListAssembler.selectRecentlyUpdatedOrInstalled(
+                    apps = apps,
+                    limit = RECENTLY_CHANGED_ROW_LIMIT
+                )
             }
         }
         .distinctUntilChanged()
@@ -72,11 +93,13 @@ class AppDrawerViewModel(
     val uiState = combine(
         isLoading,
         visibleAssemblyItems,
+        recentlyChangedApps,
         query
-    ) { loading, assemblyItems, searchQuery ->
+    ) { loading, assemblyItems, recencyApps, searchQuery ->
         AppDrawerUiState(
             isLoading = loading,
             adapterItems = assemblyItems,
+            recentlyChangedApps = recencyApps,
             query = searchQuery
         )
     }.stateIn(
