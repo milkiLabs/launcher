@@ -1,6 +1,5 @@
 package com.milki.launcher.presentation.home
 
-import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 
@@ -15,11 +14,6 @@ import com.milki.launcher.domain.model.FileDocument
  *   (HomeViewModel), which serializes ordering and error handling.
  */
 interface HomeMutationHandler {
-
-    /**
-     * Pins an app to home using the unified home mutation pipeline.
-     */
-    fun pinApp(appInfo: AppInfo)
 
     /**
      * Pins a file shortcut to home using the unified home mutation pipeline.

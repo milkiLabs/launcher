@@ -233,15 +233,6 @@ class HomeViewModel(
         )
     }
 
-    override fun pinApp(appInfo: AppInfo) {
-        launchMutation(
-            fallbackErrorMessage = "Failed to pin app",
-            command = HomeModelWriter.Command.AddPinnedItem(
-                item = HomeItem.PinnedApp.fromAppInfo(appInfo)
-            )
-        )
-    }
-
     override fun pinFile(file: FileDocument) {
         launchMutation(
             fallbackErrorMessage = "Failed to pin file",

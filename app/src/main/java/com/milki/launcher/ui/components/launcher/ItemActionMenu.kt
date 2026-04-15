@@ -160,7 +160,7 @@ private fun ItemActionMenuBubble(
     Box(modifier = modifier) {
         Surface(
             modifier = Modifier
-                .widthIn(min = 196.dp, max = 280.dp)
+                .widthIn(max = 252.dp)
                 .padding(
                     top = if (placement.verticalPlacement == ItemActionMenuVerticalPlacement.Below) {
                         arrowHalf
@@ -179,8 +179,8 @@ private fun ItemActionMenuBubble(
             tonalElevation = 0.dp
         ) {
             Column(
-                modifier = Modifier.padding(vertical = Spacing.smallMedium, horizontal = Spacing.smallMedium),
-                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+                modifier = Modifier.padding(vertical = Spacing.small, horizontal = Spacing.small),
+                verticalArrangement = Arrangement.spacedBy(Spacing.none)
             ) {
                 actions.forEach { action ->
                     val tint = if (action.isDestructive) destructiveColor else iconTintDefault
@@ -220,8 +220,10 @@ private fun ItemActionMenuBubble(
                                 }
                             )
                             .padding(
-                                horizontal = Spacing.mediumLarge,
-                                vertical = Spacing.mediumLarge
+                                start = Spacing.medium,
+                                end = Spacing.small,
+                                top = Spacing.smallMedium,
+                                bottom = Spacing.smallMedium
                             ),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -240,10 +242,10 @@ private fun ItemActionMenuBubble(
                                 modifier = Modifier.size(IconSize.standard)
                             )
                         }
-                        Spacer(modifier = Modifier.width(Spacing.mediumLarge))
+                        Spacer(modifier = Modifier.width(Spacing.medium))
                         Text(
                             text = action.label,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             color = textColor
                         )
                     }

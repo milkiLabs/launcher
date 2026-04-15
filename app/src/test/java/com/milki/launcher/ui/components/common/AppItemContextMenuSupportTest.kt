@@ -10,7 +10,7 @@ import org.junit.Test
 class AppItemContextMenuSupportTest {
 
     @Test
-    fun app_menu_includes_quick_actions_before_pin_and_info() {
+    fun app_menu_includes_quick_actions_before_app_info() {
         val appInfo = AppInfo(
             name = "Example",
             packageName = "com.example.app",
@@ -29,16 +29,15 @@ class AppItemContextMenuSupportTest {
             quickActions = listOf(quickAction)
         )
 
-        assertEquals(3, menuActions.size)
+        assertEquals(2, menuActions.size)
         assertEquals("New chat", menuActions[0].label)
         assertTrue(menuActions[0].action is SearchResultAction.LaunchAppShortcut)
         assertEquals(quickAction, menuActions[0].shortcutIcon)
-        assertEquals("Pin to home", menuActions[1].label)
-        assertEquals("App info", menuActions[2].label)
+        assertEquals("App info", menuActions[1].label)
     }
 
     @Test
-    fun app_menu_without_quick_actions_keeps_default_actions() {
+    fun app_menu_without_quick_actions_keeps_app_info_only() {
         val appInfo = AppInfo(
             name = "Example",
             packageName = "com.example.app",
@@ -47,8 +46,7 @@ class AppItemContextMenuSupportTest {
 
         val menuActions = buildAppItemMenuActions(appInfo = appInfo)
 
-        assertEquals(2, menuActions.size)
-        assertEquals("Pin to home", menuActions[0].label)
-        assertEquals("App info", menuActions[1].label)
+        assertEquals(1, menuActions.size)
+        assertEquals("App info", menuActions[0].label)
     }
 }

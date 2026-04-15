@@ -120,13 +120,6 @@ sealed class SearchResultAction {
     // ========================================================================
     
     /**
-     * User wants to pin an app to the home screen.
-     *
-     * @property appInfo The app to pin
-     */
-    data class PinApp(val appInfo: AppInfo) : SearchResultAction()
-    
-    /**
      * User wants to pin a file to the home screen.
      *
      * @property file The file to pin
@@ -197,7 +190,6 @@ fun SearchResultAction.shouldCloseSearch(): Boolean = when (this) {
     is SearchResultAction.OpenDialer -> true
     is SearchResultAction.ComposeEmail -> true
     is SearchResultAction.OpenMapLocation -> true
-    is SearchResultAction.PinApp -> false
     is SearchResultAction.PinFile -> false
     is SearchResultAction.PinContact -> false
     is SearchResultAction.UnpinItem -> false

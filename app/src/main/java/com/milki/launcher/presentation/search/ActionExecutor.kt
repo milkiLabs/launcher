@@ -103,7 +103,6 @@ class ActionExecutor(
             is SearchResultAction.OpenDialer -> handleOpenDialer(action)
             is SearchResultAction.ComposeEmail -> handleComposeEmail(action)
             is SearchResultAction.OpenMapLocation -> handleOpenMapLocation(action)
-            is SearchResultAction.PinApp -> handlePinApp(action)
             is SearchResultAction.PinFile -> handlePinFile(action)
             is SearchResultAction.PinContact -> handlePinContact(action)
             is SearchResultAction.UnpinItem -> handleUnpinItem(action)
@@ -274,11 +273,6 @@ class ActionExecutor(
     // ========================================================================
     // PIN ACTIONS
     // ========================================================================
-
-    private fun handlePinApp(action: SearchResultAction.PinApp) {
-        homeMutationHandler.pinApp(action.appInfo)
-        Toast.makeText(context, "${action.appInfo.name} pinned to home", Toast.LENGTH_SHORT).show()
-    }
 
     private fun handlePinFile(action: SearchResultAction.PinFile) {
         homeMutationHandler.pinFile(action.file)

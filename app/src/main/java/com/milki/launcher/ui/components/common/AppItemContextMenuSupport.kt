@@ -93,16 +93,6 @@ fun buildAppItemMenuActions(
     return buildList {
         addAll(quickActions.map(::createLaunchShortcutAction))
 
-        add(
-            createPinAction(
-                isPinned = false,
-                pinAction = SearchResultAction.PinApp(appInfo),
-                unpinAction = SearchResultAction.UnpinItem(
-                    HomeItem.PinnedApp.fromAppInfo(appInfo).id
-                )
-            )
-        )
-
         add(createAppInfoAction(appInfo.packageName))
     }
 }

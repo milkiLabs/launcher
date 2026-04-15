@@ -268,6 +268,11 @@ private fun FolderPopupItem(
     modifier: Modifier = Modifier
 ) {
     var isLongPressGestureActive by remember { mutableStateOf(false) }
+    val appInfoPackageName = when (item) {
+        is HomeItem.PinnedApp -> item.packageName
+        is HomeItem.AppShortcut -> item.packageName
+        else -> null
+    }
     val quickActions = if (item is HomeItem.PinnedApp) {
         rememberAppQuickActions(
             packageName = item.packageName,
@@ -325,7 +330,10 @@ private fun FolderPopupItem(
             actions = buildList {
                 if (item is HomeItem.PinnedApp) {
                     addAll(quickActions.map(::createLaunchShortcutAction))
-                    add(createAppInfoAction(item.packageName))
+                }
+
+                if (appInfoPackageName != null) {
+                    add(createAppInfoAction(appInfoPackageName))
                 }
 
                 add(
