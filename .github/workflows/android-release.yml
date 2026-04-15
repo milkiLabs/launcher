@@ -52,7 +52,22 @@ jobs:
             exit 1
           fi
 
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-keystore.jks"
+          SANITIZED_KEYSTORE_BASE64=$(printf "%s" "$ANDROID_KEYSTORE_BASE64" | tr -d '\r\n\t ')
+
+          if ! printf "%s" "$SANITIZED_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-keystore.jks" 2>/dev/null; then
+            # Fallback for URL-safe base64 encodings.
+            if ! printf "%s" "$SANITIZED_KEYSTORE_BASE64" | tr '_-' '/+' | base64 --decode > "$RUNNER_TEMP/release-keystore.jks" 2>/dev/null; then
+              echo "ANDROID_KEYSTORE_BASE64 is not valid base64 keystore content."
+              echo "Regenerate with: base64 -w 0 /absolute/path/to/your-release-keystore.jks"
+              exit 1
+            fi
+          fi
+
+          if ! keytool -list -keystore "$RUNNER_TEMP/release-keystore.jks" -storepass "$ANDROID_KEYSTORE_PASSWORD" >/dev/null 2>&1; then
+            echo "Decoded keystore is invalid or ANDROID_KEYSTORE_PASSWORD is incorrect."
+            exit 1
+          fi
+
           printf "storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n" \
             "$RUNNER_TEMP/release-keystore.jks" \
             "$ANDROID_KEYSTORE_PASSWORD" \
