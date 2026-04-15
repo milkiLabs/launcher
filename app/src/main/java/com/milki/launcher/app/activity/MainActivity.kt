@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.milki.launcher.core.launcher.syncLauncherIconVisibility
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        syncLauncherIconVisibility(this)
 
         traceSection("launcher.startup.mainActivity.onCreate") {
             traceSection("launcher.startup.runtime.setup") {
@@ -86,6 +88,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        syncLauncherIconVisibility(this)
         runtime.onResume()
     }
 

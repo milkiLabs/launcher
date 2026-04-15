@@ -18,6 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.milki.launcher.core.launcher.isAppDefaultLauncher
+import com.milki.launcher.core.launcher.syncLauncherIconVisibility
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsActions
 import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
@@ -81,12 +83,12 @@ class SettingsActivity : ComponentActivity() {
             if (!granted) {
                 openDefaultLauncherSettingsFallback()
             }
-            isDefaultLauncher = isAppDefaultLauncher()
+            refreshLauncherDefaultState()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        isDefaultLauncher = isAppDefaultLauncher()
+        refreshLauncherDefaultState()
 
         setContent {
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
@@ -144,7 +146,12 @@ class SettingsActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        isDefaultLauncher = isAppDefaultLauncher()
+        refreshLauncherDefaultState()
+    }
+
+    private fun refreshLauncherDefaultState() {
+        isDefaultLauncher = isAppDefaultLauncher(this)
+        syncLauncherIconVisibility(this)
     }
 
     private fun openDefaultLauncherSettings() {
@@ -177,17 +184,6 @@ class SettingsActivity : ComponentActivity() {
             return null
         }
         return getSystemService(RoleManager::class.java)
-    }
-
-    private fun isAppDefaultLauncher(): Boolean {
-        val roleManager = homeRoleManagerOrNull()
-        if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
-            return roleManager.isRoleHeld(RoleManager.ROLE_HOME)
-        }
-
-        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        val defaultHome = packageManager.resolveActivity(homeIntent, 0)
-        return defaultHome?.activityInfo?.packageName == packageName
     }
 
     private fun openDefaultLauncherSettingsFallback() {
