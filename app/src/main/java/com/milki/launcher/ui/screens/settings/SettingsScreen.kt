@@ -67,6 +67,7 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun SettingsScreen(
     settings: LauncherSettings,
+    showSetDefaultLauncherOption: Boolean,
     onNavigateBack: () -> Unit,
     backupStatusMessage: String?,
     importReport: LauncherImportResult?,
@@ -113,6 +114,15 @@ fun SettingsScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
+            if (showSetDefaultLauncherOption) {
+                ActionSettingItem(
+                    title = "Set as default launcher",
+                    subtitle = "Open Android Home app settings to set Milki Launcher as default",
+                    onClick = actions.onOpenDefaultLauncherSettings,
+                    icon = Icons.Default.Home
+                )
+            }
+
             HomeScreenSection(
                 settings = settings,
                 actions = actions.homeScreen
@@ -308,13 +318,6 @@ private fun HomeScreenSection(
         selectedValue = settings.swipeUpAction.displayName,
         options = SwipeUpAction.entries.map { it.displayName to it },
         onOptionSelected = actions.onSetSwipeUpAction
-    )
-
-    ActionSettingItem(
-        title = "Set as default launcher",
-        subtitle = "Open Android Home app settings to set Milki Launcher as default",
-        onClick = actions.onOpenDefaultLauncherSettings,
-        icon = Icons.Default.Home
     )
 }
 

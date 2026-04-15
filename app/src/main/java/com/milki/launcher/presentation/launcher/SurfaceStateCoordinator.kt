@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.milki.launcher.domain.model.HomeTapAction
 import com.milki.launcher.domain.model.SwipeUpAction
 
 /**
@@ -93,6 +94,20 @@ class SurfaceStateCoordinator(
             }
 
             SwipeUpAction.DO_NOTHING -> Unit
+        }
+    }
+
+    fun handleHomeTap(action: HomeTapAction) {
+        when (action) {
+            HomeTapAction.OPEN_SEARCH -> {
+                dismissContextMenus()
+                closeTransientSurfaces(keepSearch = true)
+                if (!isSearchVisible()) {
+                    showSearch()
+                }
+            }
+
+            HomeTapAction.DO_NOTHING -> Unit
         }
     }
 

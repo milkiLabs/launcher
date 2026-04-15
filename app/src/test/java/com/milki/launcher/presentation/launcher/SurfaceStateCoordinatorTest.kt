@@ -1,5 +1,6 @@
 package com.milki.launcher.presentation.launcher
 
+import com.milki.launcher.domain.model.HomeTapAction
 import com.milki.launcher.domain.model.SwipeUpAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -302,6 +303,61 @@ class SurfaceStateCoordinatorTest {
 
         coordinator.updateHomescreenMenuOpen(true)
         coordinator.handleHomeSwipeUp(SwipeUpAction.DO_NOTHING)
+
+        assertTrue(coordinator.isHomescreenMenuOpen)
+        assertEquals(0, showSearchCalls)
+        assertEquals(0, hideSearchCalls)
+        assertEquals(0, closeFolderCalls)
+    }
+
+    @Test
+    fun tap_open_search_closes_transient_surfaces_and_opens_search() {
+        var folderOpen = true
+        var closeFolderCalls = 0
+        var hideSearchCalls = 0
+        var showSearchCalls = 0
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { showSearchCalls++ },
+            hideSearch = { hideSearchCalls++ },
+            isSearchVisible = { false },
+            isFolderOpen = { folderOpen },
+            closeFolder = {
+                closeFolderCalls++
+                folderOpen = false
+            }
+        )
+
+        coordinator.updateHomescreenMenuOpen(true)
+        coordinator.updateAppDrawerOpen(true)
+        coordinator.updateWidgetPickerOpen(true)
+        coordinator.handleHomeTap(HomeTapAction.OPEN_SEARCH)
+
+        assertFalse(coordinator.isHomescreenMenuOpen)
+        assertFalse(coordinator.isAppDrawerOpen)
+        assertFalse(coordinator.isWidgetPickerOpen)
+        assertEquals(1, showSearchCalls)
+        assertEquals(0, hideSearchCalls)
+        assertEquals(1, closeFolderCalls)
+        assertFalse(folderOpen)
+    }
+
+    @Test
+    fun tap_do_nothing_leaves_state_unchanged() {
+        var closeFolderCalls = 0
+        var hideSearchCalls = 0
+        var showSearchCalls = 0
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { showSearchCalls++ },
+            hideSearch = { hideSearchCalls++ },
+            isSearchVisible = { false },
+            isFolderOpen = { false },
+            closeFolder = { closeFolderCalls++ }
+        )
+
+        coordinator.updateHomescreenMenuOpen(true)
+        coordinator.handleHomeTap(HomeTapAction.DO_NOTHING)
 
         assertTrue(coordinator.isHomescreenMenuOpen)
         assertEquals(0, showSearchCalls)

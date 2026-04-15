@@ -6,10 +6,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -20,14 +23,20 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -120,11 +129,18 @@ fun <T> DropdownSettingItem(
     icon: ImageVector? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var anchorWidthPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val menuWidth: Dp = with(density) { anchorWidthPx.toDp() }
+    val chevronRotation = if (expanded) 180f else 0f
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall)
+            .onGloballyPositioned { coordinates ->
+                anchorWidthPx = coordinates.size.width
+            }
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -168,14 +184,29 @@ fun <T> DropdownSettingItem(
                     text = selectedValue,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = Spacing.small)
+                )
+
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse options" else "Expand options",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(IconSize.standard)
+                        .rotate(chevronRotation)
                 )
             }
         }
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .width(menuWidth)
+                .heightIn(max = 280.dp)
         ) {
             options.forEach { (displayName, value) ->
                 val isSelected = displayName == selectedValue
@@ -188,7 +219,10 @@ fun <T> DropdownSettingItem(
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurface
-                            }
+                            },
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     },
                     onClick = {

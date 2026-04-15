@@ -220,6 +220,7 @@ private fun HomeSurface(
         onItemLongPress = actions.home.onPinnedItemLongPress,
         onItemMove = actions.home.onPinnedItemMove,
         backgroundGestures = HomeBackgroundGestureBindings(
+            onEmptyAreaTap = actions.home.onHomeTap,
             onEmptyAreaLongPress = { touchOffset ->
                 onMenuAnchorChanged(touchOffset)
                 actions.menu.onHomescreenMenuOpenChange(true)

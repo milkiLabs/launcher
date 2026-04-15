@@ -20,6 +20,7 @@ internal data class HomeBackgroundGesturePolicy(
 }
 
 data class HomeBackgroundGestureBindings(
+    val onEmptyAreaTap: (() -> Unit)? = null,
     val onEmptyAreaLongPress: (Offset) -> Unit = {},
     val onSwipeUp: (() -> Unit)? = null,
     val onSwipeDown: (() -> Unit)? = null

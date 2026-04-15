@@ -29,6 +29,7 @@ data class HomeActions(
     val onPinnedItemLongPress: (HomeItem) -> Unit = {},
     val onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit = { _, _ -> },
     val onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> },
+    val onHomeTap: () -> Unit = {},
     val onHomeSwipeUp: () -> Unit = {}
 )
 

@@ -4,6 +4,7 @@
 
 package com.milki.launcher.app.activity
 
+import android.app.Activity.RESULT_OK
 import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Bundle
@@ -13,7 +14,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsActions
@@ -48,6 +51,8 @@ class SettingsActivity : ComponentActivity() {
      */
     private val settingsViewModel: SettingsViewModel by viewModel()
 
+    private var isDefaultLauncher by mutableStateOf(false)
+
     private val exportBackupLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri != null) {
@@ -67,8 +72,21 @@ class SettingsActivity : ComponentActivity() {
             }
         }
 
+    private val requestHomeRoleLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val roleManager = homeRoleManagerOrNull()
+            val granted =
+                result.resultCode == RESULT_OK ||
+                    (roleManager?.isRoleHeld(RoleManager.ROLE_HOME) == true)
+            if (!granted) {
+                openDefaultLauncherSettingsFallback()
+            }
+            isDefaultLauncher = isAppDefaultLauncher()
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isDefaultLauncher = isAppDefaultLauncher()
 
         setContent {
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
@@ -76,10 +94,10 @@ class SettingsActivity : ComponentActivity() {
             val importReport by settingsViewModel.lastImportReport.collectAsStateWithLifecycle()
             val settingsActions = remember(settingsViewModel) {
                 SettingsActions(
+                    onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings,
                     homeScreen = SettingsHomeScreenActions(
                         onSetHomeTapAction = settingsViewModel::setHomeTapAction,
-                        onSetSwipeUpAction = settingsViewModel::setSwipeUpAction,
-                        onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings
+                        onSetSwipeUpAction = settingsViewModel::setSwipeUpAction
                     ),
                     localProviders = SettingsLocalProviderActions(
                         onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,
@@ -114,6 +132,7 @@ class SettingsActivity : ComponentActivity() {
             LauncherTheme {
                 SettingsScreen(
                     settings = settings,
+                    showSetDefaultLauncherOption = !isDefaultLauncher,
                     onNavigateBack = { finish() },
                     backupStatusMessage = backupStatusMessage,
                     importReport = importReport,
@@ -124,20 +143,55 @@ class SettingsActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        isDefaultLauncher = isAppDefaultLauncher()
+    }
+
     private fun openDefaultLauncherSettings() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = getSystemService(RoleManager::class.java)
-            if (
-                roleManager != null &&
-                roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
-                !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
-            ) {
-                if (tryStartActivity(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))) {
-                    return
-                }
-            }
+        if (launchHomeRoleRequestIfNeeded()) {
+            return
         }
 
+        openDefaultLauncherSettingsFallback()
+    }
+
+    private fun launchHomeRoleRequestIfNeeded(): Boolean {
+        val roleManager = homeRoleManagerOrNull() ?: return false
+        val canRequestHomeRole =
+            roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
+                !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+        if (!canRequestHomeRole) {
+            return false
+        }
+
+        return runCatching {
+            requestHomeRoleLauncher.launch(
+                roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
+            )
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun homeRoleManagerOrNull(): RoleManager? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return null
+        }
+        return getSystemService(RoleManager::class.java)
+    }
+
+    private fun isAppDefaultLauncher(): Boolean {
+        val roleManager = homeRoleManagerOrNull()
+        if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+            return roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+        }
+
+        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val defaultHome = packageManager.resolveActivity(homeIntent, 0)
+        return defaultHome?.activityInfo?.packageName == packageName
+    }
+
+    private fun openDefaultLauncherSettingsFallback() {
         if (tryStartActivity(Intent(Settings.ACTION_HOME_SETTINGS))) {
             return
         }
@@ -152,11 +206,6 @@ class SettingsActivity : ComponentActivity() {
     }
 
     private fun tryStartActivity(intent: Intent): Boolean {
-        val canHandleIntent = intent.resolveActivity(packageManager) != null
-        if (!canHandleIntent) {
-            return false
-        }
-
         return runCatching {
             startActivity(intent)
             true

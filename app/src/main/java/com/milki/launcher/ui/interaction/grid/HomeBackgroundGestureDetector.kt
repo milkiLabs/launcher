@@ -66,7 +66,12 @@ internal fun Modifier.detectHomeBackgroundGestures(
                     consumeUntilPointerUp(pointerId = down.id)
                 }
 
-                BackgroundGestureOutcome.Released,
+                BackgroundGestureOutcome.Released -> {
+                    if (!startCellOccupied) {
+                        bindings.onEmptyAreaTap?.invoke()
+                    }
+                }
+
                 BackgroundGestureOutcome.Moved,
                 BackgroundGestureOutcome.Cancelled -> Unit
             }
@@ -135,7 +140,7 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
             ?: return BackgroundGestureOutcome.Cancelled
 
         if (!change.pressed) {
-            return BackgroundGestureOutcome.Released
+            return BackgroundGestureOutcome.Moved
         }
 
         totalDrag = change.position - startPosition

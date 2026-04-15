@@ -20,8 +20,7 @@ import com.milki.launcher.domain.model.SwipeUpAction
  */
 data class SettingsHomeScreenActions(
     val onSetHomeTapAction: (HomeTapAction) -> Unit,
-    val onSetSwipeUpAction: (SwipeUpAction) -> Unit,
-    val onOpenDefaultLauncherSettings: () -> Unit
+    val onSetSwipeUpAction: (SwipeUpAction) -> Unit
 )
 
 /**
@@ -77,6 +76,7 @@ data class SettingsAdvancedActions(
  * Root grouped action contract consumed by SettingsScreen.
  */
 data class SettingsActions(
+    val onOpenDefaultLauncherSettings: () -> Unit,
     val homeScreen: SettingsHomeScreenActions,
     val localProviders: SettingsLocalProviderActions,
     val customSources: SettingsCustomSourceActions,

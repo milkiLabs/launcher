@@ -49,6 +49,7 @@ class LauncherActionsContractTest {
         actions.home.onPinnedItemLongPress(pinnedApp)
         actions.home.onPinnedItemMove(pinnedApp.id, target)
         actions.home.onItemDroppedToHome(pinnedApp, target)
+        actions.home.onHomeTap()
         actions.home.onHomeSwipeUp()
 
         actions.folder.onCreateFolder(pinnedApp, pinnedApp, target)
@@ -87,6 +88,7 @@ class LauncherActionsContractTest {
     fun home_group_forwards_payloads_without_mutation() {
         var capturedId = ""
         var capturedPosition = GridPosition.DEFAULT
+        var tapTriggered = false
         var swipeTriggered = false
 
         val actions = LauncherActions(
@@ -94,6 +96,9 @@ class LauncherActionsContractTest {
                 onPinnedItemMove = { itemId, newPosition ->
                     capturedId = itemId
                     capturedPosition = newPosition
+                },
+                onHomeTap = {
+                    tapTriggered = true
                 },
                 onHomeSwipeUp = {
                     swipeTriggered = true
@@ -105,10 +110,12 @@ class LauncherActionsContractTest {
         val expectedPosition = GridPosition(row = 3, column = 1)
 
         actions.home.onPinnedItemMove(expectedId, expectedPosition)
+        actions.home.onHomeTap()
         actions.home.onHomeSwipeUp()
 
         assertEquals(expectedId, capturedId)
         assertEquals(expectedPosition, capturedPosition)
+        assertTrue(tapTriggered)
         assertTrue(swipeTriggered)
     }
 

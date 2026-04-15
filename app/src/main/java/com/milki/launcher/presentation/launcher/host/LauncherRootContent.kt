@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.domain.model.HomeTapAction
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.SwipeUpAction
 import com.milki.launcher.domain.repository.SettingsRepository
@@ -136,6 +137,7 @@ internal fun LauncherRootContent(
         LauncherTheme {
             val launcherActions = remember(
                 context,
+                launcherSettings.homeTapAction,
                 launcherSettings.swipeUpAction,
                 onOpenSettings,
                 resolvedSearchVm,
@@ -162,6 +164,9 @@ internal fun LauncherRootContent(
                         }
                     ),
                     home = HomeActions(
+                        onHomeTap = {
+                            surfaceStateCoordinator.handleHomeTap(launcherSettings.homeTapAction)
+                        },
                         onHomeSwipeUp = {
                             surfaceStateCoordinator.handleHomeSwipeUp(launcherSettings.swipeUpAction)
                         },
