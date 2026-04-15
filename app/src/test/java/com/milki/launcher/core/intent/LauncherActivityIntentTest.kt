@@ -11,7 +11,9 @@ class LauncherActivityIntentTest {
     fun parsesHomeBenchmarkRequest() {
         val request = parseLauncherBenchmarkRequest(
             targetName = LauncherBenchmarkTarget.HOME.name,
-            seedHome = false
+            seedHome = false,
+            drawerQuery = null,
+            drawerScrollSequence = null
         )
 
         assertEquals(
@@ -24,7 +26,9 @@ class LauncherActivityIntentTest {
     fun parsesDrawerBenchmarkRequestWithSeeding() {
         val request = parseLauncherBenchmarkRequest(
             targetName = LauncherBenchmarkTarget.DRAWER.name,
-            seedHome = true
+            seedHome = true,
+            drawerQuery = null,
+            drawerScrollSequence = null
         )
 
         assertEquals(
@@ -37,7 +41,9 @@ class LauncherActivityIntentTest {
     fun returnsNullForUnknownBenchmarkTarget() {
         val request = parseLauncherBenchmarkRequest(
             targetName = "SEARCH",
-            seedHome = false
+            seedHome = false,
+            drawerQuery = null,
+            drawerScrollSequence = null
         )
 
         assertNull(request)
@@ -47,9 +53,31 @@ class LauncherActivityIntentTest {
     fun preservesSeedHomeFlag() {
         val request = parseLauncherBenchmarkRequest(
             targetName = LauncherBenchmarkTarget.HOME.name,
-            seedHome = false
+            seedHome = false,
+            drawerQuery = null,
+            drawerScrollSequence = null
         )
 
         assertFalse(request!!.seedHome)
+    }
+
+    @Test
+    fun parsesDrawerQueryAndScrollSequence() {
+        val request = parseLauncherBenchmarkRequest(
+            targetName = LauncherBenchmarkTarget.DRAWER.name,
+            seedHome = true,
+            drawerQuery = "app",
+            drawerScrollSequence = BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP
+        )
+
+        assertEquals(
+            LauncherBenchmarkRequest(
+                target = LauncherBenchmarkTarget.DRAWER,
+                seedHome = true,
+                drawerQuery = "app",
+                drawerScrollSequence = BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP
+            ),
+            request
+        )
     }
 }

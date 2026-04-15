@@ -6,6 +6,10 @@ import android.content.Intent
 const val ACTION_BENCHMARK = "com.milki.launcher.action.BENCHMARK"
 const val EXTRA_BENCHMARK_TARGET = "com.milki.launcher.extra.BENCHMARK_TARGET"
 const val EXTRA_BENCHMARK_SEED_HOME = "com.milki.launcher.extra.BENCHMARK_SEED_HOME"
+const val EXTRA_BENCHMARK_DRAWER_QUERY = "com.milki.launcher.extra.BENCHMARK_DRAWER_QUERY"
+const val EXTRA_BENCHMARK_DRAWER_SCROLL_SEQUENCE = "com.milki.launcher.extra.BENCHMARK_DRAWER_SCROLL_SEQUENCE"
+
+const val BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP = "DOWN_UP"
 
 enum class LauncherBenchmarkTarget {
     HOME,
@@ -14,7 +18,9 @@ enum class LauncherBenchmarkTarget {
 
 data class LauncherBenchmarkRequest(
     val target: LauncherBenchmarkTarget,
-    val seedHome: Boolean = false
+    val seedHome: Boolean = false,
+    val drawerQuery: String? = null,
+    val drawerScrollSequence: String? = null
 )
 
 /**
@@ -35,13 +41,17 @@ fun Intent.toLauncherBenchmarkRequestOrNull(): LauncherBenchmarkRequest? {
 
     return parseLauncherBenchmarkRequest(
         targetName = getStringExtra(EXTRA_BENCHMARK_TARGET),
-        seedHome = getBooleanExtra(EXTRA_BENCHMARK_SEED_HOME, false)
+        seedHome = getBooleanExtra(EXTRA_BENCHMARK_SEED_HOME, false),
+        drawerQuery = getStringExtra(EXTRA_BENCHMARK_DRAWER_QUERY),
+        drawerScrollSequence = getStringExtra(EXTRA_BENCHMARK_DRAWER_SCROLL_SEQUENCE)
     )
 }
 
 internal fun parseLauncherBenchmarkRequest(
     targetName: String?,
-    seedHome: Boolean
+    seedHome: Boolean,
+    drawerQuery: String?,
+    drawerScrollSequence: String?
 ): LauncherBenchmarkRequest? {
     val target = when (targetName) {
         LauncherBenchmarkTarget.HOME.name -> LauncherBenchmarkTarget.HOME
@@ -51,6 +61,8 @@ internal fun parseLauncherBenchmarkRequest(
 
     return LauncherBenchmarkRequest(
         target = target,
-        seedHome = seedHome
+        seedHome = seedHome,
+        drawerQuery = drawerQuery,
+        drawerScrollSequence = drawerScrollSequence
     )
 }

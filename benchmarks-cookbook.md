@@ -60,8 +60,12 @@ adb shell am instrument -w \
 ```bash
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#warmStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#hotStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToDrawer' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToDrawerWithoutBaselineProfile' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#openDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#returnToHomescreenFromDrawer' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#filterDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#scrollDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 ```
 
 ### 8. Extract key result metrics from logs

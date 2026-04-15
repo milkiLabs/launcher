@@ -24,7 +24,8 @@ data class AppDrawerUiState(
     val isLoading: Boolean = true,
     val adapterItems: List<DrawerAdapterItem> = emptyList(),
     val recentlyChangedApps: List<AppInfo> = emptyList(),
-    val query: String = ""
+    val query: String = "",
+    val benchmarkScrollSequenceToken: Long = 0L
 )
 
 /**
@@ -46,6 +47,7 @@ class AppDrawerViewModel(
 
     private val isLoading = MutableStateFlow(true)
     private val query = MutableStateFlow("")
+    private val benchmarkScrollSequenceToken = MutableStateFlow(0L)
     private val visibleApps = MutableStateFlow<List<AppInfo>>(emptyList())
 
     private var isDrawerVisible = false
@@ -94,13 +96,15 @@ class AppDrawerViewModel(
         isLoading,
         visibleAssemblyItems,
         recentlyChangedApps,
-        query
-    ) { loading, assemblyItems, recencyApps, searchQuery ->
+        query,
+        benchmarkScrollSequenceToken
+    ) { loading, assemblyItems, recencyApps, searchQuery, scrollToken ->
         AppDrawerUiState(
             isLoading = loading,
             adapterItems = assemblyItems,
             recentlyChangedApps = recencyApps,
-            query = searchQuery
+            query = searchQuery,
+            benchmarkScrollSequenceToken = scrollToken
         )
     }.stateIn(
         scope = viewModelScope,
@@ -138,6 +142,10 @@ class AppDrawerViewModel(
                 pendingAppsWhileHidden = null
             }
         }
+    }
+
+    fun triggerBenchmarkScrollSequenceDownUp() {
+        benchmarkScrollSequenceToken.value += 1L
     }
 
     private fun observeInstalledApps() {

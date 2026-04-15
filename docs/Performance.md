@@ -21,6 +21,7 @@ That intent carries a small request model:
 
 1. `BENCHMARK_TARGET` selects the target surface (`HOME` or `DRAWER`).
 2. `BENCHMARK_SEED_HOME` controls whether the homescreen is reseeded before opening the target surface.
+3. `BENCHMARK_DRAWER_QUERY` optionally applies a query after opening drawer (drawer-target requests only).
 
 Responsibilities:
 
@@ -40,10 +41,14 @@ Key files:
 
 1. `coldStartupToHomescreen`
 2. `coldStartupToHomescreenWithoutBaselineProfile`
-3. `warmStartupToHomescreen`
-4. `hotStartupToHomescreen`
-5. `openDrawerFromHomescreen`
-6. `returnToHomescreenFromDrawer`
+3. `coldStartupToDrawer`
+4. `coldStartupToDrawerWithoutBaselineProfile`
+5. `warmStartupToHomescreen`
+6. `hotStartupToHomescreen`
+7. `openDrawerFromHomescreen`
+8. `returnToHomescreenFromDrawer`
+9. `filterDrawerFromHomescreen`
+10. `scrollDrawerFromHomescreen`
 
 Shared setup/navigation now lives in:
 
@@ -76,10 +81,14 @@ adb install -r baselineprofile/build/outputs/apk/benchmark/baselineprofile-bench
 ```bash
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreenWithoutBaselineProfile' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToDrawer' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToDrawerWithoutBaselineProfile' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#warmStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#hotStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#openDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#returnToHomescreenFromDrawer' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#filterDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#scrollDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 ```
 
 ### D. Optional: run through Gradle instrumentation task
@@ -120,6 +129,7 @@ Manual deterministic launches:
 adb shell am force-stop com.milki.launcher
 adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET HOME --ez com.milki.launcher.extra.BENCHMARK_SEED_HOME true
 adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET HOME
+adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET DRAWER --es com.milki.launcher.extra.BENCHMARK_DRAWER_QUERY app
 ```
 
 ## Troubleshooting

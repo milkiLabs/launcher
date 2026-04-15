@@ -43,7 +43,7 @@ class LauncherHomeBenchmark {
             LauncherBenchmarkDriver(this).prepareForColdStart(LauncherBenchmarkSurface.HOME)
         }
     ) {
-        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
+        LauncherBenchmarkDriver(this).openForStartup(LauncherBenchmarkSurface.HOME)
     }
 
     @Test
@@ -60,7 +60,38 @@ class LauncherHomeBenchmark {
             LauncherBenchmarkDriver(this).prepareForColdStart(LauncherBenchmarkSurface.HOME)
         }
     ) {
-        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
+        LauncherBenchmarkDriver(this).openForStartup(LauncherBenchmarkSurface.HOME)
+    }
+
+    @Test
+    fun coldStartupToDrawer() = benchmarkRule.measureRepeated(
+        packageName = LauncherBenchmarkTargetApp.packageName,
+        metrics = startupMetrics,
+        compilationMode = LauncherBenchmarkConfig.startupCompilationMode,
+        startupMode = StartupMode.COLD,
+        iterations = LauncherBenchmarkConfig.startupIterations,
+        setupBlock = {
+            LauncherBenchmarkDriver(this).prepareForColdStart(LauncherBenchmarkSurface.DRAWER)
+        }
+    ) {
+        LauncherBenchmarkDriver(this).openForStartup(LauncherBenchmarkSurface.DRAWER)
+    }
+
+    @Test
+    fun coldStartupToDrawerWithoutBaselineProfile() = benchmarkRule.measureRepeated(
+        packageName = LauncherBenchmarkTargetApp.packageName,
+        metrics = startupMetrics,
+        compilationMode = CompilationMode.Partial(
+            baselineProfileMode = BaselineProfileMode.Disable,
+            warmupIterations = 3
+        ),
+        startupMode = StartupMode.COLD,
+        iterations = LauncherBenchmarkConfig.startupIterations,
+        setupBlock = {
+            LauncherBenchmarkDriver(this).prepareForColdStart(LauncherBenchmarkSurface.DRAWER)
+        }
+    ) {
+        LauncherBenchmarkDriver(this).openForStartup(LauncherBenchmarkSurface.DRAWER)
     }
 
     @Test
@@ -74,7 +105,7 @@ class LauncherHomeBenchmark {
             LauncherBenchmarkDriver(this).prepareForWarmStart(LauncherBenchmarkSurface.HOME)
         }
     ) {
-        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
+        LauncherBenchmarkDriver(this).openForStartup(LauncherBenchmarkSurface.HOME)
     }
 
     @Test
@@ -88,7 +119,7 @@ class LauncherHomeBenchmark {
             LauncherBenchmarkDriver(this).prepareForHotStart(LauncherBenchmarkSurface.HOME)
         }
     ) {
-        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
+        LauncherBenchmarkDriver(this).openForStartup(LauncherBenchmarkSurface.HOME)
     }
 
     @Test
@@ -104,7 +135,7 @@ class LauncherHomeBenchmark {
             )
         }
     ) {
-        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.DRAWER)
+        LauncherBenchmarkDriver(this).transitionTo(LauncherBenchmarkSurface.DRAWER)
     }
 
     @Test
@@ -120,6 +151,44 @@ class LauncherHomeBenchmark {
             )
         }
     ) {
-        LauncherBenchmarkDriver(this).open(LauncherBenchmarkSurface.HOME)
+        LauncherBenchmarkDriver(this).transitionTo(LauncherBenchmarkSurface.HOME)
+    }
+
+    @Test
+    fun filterDrawerFromHomescreen() = benchmarkRule.measureRepeated(
+        packageName = LauncherBenchmarkTargetApp.packageName,
+        metrics = listOf(FrameTimingMetric()),
+        compilationMode = LauncherBenchmarkConfig.startupCompilationMode,
+        iterations = LauncherBenchmarkConfig.transitionIterations,
+        setupBlock = {
+            LauncherBenchmarkDriver(this).moveTo(
+                targetSurface = LauncherBenchmarkSurface.HOME,
+                seedHome = true
+            )
+        }
+    ) {
+        LauncherBenchmarkDriver(this).transitionTo(
+            targetSurface = LauncherBenchmarkSurface.DRAWER,
+            drawerQuery = "app"
+        )
+    }
+
+    @Test
+    fun scrollDrawerFromHomescreen() = benchmarkRule.measureRepeated(
+        packageName = LauncherBenchmarkTargetApp.packageName,
+        metrics = listOf(FrameTimingMetric()),
+        compilationMode = CompilationMode.None(),
+        iterations = LauncherBenchmarkConfig.transitionIterations,
+        setupBlock = {
+            LauncherBenchmarkDriver(this).moveTo(
+                targetSurface = LauncherBenchmarkSurface.HOME,
+                seedHome = true
+            )
+        }
+    ) {
+        LauncherBenchmarkDriver(this).transitionTo(
+            targetSurface = LauncherBenchmarkSurface.DRAWER,
+            drawerScrollSequence = BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP
+        )
     }
 }

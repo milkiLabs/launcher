@@ -26,9 +26,9 @@ class LauncherBaselineProfile {
         )
 
         repeat(3) {
-            benchmarkDriver.open(LauncherBenchmarkSurface.HOME)
-            benchmarkDriver.open(LauncherBenchmarkSurface.DRAWER)
-            benchmarkDriver.open(LauncherBenchmarkSurface.HOME)
+            benchmarkDriver.transitionTo(LauncherBenchmarkSurface.HOME)
+            benchmarkDriver.transitionTo(LauncherBenchmarkSurface.DRAWER)
+            benchmarkDriver.transitionTo(LauncherBenchmarkSurface.HOME)
         }
     }
 }

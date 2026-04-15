@@ -99,6 +99,19 @@ fun AppDrawerOverlay(
         }
     }
 
+    LaunchedEffect(uiState.benchmarkScrollSequenceToken) {
+        if (uiState.benchmarkScrollSequenceToken == 0L) return@LaunchedEffect
+
+        val lastIndex = uiState.adapterItems.lastIndex
+        if (lastIndex <= 0) return@LaunchedEffect
+
+        // Drive a deterministic down-then-up sequence for macrobenchmark runs.
+        val downIndex = ((lastIndex * 0.75f).toInt()).coerceIn(1, lastIndex)
+        gridState.animateScrollToItem(downIndex)
+        gridState.animateScrollToItem(lastIndex)
+        gridState.animateScrollToItem(0)
+    }
+
     Surface(
         modifier = modifier
             .fillMaxSize(),

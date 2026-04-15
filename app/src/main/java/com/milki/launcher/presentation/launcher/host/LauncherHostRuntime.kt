@@ -5,6 +5,7 @@ import android.content.pm.LauncherApps
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
+import com.milki.launcher.core.intent.BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP
 import com.milki.launcher.core.intent.LauncherBenchmarkTarget
 import com.milki.launcher.core.intent.toLauncherBenchmarkRequestOrNull
 import com.milki.launcher.core.perf.traceSection
@@ -63,16 +64,8 @@ internal class LauncherHostRuntime(
     }
 
     val surfaceStateCoordinator = SurfaceStateCoordinator(
-        showSearch = {
-            traceSection("launcher.search.show") {
-                searchViewModelProvider().showSearch()
-            }
-        },
-        hideSearch = {
-            traceSection("launcher.search.hide") {
-                searchViewModelProvider().hideSearch()
-            }
-        },
+        showSearch = { searchViewModelProvider().showSearch() },
+        hideSearch = { searchViewModelProvider().hideSearch() },
         isSearchVisible = { searchViewModelProvider().uiState.value.isSearchVisible },
         isFolderOpen = { homeViewModel.openFolderItem.value != null },
         closeFolder = { homeViewModel.closeFolder() },
@@ -181,9 +174,7 @@ internal class LauncherHostRuntime(
         }
 
         when {
-            isLauncherHomeIntent(intent) -> traceSection("launcher.homeIntent.handle") {
-                surfaceStateCoordinator.handleHomeIntent()
-            }
+            isLauncherHomeIntent(intent) -> surfaceStateCoordinator.handleHomeIntent()
         }
     }
 
@@ -205,14 +196,18 @@ internal class LauncherHostRuntime(
 
         applyBenchmarkRequest(
             target = request.target,
-            seedHome = request.seedHome
+            seedHome = request.seedHome,
+            drawerQuery = request.drawerQuery,
+            drawerScrollSequence = request.drawerScrollSequence
         )
         return true
     }
 
     private fun applyBenchmarkRequest(
         target: LauncherBenchmarkTarget,
-        seedHome: Boolean
+        seedHome: Boolean,
+        drawerQuery: String?,
+        drawerScrollSequence: String?
     ) {
         resetTransientSurfacesForBenchmark()
 
@@ -226,6 +221,12 @@ internal class LauncherHostRuntime(
 
         if (target == LauncherBenchmarkTarget.DRAWER) {
             surfaceStateCoordinator.updateAppDrawerOpen(true)
+            if (drawerQuery != null) {
+                appDrawerViewModelProvider().updateQuery(drawerQuery)
+            }
+            if (drawerScrollSequence == BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP) {
+                appDrawerViewModelProvider().triggerBenchmarkScrollSequenceDownUp()
+            }
         }
     }
 
