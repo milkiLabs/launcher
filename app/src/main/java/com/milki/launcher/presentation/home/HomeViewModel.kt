@@ -45,7 +45,8 @@ class HomeViewModel(
 ) : ViewModel(), HomeMutationHandler {
 
     private companion object {
-        private const val DEFERRED_STARTUP_DELAY_MS = 250L
+        private const val ICON_WARMUP_START_DELAY_MS = 250L
+        private const val AVAILABILITY_PRUNE_START_DELAY_MS = 1_500L
     }
 
     sealed interface WidgetPlacementCommand {
@@ -99,8 +100,12 @@ class HomeViewModel(
         }
 
         deferredStartupJob = viewModelScope.launch {
-            delay(DEFERRED_STARTUP_DELAY_MS)
+            delay(ICON_WARMUP_START_DELAY_MS)
             iconWarmupCoordinator.start()
+
+            // App availability pruning can trigger full installed-app scans.
+            // Delay it to avoid contending with first-draw startup work.
+            delay(AVAILABILITY_PRUNE_START_DELAY_MS)
             availabilityPruner.start()
         }
     }

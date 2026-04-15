@@ -13,7 +13,7 @@ private const val EXTRA_BENCHMARK_SEED_HOME = "com.milki.launcher.extra.BENCHMAR
 
 internal object LauncherBenchmarkConfig {
     const val startupIterations = 10
-    const val returnHomeIterations = 15
+    const val transitionIterations = 15
 
     val startupCompilationMode: CompilationMode = CompilationMode.Partial()
 }
@@ -50,6 +50,15 @@ internal class LauncherBenchmarkDriver(
         moveTo(targetSurface = targetSurface, seedHome = true)
         scope.pressHome()
         scope.killProcess()
+    }
+
+    fun prepareForWarmStart(targetSurface: LauncherBenchmarkSurface) {
+        moveTo(targetSurface = targetSurface, seedHome = true)
+        scope.pressHome()
+    }
+
+    fun prepareForHotStart(targetSurface: LauncherBenchmarkSurface) {
+        moveTo(targetSurface = targetSurface, seedHome = true)
     }
 
     fun moveTo(targetSurface: LauncherBenchmarkSurface, seedHome: Boolean = false) {

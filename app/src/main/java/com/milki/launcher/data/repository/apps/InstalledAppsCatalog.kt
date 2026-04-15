@@ -3,6 +3,7 @@ package com.milki.launcher.data.repository.apps
 import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
+import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.domain.model.AppInfo
 import kotlinx.coroutines.CoroutineDispatcher
@@ -26,7 +27,9 @@ internal class InstalledAppsCatalog(
             val launcherQueryIntent = Intent(Intent.ACTION_MAIN, null).apply {
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
-            val activities = packageManager.queryIntentActivitiesCompat(launcherQueryIntent)
+            val activities = traceSection("launcher.appsCatalog.queryLauncherActivities") {
+                packageManager.queryIntentActivitiesCompat(launcherQueryIntent)
+            }
             val preloadedIconPackages = ConcurrentHashMap.newKeySet<String>()
 
             activities.map { resolveInfo ->
@@ -34,10 +37,12 @@ internal class InstalledAppsCatalog(
                     val packageName = resolveInfo.activityInfo.packageName
 
                     if (preloadedIconPackages.add(packageName)) {
-                        AppIconMemoryCache.preload(
-                            packageName = packageName,
-                            icon = resolveInfo.loadIcon(packageManager)
-                        )
+                        traceSection("launcher.appsCatalog.preloadIcon") {
+                            AppIconMemoryCache.preload(
+                                packageName = packageName,
+                                icon = resolveInfo.loadIcon(packageManager)
+                            )
+                        }
                     }
 
                     val componentName = ComponentName(
@@ -45,8 +50,12 @@ internal class InstalledAppsCatalog(
                         resolveInfo.activityInfo.name
                     )
 
+                    val label = traceSection("launcher.appsCatalog.resolveLabel") {
+                        resolveInfo.loadLabel(packageManager).toString()
+                    }
+
                     AppInfo(
-                        name = resolveInfo.loadLabel(packageManager).toString(),
+                        name = label,
                         packageName = componentName.packageName,
                         activityName = componentName.className
                     )

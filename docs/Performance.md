@@ -36,11 +36,14 @@ Key files:
 
 ### Benchmark-side scenarios
 
-`LauncherHomeBenchmark` contains 3 core scenarios:
+`LauncherHomeBenchmark` contains core scenarios across startup and drawer transitions:
 
 1. `coldStartupToHomescreen`
 2. `coldStartupToHomescreenWithoutBaselineProfile`
-3. `returnToHomescreenFromDrawer`
+3. `warmStartupToHomescreen`
+4. `hotStartupToHomescreen`
+5. `openDrawerFromHomescreen`
+6. `returnToHomescreenFromDrawer`
 
 Shared setup/navigation now lives in:
 
@@ -73,6 +76,9 @@ adb install -r baselineprofile/build/outputs/apk/benchmark/baselineprofile-bench
 ```bash
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreenWithoutBaselineProfile' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#warmStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#hotStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#openDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#returnToHomescreenFromDrawer' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
 ```
 
@@ -171,5 +177,7 @@ Resolution:
 
 1. Compare medians, not single best iterations.
 2. Always run both startup variants when changing startup code.
-3. Track P95/P99 for frame metrics when changing drawer/home transitions.
-4. Capture device model, API level, and build variant in every report.
+3. Include warm and hot startup when tuning first-frame work deferral.
+4. Track both drawer directions (`openDrawerFromHomescreen` and `returnToHomescreenFromDrawer`) with P95/P99 frame metrics.
+5. Use startup trace-section metrics to attribute regressions to startup phases instead of relying on total startup time alone.
+6. Capture device model, API level, and build variant in every report.

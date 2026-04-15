@@ -6,6 +6,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.core.intent.LauncherBenchmarkTarget
 import com.milki.launcher.core.intent.toLauncherBenchmarkRequestOrNull
+import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.core.permission.PermissionHandler
@@ -74,9 +75,11 @@ internal class LauncherHostRuntime(
      * Initializes runtime collaborators and host callbacks that must be registered once.
      */
     fun initialize() {
-        initializeHandlers()
-        initializeBackButtonBehavior()
-        widgetPlacementCoordinator.initialize()
+        traceSection("launcher.startup.runtime.initialize") {
+            initializeHandlers()
+            initializeBackButtonBehavior()
+            widgetPlacementCoordinator.initialize()
+        }
     }
 
     /**
@@ -88,8 +91,10 @@ internal class LauncherHostRuntime(
         }
         deferredStartupCompleted = true
 
-        homeViewModel.startDeferredStartupWork()
-        widgetPickerCatalogStore.prewarm()
+        traceSection("launcher.startup.deferred") {
+            homeViewModel.startDeferredStartupWork()
+            widgetPickerCatalogStore.prewarm()
+        }
     }
 
     /**
@@ -170,8 +175,10 @@ internal class LauncherHostRuntime(
         resetTransientSurfacesForBenchmark()
 
         if (seedHome) {
-            runBlocking(Dispatchers.IO) {
-                benchmarkHomeSeeder.seed()
+            traceSection("launcher.benchmark.seedHome") {
+                runBlocking(Dispatchers.IO) {
+                    benchmarkHomeSeeder.seed()
+                }
             }
         }
 

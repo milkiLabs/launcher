@@ -24,6 +24,13 @@ internal class LauncherBenchmarkHomeSeeder(
         val candidateApps = appRepository.getInstalledApps()
             .asSequence()
             .filterNot { app -> app.packageName == ownPackageName }
+            .distinctBy { app -> app.packageName }
+            .sortedWith(
+                compareBy(
+                    { app -> app.packageName.lowercase() },
+                    { app -> app.activityName.lowercase() }
+                )
+            )
             .take(seedConfig.appCount)
             .toList()
 

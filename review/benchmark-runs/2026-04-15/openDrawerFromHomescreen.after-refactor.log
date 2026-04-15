@@ -1,0 +1,9 @@
+
+com.milki.launcher.benchmark.LauncherHomeBenchmark:INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_openDrawerFromHomescreen_iter000_2026-04-15-13-01-27.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_openDrawerFromHomescreen_iter000_2026-04-15-13-01-27.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_openDrawerFromHomescreen_iter001_2026-04-15-13-01-29.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_openDrawerFromHomescreen_iter001_2026-04-15-13-01-29.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_openDrawerFromHomescreen_iter002_2026-04-15-13-01-31.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_openDrawerFromHomescreen_iter002_2026-04-15-13-01-31.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_openDrawerFromHomescreen_iter003_2026-04-15-13-01-34.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_openDrawerFromHomescreen_iter003_2026-04-15-13-01-34.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2

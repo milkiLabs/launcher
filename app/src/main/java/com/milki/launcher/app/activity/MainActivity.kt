@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.repository.AppRepository
@@ -42,30 +43,36 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        runtime = LauncherHostRuntime(
-            activity = this,
-            searchViewModel = searchViewModel,
-            homeViewModel = homeViewModel,
-            appDrawerViewModel = appDrawerViewModel,
-            appRepository = appRepository,
-            contactsRepository = contactsRepository,
-            homeRepository = homeRepository,
-            widgetHostManager = widgetHostManager
-        )
-        runtime.initialize()
-        runtime.handleInitialIntent(intent)
+        traceSection("launcher.startup.mainActivity.onCreate") {
+            traceSection("launcher.startup.runtime.setup") {
+                runtime = LauncherHostRuntime(
+                    activity = this,
+                    searchViewModel = searchViewModel,
+                    homeViewModel = homeViewModel,
+                    appDrawerViewModel = appDrawerViewModel,
+                    appRepository = appRepository,
+                    contactsRepository = contactsRepository,
+                    homeRepository = homeRepository,
+                    widgetHostManager = widgetHostManager
+                )
+                runtime.initialize()
+                runtime.handleInitialIntent(intent)
+            }
 
-        setContent {
-            LauncherRootContent(
-                runtime = runtime,
-                onOpenSettings = ::openSettings,
-                searchViewModel = searchViewModel,
-                homeViewModel = homeViewModel,
-                appDrawerViewModel = appDrawerViewModel,
-                settingsRepository = settingsRepository,
-                widgetHostManager = widgetHostManager,
-                obtainWidgetPickerCatalogStore = { widgetPickerCatalogStore }
-            )
+            traceSection("launcher.startup.setContent") {
+                setContent {
+                    LauncherRootContent(
+                        runtime = runtime,
+                        onOpenSettings = ::openSettings,
+                        searchViewModel = searchViewModel,
+                        homeViewModel = homeViewModel,
+                        appDrawerViewModel = appDrawerViewModel,
+                        settingsRepository = settingsRepository,
+                        widgetHostManager = widgetHostManager,
+                        obtainWidgetPickerCatalogStore = { widgetPickerCatalogStore }
+                    )
+                }
+            }
         }
     }
 
