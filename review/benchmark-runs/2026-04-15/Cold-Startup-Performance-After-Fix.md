@@ -75,3 +75,4 @@ The elimination of the 6.1s preload work from cold startup traces suggests it's 
 - Possibly deferred until app becomes idle
 
 This is the optimal solution: preserve app startup performance while ensuring icons are available shortly after.
+
