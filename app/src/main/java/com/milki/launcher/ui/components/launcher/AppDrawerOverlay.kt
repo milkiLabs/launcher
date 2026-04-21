@@ -7,7 +7,6 @@
  * This file uses a lightweight DrawerGridCell instead of the shared
  * AppGridItem to keep per-cell overhead minimal:
  *
- * - No per-item gesture detector (combinedClickable vs detectDragGesture)
  * - No per-item context menu state or ItemActionMenu composable
  * - No per-item quick-actions loading
  * - Context menu is composed only for the one long-pressed item
@@ -16,7 +15,7 @@
  * FEATURE SUMMARY:
  * - Shows all installed apps in an adaptive grid
  * - Long-press shows context menu with app shortcuts and info
- * - Drag-to-homescreen available from context menu
+ * - Long-press + drag starts app drag-to-homescreen
  * - Supports swipe-down-to-close when scrolled to top
  *
  * SYSTEM BAR HANDLING:
@@ -30,7 +29,6 @@ package com.milki.launcher.ui.components.launcher
 import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.data.icon.AppIconMemoryCache
@@ -73,7 +72,11 @@ import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.buildAppItemMenuActions
+import com.milki.launcher.ui.components.common.rememberItemContextMenuState
 import com.milki.launcher.ui.components.common.rememberAppQuickActions
+import com.milki.launcher.ui.interaction.dragdrop.startExternalAppDrag
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -114,6 +117,7 @@ fun AppDrawerOverlay(
     // we lift menu state here and only compose the menu for the one
     // long-pressed item. This eliminates ~10 objects per cell.
     var menuTargetApp by remember { mutableStateOf<AppInfo?>(null) }
+    val menuState = rememberItemContextMenuState()
 
     // ── Batch icon preloading ───────────────────────────────────────
     // Preload all drawer icons on IO when items arrive. This ensures
@@ -297,11 +301,22 @@ fun AppDrawerOverlay(
                                         actionHandler(SearchResultAction.Tap(AppSearchResult(appInfo)))
                                         onDismiss()
                                     },
-                                    onLongClick = {
+                                    onLongPress = {
                                         menuTargetApp = appInfo
+                                        menuState.onLongPress()
                                     },
-                                    showMenu = isMenuTarget,
-                                    onMenuDismiss = { menuTargetApp = null },
+                                    onLongPressRelease = menuState::onLongPressRelease,
+                                    onDragStarted = {
+                                        menuTargetApp = null
+                                        menuState.onDragStart()
+                                    },
+                                    onDragCancelled = menuState::onDragCancel,
+                                    showMenu = isMenuTarget && menuState.showMenu,
+                                    menuFocusable = menuState.isMenuFocusable,
+                                    onMenuDismiss = {
+                                        menuTargetApp = null
+                                        menuState.dismiss()
+                                    },
                                     onExternalDragStarted = onDismiss
                                 )
                             }
@@ -320,7 +335,6 @@ fun AppDrawerOverlay(
 // It avoids all per-item overhead that kills scroll performance:
 // - No ItemContextMenuState allocation
 // - No rememberAppQuickActions (no LaunchedEffect per cell)
-// - No detectDragGesture (no PointerInput coroutine scope per cell)
 // - No Surface wrapper
 // - No IconLabelLayout data class allocation
 // - Context menu only composed for the ONE item that is long-pressed
@@ -333,19 +347,48 @@ fun AppDrawerOverlay(
 private fun DrawerGridCell(
     appInfo: AppInfo,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongPress: () -> Unit,
+    onLongPressRelease: () -> Unit,
+    onDragStarted: () -> Unit,
+    onDragCancelled: () -> Unit,
     showMenu: Boolean,
+    menuFocusable: Boolean,
     onMenuDismiss: () -> Unit,
     onExternalDragStarted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val hostView = LocalView.current
+
     Box(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick
+                .detectDragGesture(
+                    key = "${appInfo.packageName}/${appInfo.activityName}",
+                    dragThreshold = GridConfig.Default.dragThresholdPx,
+                    onTap = onClick,
+                    onLongPress = {
+                        onLongPress()
+                    },
+                    onLongPressRelease = onLongPressRelease,
+                    onDragStart = {
+                        onDragStarted()
+
+                        val dragStarted = startExternalAppDrag(
+                            hostView = hostView,
+                            appInfo = appInfo,
+                            dragShadowSize = IconSize.appGrid
+                        )
+
+                        if (dragStarted) {
+                            hostView.post {
+                                onExternalDragStarted()
+                            }
+                        }
+                    },
+                    onDrag = { change, _ -> change.consume() },
+                    onDragEnd = {},
+                    onDragCancel = onDragCancelled
                 )
                 .padding(vertical = Spacing.extraSmall),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -382,6 +425,7 @@ private fun DrawerGridCell(
             ItemActionMenu(
                 expanded = true,
                 onDismiss = onMenuDismiss,
+                focusable = menuFocusable,
                 onExternalDragStarted = {
                     onMenuDismiss()
                     onExternalDragStarted()

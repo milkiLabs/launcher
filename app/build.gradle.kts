@@ -70,14 +70,7 @@ android {
 
         // Release-like variant used by macrobenchmarks on connected devices.
         create("benchmark") {
-            initWith(getByName("fast"))
-
-            // Keep benchmark APK assembly fast for local iteration.
-            // Macrobenchmark does not require R8/resource shrinking.
-            isMinifyEnabled = false
-            isShrinkResources = false
-
-            isDebuggable = false
+            initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
