@@ -19,7 +19,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "launcher"
+rootProject.name = "milki launcher"
 include(":app")
 include(":baselineprofile")
  
