@@ -57,10 +57,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.launcher.homeItemIconLabelLayout
+import com.milki.launcher.ui.components.launcher.FOLDER_PREVIEW_SLOT_COUNT
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconLabelCell
 import com.milki.launcher.ui.components.common.IconLabelLayout
 import com.milki.launcher.ui.components.common.ShortcutIcon
+import com.milki.launcher.ui.components.launcher.resolveFileTypeVisual
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -155,7 +157,7 @@ private fun FolderMiniGrid(
 ) {
     // Take at most 4 items for the preview. If fewer are available,
     // the remaining cells are filled with null (rendered as blank space).
-    val previews: List<HomeItem?> = (0 until 4).map { i ->
+    val previews: List<HomeItem?> = (0 until FOLDER_PREVIEW_SLOT_COUNT).map { i ->
         children.getOrNull(i)
     }
 
@@ -267,16 +269,7 @@ private fun MiniFileIconSlot(
     miniIconSize: Dp
 ) {
     // Pick a background color that communicates the file category at a glance.
-    val backgroundColor = when {
-        item.mimeType == "application/pdf" -> Color(0xFFE53935)        // Red for PDF
-        item.mimeType.startsWith("image/") -> Color(0xFF43A047)         // Green for images
-        item.mimeType.startsWith("video/") -> Color(0xFFFB8C00)         // Orange for video
-        item.mimeType.startsWith("audio/") -> Color(0xFF8E24AA)         // Purple for audio
-        item.mimeType.contains("spreadsheet") -> Color(0xFF43A047)      // Green for spreadsheet
-        item.mimeType.contains("document") -> Color(0xFF1E88E5)         // Blue for document
-        item.mimeType.contains("zip") || item.mimeType.contains("archive") -> Color(0xFF757575)
-        else -> Color(0xFF9E9E9E)                                        // Grey for unknown
-    }
+    val backgroundColor = resolveFileTypeVisual(item.mimeType, item.name).backgroundColor
 
     Box(
         modifier = Modifier

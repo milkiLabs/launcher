@@ -259,7 +259,6 @@ internal fun InternalGridDragLayer(
                         PinnedItem(
                             item = item,
                             onClick = {},
-                            onLongClick = {},
                             handleLongPress = false,
                             compactLayout = true,
                             showMenu = interactionController.menuShownForItemId == item.id,

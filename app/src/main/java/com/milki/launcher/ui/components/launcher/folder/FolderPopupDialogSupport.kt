@@ -319,7 +319,6 @@ private fun FolderPopupItem(
         PinnedItem(
             item = item,
             onClick = {},
-            onLongClick = {},
             handleLongPress = false,
             showMenu = false
         )

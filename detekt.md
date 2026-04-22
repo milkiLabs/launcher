@@ -44,6 +44,38 @@ Important:
 - Do not regenerate `config/detekt/*baseline.xml` until the unrelated compile issue is resolved and the owner is ready to refresh the baselines.
 - Treat `HomeModelWriter.kt` as "done pending baseline regeneration", not as an active starting point for the next batch.
 
+## Status Update (2026-04-22, later pass)
+
+Completed in this batch:
+
+- `AppSearchDialog.kt`
+  - fixed the project compile blocker
+  - split dialog shell/focus/supporting-content responsibilities into smaller helpers
+  - replaced the loading delay magic number with a named constant
+  - replaced silent focus exceptions with logged `runCatching` handling
+- `ExternalHomeDropDispatcher.kt`
+  - reduced the return-heavy drop node implementations into single-decision flows
+  - extracted callback type aliases to remove the worst signature line-length issues
+  - extracted widget-drop helper logic for clamping/provider resolution
+- `ContactsQueryLayer.kt`
+  - extracted cursor-index and row-append helpers
+  - removed the jump-heavy search loop structure
+  - replaced the search-row limit magic numbers with named constants
+
+Verification:
+
+- `./gradlew app:detekt` passed after the batch.
+- `./gradlew -Dkotlin.compiler.execution.strategy=in-process app:compileDebugKotlin` passed.
+- `./gradlew -Dkotlin.compiler.execution.strategy=in-process app:testDebugUnitTest --tests com.milki.launcher.domain.homegraph.HomeModelWriterTest` passed.
+
+Important:
+
+- The Kotlin daemon in this environment appears flaky right now due to incremental cache locking.
+- If compile/test starts failing with cache-registration errors, retry with:
+  - `./gradlew --stop`
+  - `./gradlew -Dkotlin.compiler.execution.strategy=in-process ...`
+- Baselines still have not been regenerated in this file's snapshot. Do that only after the current cleanup streak is ready to be recorded in XML.
+
 ### Remaining Findings By Rule
 
 - `ReturnCount`: 73
@@ -67,16 +99,17 @@ These files give the biggest payoff because they contain multiple findings each:
 
 - `HomeModelWriter.kt`: 15 in the pre-regeneration snapshot, but the cleanup batch landed on 2026-04-22
 - `PinnedItem.kt`: 12
-- `ExternalHomeDropDispatcher.kt`: 11
+- `ExternalHomeDropDispatcher.kt`: 11 in the pre-regeneration snapshot, but the first dispatcher cleanup batch landed on 2026-04-22
 - `FolderIcon.kt`: 8
-- `AppSearchDialog.kt`: 7
+- `AppSearchDialog.kt`: 7 in the pre-regeneration snapshot, but the compile blocker and part of its cleanup batch landed on 2026-04-22
 - `SettingsSourceEditorComponents.kt`: 7
 - `WidgetOverlayLayer.kt`: 7
-- `ContactsQueryLayer.kt`: 6
+- `ContactsQueryLayer.kt`: 6 in the pre-regeneration snapshot, but the first query-layer cleanup batch landed on 2026-04-22
 - `FolderPopupDialogSupport.kt`: 6
 - `SearchProviderVisuals.kt`: 6
 - `WidgetHostManager.kt`: 6
 - `SettingsMutationStore.kt`: 6
+- `ExternalHomeDropDispatcher.kt`: 11 in the pre-regeneration snapshot, but the first dispatcher cleanup batch landed on 2026-04-22
 
 ## Core Working Rules
 

@@ -32,14 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FolderZip
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.VideoFile
-import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -53,7 +46,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +64,7 @@ import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
 private const val HOME_ITEM_LABEL_MAX_LENGTH = 18
+private const val LABEL_ELLIPSIS_LENGTH = 3
 
 /**
  * PinnedItem displays a single pinned item in the home screen grid.
@@ -93,7 +86,6 @@ private const val HOME_ITEM_LABEL_MAX_LENGTH = 18
  *
  * @param item The pinned item to display
  * @param onClick Called when user taps this item
- * @param onLongClick Called when user long-presses this item (only if handleLongPress is true)
  * @param handleLongPress Whether this composable should handle long-press gestures.
  *                        Set to false when used in DraggablePinnedItemsGrid (parent handles gestures).
  *                        Set to true when used standalone.
@@ -108,7 +100,6 @@ private const val HOME_ITEM_LABEL_MAX_LENGTH = 18
 fun PinnedItem(
     item: HomeItem,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
     handleLongPress: Boolean = true,
     compactLayout: Boolean = false,
     showMenu: Boolean = false,
@@ -116,30 +107,8 @@ fun PinnedItem(
     menuFocusable: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    /**
-     * Haptic feedback controller for providing tactile response on long-press.
-     *
-     * When handleLongPress is true (standalone usage), this component handles
-     * the long-press gesture internally and provides haptic feedback to confirm
-     * the action was recognized.
-     *
-     * When handleLongPress is false (used in DraggablePinnedItemsGrid), the
-     * parent component is responsible for haptic feedback.
-     */
     val hapticFeedback = LocalHapticFeedback.current
-
-    /**
-     * Internal state to control whether the dropdown menu is visible.
-     * This is triggered by a long press on the item when handleLongPress is true.
-     * When handleLongPress is false, the menu visibility is controlled by showMenu parameter.
-     */
     var internalShowMenu by remember { mutableStateOf(false) }
-
-    /**
-     * Determine which state controls the menu visibility.
-     * If handleLongPress is true, use internal state (long-press shows menu).
-     * If handleLongPress is false, use external showMenu parameter (parent controls menu).
-     */
     val isMenuVisible = if (handleLongPress) internalShowMenu else showMenu
     val quickActions = if (item is HomeItem.PinnedApp) {
         rememberAppQuickActions(
@@ -149,76 +118,61 @@ fun PinnedItem(
     } else {
         emptyList()
     }
-
-    /**
-     * We wrap the entire item in a Box to allow the dropdown menu to be
-     * positioned relative to the item. The menu appears anchored to this Box.
-     */
-    Box(modifier = modifier) {
-        /**
-         * When handleLongPress is false, we don't use Surface at all to avoid
-         * it intercepting touch events. The parent DraggablePinnedItemsGrid
-         * handles all gestures via its pointerInput modifier.
-         */
+    val dismissMenu: () -> Unit = {
         if (handleLongPress) {
-            // Handle gestures internally
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .combinedClickable(
-                        onClick = onClick,
-                        onLongClick = {
-                            // Provide haptic feedback for long-press recognition
-                            // This gives the user tactile confirmation that the long-press was detected
-                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                            internalShowMenu = true
-                        }
-                    ),
-                color = Color.Transparent,
-                shape = RoundedCornerShape(CornerRadius.medium)
-            ) {
-                PinnedItemContent(item = item, compactLayout = compactLayout)
-            }
+            internalShowMenu = false
         } else {
-            // No gesture handling - parent handles all gestures
-            // Use a simple Box instead of Surface to not intercept touch events
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                PinnedItemContent(item = item, compactLayout = compactLayout)
-            }
+            onMenuDismiss()
         }
+    }
 
-        /**
-         * Dropdown menu that appears when the user long-presses the item.
-         *
-         * The menu uses the ItemActionMenu component which is also used in
-         * search results, ensuring consistent styling and behavior.
-         *
-         * Actions are built dynamically based on the item type:
-         * - Unpin action: Always available for all item types
-         * - App info action: Only available for PinnedApp items
-         */
+    Box(modifier = modifier) {
+        PinnedItemSurface(
+            item = item,
+            compactLayout = compactLayout,
+            handleLongPress = handleLongPress,
+            onClick = onClick,
+            onLongPressDetected = {
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                internalShowMenu = true
+            }
+        )
         ItemActionMenu(
             expanded = isMenuVisible,
-            onDismiss = {
-                if (handleLongPress) {
-                    internalShowMenu = false
-                } else {
-                    onMenuDismiss()
-                }
-            },
+            onDismiss = dismissMenu,
             focusable = menuFocusable,
-            onExternalDragStarted = {
-                if (handleLongPress) {
-                    internalShowMenu = false
-                } else {
-                    onMenuDismiss()
-                }
-            },
+            onExternalDragStarted = dismissMenu,
             actions = buildPinnedItemActions(item, quickActions)
         )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PinnedItemSurface(
+    item: HomeItem,
+    compactLayout: Boolean,
+    handleLongPress: Boolean,
+    onClick: () -> Unit,
+    onLongPressDetected: () -> Unit
+) {
+    if (handleLongPress) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongPressDetected
+                ),
+            color = Color.Transparent,
+            shape = RoundedCornerShape(CornerRadius.medium)
+        ) {
+            PinnedItemContent(item = item, compactLayout = compactLayout)
+        }
+    } else {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            PinnedItemContent(item = item, compactLayout = compactLayout)
+        }
     }
 }
 
@@ -277,7 +231,7 @@ private fun truncateHomeItemLabel(label: String): String {
     }
 
     return trimmedLabel
-        .take(HOME_ITEM_LABEL_MAX_LENGTH - 3)
+        .take(HOME_ITEM_LABEL_MAX_LENGTH - LABEL_ELLIPSIS_LENGTH)
         .trimEnd()
         .plus("...")
 }
@@ -456,7 +410,7 @@ private fun FileIcon(
     size: Dp,
     modifier: Modifier = Modifier
 ) {
-    val iconData = getFileIconData(mimeType, fileName)
+    val fileTypeVisual = resolveFileTypeVisual(mimeType, fileName)
 
     Box(
         modifier = modifier
@@ -466,79 +420,19 @@ private fun FileIcon(
         Surface(
             modifier = Modifier.size(size),
             shape = RectangleShape,
-            color = iconData.backgroundColor.copy(alpha = 0.2f)
+            color = fileTypeVisual.backgroundColor.copy(alpha = 0.2f)
         ) {
             Box(
                 modifier = Modifier.size(size),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = iconData.icon,
+                    imageVector = fileTypeVisual.icon,
                     contentDescription = null,
-                    tint = iconData.iconColor,
-                    modifier = Modifier.size(size * 0.5f)
+                    tint = Color.White,
+                    modifier = Modifier.size(size * FILE_ICON_FOREGROUND_SCALE)
                 )
             }
         }
-    }
-}
-
-/**
- * Data class holding icon information for file types.
- */
-private data class FileIconData(
-    val icon: ImageVector,
-    val backgroundColor: Color,
-    val iconColor: Color
-)
-
-/**
- * Returns the appropriate icon for a file based on its MIME type.
- */
-@Composable
-private fun getFileIconData(mimeType: String, fileName: String): FileIconData {
-    val extension = fileName.substringAfterLast('.', "").lowercase()
-
-    return when {
-        mimeType == "application/pdf" || extension == "pdf" -> FileIconData(
-            icon = Icons.Outlined.PictureAsPdf,
-            backgroundColor = Color(0xFFE53935),
-            iconColor = Color.White
-        )
-        mimeType.startsWith("image/") -> FileIconData(
-            icon = Icons.Filled.Image,
-            backgroundColor = Color(0xFF43A047),
-            iconColor = Color.White
-        )
-        mimeType.startsWith("video/") -> FileIconData(
-            icon = Icons.Filled.VideoFile,
-            backgroundColor = Color(0xFFFB8C00),
-            iconColor = Color.White
-        )
-        mimeType.startsWith("audio/") -> FileIconData(
-            icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-            backgroundColor = Color(0xFF8E24AA),
-            iconColor = Color.White
-        )
-        mimeType.contains("spreadsheet") || extension in listOf("xls", "xlsx", "csv") -> FileIconData(
-            icon = Icons.Filled.TableChart,
-            backgroundColor = Color(0xFF43A047),
-            iconColor = Color.White
-        )
-        mimeType.contains("document") || extension in listOf("doc", "docx", "rtf") -> FileIconData(
-            icon = Icons.Filled.Description,
-            backgroundColor = Color(0xFF1E88E5),
-            iconColor = Color.White
-        )
-        mimeType.contains("zip") || mimeType.contains("archive") || extension in listOf("zip", "rar", "7z", "tar") -> FileIconData(
-            icon = Icons.Filled.FolderZip,
-            backgroundColor = Color(0xFF757575),
-            iconColor = Color.White
-        )
-        else -> FileIconData(
-            icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-            backgroundColor = Color(0xFF9E9E9E),
-            iconColor = Color.White
-        )
     }
 }

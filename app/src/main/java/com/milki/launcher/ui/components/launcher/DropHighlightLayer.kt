@@ -128,7 +128,6 @@ internal fun DropHighlightLayer(
                 PinnedItem(
                     item = activeSession.item,
                     onClick = {},
-                    onLongClick = {},
                     handleLongPress = false,
                     compactLayout = true
                 )
@@ -246,7 +245,6 @@ private fun DropPreviewContent(
                 PinnedItem(
                     item = item,
                     onClick = {},
-                    onLongClick = {},
                     handleLongPress = false,
                     compactLayout = true
                 )

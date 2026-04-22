@@ -464,7 +464,6 @@ fun FolderPopupDialog(
                     PinnedItem(
                         item = draggedItem,
                         onClick = {},
-                        onLongClick = {},
                         handleLongPress = false
                     )
                 }
