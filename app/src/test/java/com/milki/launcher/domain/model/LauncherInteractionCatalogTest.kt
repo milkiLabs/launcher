@@ -8,6 +8,14 @@ import org.junit.Test
 class LauncherInteractionCatalogTest {
 
     @Test
+    fun available_actions_include_notification_shade_action() {
+        assertTrue(
+            LauncherInteractionCatalog.availableActions()
+                .contains(LauncherTriggerAction.OPEN_NOTIFICATION_SHADE)
+        )
+    }
+
+    @Test
     fun configurable_triggers_include_swipe_down() {
         assertTrue(
             LauncherInteractionCatalog.configurableTriggers.contains(LauncherTrigger.HOME_SWIPE_DOWN)
@@ -81,7 +89,7 @@ class LauncherInteractionCatalogTest {
             LauncherInteractionCatalog.defaultActionFor(LauncherTrigger.HOME_SWIPE_UP)
         )
         assertEquals(
-            LauncherTriggerAction.OPEN_SEARCH,
+            LauncherTriggerAction.OPEN_NOTIFICATION_SHADE,
             LauncherInteractionCatalog.defaultActionFor(LauncherTrigger.HOME_SWIPE_DOWN)
         )
     }

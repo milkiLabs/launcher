@@ -18,6 +18,7 @@ class SurfaceStateCoordinator(
     private val isSearchVisible: () -> Boolean,
     private val isFolderOpen: () -> Boolean,
     private val closeFolder: () -> Unit,
+    private val openNotificationShade: () -> Unit = {},
     private val onAppDrawerVisibilityChanged: (Boolean) -> Unit = {}
 ) {
     private var wasResumed = false
@@ -90,6 +91,12 @@ class SurfaceStateCoordinator(
                 dismissContextMenus()
                 closeTransientSurfaces(keepSearch = false)
                 applyAppDrawerVisibility(true)
+            }
+
+            LauncherTriggerAction.OPEN_NOTIFICATION_SHADE -> {
+                dismissContextMenus()
+                closeTransientSurfaces(keepSearch = false)
+                openNotificationShade()
             }
 
             LauncherTriggerAction.DO_NOTHING -> Unit

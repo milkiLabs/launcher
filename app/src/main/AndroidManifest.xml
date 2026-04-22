@@ -8,6 +8,11 @@
 
     <!-- Required to bind app widgets to the launcher -->
     <uses-permission android:name="android.permission.BIND_APPWIDGET" />
+
+    <!-- Best-effort notification shade expansion from home gestures -->
+    <uses-permission
+        android:name="android.permission.EXPAND_STATUS_BAR"
+        tools:ignore="ProtectedPermissions" />
     
     <!-- Storage permissions for file search -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"

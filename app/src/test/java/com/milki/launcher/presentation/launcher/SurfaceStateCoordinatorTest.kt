@@ -286,6 +286,41 @@ class SurfaceStateCoordinatorTest {
     }
 
     @Test
+    fun swipe_open_notification_shade_closes_transient_surfaces_and_expands_shade() {
+        var folderOpen = true
+        var closeFolderCalls = 0
+        var hideSearchCalls = 0
+        var showSearchCalls = 0
+        var openNotificationShadeCalls = 0
+
+        val coordinator = SurfaceStateCoordinator(
+            showSearch = { showSearchCalls++ },
+            hideSearch = { hideSearchCalls++ },
+            isSearchVisible = { true },
+            isFolderOpen = { folderOpen },
+            closeFolder = {
+                closeFolderCalls++
+                folderOpen = false
+            },
+            openNotificationShade = { openNotificationShadeCalls++ }
+        )
+
+        coordinator.updateHomescreenMenuOpen(true)
+        coordinator.updateAppDrawerOpen(true)
+        coordinator.updateWidgetPickerOpen(true)
+        coordinator.handleHomeTriggerAction(LauncherTriggerAction.OPEN_NOTIFICATION_SHADE)
+
+        assertFalse(coordinator.isHomescreenMenuOpen)
+        assertFalse(coordinator.isAppDrawerOpen)
+        assertFalse(coordinator.isWidgetPickerOpen)
+        assertEquals(0, showSearchCalls)
+        assertEquals(1, hideSearchCalls)
+        assertEquals(1, closeFolderCalls)
+        assertEquals(1, openNotificationShadeCalls)
+        assertFalse(folderOpen)
+    }
+
+    @Test
     fun swipe_do_nothing_leaves_state_unchanged() {
         var folderOpen = false
         var closeFolderCalls = 0

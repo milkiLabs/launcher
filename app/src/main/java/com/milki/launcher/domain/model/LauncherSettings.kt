@@ -111,6 +111,7 @@ enum class LauncherTrigger(
 enum class LauncherTriggerAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
     OPEN_APP_DRAWER("Open app drawer"),
+    OPEN_NOTIFICATION_SHADE("Open notification shade"),
     DO_NOTHING("Do nothing")
 }
 
@@ -136,7 +137,7 @@ object LauncherInteractionCatalog {
         return when (trigger) {
             LauncherTrigger.HOME_TAP -> LauncherTriggerAction.DO_NOTHING
             LauncherTrigger.HOME_SWIPE_UP -> LauncherTriggerAction.OPEN_APP_DRAWER
-            LauncherTrigger.HOME_SWIPE_DOWN -> LauncherTriggerAction.OPEN_SEARCH
+            LauncherTrigger.HOME_SWIPE_DOWN -> LauncherTriggerAction.OPEN_NOTIFICATION_SHADE
         }
     }
 
