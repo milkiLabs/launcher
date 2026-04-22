@@ -8,14 +8,14 @@ import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.ui.components.launcher.findOccupantAt
+import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import kotlinx.coroutines.withTimeoutOrNull
 
 private enum class BackgroundGestureOutcome {
     Released,
-    SwipeUp,
-    SwipeDown,
+    Triggered,
     Moved,
     Cancelled
 }
@@ -25,10 +25,10 @@ internal fun Modifier.detectHomeBackgroundGestures(
     items: List<HomeItem>,
     layoutMetrics: AppDragDropLayoutMetrics,
     policy: HomeBackgroundGesturePolicy,
-    swipeUpThresholdPx: Float,
+    gestureThresholdPx: Float,
     bindings: HomeBackgroundGestureBindings
 ): Modifier {
-    return pointerInput(key, items, layoutMetrics, policy, swipeUpThresholdPx) {
+    return pointerInput(key, items, layoutMetrics, policy, gestureThresholdPx, bindings) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val pressedCell = layoutMetrics.pixelToCell(down.position)
@@ -42,10 +42,10 @@ internal fun Modifier.detectHomeBackgroundGestures(
                 pointerId = down.id,
                 startPosition = down.position,
                 touchSlopPx = viewConfiguration.touchSlop,
-                swipeUpThresholdPx = swipeUpThresholdPx,
+                gestureThresholdPx = gestureThresholdPx,
                 longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
-                canSwipeUp = policy.canSwipeUp,
-                canSwipeDown = policy.canSwipeDown
+                policy = policy,
+                bindings = bindings
             )
 
             when (outcome) {
@@ -56,19 +56,13 @@ internal fun Modifier.detectHomeBackgroundGestures(
                     awaitPointerUp(pointerId = down.id)
                 }
 
-                BackgroundGestureOutcome.SwipeUp -> {
-                    bindings.onSwipeUp?.invoke()
-                    consumeUntilPointerUp(pointerId = down.id)
-                }
-
-                BackgroundGestureOutcome.SwipeDown -> {
-                    bindings.onSwipeDown?.invoke()
+                BackgroundGestureOutcome.Triggered -> {
                     consumeUntilPointerUp(pointerId = down.id)
                 }
 
                 BackgroundGestureOutcome.Released -> {
                     if (!startCellOccupied) {
-                        bindings.onEmptyAreaTap?.invoke()
+                        bindings.invoke(LauncherTrigger.HOME_TAP)
                     }
                 }
 
@@ -83,10 +77,10 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
     pointerId: PointerId,
     startPosition: Offset,
     touchSlopPx: Float,
-    swipeUpThresholdPx: Float,
+    gestureThresholdPx: Float,
     longPressTimeoutMillis: Long,
-    canSwipeUp: Boolean,
-    canSwipeDown: Boolean
+    policy: HomeBackgroundGesturePolicy,
+    bindings: HomeBackgroundGestureBindings
 ): BackgroundGestureOutcome? {
     var exceededTouchSlop = false
     val slopOutcome = withTimeoutOrNull(longPressTimeoutMillis) {
@@ -100,11 +94,13 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
             }
 
             val totalDrag = change.position - startPosition
-            if (canSwipeUp && totalDrag.isSwipeUpGesture(minimumDistancePx = swipeUpThresholdPx)) {
-                return@withTimeoutOrNull BackgroundGestureOutcome.SwipeUp
-            }
-            if (canSwipeDown && totalDrag.isSwipeDownGesture(minimumDistancePx = swipeUpThresholdPx)) {
-                return@withTimeoutOrNull BackgroundGestureOutcome.SwipeDown
+            val matchedTrigger = policy.matchingTrigger(
+                dragOffset = totalDrag,
+                minimumDistancePx = gestureThresholdPx
+            )
+            if (matchedTrigger != null) {
+                bindings.invoke(matchedTrigger)
+                return@withTimeoutOrNull BackgroundGestureOutcome.Triggered
             }
 
             if (totalDrag.exceedsTouchSlop(touchSlopPx = touchSlopPx)) {
@@ -128,9 +124,7 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
         ?: return BackgroundGestureOutcome.Cancelled
     var totalDrag = change.position - startPosition
 
-    val isMovingUp = canSwipeUp && totalDrag.isSwipeUpGesture(minimumDistancePx = 0f)
-    val isMovingDown = canSwipeDown && totalDrag.isSwipeDownGesture(minimumDistancePx = 0f)
-    if (!isMovingUp && !isMovingDown) {
+    if (!policy.hasDirectionalMotion(totalDrag)) {
         return BackgroundGestureOutcome.Moved
     }
 
@@ -145,18 +139,41 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
 
         totalDrag = change.position - startPosition
 
-        val stillMovingUp = canSwipeUp && totalDrag.isSwipeUpGesture(minimumDistancePx = 0f)
-        val stillMovingDown = canSwipeDown && totalDrag.isSwipeDownGesture(minimumDistancePx = 0f)
-        if (!stillMovingUp && !stillMovingDown) {
+        if (!policy.hasDirectionalMotion(totalDrag)) {
             return BackgroundGestureOutcome.Moved
         }
 
-        if (totalDrag.isSwipeUpGesture(minimumDistancePx = swipeUpThresholdPx)) {
-            return BackgroundGestureOutcome.SwipeUp
+        val matchedTrigger = policy.matchingTrigger(
+            dragOffset = totalDrag,
+            minimumDistancePx = gestureThresholdPx
+        )
+        if (matchedTrigger != null) {
+            bindings.invoke(matchedTrigger)
+            return BackgroundGestureOutcome.Triggered
         }
-        if (totalDrag.isSwipeDownGesture(minimumDistancePx = swipeUpThresholdPx)) {
-            return BackgroundGestureOutcome.SwipeDown
-        }
+    }
+}
+
+private fun HomeBackgroundGesturePolicy.matchingTrigger(
+    dragOffset: Offset,
+    minimumDistancePx: Float
+): LauncherTrigger? {
+    return directionalTriggers().firstOrNull { trigger ->
+        dragOffset.matchesTriggerDirection(
+            trigger = trigger,
+            minimumDistancePx = minimumDistancePx
+        )
+    }
+}
+
+private fun HomeBackgroundGesturePolicy.hasDirectionalMotion(
+    dragOffset: Offset
+): Boolean {
+    return directionalTriggers().any { trigger ->
+        dragOffset.matchesTriggerDirection(
+            trigger = trigger,
+            minimumDistancePx = 0f
+        )
     }
 }
 

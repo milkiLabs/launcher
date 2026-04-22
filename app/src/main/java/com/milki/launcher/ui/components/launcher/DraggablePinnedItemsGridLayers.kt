@@ -129,7 +129,10 @@ internal fun InternalGridDragLayer(
         modifier = Modifier
             .fillMaxSize()
             .detectHomeBackgroundGestures(
-                key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.widgetTransformSession?.widgetId ?: "none"}-${backgroundGesturePolicy.canSwipeUp}-${backgroundGesturePolicy.canSwipeDown}",
+                key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.widgetTransformSession?.widgetId ?: "none"}-${
+                    backgroundGesturePolicy.enabledTriggers.sortedBy { it.name }
+                        .joinToString(separator = ",") { it.name }
+                }",
                 items = items,
                 layoutMetrics = layoutMetrics,
                 policy = backgroundGesturePolicy,
@@ -139,7 +142,7 @@ internal fun InternalGridDragLayer(
                         backgroundGestures.onEmptyAreaLongPress(longPressOffset)
                     }
                 ),
-                swipeUpThresholdPx = cellHeightPx
+                gestureThresholdPx = cellHeightPx
             )
     ) {
         items.forEach { item ->

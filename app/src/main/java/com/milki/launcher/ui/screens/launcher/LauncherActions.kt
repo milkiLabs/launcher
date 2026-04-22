@@ -3,12 +3,17 @@ package com.milki.launcher.ui.screens.launcher
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.LauncherTrigger
 
-typealias CreateFolderAction = (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit
+typealias CreateFolderAction =
+    (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit
+
 typealias ExtractItemFromFolderAction =
     (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit
+
 typealias MoveFolderItemToFolderAction =
     (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit
+
 typealias FolderChildDroppedOnItemAction =
     (
         sourceFolderId: String,
@@ -36,14 +41,16 @@ data class LauncherActions(
 
 /**
  * Home-surface interactions emitted from the pinned grid.
+ *
+ * Home gestures are modeled through [LauncherTrigger] so adding new gesture
+ * types does not require expanding this contract with one callback per gesture.
  */
 data class HomeActions(
     val onPinnedItemClick: (HomeItem) -> Unit = {},
     val onPinnedItemLongPress: (HomeItem) -> Unit = {},
     val onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit = { _, _ -> },
     val onItemDroppedToHome: (HomeItem, GridPosition) -> Unit = { _, _ -> },
-    val onHomeTap: () -> Unit = {},
-    val onHomeSwipeUp: () -> Unit = {}
+    val onHomeTrigger: (LauncherTrigger) -> Unit = {}
 )
 
 /**

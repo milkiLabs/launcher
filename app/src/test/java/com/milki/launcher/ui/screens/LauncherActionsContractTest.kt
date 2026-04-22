@@ -3,6 +3,7 @@ package com.milki.launcher.ui.screens
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.ui.screens.launcher.FolderActions
 import com.milki.launcher.ui.screens.launcher.HomeActions
 import com.milki.launcher.ui.screens.launcher.LauncherActions
@@ -16,16 +17,15 @@ import org.junit.Test
  * Contract tests for the grouped LauncherScreen action model.
  *
  * WHY THESE TESTS EXIST:
- * The LauncherScreen refactor replaced a long flat callback list with grouped
- * action contracts (`LauncherActions`). These tests lock that API behavior down
- * so future refactors can safely evolve internals without accidentally breaking
- * the public contract expected by MainActivity and other hosts.
+ * The LauncherScreen action model groups callbacks by feature domain. These
+ * tests lock down the contract expected by the launcher host so future refactors
+ * can safely evolve internals without breaking routing behavior.
  *
  * IMPORTANT SCOPE:
  * - These are unit-level contract tests for callback grouping and routing.
  * - They intentionally do NOT test Compose rendering.
  * - They focus on boundary guarantees: defaults are safe, groups are independent,
- *   and payloads reach the expected callback.
+ *   and launcher triggers reach the expected callback unchanged.
  */
 class LauncherActionsContractTest {
 
@@ -49,8 +49,9 @@ class LauncherActionsContractTest {
         actions.home.onPinnedItemLongPress(pinnedApp)
         actions.home.onPinnedItemMove(pinnedApp.id, target)
         actions.home.onItemDroppedToHome(pinnedApp, target)
-        actions.home.onHomeTap()
-        actions.home.onHomeSwipeUp()
+        actions.home.onHomeTrigger(LauncherTrigger.HOME_TAP)
+        actions.home.onHomeTrigger(LauncherTrigger.HOME_SWIPE_UP)
+        actions.home.onHomeTrigger(LauncherTrigger.HOME_SWIPE_DOWN)
 
         actions.folder.onCreateFolder(pinnedApp, pinnedApp, target)
         actions.folder.onAddItemToFolder("folder-a", pinnedApp)
@@ -81,15 +82,14 @@ class LauncherActionsContractTest {
      * Contract: the home group should receive exact payloads passed from the caller.
      *
      * Rationale:
-     * This verifies the grouped model preserves callback semantics that existed in
-     * the previous flat API (item ID and position must arrive unchanged).
+     * This verifies the grouped model preserves callback semantics while using a
+     * scalable trigger-based home gesture API.
      */
     @Test
-    fun home_group_forwards_payloads_without_mutation() {
+    fun home_group_forwards_trigger_and_payloads_without_mutation() {
         var capturedId = ""
         var capturedPosition = GridPosition.DEFAULT
-        var tapTriggered = false
-        var swipeTriggered = false
+        val triggered = mutableListOf<LauncherTrigger>()
 
         val actions = LauncherActions(
             home = HomeActions(
@@ -97,11 +97,8 @@ class LauncherActionsContractTest {
                     capturedId = itemId
                     capturedPosition = newPosition
                 },
-                onHomeTap = {
-                    tapTriggered = true
-                },
-                onHomeSwipeUp = {
-                    swipeTriggered = true
+                onHomeTrigger = { trigger ->
+                    triggered += trigger
                 }
             )
         )
@@ -110,13 +107,20 @@ class LauncherActionsContractTest {
         val expectedPosition = GridPosition(row = 3, column = 1)
 
         actions.home.onPinnedItemMove(expectedId, expectedPosition)
-        actions.home.onHomeTap()
-        actions.home.onHomeSwipeUp()
+        actions.home.onHomeTrigger(LauncherTrigger.HOME_TAP)
+        actions.home.onHomeTrigger(LauncherTrigger.HOME_SWIPE_UP)
+        actions.home.onHomeTrigger(LauncherTrigger.HOME_SWIPE_DOWN)
 
         assertEquals(expectedId, capturedId)
         assertEquals(expectedPosition, capturedPosition)
-        assertTrue(tapTriggered)
-        assertTrue(swipeTriggered)
+        assertEquals(
+            listOf(
+                LauncherTrigger.HOME_TAP,
+                LauncherTrigger.HOME_SWIPE_UP,
+                LauncherTrigger.HOME_SWIPE_DOWN
+            ),
+            triggered
+        )
     }
 
     /**
@@ -125,7 +129,7 @@ class LauncherActionsContractTest {
      * Rationale:
      * We explicitly validate that invoking one feature domain does not implicitly
      * trigger callbacks in a different domain. This protects against accidental
-     * cross-wiring when constructing LauncherActions in MainActivity.
+     * cross-wiring when constructing LauncherActions in the launcher host.
      */
     @Test
     fun feature_groups_remain_isolated() {
@@ -145,16 +149,12 @@ class LauncherActionsContractTest {
             )
         )
 
-        // Trigger only folder action.
         actions.folder.onFolderClose()
 
         assertTrue(folderCloseCalled)
         assertFalse(searchDismissCalled)
     }
 
-    /**
-     * Creates a tiny deterministic pinned-app fixture for callback tests.
-     */
     private fun samplePinnedApp(id: String): HomeItem.PinnedApp {
         return HomeItem.PinnedApp(
             id = id,
@@ -165,9 +165,6 @@ class LauncherActionsContractTest {
         )
     }
 
-    /**
-     * Produces a stable span fixture for widget callback tests.
-     */
     private fun sampleWidgetSpan(): GridSpan {
         return GridSpan(columns = 2, rows = 1)
     }

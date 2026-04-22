@@ -2,6 +2,7 @@ package com.milki.launcher.ui.components.launcher
 
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.grid.GridConfig
@@ -18,8 +19,13 @@ class HomeSurfaceInteractionControllerTest {
     @Test
     fun snapshot_blocks_background_gestures_when_any_transient_interaction_is_active() {
         val bindings = HomeBackgroundGestureBindings(
-            onSwipeUp = {},
-            onSwipeDown = {}
+            onEmptyAreaTap = {},
+            onTrigger = {},
+            configuredTriggers = setOf(
+                LauncherTrigger.HOME_TAP,
+                LauncherTrigger.HOME_SWIPE_UP,
+                LauncherTrigger.HOME_SWIPE_DOWN
+            )
         )
 
         val blockedByMenu = HomeSurfaceInteractionSnapshot(
@@ -39,7 +45,7 @@ class HomeSurfaceInteractionControllerTest {
     }
 
     @Test
-    fun snapshot_exposes_swipe_directions_from_bindings() {
+    fun snapshot_exposes_enabled_triggers_from_bindings() {
         val policy = HomeSurfaceInteractionSnapshot(
             hasInternalDrag = false,
             isExternalDragActive = false,
@@ -47,14 +53,43 @@ class HomeSurfaceInteractionControllerTest {
             isAnyContextMenuOpen = false
         ).toBackgroundGesturePolicy(
             HomeBackgroundGestureBindings(
-                onSwipeUp = {},
-                onSwipeDown = {}
+                onEmptyAreaTap = {},
+                onTrigger = {},
+                configuredTriggers = setOf(
+                    LauncherTrigger.HOME_TAP,
+                    LauncherTrigger.HOME_SWIPE_UP,
+                    LauncherTrigger.HOME_SWIPE_DOWN
+                )
             )
         )
 
         assertTrue(policy.canStartBackgroundGesture)
-        assertTrue(policy.canSwipeUp)
-        assertTrue(policy.canSwipeDown)
+        assertTrue(policy.isEnabled(LauncherTrigger.HOME_TAP))
+        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
+        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
+    }
+
+    @Test
+    fun snapshot_only_enables_tap_when_directional_trigger_handler_is_missing() {
+        val policy = HomeSurfaceInteractionSnapshot(
+            hasInternalDrag = false,
+            isExternalDragActive = false,
+            isResizeModeActive = false,
+            isAnyContextMenuOpen = false
+        ).toBackgroundGesturePolicy(
+            HomeBackgroundGestureBindings(
+                onEmptyAreaTap = {},
+                configuredTriggers = setOf(
+                    LauncherTrigger.HOME_TAP,
+                    LauncherTrigger.HOME_SWIPE_UP,
+                    LauncherTrigger.HOME_SWIPE_DOWN
+                )
+            )
+        )
+
+        assertTrue(policy.isEnabled(LauncherTrigger.HOME_TAP))
+        assertFalse(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
+        assertFalse(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
     }
 
     @Test

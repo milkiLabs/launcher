@@ -40,11 +40,10 @@ internal fun HomeSurfaceInteractionSnapshot.toBackgroundGesturePolicy(
     return HomeBackgroundGesturePolicy(
         canStartBackgroundGesture =
             !isExternalDragActive &&
-                !hasInternalDrag &&
-                !isResizeModeActive &&
-                !isAnyContextMenuOpen,
-        canSwipeUp = bindings.onSwipeUp != null,
-        canSwipeDown = bindings.onSwipeDown != null
+                    !hasInternalDrag &&
+                    !isResizeModeActive &&
+                    !isAnyContextMenuOpen,
+        enabledTriggers = bindings.enabledTriggers()
     )
 }
 

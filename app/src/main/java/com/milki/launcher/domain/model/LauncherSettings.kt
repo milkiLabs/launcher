@@ -35,12 +35,73 @@ enum class SearchResultLayout(val displayName: String) {
 }
 
 /**
+ * High-level homescreen gesture categories.
+ *
+ * This separates gesture semantics from concrete triggers so the launcher can
+ * scale to more interactions without scattering directional/tap logic across
+ * multiple layers.
+ */
+@Serializable
+enum class LauncherGestureKind {
+    TAP,
+    SWIPE
+}
+
+/**
+ * Direction metadata for directional gestures.
+ *
+ * Null is used for non-directional gestures such as taps.
+ */
+@Serializable
+enum class LauncherGestureDirection {
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+}
+
+/**
+ * Metadata describing how a launcher trigger behaves on the homescreen.
+ *
+ * FUTURE SCALABILITY:
+ * Additional triggers can be introduced by extending [LauncherTrigger] with
+ * metadata instead of creating one-off booleans and callback fields throughout
+ * the UI/runtime layers.
+ */
+@Serializable
+data class LauncherTriggerMetadata(
+    val kind: LauncherGestureKind,
+    val direction: LauncherGestureDirection? = null
+)
+
+/**
  * Home surface trigger types that can be mapped to launcher actions.
  */
 @Serializable
-enum class LauncherTrigger(val displayName: String) {
-    HOME_TAP(displayName = "Homescreen tap"),
-    HOME_SWIPE_UP(displayName = "Swipe up")
+enum class LauncherTrigger(
+    val displayName: String,
+    val metadata: LauncherTriggerMetadata
+) {
+    HOME_TAP(
+        displayName = "Homescreen tap",
+        metadata = LauncherTriggerMetadata(
+            kind = LauncherGestureKind.TAP
+        )
+    ),
+    HOME_SWIPE_UP(
+        displayName = "Swipe up",
+        metadata = LauncherTriggerMetadata(
+            kind = LauncherGestureKind.SWIPE,
+            direction = LauncherGestureDirection.UP
+        )
+    ),
+    HOME_SWIPE_DOWN(
+        displayName = "Swipe down",
+        metadata = LauncherTriggerMetadata(
+            kind = LauncherGestureKind.SWIPE,
+            direction = LauncherGestureDirection.DOWN
+        )
+    )
 }
 
 /**
@@ -61,7 +122,11 @@ enum class LauncherTriggerAction(val displayName: String) {
  */
 object LauncherInteractionCatalog {
     val configurableTriggers: List<LauncherTrigger> = LauncherTrigger.entries
+
     val allActions: List<LauncherTriggerAction> = LauncherTriggerAction.entries
+
+    val swipeTriggers: List<LauncherTrigger> =
+        configurableTriggers.filter { it.metadata.kind == LauncherGestureKind.SWIPE }
 
     fun availableActions(): List<LauncherTriggerAction> {
         return allActions
@@ -71,11 +136,16 @@ object LauncherInteractionCatalog {
         return when (trigger) {
             LauncherTrigger.HOME_TAP -> LauncherTriggerAction.DO_NOTHING
             LauncherTrigger.HOME_SWIPE_UP -> LauncherTriggerAction.OPEN_APP_DRAWER
+            LauncherTrigger.HOME_SWIPE_DOWN -> LauncherTriggerAction.OPEN_SEARCH
         }
     }
 
     fun defaultTriggerActions(): Map<LauncherTrigger, LauncherTriggerAction> {
         return configurableTriggers.associateWith(::defaultActionFor)
+    }
+
+    fun triggerForDirection(direction: LauncherGestureDirection): LauncherTrigger? {
+        return swipeTriggers.firstOrNull { it.metadata.direction == direction }
     }
 }
 
@@ -145,7 +215,7 @@ data class LauncherSettings(
      *
      * This is the new unified model for:
      * - Web engines (Google, DuckDuckGo, etc.)
-    * - Social/search sources (YouTube, Instagram, ...)
+     * - Social/search sources (YouTube, Instagram, ...)
      * - Any custom source created in Settings
      *
      * Behavior notes:
@@ -162,8 +232,8 @@ data class LauncherSettings(
      * Configurable prefixes for each search provider.
      *
      * This map allows users to:
-    * 1. Change the default prefix for a local provider (contacts/files)
-    * 2. Add multiple prefixes per provider (e.g., "f" and "م" for files)
+     * 1. Change the default prefix for a local provider (contacts/files)
+     * 2. Add multiple prefixes per provider (e.g., "f" and "م" for files)
      * 3. Use prefixes with multiple characters (e.g., "web", "find")
      *
      * The keys are provider IDs (see ProviderId constants):
@@ -175,10 +245,10 @@ data class LauncherSettings(
      *
      * Example:
      * ```kotlin
-    * mapOf(
-    *     "files" to PrefixConfig(listOf("f", "م", "find")),
-    *     "contacts" to PrefixConfig(listOf("c", "ct"))
-    * )
+     * mapOf(
+     *     "files" to PrefixConfig(listOf("f", "م", "find")),
+     *     "contacts" to PrefixConfig(listOf("c", "ct"))
+     * )
      * ```
      */
     val prefixConfigurations: ProviderPrefixConfiguration = emptyMap(),

@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
@@ -129,23 +130,27 @@ internal fun LauncherRootContent(
         ) {
             val hasImeOwningSurface =
                 searchUiState.isSearchVisible ||
-                    surfaceStateCoordinator.isAppDrawerOpen ||
-                    surfaceStateCoordinator.isWidgetPickerOpen ||
-                    openFolderItem != null
+                        surfaceStateCoordinator.isAppDrawerOpen ||
+                        surfaceStateCoordinator.isWidgetPickerOpen ||
+                        openFolderItem != null
             if (!hasImeOwningSurface) {
                 focusManager.clearFocus(force = true)
                 keyboardController?.hide()
             }
         }
 
-        val homeTapAction = launcherSettings.actionForTrigger(LauncherTrigger.HOME_TAP)
-        val homeSwipeUpAction = launcherSettings.actionForTrigger(LauncherTrigger.HOME_SWIPE_UP)
+        val enabledHomeTriggers = remember(launcherSettings) {
+            LauncherInteractionCatalog.configurableTriggers
+                .filter { trigger ->
+                    launcherSettings.actionForTrigger(trigger) != LauncherTriggerAction.DO_NOTHING
+                }
+                .toSet()
+        }
 
         LauncherTheme {
             val launcherActions = remember(
                 context,
-                homeTapAction,
-                homeSwipeUpAction,
+                launcherSettings,
                 onOpenSettings,
                 resolvedSearchVm,
                 resolvedDrawerVm
@@ -171,11 +176,9 @@ internal fun LauncherRootContent(
                         }
                     ),
                     home = HomeActions(
-                        onHomeTap = {
-                            surfaceStateCoordinator.handleHomeTriggerAction(homeTapAction)
-                        },
-                        onHomeSwipeUp = {
-                            surfaceStateCoordinator.handleHomeTriggerAction(homeSwipeUpAction)
+                        onHomeTrigger = { trigger ->
+                            val action = launcherSettings.actionForTrigger(trigger)
+                            surfaceStateCoordinator.handleHomeTriggerAction(action)
                         },
                         onPinnedItemClick = { item -> homeController.onPinnedItemClick(item, context) },
                         onPinnedItemLongPress = {},
@@ -210,7 +213,7 @@ internal fun LauncherRootContent(
                 pinnedItems = pinnedItems,
                 openFolderItem = openFolderItem,
                 actions = launcherActions,
-                isHomeSwipeEnabled = homeSwipeUpAction != LauncherTriggerAction.DO_NOTHING,
+                enabledHomeTriggers = enabledHomeTriggers,
                 isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
                 isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
                 appDrawerUiState = appDrawerUiState,

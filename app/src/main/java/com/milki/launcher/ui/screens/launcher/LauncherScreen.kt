@@ -28,27 +28,28 @@ import androidx.compose.ui.unit.dp
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.LauncherGestureKind
+import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.launcher.AppDrawerOverlay
-import com.milki.launcher.ui.components.search.AppSearchDialog
 import com.milki.launcher.ui.components.launcher.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
-import com.milki.launcher.ui.components.launcher.folder.FolderPopupDialog
-import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
-import com.milki.launcher.ui.components.launcher.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.launcher.LauncherSheet
 import com.milki.launcher.ui.components.launcher.MenuAction
+import com.milki.launcher.ui.components.launcher.folder.FolderPopupDialog
 import com.milki.launcher.ui.components.launcher.launcherSheetDragHandle
 import com.milki.launcher.ui.components.launcher.rememberLauncherSheetState
+import com.milki.launcher.ui.components.launcher.widget.WidgetPickerBottomSheet
+import com.milki.launcher.ui.components.search.AppSearchDialog
 import com.milki.launcher.ui.theme.Spacing
 
 /**
  * Main launcher surface.
  *
  * This file intentionally stays focused on screen composition and layered-surface
- * orchestration. Action contracts and pinned-item opening behavior live in
- * dedicated files within the same package.
+ * orchestration. Gesture/action semantics are modeled through [LauncherTrigger]
+ * so the screen scales as more homescreen gestures are added.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +58,7 @@ fun LauncherScreen(
     pinnedItems: List<HomeItem>,
     openFolderItem: HomeItem.FolderItem?,
     actions: LauncherActions = LauncherActions(),
-    isHomeSwipeEnabled: Boolean = true,
+    enabledHomeTriggers: Set<LauncherTrigger> = emptySet(),
     isHomescreenMenuOpen: Boolean = false,
     isAppDrawerOpen: Boolean = false,
     appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
@@ -87,6 +88,20 @@ fun LauncherScreen(
         }
     }
 
+    val canHandleHomeBackgroundGestures =
+        !isHomescreenMenuOpen &&
+                !isAppDrawerOpen &&
+                !isWidgetPickerOpen &&
+                !searchUiState.isSearchVisible &&
+                openFolderItem == null
+
+    val activeHomeTriggers =
+        if (canHandleHomeBackgroundGestures) {
+            enabledHomeTriggers
+        } else {
+            emptySet()
+        }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -96,13 +111,7 @@ fun LauncherScreen(
         HomeSurface(
             pinnedItems = pinnedItems,
             actions = actions,
-            canOpenDrawerFromSwipe =
-                isHomeSwipeEnabled &&
-                !isHomescreenMenuOpen &&
-                    !isAppDrawerOpen &&
-                    !isWidgetPickerOpen &&
-                    !searchUiState.isSearchVisible &&
-                    openFolderItem == null,
+            enabledHomeTriggers = activeHomeTriggers,
             onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
             onItemBoundsMeasured = { itemId, boundsInWindow ->
                 homeItemBoundsById[itemId] = boundsInWindow
@@ -208,24 +217,39 @@ private fun HomescreenMenu(
 private fun HomeSurface(
     pinnedItems: List<HomeItem>,
     actions: LauncherActions,
-    canOpenDrawerFromSwipe: Boolean,
+    enabledHomeTriggers: Set<LauncherTrigger>,
     onMenuAnchorChanged: (Offset) -> Unit,
     onItemBoundsMeasured: (String, Rect) -> Unit,
     widgetHostManager: WidgetHostManager?,
     modifier: Modifier = Modifier
 ) {
+    val enabledDirectionalTriggers = enabledHomeTriggers.filterTo(linkedSetOf()) { trigger ->
+        trigger.metadata.kind == LauncherGestureKind.SWIPE
+    }
+
     DraggablePinnedItemsGrid(
         items = pinnedItems,
         onItemClick = actions.home.onPinnedItemClick,
         onItemLongPress = actions.home.onPinnedItemLongPress,
         onItemMove = actions.home.onPinnedItemMove,
-        backgroundGestures = HomeBackgroundGestureBindings(
-            onEmptyAreaTap = actions.home.onHomeTap,
+        backgroundGestures = com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings(
+            configuredTriggers = enabledHomeTriggers,
+            onEmptyAreaTap =
+                if (LauncherTrigger.HOME_TAP in enabledHomeTriggers) {
+                    { actions.home.onHomeTrigger(LauncherTrigger.HOME_TAP) }
+                } else {
+                    null
+                },
             onEmptyAreaLongPress = { touchOffset ->
                 onMenuAnchorChanged(touchOffset)
                 actions.menu.onHomescreenMenuOpenChange(true)
             },
-            onSwipeUp = if (canOpenDrawerFromSwipe) actions.home.onHomeSwipeUp else null
+            onTrigger =
+                if (enabledDirectionalTriggers.isNotEmpty()) {
+                    actions.home.onHomeTrigger
+                } else {
+                    null
+                }
         ),
         onItemDroppedToHome = { item, position ->
             actions.home.onItemDroppedToHome(item, position)
@@ -319,6 +343,7 @@ private fun WidgetPickerHost(
     widgetActions: WidgetActions
 ) {
     if (widgetPickerCatalogStore == null) return
+
     ManagedLauncherSheet(
         isOpen = isWidgetPickerOpen,
         sheetState = widgetPickerSheetState,

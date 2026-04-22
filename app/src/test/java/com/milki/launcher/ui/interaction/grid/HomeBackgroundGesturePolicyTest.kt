@@ -1,6 +1,7 @@
 package com.milki.launcher.ui.interaction.grid
 
 import androidx.compose.ui.geometry.Offset
+import com.milki.launcher.domain.model.LauncherTrigger
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,10 +12,64 @@ class HomeBackgroundGesturePolicyTest {
     fun background_gesture_tracks_even_on_occupied_cells_when_interactions_are_idle() {
         val policy = HomeBackgroundGesturePolicy(
             canStartBackgroundGesture = true,
-            canSwipeUp = true
+            enabledTriggers = setOf(LauncherTrigger.HOME_SWIPE_UP)
         )
 
         assertTrue(policy.shouldTrackGesture())
+        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
+        assertFalse(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
+    }
+
+    @Test
+    fun policy_reports_enabled_trigger_membership() {
+        val policy = HomeBackgroundGesturePolicy(
+            canStartBackgroundGesture = true,
+            enabledTriggers = setOf(
+                LauncherTrigger.HOME_SWIPE_UP,
+                LauncherTrigger.HOME_SWIPE_DOWN
+            )
+        )
+
+        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
+        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
+        assertFalse(policy.isEnabled(LauncherTrigger.HOME_TAP))
+    }
+
+    @Test
+    fun bindings_expose_supported_triggers_from_callbacks() {
+        val bindings = HomeBackgroundGestureBindings(
+            onEmptyAreaTap = {},
+            onTrigger = {},
+            configuredTriggers = setOf(
+                LauncherTrigger.HOME_TAP,
+                LauncherTrigger.HOME_SWIPE_UP,
+                LauncherTrigger.HOME_SWIPE_DOWN
+            )
+        )
+
+        val enabledTriggers = bindings.enabledTriggers()
+
+        assertTrue(LauncherTrigger.HOME_TAP in enabledTriggers)
+        assertTrue(LauncherTrigger.HOME_SWIPE_UP in enabledTriggers)
+        assertTrue(LauncherTrigger.HOME_SWIPE_DOWN in enabledTriggers)
+    }
+
+    @Test
+    fun bindings_without_trigger_callback_only_enable_tap() {
+        val bindings = HomeBackgroundGestureBindings(
+            onEmptyAreaTap = {},
+            configuredTriggers = setOf(
+                LauncherTrigger.HOME_TAP,
+                LauncherTrigger.HOME_SWIPE_UP,
+                LauncherTrigger.HOME_SWIPE_DOWN
+            )
+        )
+
+        val enabledTriggers = bindings.enabledTriggers()
+
+        assertTrue(LauncherTrigger.HOME_TAP in enabledTriggers)
+        assertFalse(LauncherTrigger.HOME_SWIPE_UP in enabledTriggers)
+        assertFalse(LauncherTrigger.HOME_SWIPE_DOWN in enabledTriggers)
     }
 
     @Test
@@ -23,9 +78,24 @@ class HomeBackgroundGesturePolicyTest {
         val tooDiagonal = Offset(x = 120f, y = -140f)
         val tooShort = Offset(x = 0f, y = -48f)
 
-        assertTrue(swipe.isSwipeUpGesture(minimumDistancePx = 80f))
-        assertFalse(tooDiagonal.isSwipeUpGesture(minimumDistancePx = 80f))
-        assertFalse(tooShort.isSwipeUpGesture(minimumDistancePx = 80f))
+        assertTrue(
+            swipe.matchesTriggerDirection(
+                trigger = LauncherTrigger.HOME_SWIPE_UP,
+                minimumDistancePx = 80f
+            )
+        )
+        assertFalse(
+            tooDiagonal.matchesTriggerDirection(
+                trigger = LauncherTrigger.HOME_SWIPE_UP,
+                minimumDistancePx = 80f
+            )
+        )
+        assertFalse(
+            tooShort.matchesTriggerDirection(
+                trigger = LauncherTrigger.HOME_SWIPE_UP,
+                minimumDistancePx = 80f
+            )
+        )
     }
 
     @Test
@@ -34,9 +104,24 @@ class HomeBackgroundGesturePolicyTest {
         val tooDiagonal = Offset(x = 120f, y = 140f)
         val tooShort = Offset(x = 0f, y = 48f)
 
-        assertTrue(swipe.isSwipeDownGesture(minimumDistancePx = 80f))
-        assertFalse(tooDiagonal.isSwipeDownGesture(minimumDistancePx = 80f))
-        assertFalse(tooShort.isSwipeDownGesture(minimumDistancePx = 80f))
+        assertTrue(
+            swipe.matchesTriggerDirection(
+                trigger = LauncherTrigger.HOME_SWIPE_DOWN,
+                minimumDistancePx = 80f
+            )
+        )
+        assertFalse(
+            tooDiagonal.matchesTriggerDirection(
+                trigger = LauncherTrigger.HOME_SWIPE_DOWN,
+                minimumDistancePx = 80f
+            )
+        )
+        assertFalse(
+            tooShort.matchesTriggerDirection(
+                trigger = LauncherTrigger.HOME_SWIPE_DOWN,
+                minimumDistancePx = 80f
+            )
+        )
     }
 
     @Test
