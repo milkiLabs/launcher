@@ -10,6 +10,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Build
 import android.provider.Settings
+import kotlinx.coroutines.CompletableDeferred
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
@@ -53,6 +54,15 @@ class SettingsActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModel()
 
     private var isDefaultLauncher by mutableStateOf(false)
+    private var pendingImportWidgetPermissionResult: CompletableDeferred<Boolean>? = null
+
+    private val requestImportWidgetBindPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            pendingImportWidgetPermissionResult
+                ?.takeIf { !it.isCompleted }
+                ?.complete(result.resultCode == RESULT_OK)
+            pendingImportWidgetPermissionResult = null
+        }
 
     private val exportBackupLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -64,12 +74,21 @@ class SettingsActivity : ComponentActivity() {
     private val importBackupLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
                 grantUriPermission(
                     packageName,
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-                settingsViewModel.importBackup(uri)
+                settingsViewModel.importBackup(uri) { _, bindIntent ->
+                    val deferred = CompletableDeferred<Boolean>()
+                    pendingImportWidgetPermissionResult = deferred
+                    requestImportWidgetBindPermissionLauncher.launch(bindIntent)
+                    deferred.await()
+                }
             }
         }
 
@@ -78,7 +97,7 @@ class SettingsActivity : ComponentActivity() {
             val roleManager = homeRoleManagerOrNull()
             val granted =
                 result.resultCode == RESULT_OK ||
-                    (roleManager?.isRoleHeld(RoleManager.ROLE_HOME) == true)
+                        (roleManager?.isRoleHeld(RoleManager.ROLE_HOME) == true)
             if (!granted) {
                 openDefaultLauncherSettingsFallback()
             }
@@ -162,7 +181,7 @@ class SettingsActivity : ComponentActivity() {
         val roleManager = homeRoleManagerOrNull() ?: return false
         val canRequestHomeRole =
             roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
-                !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
+                    !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
         if (!canRequestHomeRole) {
             return false
         }
@@ -202,4 +221,6 @@ class SettingsActivity : ComponentActivity() {
             true
         }.getOrDefault(false)
     }
+
+
 }

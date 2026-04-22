@@ -12,6 +12,7 @@
 
 package com.milki.launcher.presentation.settings
 
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -211,6 +212,7 @@ class SettingsViewModel(
                 onValidationResult(PREFIX_ERROR_EMPTY)
                 return
             }
+
             normalizedPrefix.contains(" ") -> {
                 onValidationResult(PREFIX_ERROR_SPACES)
                 return
@@ -268,7 +270,7 @@ class SettingsViewModel(
      * This replaces all existing prefixes for the provider with the new list.
      * The first prefix in the list is considered the "primary" prefix for display.
      *
-    * @param providerId The provider ID (contacts/files)
+     * @param providerId The provider ID (contacts/files)
      * @param prefixes List of prefixes to set for this provider
      */
     fun setProviderPrefixes(
@@ -379,9 +381,15 @@ class SettingsViewModel(
         }
     }
 
-    fun importBackup(sourceUri: Uri) {
+    fun importBackup(
+        sourceUri: Uri,
+        onWidgetBindPermissionRequested: suspend (appWidgetId: Int, intent: Intent) -> Boolean
+    ) {
         viewModelScope.launch {
-            val result = launcherBackupRepository.importFromUri(sourceUri)
+            val result = launcherBackupRepository.importFromUri(
+                uri = sourceUri,
+                onWidgetBindPermissionRequested = onWidgetBindPermissionRequested
+            )
             _lastImportReport.value = result
             _backupStatusMessage.value = result.toUiMessage()
         }
