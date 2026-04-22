@@ -118,6 +118,7 @@ enum class LauncherTriggerAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
     OPEN_APP_DRAWER("Open app drawer"),
     OPEN_NOTIFICATION_SHADE("Open notification shade"),
+    LOCK_SCREEN("Lock screen"),
     DO_NOTHING("Do nothing")
 }
 
@@ -137,7 +138,7 @@ object LauncherInteractionCatalog {
     fun defaultActionFor(trigger: LauncherTrigger): LauncherTriggerAction {
         return when (trigger) {
             LauncherTrigger.HOME_TAP -> LauncherTriggerAction.DO_NOTHING
-            LauncherTrigger.HOME_DOUBLE_TAP -> LauncherTriggerAction.DO_NOTHING
+            LauncherTrigger.HOME_DOUBLE_TAP -> LauncherTriggerAction.LOCK_SCREEN
             LauncherTrigger.HOME_SWIPE_UP -> LauncherTriggerAction.OPEN_APP_DRAWER
             LauncherTrigger.HOME_SWIPE_DOWN -> LauncherTriggerAction.OPEN_NOTIFICATION_SHADE
         }

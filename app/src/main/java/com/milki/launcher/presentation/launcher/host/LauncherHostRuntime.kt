@@ -20,6 +20,7 @@ import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.launcher.PermissionRequestCoordinator
 import com.milki.launcher.presentation.launcher.PinShortcutRequestCoordinator
 import com.milki.launcher.presentation.launcher.NotificationShadeController
+import com.milki.launcher.presentation.launcher.ScreenLockController
 import com.milki.launcher.presentation.launcher.SurfaceStateCoordinator
 import com.milki.launcher.presentation.launcher.WidgetPlacementCoordinator
 import com.milki.launcher.presentation.search.ActionExecutor
@@ -68,6 +69,8 @@ internal class LauncherHostRuntime(
         NotificationShadeController(activity)
     }
 
+    private val screenLockController = ScreenLockController(activity)
+
     val surfaceStateCoordinator = SurfaceStateCoordinator(
         showSearch = { searchViewModelProvider().showSearch() },
         hideSearch = { searchViewModelProvider().hideSearch() },
@@ -76,6 +79,9 @@ internal class LauncherHostRuntime(
         closeFolder = { homeViewModel.closeFolder() },
         openNotificationShade = {
             notificationShadeController.expand()
+        },
+        lockScreen = {
+            screenLockController.lock()
         },
         onAppDrawerVisibilityChanged = { isVisible ->
             appDrawerViewModelProvider().setDrawerVisible(isVisible)

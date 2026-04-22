@@ -19,6 +19,7 @@ class SurfaceStateCoordinator(
     private val isFolderOpen: () -> Boolean,
     private val closeFolder: () -> Unit,
     private val openNotificationShade: () -> Unit = {},
+    private val lockScreen: () -> Unit = {},
     private val onAppDrawerVisibilityChanged: (Boolean) -> Unit = {}
 ) {
     private var wasResumed = false
@@ -97,6 +98,12 @@ class SurfaceStateCoordinator(
                 dismissContextMenus()
                 closeTransientSurfaces(keepSearch = false)
                 openNotificationShade()
+            }
+
+            LauncherTriggerAction.LOCK_SCREEN -> {
+                dismissContextMenus()
+                closeTransientSurfaces(keepSearch = false)
+                lockScreen()
             }
 
             LauncherTriggerAction.DO_NOTHING -> Unit

@@ -104,6 +104,20 @@
             android:launchMode="singleTop"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.Launcher" />
+
+        <!-- Device Admin receiver for screen lock via DevicePolicyManager.lockNow() -->
+        <receiver
+            android:name=".core.deviceadmin.LauncherDeviceAdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_receiver" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
     </application>
+
 
 </manifest>
