@@ -2,11 +2,7 @@ package com.milki.launcher.presentation.launcher
 
 import android.content.Context
 
-/**
- * Best-effort bridge for expanding the system notification shade from launcher.
- *
- * Some devices/ROMs block this hidden platform API for regular apps.
- */
+
 internal class NotificationShadeController(
     private val context: Context
 ) {

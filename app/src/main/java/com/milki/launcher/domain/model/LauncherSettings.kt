@@ -88,6 +88,12 @@ enum class LauncherTrigger(
             kind = LauncherGestureKind.TAP
         )
     ),
+    HOME_DOUBLE_TAP(
+        displayName = "Homescreen double tap",
+        metadata = LauncherTriggerMetadata(
+            kind = LauncherGestureKind.TAP
+        )
+    ),
     HOME_SWIPE_UP(
         displayName = "Swipe up",
         metadata = LauncherTriggerMetadata(
@@ -131,6 +137,7 @@ object LauncherInteractionCatalog {
     fun defaultActionFor(trigger: LauncherTrigger): LauncherTriggerAction {
         return when (trigger) {
             LauncherTrigger.HOME_TAP -> LauncherTriggerAction.DO_NOTHING
+            LauncherTrigger.HOME_DOUBLE_TAP -> LauncherTriggerAction.DO_NOTHING
             LauncherTrigger.HOME_SWIPE_UP -> LauncherTriggerAction.OPEN_APP_DRAWER
             LauncherTrigger.HOME_SWIPE_DOWN -> LauncherTriggerAction.OPEN_NOTIFICATION_SHADE
         }

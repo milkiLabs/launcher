@@ -11,6 +11,10 @@ import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.ui.components.launcher.findOccupantAt
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 private enum class BackgroundGestureOutcome {
@@ -19,6 +23,11 @@ private enum class BackgroundGestureOutcome {
     Moved,
     Cancelled
 }
+
+private data class PendingTap(
+    val position: Offset,
+    val uptimeMillis: Long
+)
 
 internal fun Modifier.detectHomeBackgroundGestures(
     key: Any? = null,
@@ -29,45 +38,119 @@ internal fun Modifier.detectHomeBackgroundGestures(
     bindings: HomeBackgroundGestureBindings
 ): Modifier {
     return pointerInput(key, items, layoutMetrics, policy, gestureThresholdPx, bindings) {
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false)
-            val pressedCell = layoutMetrics.pixelToCell(down.position)
-            val startCellOccupied = items.findOccupantAt(pressedCell) != null
+        coroutineScope {
+            var pendingTap: PendingTap? = null
+            var pendingTapJob: Job? = null
 
-            if (!policy.canStartBackgroundGesture) {
-                return@awaitEachGesture
+            fun clearPendingTap() {
+                pendingTapJob?.cancel()
+                pendingTapJob = null
+                pendingTap = null
             }
 
-            val outcome = awaitBackgroundGestureOutcome(
-                pointerId = down.id,
-                startPosition = down.position,
-                touchSlopPx = viewConfiguration.touchSlop,
-                gestureThresholdPx = gestureThresholdPx,
-                longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
-                policy = policy,
-                bindings = bindings
-            )
+            fun flushPendingTapAsSingleTap() {
+                if (pendingTap == null) return
+                bindings.invoke(LauncherTrigger.HOME_TAP)
+                clearPendingTap()
+            }
 
-            when (outcome) {
-                null -> {
-                    if (!startCellOccupied) {
-                        bindings.onEmptyAreaLongPress(down.position)
-                    }
-                    awaitPointerUp(pointerId = down.id)
-                }
-
-                BackgroundGestureOutcome.Triggered -> {
-                    consumeUntilPointerUp(pointerId = down.id)
-                }
-
-                BackgroundGestureOutcome.Released -> {
-                    if (!startCellOccupied) {
+            fun schedulePendingTapResolution(
+                tap: PendingTap,
+                timeoutMillis: Long
+            ) {
+                clearPendingTap()
+                pendingTap = tap
+                pendingTapJob = launch {
+                    delay(timeoutMillis)
+                    if (pendingTap == tap) {
                         bindings.invoke(LauncherTrigger.HOME_TAP)
+                        clearPendingTap()
                     }
                 }
+            }
 
-                BackgroundGestureOutcome.Moved,
-                BackgroundGestureOutcome.Cancelled -> Unit
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val pressedCell = layoutMetrics.pixelToCell(down.position)
+                val startCellOccupied = items.findOccupantAt(pressedCell) != null
+
+                if (!policy.canStartBackgroundGesture) {
+                    return@awaitEachGesture
+                }
+
+                val supportsDoubleTap = LauncherTrigger.HOME_DOUBLE_TAP in policy.enabledTriggers
+                val doubleTapTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis
+                val doubleTapSlopPx = viewConfiguration.touchSlop * 2f
+                val secondTapCandidate = pendingTap?.let { pending ->
+                    val elapsedMillis = down.uptimeMillis - pending.uptimeMillis
+                    val delta = down.position - pending.position
+                    val withinTapDistance =
+                        (delta.x * delta.x) + (delta.y * delta.y) <= (doubleTapSlopPx * doubleTapSlopPx)
+                    val canUseAsSecondTap =
+                        supportsDoubleTap &&
+                                !startCellOccupied &&
+                                elapsedMillis >= 0L &&
+                                elapsedMillis <= doubleTapTimeoutMillis &&
+                                withinTapDistance
+
+                    if (canUseAsSecondTap) {
+                        clearPendingTap()
+                        true
+                    } else {
+                        flushPendingTapAsSingleTap()
+                        false
+                    }
+                } ?: false
+
+                val outcome = awaitBackgroundGestureOutcome(
+                    pointerId = down.id,
+                    startPosition = down.position,
+                    touchSlopPx = viewConfiguration.touchSlop,
+                    gestureThresholdPx = gestureThresholdPx,
+                    longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
+                    policy = policy,
+                    bindings = bindings
+                )
+
+                when (outcome) {
+                    null -> {
+                        if (!startCellOccupied) {
+                            bindings.onEmptyAreaLongPress(down.position)
+                        }
+                        awaitPointerUp(pointerId = down.id)
+                    }
+
+                    BackgroundGestureOutcome.Triggered -> {
+                        consumeUntilPointerUp(pointerId = down.id)
+                    }
+
+                    BackgroundGestureOutcome.Released -> {
+                        if (!startCellOccupied) {
+                            if (supportsDoubleTap) {
+                                if (secondTapCandidate) {
+                                    bindings.invoke(LauncherTrigger.HOME_DOUBLE_TAP)
+                                } else {
+                                    schedulePendingTapResolution(
+                                        tap = PendingTap(
+                                        position = down.position,
+                                        uptimeMillis = down.uptimeMillis
+                                        ),
+                                        timeoutMillis = doubleTapTimeoutMillis
+                                    )
+                                }
+                            } else {
+                                bindings.invoke(LauncherTrigger.HOME_TAP)
+                            }
+                        }
+                    }
+
+                    BackgroundGestureOutcome.Moved,
+                    BackgroundGestureOutcome.Cancelled -> Unit
+                }
+
+                if (secondTapCandidate && outcome != BackgroundGestureOutcome.Released) {
+                    bindings.invoke(LauncherTrigger.HOME_TAP)
+                }
             }
         }
     }

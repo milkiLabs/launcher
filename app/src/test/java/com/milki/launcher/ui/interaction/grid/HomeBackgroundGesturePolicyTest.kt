@@ -73,6 +73,24 @@ class HomeBackgroundGesturePolicyTest {
     }
 
     @Test
+    fun double_tap_requires_dedicated_double_tap_callback() {
+        val withoutDoubleTapCallback = HomeBackgroundGestureBindings(
+            onEmptyAreaTap = {},
+            onTrigger = {},
+            configuredTriggers = setOf(LauncherTrigger.HOME_DOUBLE_TAP)
+        )
+        val withDoubleTapCallback = HomeBackgroundGestureBindings(
+            onEmptyAreaTap = {},
+            onEmptyAreaDoubleTap = {},
+            onTrigger = {},
+            configuredTriggers = setOf(LauncherTrigger.HOME_DOUBLE_TAP)
+        )
+
+        assertFalse(LauncherTrigger.HOME_DOUBLE_TAP in withoutDoubleTapCallback.enabledTriggers())
+        assertTrue(LauncherTrigger.HOME_DOUBLE_TAP in withDoubleTapCallback.enabledTriggers())
+    }
+
+    @Test
     fun swipe_up_requires_clear_upward_and_vertical_motion() {
         val swipe = Offset(x = 18f, y = -140f)
         val tooDiagonal = Offset(x = 120f, y = -140f)

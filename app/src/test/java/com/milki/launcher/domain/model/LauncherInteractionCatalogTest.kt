@@ -48,6 +48,14 @@ class LauncherInteractionCatalogTest {
 
         assertEquals(
             LauncherTriggerMetadata(
+                kind = LauncherGestureKind.TAP,
+                direction = null
+            ),
+            LauncherTrigger.HOME_DOUBLE_TAP.metadata
+        )
+
+        assertEquals(
+            LauncherTriggerMetadata(
                 kind = LauncherGestureKind.SWIPE,
                 direction = LauncherGestureDirection.UP
             ),
@@ -68,6 +76,10 @@ class LauncherInteractionCatalogTest {
         assertEquals(
             LauncherTriggerAction.DO_NOTHING,
             LauncherInteractionCatalog.defaultActionFor(LauncherTrigger.HOME_TAP)
+        )
+        assertEquals(
+            LauncherTriggerAction.DO_NOTHING,
+            LauncherInteractionCatalog.defaultActionFor(LauncherTrigger.HOME_DOUBLE_TAP)
         )
         assertEquals(
             LauncherTriggerAction.OPEN_APP_DRAWER,

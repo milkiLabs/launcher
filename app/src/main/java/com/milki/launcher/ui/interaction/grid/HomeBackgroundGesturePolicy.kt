@@ -35,6 +35,7 @@ internal data class HomeBackgroundGesturePolicy(
  */
 data class HomeBackgroundGestureBindings(
     val onEmptyAreaTap: (() -> Unit)? = null,
+    val onEmptyAreaDoubleTap: (() -> Unit)? = null,
     val onEmptyAreaLongPress: (Offset) -> Unit = {},
     val onTrigger: ((LauncherTrigger) -> Unit)? = null,
     val configuredTriggers: Set<LauncherTrigger> = emptySet()
@@ -44,16 +45,18 @@ data class HomeBackgroundGestureBindings(
             return false
         }
 
-        return when (trigger.metadata.kind) {
-            LauncherGestureKind.TAP -> onEmptyAreaTap != null
-            LauncherGestureKind.SWIPE -> onTrigger != null
+        return when (trigger) {
+            LauncherTrigger.HOME_TAP -> onEmptyAreaTap != null
+            LauncherTrigger.HOME_DOUBLE_TAP -> onEmptyAreaDoubleTap != null
+            else -> onTrigger != null
         }
     }
 
     fun invoke(trigger: LauncherTrigger) {
-        when (trigger.metadata.kind) {
-            LauncherGestureKind.TAP -> onEmptyAreaTap?.invoke()
-            LauncherGestureKind.SWIPE -> onTrigger?.invoke(trigger)
+        when (trigger) {
+            LauncherTrigger.HOME_TAP -> onEmptyAreaTap?.invoke()
+            LauncherTrigger.HOME_DOUBLE_TAP -> onEmptyAreaDoubleTap?.invoke()
+            else -> onTrigger?.invoke(trigger)
         }
     }
 

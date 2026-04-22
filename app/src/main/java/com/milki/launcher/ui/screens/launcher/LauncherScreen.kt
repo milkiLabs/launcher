@@ -240,6 +240,12 @@ private fun HomeSurface(
                 } else {
                     null
                 },
+            onEmptyAreaDoubleTap =
+                if (LauncherTrigger.HOME_DOUBLE_TAP in enabledHomeTriggers) {
+                    { actions.home.onHomeTrigger(LauncherTrigger.HOME_DOUBLE_TAP) }
+                } else {
+                    null
+                },
             onEmptyAreaLongPress = { touchOffset ->
                 onMenuAnchorChanged(touchOffset)
                 actions.menu.onHomescreenMenuOpenChange(true)
