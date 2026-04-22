@@ -5,11 +5,8 @@
 package com.milki.launcher.app.activity
 
 import android.app.Activity.RESULT_OK
-import android.app.role.RoleManager
 import android.content.Intent
 import android.os.Bundle
-import android.os.Build
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -21,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.core.launcher.isAppDefaultLauncher
+import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
+import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
 import com.milki.launcher.core.launcher.syncLauncherIconVisibility
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsActions
@@ -88,10 +87,9 @@ class SettingsActivity : ComponentActivity() {
 
     private val requestHomeRoleLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val roleManager = homeRoleManagerOrNull()
             val granted =
                 result.resultCode == RESULT_OK ||
-                        (roleManager?.isRoleHeld(RoleManager.ROLE_HOME) == true)
+                        isAppDefaultLauncher(this)
             if (!granted) {
                 openDefaultLauncherSettingsFallback()
             }
@@ -172,48 +170,7 @@ class SettingsActivity : ComponentActivity() {
     }
 
     private fun launchHomeRoleRequestIfNeeded(): Boolean {
-        val roleManager = homeRoleManagerOrNull() ?: return false
-        val canRequestHomeRole =
-            roleManager.isRoleAvailable(RoleManager.ROLE_HOME) &&
-                    !roleManager.isRoleHeld(RoleManager.ROLE_HOME)
-        if (!canRequestHomeRole) {
-            return false
-        }
-
-        return runCatching {
-            requestHomeRoleLauncher.launch(
-                roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME)
-            )
-            true
-        }.getOrDefault(false)
-    }
-
-    private fun homeRoleManagerOrNull(): RoleManager? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            return null
-        }
-        return getSystemService(RoleManager::class.java)
-    }
-
-    private fun openDefaultLauncherSettingsFallback() {
-        if (tryStartActivity(Intent(Settings.ACTION_HOME_SETTINGS))) {
-            return
-        }
-
-        if (tryStartActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))) {
-            return
-        }
-
-        tryStartActivity(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-        )
-    }
-
-    private fun tryStartActivity(intent: Intent): Boolean {
-        return runCatching {
-            startActivity(intent)
-            true
-        }.getOrDefault(false)
+        return launchHomeRoleRequestIfNeeded(requestHomeRoleLauncher)
     }
 
     private suspend fun awaitActivityResult(

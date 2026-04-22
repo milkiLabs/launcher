@@ -1,9 +1,17 @@
 package com.milki.launcher.app.activity
 
+import android.app.Activity.RESULT_OK
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.milki.launcher.core.launcher.isAppDefaultLauncher
+import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
+import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
 import com.milki.launcher.core.launcher.syncLauncherIconVisibility
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetHostManager
@@ -48,6 +56,19 @@ class MainActivity : ComponentActivity() {
     private val widgetPickerCatalogStore: WidgetPickerCatalogStore by inject()
 
     private lateinit var runtime: LauncherHostRuntime
+    private var showSetDefaultLauncherPrompt by mutableStateOf(false)
+    private var hasPromptedForDefaultInForegroundSession = false
+
+    private val requestHomeRoleLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val granted =
+                result.resultCode == RESULT_OK ||
+                        isAppDefaultLauncher(this)
+            if (!granted) {
+                openDefaultLauncherSettingsFallback()
+            }
+            refreshDefaultLauncherPromptState()
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +95,11 @@ class MainActivity : ComponentActivity() {
                     LauncherRootContent(
                         runtime = runtime,
                         onOpenSettings = ::openSettings,
+                        showSetDefaultLauncherPrompt = showSetDefaultLauncherPrompt,
+                        onSetDefaultLauncher = ::setAsDefaultLauncher,
+                        onDismissSetDefaultLauncherPrompt = {
+                            showSetDefaultLauncherPrompt = false
+                        },
                         searchViewModelProvider = { searchViewModel },
                         homeViewModel = homeViewModel,
                         appDrawerViewModelProvider = { appDrawerViewModel },
@@ -89,6 +115,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         syncLauncherIconVisibility(this)
+        refreshDefaultLauncherPromptState()
         runtime.onResume()
     }
 
@@ -99,6 +126,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        hasPromptedForDefaultInForegroundSession = false
         runtime.onStart()
     }
 
@@ -126,5 +154,26 @@ class MainActivity : ComponentActivity() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(settingsIntent)
+    }
+
+    private fun setAsDefaultLauncher() {
+        showSetDefaultLauncherPrompt = false
+        if (launchHomeRoleRequestIfNeeded(requestHomeRoleLauncher)) {
+            return
+        }
+
+        openDefaultLauncherSettingsFallback()
+    }
+
+    private fun refreshDefaultLauncherPromptState() {
+        if (isAppDefaultLauncher(this)) {
+            showSetDefaultLauncherPrompt = false
+            return
+        }
+
+        if (!hasPromptedForDefaultInForegroundSession) {
+            hasPromptedForDefaultInForegroundSession = true
+            showSetDefaultLauncherPrompt = true
+        }
     }
 }

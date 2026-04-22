@@ -2,6 +2,10 @@ package com.milki.launcher.presentation.launcher.host
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +58,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 internal fun LauncherRootContent(
     runtime: LauncherHostRuntime,
     onOpenSettings: () -> Unit,
+    showSetDefaultLauncherPrompt: Boolean,
+    onSetDefaultLauncher: () -> Unit,
+    onDismissSetDefaultLauncherPrompt: () -> Unit,
     searchViewModelProvider: () -> SearchViewModel,
     homeViewModel: HomeViewModel,
     appDrawerViewModelProvider: () -> AppDrawerViewModel,
@@ -222,6 +229,32 @@ internal fun LauncherRootContent(
                 widgetHostManager = widgetHostManager,
                 widgetPickerCatalogStore = widgetPickerCatalogStore
             )
+
+            if (showSetDefaultLauncherPrompt) {
+                AlertDialog(
+                    onDismissRequest = onDismissSetDefaultLauncherPrompt,
+                    title = { Text("Set as default launcher") },
+                    text = {
+                        Text(
+                            "Milki works best when it is your default Home app. " +
+                                    "Set it as default now?"
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = onSetDefaultLauncher) {
+                            Text("Set default")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onDismissSetDefaultLauncherPrompt) {
+                            Text(
+                                text = "Not now",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                )
+            }
         }
     }
 }
