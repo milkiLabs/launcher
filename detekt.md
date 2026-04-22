@@ -14,9 +14,9 @@ The goal is not to "make the baseline disappear at any cost". The goal is:
 
 ## Current Snapshot
 
-Snapshot taken after the first cleanup pass on 2026-04-22.
+Snapshot refreshed after multiple cleanup passes on 2026-04-22.
 
-- `config/detekt/app-baseline.xml`: 233 findings remaining
+- `config/detekt/app-baseline.xml`: 158 findings remaining
 - `config/detekt/baselineprofile-baseline.xml`: empty
 - `baselineprofile` should now be treated as "clean by default"
 
@@ -40,9 +40,8 @@ Verification:
 
 Important:
 
-- The counts below are still the pre-regeneration snapshot.
-- Do not regenerate `config/detekt/*baseline.xml` until the unrelated compile issue is resolved and the owner is ready to refresh the baselines.
-- Treat `HomeModelWriter.kt` as "done pending baseline regeneration", not as an active starting point for the next batch.
+- This historical note reflects the earlier state before the compile blocker was fixed.
+- `HomeModelWriter.kt` should still be treated as completed work, not as the next starting point.
 
 ## Status Update (2026-04-22, later pass)
 
@@ -74,41 +73,40 @@ Important:
 - If compile/test starts failing with cache-registration errors, retry with:
   - `./gradlew --stop`
   - `./gradlew -Dkotlin.compiler.execution.strategy=in-process ...`
-- Baselines still have not been regenerated in this file's snapshot. Do that only after the current cleanup streak is ready to be recorded in XML.
+- Baselines were regenerated later on 2026-04-22 after compile, Detekt, and targeted tests were green.
+- A follow-up regeneration after the remaining file renames brought the count down again.
 
 ### Remaining Findings By Rule
 
-- `ReturnCount`: 73
-- `MagicNumber`: 65
-- `LongMethod`: 33
-- `MaxLineLength`: 18
-- `CyclomaticComplexMethod`: 11
-- `TooGenericExceptionCaught`: 7
-- `MatchingDeclarationName`: 6
-- `TooManyFunctions`: 6
-- `SwallowedException`: 4
-- `UnusedParameter`: 4
+- `ReturnCount`: 51
+- `MagicNumber`: 38
+- `LongMethod`: 30
+- `MaxLineLength`: 13
+- `CyclomaticComplexMethod`: 9
+- `TooGenericExceptionCaught`: 6
+- `TooManyFunctions`: 5
+- `SwallowedException`: 3
 - `ComplexCondition`: 2
-- `LoopWithTooManyJumpStatements`: 2
-- `ForbiddenComment`: 1
-- `VariableNaming`: 1
+- `LoopWithTooManyJumpStatements`: 1
 
 ### Main Hotspot Files
 
 These files give the biggest payoff because they contain multiple findings each:
 
-- `HomeModelWriter.kt`: 15 in the pre-regeneration snapshot, but the cleanup batch landed on 2026-04-22
-- `PinnedItem.kt`: 12
-- `ExternalHomeDropDispatcher.kt`: 11 in the pre-regeneration snapshot, but the first dispatcher cleanup batch landed on 2026-04-22
-- `FolderIcon.kt`: 8
-- `AppSearchDialog.kt`: 7 in the pre-regeneration snapshot, but the compile blocker and part of its cleanup batch landed on 2026-04-22
-- `SettingsSourceEditorComponents.kt`: 7
 - `WidgetOverlayLayer.kt`: 7
-- `ContactsQueryLayer.kt`: 6 in the pre-regeneration snapshot, but the first query-layer cleanup batch landed on 2026-04-22
-- `FolderPopupDialogSupport.kt`: 6
-- `SearchProviderVisuals.kt`: 6
+- `SettingsSourceEditorComponents.kt`: 7
 - `WidgetHostManager.kt`: 6
 - `SettingsMutationStore.kt`: 6
+- `FolderPopupDialogSupport.kt`: 6
+- `HomeScreenWidgetView.kt`: 5
+- `ExternalDragPayloadCodec.kt`: 5
+- `AppDrawerOverlay.kt`: 5
+- `WidgetPickerBottomSheet.kt`: 4
+- `LauncherSheet.kt`: 4
+- `ItemActionMenu.kt`: 4
+- `FilesRepositoryImpl.kt`: 4
+- `DropHighlightLayer.kt`: 4
+- `DraggablePinnedItemsGridLayers.kt`: 4
 - `ExternalHomeDropDispatcher.kt`: 11 in the pre-regeneration snapshot, but the first dispatcher cleanup batch landed on 2026-04-22
 
 ## Core Working Rules

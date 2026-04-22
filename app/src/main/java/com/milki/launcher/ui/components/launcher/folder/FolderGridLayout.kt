@@ -2,6 +2,14 @@ package com.milki.launcher.ui.components.launcher.folder
 
 import kotlin.math.ceil
 
+private const val SINGLE_ITEM_COUNT = 1
+private const val TWO_COLUMN_LAYOUT_ITEM_LIMIT = 6
+private const val TWO_COLUMN_LAYOUT_COLUMNS = 2
+private const val TWO_COLUMN_LAYOUT_DIVISOR = 2f
+private const val TWO_COLUMN_LAYOUT_MAX_ROWS = 3
+private const val FOLDER_PAGE_SIZE = 9
+private const val THREE_COLUMN_LAYOUT_SIZE = 3
+
 internal data class FolderGridLayout(
     val columns: Int,
     val rows: Int,
@@ -10,31 +18,32 @@ internal data class FolderGridLayout(
 )
 
 internal fun folderGridLayoutForItemCount(itemCount: Int): FolderGridLayout {
-    val safeCount = itemCount.coerceAtLeast(1)
+    val safeCount = itemCount.coerceAtLeast(SINGLE_ITEM_COUNT)
 
     return when {
-        safeCount == 1 -> FolderGridLayout(
-            columns = 1,
-            rows = 1,
-            pageSize = 1,
-            pageCount = 1
+        safeCount == SINGLE_ITEM_COUNT -> FolderGridLayout(
+            columns = SINGLE_ITEM_COUNT,
+            rows = SINGLE_ITEM_COUNT,
+            pageSize = SINGLE_ITEM_COUNT,
+            pageCount = SINGLE_ITEM_COUNT
         )
-        safeCount <= 6 -> {
-            val rows = ceil(safeCount / 2f).toInt().coerceIn(1, 3)
+        safeCount <= TWO_COLUMN_LAYOUT_ITEM_LIMIT -> {
+            val rows = ceil(safeCount / TWO_COLUMN_LAYOUT_DIVISOR)
+                .toInt()
+                .coerceIn(SINGLE_ITEM_COUNT, TWO_COLUMN_LAYOUT_MAX_ROWS)
             FolderGridLayout(
-                columns = 2,
+                columns = TWO_COLUMN_LAYOUT_COLUMNS,
                 rows = rows,
-                pageSize = rows * 2,
-                pageCount = 1
+                pageSize = rows * TWO_COLUMN_LAYOUT_COLUMNS,
+                pageCount = SINGLE_ITEM_COUNT
             )
         }
         else -> {
-            val pageSize = 9
             FolderGridLayout(
-                columns = 3,
-                rows = 3,
-                pageSize = pageSize,
-                pageCount = ceil(safeCount / pageSize.toFloat()).toInt()
+                columns = THREE_COLUMN_LAYOUT_SIZE,
+                rows = THREE_COLUMN_LAYOUT_SIZE,
+                pageSize = FOLDER_PAGE_SIZE,
+                pageCount = ceil(safeCount / FOLDER_PAGE_SIZE.toFloat()).toInt()
             )
         }
     }
@@ -46,7 +55,7 @@ internal fun resolveFolderInsertionIndex(
     slotIndex: Int,
     pageSize: Int
 ): Int {
-    val safePageSize = pageSize.coerceAtLeast(1)
+    val safePageSize = pageSize.coerceAtLeast(SINGLE_ITEM_COUNT)
     val pageStart = (targetPage.coerceAtLeast(0) * safePageSize)
     val itemsOnPage = (totalItemsWithoutDragged - pageStart)
         .coerceAtLeast(0)
@@ -61,7 +70,7 @@ internal fun resolveFolderDropIndex(
     slotIndex: Int,
     pageSize: Int
 ): Int {
-    val safePageSize = pageSize.coerceAtLeast(1)
+    val safePageSize = pageSize.coerceAtLeast(SINGLE_ITEM_COUNT)
     return (targetPage.coerceAtLeast(0) * safePageSize) + slotIndex.coerceAtLeast(0)
 }
 

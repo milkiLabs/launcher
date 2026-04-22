@@ -5,21 +5,16 @@
     <ID>ComplexCondition:LauncherSheet.kt:&lt;no name provided&gt;$source == NestedScrollSource.UserInput &amp;&amp; dismissDragSession.value == DismissDragSession.Undecided &amp;&amp; available.y &gt; 0f &amp;&amp; abs(consumed.y) == 0f</ID>
     <ID>ComplexCondition:LauncherSheet.kt:&lt;no name provided&gt;$source == NestedScrollSource.UserInput &amp;&amp; dismissDragSession.value == DismissDragSession.Undecided &amp;&amp; state.expandedFraction == 1f &amp;&amp; abs(consumed.y) &gt; 0f</ID>
     <ID>CyclomaticComplexMethod:AppDrawerOverlay.kt:@Composable fun AppDrawerOverlay</ID>
-    <ID>CyclomaticComplexMethod:AppSearchDialog.kt:@Composable fun AppSearchDialog</ID>
     <ID>CyclomaticComplexMethod:DraggablePinnedItemsGridLayers.kt:@Composable internal fun InternalGridDragLayer</ID>
     <ID>CyclomaticComplexMethod:DropHighlightLayer.kt:@Composable internal fun DropHighlightLayer</ID>
     <ID>CyclomaticComplexMethod:ExternalAppDragDropCoordinator.kt:DefaultExternalAppDragDropCoordinator$override fun createListener: View.OnDragListener</ID>
     <ID>CyclomaticComplexMethod:ExternalDragPayloadCodec.kt:ExternalDragPayloadCodec$fun decodeDragItem: ExternalDragItem?</ID>
     <ID>CyclomaticComplexMethod:FolderPopupDialog.kt:@Composable fun FolderPopupDialog</ID>
     <ID>CyclomaticComplexMethod:HomeBackgroundGestureDetector.kt:private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome: BackgroundGestureOutcome?</ID>
-    <ID>CyclomaticComplexMethod:HomeModelWriter.kt:HomeModelWriter$fun apply: Result</ID>
     <ID>CyclomaticComplexMethod:HomeScreenWidgetView.kt:WidgetLongPressFrameLayout$override fun dispatchTouchEvent: Boolean</ID>
     <ID>CyclomaticComplexMethod:SettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen</ID>
-    <ID>ForbiddenComment:PermissionHandler.kt:PermissionHandler$* Requests contacts permission from the user. * * The result will be handled by our callback registered in registerContactsLauncher(). * * If the user previously denied the permission and checked "Don't ask again", * the dialog won't show - the system will immediately call our callback * with false. In this case, we should direct the user to Settings. * * TODO: Add logic to detect "permanently denied" and guide user to Settings</ID>
     <ID>LongMethod:AppDrawerOverlay.kt:@Composable fun AppDrawerOverlay</ID>
-    <ID>LongMethod:AppSearchDialog.kt:@Composable fun AppSearchDialog</ID>
     <ID>LongMethod:AppSearchDialog.kt:@Composable private fun SearchDialogBody</ID>
-    <ID>LongMethod:ContactsQueryLayer.kt:ContactsQueryLayer$fun searchContacts: List&lt;Contact&gt;</ID>
     <ID>LongMethod:DraggablePinnedItemsGrid.kt:@Composable fun DraggablePinnedItemsGrid</ID>
     <ID>LongMethod:DraggablePinnedItemsGridLayers.kt:@Composable internal fun InternalGridDragLayer</ID>
     <ID>LongMethod:DropHighlightLayer.kt:@Composable internal fun DropHighlightLayer</ID>
@@ -35,7 +30,6 @@
     <ID>LongMethod:ItemActionMenu.kt:@Composable @OptIn(ExperimentalFoundationApi::class) private fun ItemActionMenuBubble</ID>
     <ID>LongMethod:LauncherRootContent.kt:@Composable internal fun LauncherRootContent</ID>
     <ID>LongMethod:LauncherScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun LauncherScreen</ID>
-    <ID>LongMethod:PinnedItem.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun PinnedItem</ID>
     <ID>LongMethod:SearchResultFileItem.kt:@Composable fun FileDocumentSearchResultItem</ID>
     <ID>LongMethod:SearchResultsList.kt:@Composable private fun MixedResultsList</ID>
     <ID>LongMethod:SettingsCardComponents.kt:@Composable fun &lt;T&gt; DropdownSettingItem</ID>
@@ -50,17 +44,13 @@
     <ID>LongMethod:WidgetPickerBottomSheet.kt:@Composable private fun WidgetCard</ID>
     <ID>LongMethod:WidgetPickerBottomSheet.kt:@Composable private fun WidgetPreview</ID>
     <ID>LoopWithTooManyJumpStatements:ContactsQueryLayer.kt:ContactsQueryLayer$while</ID>
-    <ID>LoopWithTooManyJumpStatements:HomeModelWriter.kt:HomeModelWriter$for</ID>
     <ID>MagicNumber:AppDrawerOverlay.kt:0.75f</ID>
     <ID>MagicNumber:AppDrawerOverlay.kt:4</ID>
     <ID>MagicNumber:AppDrawerOverlay.kt:6</ID>
     <ID>MagicNumber:AppIconDiskSnapshotStore.kt:AppIconDiskSnapshotStore$100</ID>
     <ID>MagicNumber:AppIconMemoryCache.kt:AppIconMemoryCache$100.0</ID>
-    <ID>MagicNumber:AppSearchDialog.kt:300</ID>
     <ID>MagicNumber:ContactsQueryLayer.kt:ContactsQueryLayer$3</ID>
     <ID>MagicNumber:ContactsQueryLayer.kt:ContactsQueryLayer$4</ID>
-    <ID>MagicNumber:ContactsQueryLayer.kt:ContactsQueryLayer$8</ID>
-    <ID>MagicNumber:ContactsQueryLayer.kt:ContactsQueryLayer$80</ID>
     <ID>MagicNumber:ContactsRecentStorage.kt:ContactsRecentStorage$8</ID>
     <ID>MagicNumber:DrawerListAssembler.kt:DrawerListAssembler$8</ID>
     <ID>MagicNumber:DropHighlightLayer.kt:0xFFFF5252</ID>
@@ -68,38 +58,14 @@
     <ID>MagicNumber:FileDocument.kt:1024</ID>
     <ID>MagicNumber:FileDocument.kt:1024.0</ID>
     <ID>MagicNumber:FilesRepositoryImpl.kt:FilesRepositoryImpl$1000</ID>
-    <ID>MagicNumber:FolderIcon.kt:0xFF1E88E5</ID>
-    <ID>MagicNumber:FolderIcon.kt:0xFF43A047</ID>
-    <ID>MagicNumber:FolderIcon.kt:0xFF757575</ID>
-    <ID>MagicNumber:FolderIcon.kt:0xFF8E24AA</ID>
-    <ID>MagicNumber:FolderIcon.kt:0xFF9E9E9E</ID>
-    <ID>MagicNumber:FolderIcon.kt:0xFFE53935</ID>
-    <ID>MagicNumber:FolderIcon.kt:0xFFFB8C00</ID>
-    <ID>MagicNumber:FolderIcon.kt:4</ID>
     <ID>MagicNumber:FolderPopupDialog.kt:0.82f</ID>
     <ID>MagicNumber:FolderPopupDialogSupport.kt:0.45f</ID>
     <ID>MagicNumber:FolderPopupDialogSupport.kt:0.5f</ID>
-    <ID>MagicNumber:FolderPopupLayout.kt:3</ID>
-    <ID>MagicNumber:FolderPopupLayout.kt:6</ID>
-    <ID>MagicNumber:FolderPopupLayout.kt:9</ID>
     <ID>MagicNumber:ItemActionMenu.kt:0xFF2F323A</ID>
     <ID>MagicNumber:ItemActionMenu.kt:0xFFFFB4AB</ID>
     <ID>MagicNumber:ItemActionMenu.kt:45f</ID>
     <ID>MagicNumber:LauncherSheet.kt:LauncherSheetState$0.5f</ID>
     <ID>MagicNumber:LauncherSheet.kt:LauncherSheetState$1000f</ID>
-    <ID>MagicNumber:PinnedItem.kt:0.5f</ID>
-    <ID>MagicNumber:PinnedItem.kt:0xFF1E88E5</ID>
-    <ID>MagicNumber:PinnedItem.kt:0xFF43A047</ID>
-    <ID>MagicNumber:PinnedItem.kt:0xFF757575</ID>
-    <ID>MagicNumber:PinnedItem.kt:0xFF8E24AA</ID>
-    <ID>MagicNumber:PinnedItem.kt:0xFF9E9E9E</ID>
-    <ID>MagicNumber:PinnedItem.kt:0xFFE53935</ID>
-    <ID>MagicNumber:PinnedItem.kt:0xFFFB8C00</ID>
-    <ID>MagicNumber:PinnedItem.kt:3</ID>
-    <ID>MagicNumber:SearchProviderVisuals.kt:16</ID>
-    <ID>MagicNumber:SearchProviderVisuals.kt:3</ID>
-    <ID>MagicNumber:SearchProviderVisuals.kt:5</ID>
-    <ID>MagicNumber:SearchProviderVisuals.kt:7</ID>
     <ID>MagicNumber:SearchResultsList.kt:4</ID>
     <ID>MagicNumber:SettingsCardComponents.kt:180f</ID>
     <ID>MagicNumber:SettingsSourceEditorComponents.kt:16</ID>
@@ -116,27 +82,16 @@
     <ID>MagicNumber:WidgetOverlayLayer.kt:51f</ID>
     <ID>MagicNumber:WidgetOverlayLayer.kt:52f</ID>
     <ID>MagicNumber:WidgetOverlayLayer.kt:53f</ID>
-    <ID>MatchingDeclarationName:AppItemContextMenuSupport.kt:ItemContextMenuState</ID>
-    <ID>MatchingDeclarationName:FolderPopupLayout.kt:FolderGridLayout</ID>
-    <ID>MatchingDeclarationName:IconLabelCell.kt:IconLabelLayout</ID>
-    <ID>MatchingDeclarationName:LauncherSheetHostPolicy.kt:LauncherSheetTargetChange</ID>
-    <ID>MatchingDeclarationName:QueryParser.kt:ParsedQuery</ID>
-    <ID>MatchingDeclarationName:SearchProviderVisuals.kt:SearchProviderVisual</ID>
     <ID>MaxLineLength:AppExternalDragDrop.kt:&lt;no name provided&gt;$override</ID>
-    <ID>MaxLineLength:AppSearchDialog.kt:text = "${uiState.activeProviderConfig.name}: ${uiState.activeProviderConfig.description}"</ID>
     <ID>MaxLineLength:DraggablePinnedItemsGrid.kt:onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -&gt; Unit = { _, _, _, _ -&gt; }</ID>
     <ID>MaxLineLength:DraggablePinnedItemsGrid.kt:onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -&gt; Unit = { _, _, _ -&gt; }</ID>
     <ID>MaxLineLength:DraggablePinnedItemsGridLayers.kt:key = "${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}"</ID>
     <ID>MaxLineLength:DraggablePinnedItemsGridLayers.kt:key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.widgetTransformSession?.widgetId ?: "none"}-${backgroundGesturePolicy.canSwipeUp}-${backgroundGesturePolicy.canSwipeDown}"</ID>
     <ID>MaxLineLength:ExternalDropRoutingLayer.kt:onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -&gt; Unit</ID>
     <ID>MaxLineLength:ExternalDropRoutingLayer.kt:onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -&gt; Unit</ID>
-    <ID>MaxLineLength:ExternalHomeDropDispatcher.kt:ExternalDropRoutingCallbacks$val onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -&gt; Unit</ID>
-    <ID>MaxLineLength:ExternalHomeDropDispatcher.kt:ExternalDropRoutingCallbacks$val onWidgetDroppedToHome: (providerInfo: AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -&gt; Unit</ID>
-    <ID>MaxLineLength:ExternalHomeDropDispatcher.kt:WidgetDropNode$column = context.dropPosition.column.coerceIn(0, (context.gridColumns - normalizedSpan.columns).coerceAtLeast(0))</ID>
     <ID>MaxLineLength:LauncherActions.kt:FolderActions$val onExtractItemFromFolder: (folderId: String, itemId: String, targetPosition: GridPosition) -&gt; Unit = { _, _, _ -&gt; }</ID>
     <ID>MaxLineLength:LauncherActions.kt:FolderActions$val onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -&gt; Unit = { _, _, _, _ -&gt; }</ID>
     <ID>MaxLineLength:LauncherActions.kt:FolderActions$val onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -&gt; Unit = { _, _, _ -&gt; }</ID>
-    <ID>MaxLineLength:PinnedItem.kt:mimeType.contains("zip") || mimeType.contains("archive") || extension in listOf("zip", "rar", "7z", "tar")</ID>
     <ID>MaxLineLength:SearchResultContactItem.kt:val</ID>
     <ID>MaxLineLength:SettingsSourceEditorComponents.kt:!SearchSource.isValidUrlTemplate(normalizedTemplate) -&gt; errorText = "URL template must start with http/https and include {query}"</ID>
     <ID>MaxLineLength:WidgetHostManager.kt:WidgetHostManager$"Failed to bind widgetId=$appWidgetId provider=${providerInfo.provider} profile=${providerInfo.profile}"</ID>
@@ -154,14 +109,6 @@
     <ID>ReturnCount:ExternalDragCoordinateMapper.kt:ExternalDragCoordinateMapper$fun toLocalOffset: Offset</ID>
     <ID>ReturnCount:ExternalDragPayloadCodec.kt:ExternalDragPayloadCodec$fun decodeDragItem: ExternalDragItem?</ID>
     <ID>ReturnCount:ExternalDragPayloadCodec.kt:ExternalDragPayloadCodec$fun isLikelyLauncherPayload: Boolean</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:FolderChildExtractNode$override fun evaluate: DropDecision</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:FolderChildOntoItemNode$override fun evaluate: DropDecision</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:FolderChildSameFolderNode$override fun evaluate: DropDecision</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:FolderChildToFolderNode$override fun evaluate: DropDecision</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:RegularCreateFolderNode$override fun evaluate: DropDecision</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:RegularDropToEmptyNode$override fun evaluate: DropDecision</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:RegularToFolderNode$override fun evaluate: DropDecision</ID>
-    <ID>ReturnCount:ExternalHomeDropDispatcher.kt:WidgetDropNode$override fun evaluate: DropDecision</ID>
     <ID>ReturnCount:FileFilterConfig.kt:FileFilterConfig$fun shouldIncludeFile: Boolean</ID>
     <ID>ReturnCount:FilesRepositoryImpl.kt:FilesRepositoryImpl$override suspend fun searchFiles: List&lt;FileDocument&gt;</ID>
     <ID>ReturnCount:FilesRepositoryImpl.kt:FilesRepositoryImpl$private suspend fun addFileFromCursorRow</ID>
@@ -169,18 +116,6 @@
     <ID>ReturnCount:HomeBackgroundGestureDetector.kt:private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome: BackgroundGestureOutcome?</ID>
     <ID>ReturnCount:HomeGridOccupancyPolicy.kt:HomeGridOccupancyPolicy$fun isSpanFree: Boolean</ID>
     <ID>ReturnCount:HomeItemSerializer.kt:HomeItemSerializer$fun readFrom: List&lt;HomeItem&gt;</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun addItemToFolder: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun createFolder: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun extractFolderChildOntoItem: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun extractItemFromFolder: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun findFolderIndexAndModel: Pair&lt;Int, HomeItem.FolderItem&gt;?</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun mergeFolders: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun moveItemBetweenFolders: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun moveTopLevelItem: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun pinOrMove: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun removeChildFromFolderWithCleanup: HomeItem?</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun removeItemsById: Result</ID>
-    <ID>ReturnCount:HomeModelWriter.kt:HomeModelWriter$private fun updateWidgetFrame: Result</ID>
     <ID>ReturnCount:HomeScreenWidgetView.kt:WidgetLongPressFrameLayout$override fun dispatchTouchEvent: Boolean</ID>
     <ID>ReturnCount:HomeViewModel.kt:HomeViewModel$private fun resolvePostBindCommand: WidgetPlacementCommand</ID>
     <ID>ReturnCount:InternalHomeDropDispatcher.kt:AddToFolderNode$override fun evaluate: DropDecision</ID>
@@ -192,9 +127,7 @@
     <ID>ReturnCount:PermissionOrchestrator.kt:PermissionOrchestrationReducer$fun onPermissionResult: PermissionOrchestrationTransition</ID>
     <ID>ReturnCount:PinShortcutRequestCoordinator.kt:PinShortcutRequestCoordinator$fun handleIntent: Boolean</ID>
     <ID>ReturnCount:PinnedFileAvailability.kt:PinnedFileAvailability$fun isAvailable: Boolean</ID>
-    <ID>ReturnCount:QueryParser.kt:fun parseSearchQuery: ParsedQuery</ID>
     <ID>ReturnCount:QuerySuggestionResolver.kt:QuerySuggestionResolver$private fun resolveFromText: QuerySuggestion</ID>
-    <ID>ReturnCount:SearchProviderVisuals.kt:private fun parseHexColorOrNull: Color?</ID>
     <ID>ReturnCount:SearchSource.kt:SearchSource.Companion$fun isValidUrlTemplate: Boolean</ID>
     <ID>ReturnCount:SettingsActivity.kt:SettingsActivity$private fun launchHomeRoleRequestIfNeeded: Boolean</ID>
     <ID>ReturnCount:SettingsMutationStore.kt:SettingsMutationStore$fun addPrefixToSource: PrefixMutationResult</ID>
@@ -214,10 +147,8 @@
     <ID>ReturnCount:WidgetHostManager.kt:WidgetHostManager$private fun needsInitialConfigure: Boolean</ID>
     <ID>ReturnCount:WidgetPlacementCoordinator.kt:WidgetPlacementCoordinator$fun onActivityResult: Boolean</ID>
     <ID>SwallowedException:AppIconMemoryCache.kt:AppIconMemoryCache$exception: PackageManager.NameNotFoundException</ID>
-    <ID>SwallowedException:AppSearchDialog.kt:e: Exception</ID>
     <ID>SwallowedException:FileOpener.kt:e: Exception</ID>
     <ID>SwallowedException:UrlHandlerResolver.kt:UrlHandlerResolver$e: Exception</ID>
-    <ID>TooGenericExceptionCaught:AppSearchDialog.kt:e: Exception</ID>
     <ID>TooGenericExceptionCaught:DragGestureDetector.kt:e: Exception</ID>
     <ID>TooGenericExceptionCaught:FileOpener.kt:e: Exception</ID>
     <ID>TooGenericExceptionCaught:FilesRepositoryImpl.kt:FilesRepositoryImpl$e: Exception</ID>
@@ -225,15 +156,9 @@
     <ID>TooGenericExceptionCaught:UrlHandlerResolver.kt:UrlHandlerResolver$e: Exception</ID>
     <ID>TooGenericExceptionCaught:WidgetHostManager.kt:WidgetHostManager$e: Exception</ID>
     <ID>TooManyFunctions:ActionExecutor.kt:ActionExecutor</ID>
-    <ID>TooManyFunctions:HomeModelWriter.kt:HomeModelWriter</ID>
     <ID>TooManyFunctions:HomeViewModel.kt:HomeViewModel : ViewModelHomeMutationHandler</ID>
     <ID>TooManyFunctions:SettingsRepository.kt:SettingsRepository</ID>
     <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
     <ID>TooManyFunctions:WidgetHostManager.kt:WidgetHostManager</ID>
-    <ID>UnusedParameter:DragVisualEffects.kt:cellHeightPx: Float</ID>
-    <ID>UnusedParameter:DragVisualEffects.kt:cellWidthPx: Float</ID>
-    <ID>UnusedParameter:PinnedItem.kt:onLongClick: () -&gt; Unit</ID>
-    <ID>UnusedParameter:SettingsScreen.kt:onNavigateBack: () -&gt; Unit</ID>
-    <ID>VariableNaming:FilesRepositoryImpl.kt:FilesRepositoryImpl$/** * Column projection for MediaStore queries. * * This defines which columns we want to retrieve from the MediaStore database. * Only requesting the columns we need improves query performance. * * COLUMNS: * - _ID: Unique identifier for the file (used to build content URIs) * - DISPLAY_NAME: The file name (e.g., "document.pdf") * - MIME_TYPE: The MIME type (e.g., "application/pdf") * - SIZE: File size in bytes * - DATE_MODIFIED: Last modified time (Unix timestamp in seconds) * - BUCKET_DISPLAY_NAME: The folder name containing the file * - RELATIVE_PATH: The relative path to the file */ private val PROJECTION = arrayOf( MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.DISPLAY_NAME, MediaStore.Files.FileColumns.MIME_TYPE, MediaStore.Files.FileColumns.SIZE, MediaStore.Files.FileColumns.DATE_MODIFIED, MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME, MediaStore.Files.FileColumns.RELATIVE_PATH )</ID>
   </CurrentIssues>
 </SmellBaseline>
