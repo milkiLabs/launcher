@@ -1,8 +1,15 @@
 package com.milki.launcher.data.repository
 
 import android.content.ContentResolver
+import android.database.Cursor
 import android.provider.ContactsContract
 import com.milki.launcher.domain.model.Contact
+
+private val CONTACT_SEARCH_MIME_TYPES = arrayOf(
+    ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE,
+    ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE,
+    ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE
+)
 
 /**
  * Query layer for contact data access via ContentResolver.
@@ -22,66 +29,13 @@ internal class ContactsQueryLayer(
      */
     fun searchContacts(queryLower: String, maxItems: Int): List<Contact> {
         val aggregates = mutableMapOf<Long, ContactsMappingLayer.MutableContactAggregate>()
-        val rawRowLimit = maxOf(maxItems * 8, 80)
+        val rawRowLimit = maxOf(maxItems * RAW_ROW_LIMIT_MULTIPLIER, MIN_RAW_ROW_LIMIT)
 
-        val selection = """
-            ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} LIKE ?
-            AND ${ContactsContract.Data.MIMETYPE} IN (?, ?, ?)
-        """.trimIndent()
-
-        val selectionArgs = arrayOf(
-            "%$queryLower%",
-            ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE,
-            ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE,
-            ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE
+        populateSearchAggregates(
+            queryLower = queryLower,
+            rawRowLimit = rawRowLimit,
+            aggregates = aggregates
         )
-
-        val sortOrder = """
-            ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC,
-            ${ContactsContract.Data.MIMETYPE} ASC
-            LIMIT $rawRowLimit
-        """.trimIndent()
-
-        contentResolver.query(
-            ContactsContract.Data.CONTENT_URI,
-            DATA_PROJECTION,
-            selection,
-            selectionArgs,
-            sortOrder
-        )?.use { cursor ->
-            val contactIdIndex = cursor.getColumnIndex(ContactsContract.Data.CONTACT_ID)
-            val lookupKeyIndex = cursor.getColumnIndex(ContactsContract.Data.LOOKUP_KEY)
-            val displayNameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY)
-            val photoUriIndex = cursor.getColumnIndex(ContactsContract.Contacts.PHOTO_URI)
-            val mimetypeIndex = cursor.getColumnIndex(ContactsContract.Data.MIMETYPE)
-            val phoneNumberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-            val emailAddressIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS)
-
-            while (cursor.moveToNext()) {
-                val contactId = cursor.getLong(contactIdIndex)
-                val aggregate = mapper.getOrCreateAggregate(
-                    aggregates = aggregates,
-                    contactId = contactId,
-                    displayName = cursor.getString(displayNameIndex),
-                    photoUri = cursor.getString(photoUriIndex),
-                    lookupKey = cursor.getString(lookupKeyIndex)
-                ) ?: continue
-
-                when (cursor.getString(mimetypeIndex)) {
-                    ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE -> {
-                        cursor.getString(phoneNumberIndex)?.let { phone ->
-                            aggregate.addPhoneIfMissing(phone)
-                        }
-                    }
-
-                    ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE -> {
-                        cursor.getString(emailAddressIndex)?.let { email ->
-                            aggregate.addEmailIfMissing(email)
-                        }
-                    }
-                }
-            }
-        }
 
         val contacts = mapper.toContacts(aggregates.values)
         return mapper.sortAndLimitByQueryRelevance(
@@ -89,6 +43,56 @@ internal class ContactsQueryLayer(
             queryLower = queryLower,
             maxItems = maxItems
         )
+    }
+
+    private fun populateSearchAggregates(
+        queryLower: String,
+        rawRowLimit: Int,
+        aggregates: MutableMap<Long, ContactsMappingLayer.MutableContactAggregate>
+    ) {
+        contentResolver.query(
+            ContactsContract.Data.CONTENT_URI,
+            DATA_PROJECTION,
+            SEARCH_SELECTION,
+            buildSearchSelectionArgs(queryLower),
+            buildSearchSortOrder(rawRowLimit)
+        )?.use { cursor ->
+            val indices = SearchContactCursorIndices.create(cursor)
+            while (cursor.moveToNext()) {
+                appendSearchRow(
+                    cursor = cursor,
+                    indices = indices,
+                    aggregates = aggregates
+                )
+            }
+        }
+    }
+
+    private fun appendSearchRow(
+        cursor: Cursor,
+        indices: SearchContactCursorIndices,
+        aggregates: MutableMap<Long, ContactsMappingLayer.MutableContactAggregate>
+    ) {
+        val contactId = cursor.getLong(indices.contactIdIndex)
+        val aggregate = mapper.getOrCreateAggregate(
+            aggregates = aggregates,
+            contactId = contactId,
+            displayName = cursor.getString(indices.displayNameIndex),
+            photoUri = cursor.getString(indices.photoUriIndex),
+            lookupKey = cursor.getString(indices.lookupKeyIndex)
+        )
+
+        if (aggregate != null) {
+            when (cursor.getString(indices.mimetypeIndex)) {
+                ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE -> {
+                    cursor.getString(indices.phoneNumberIndex)?.let(aggregate::addPhoneIfMissing)
+                }
+
+                ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE -> {
+                    cursor.getString(indices.emailAddressIndex)?.let(aggregate::addEmailIfMissing)
+                }
+            }
+        }
     }
 
     /**
@@ -207,6 +211,14 @@ internal class ContactsQueryLayer(
     }
 
     companion object {
+        private const val RAW_ROW_LIMIT_MULTIPLIER = 8
+        private const val MIN_RAW_ROW_LIMIT = 80
+
+        private val SEARCH_SELECTION = """
+            ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} LIKE ?
+            AND ${ContactsContract.Data.MIMETYPE} IN (?, ?, ?)
+        """.trimIndent()
+
         private val DATA_PROJECTION = arrayOf(
             ContactsContract.Data.CONTACT_ID,
             ContactsContract.Data.LOOKUP_KEY,
@@ -236,4 +248,40 @@ internal class ContactsQueryLayer(
             ContactsContract.CommonDataKinds.Phone.NUMBER
         )
     }
+}
+
+private data class SearchContactCursorIndices(
+    val contactIdIndex: Int,
+    val lookupKeyIndex: Int,
+    val displayNameIndex: Int,
+    val photoUriIndex: Int,
+    val mimetypeIndex: Int,
+    val phoneNumberIndex: Int,
+    val emailAddressIndex: Int
+) {
+    companion object {
+        fun create(cursor: Cursor): SearchContactCursorIndices {
+            return SearchContactCursorIndices(
+                contactIdIndex = cursor.getColumnIndex(ContactsContract.Data.CONTACT_ID),
+                lookupKeyIndex = cursor.getColumnIndex(ContactsContract.Data.LOOKUP_KEY),
+                displayNameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY),
+                photoUriIndex = cursor.getColumnIndex(ContactsContract.Contacts.PHOTO_URI),
+                mimetypeIndex = cursor.getColumnIndex(ContactsContract.Data.MIMETYPE),
+                phoneNumberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                emailAddressIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS)
+            )
+        }
+    }
+}
+
+private fun buildSearchSelectionArgs(queryLower: String): Array<String> {
+    return arrayOf("%$queryLower%", *CONTACT_SEARCH_MIME_TYPES)
+}
+
+private fun buildSearchSortOrder(rawRowLimit: Int): String {
+    return """
+        ${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC,
+        ${ContactsContract.Data.MIMETYPE} ASC
+        LIMIT $rawRowLimit
+    """.trimIndent()
 }
