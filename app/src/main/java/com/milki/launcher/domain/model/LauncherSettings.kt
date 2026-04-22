@@ -124,13 +124,8 @@ enum class LauncherTriggerAction(val displayName: String) {
 object LauncherInteractionCatalog {
     val configurableTriggers: List<LauncherTrigger> = LauncherTrigger.entries
 
-    val allActions: List<LauncherTriggerAction> = LauncherTriggerAction.entries
-
-    val swipeTriggers: List<LauncherTrigger> =
-        configurableTriggers.filter { it.metadata.kind == LauncherGestureKind.SWIPE }
-
     fun availableActions(): List<LauncherTriggerAction> {
-        return allActions
+        return LauncherTriggerAction.entries
     }
 
     fun defaultActionFor(trigger: LauncherTrigger): LauncherTriggerAction {
@@ -143,10 +138,6 @@ object LauncherInteractionCatalog {
 
     fun defaultTriggerActions(): Map<LauncherTrigger, LauncherTriggerAction> {
         return configurableTriggers.associateWith(::defaultActionFor)
-    }
-
-    fun triggerForDirection(direction: LauncherGestureDirection): LauncherTrigger? {
-        return swipeTriggers.firstOrNull { it.metadata.direction == direction }
     }
 }
 

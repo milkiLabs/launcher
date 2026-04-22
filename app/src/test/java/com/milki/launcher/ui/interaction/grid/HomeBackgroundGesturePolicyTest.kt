@@ -15,9 +15,9 @@ class HomeBackgroundGesturePolicyTest {
             enabledTriggers = setOf(LauncherTrigger.HOME_SWIPE_UP)
         )
 
-        assertTrue(policy.shouldTrackGesture())
-        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
-        assertFalse(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
+        assertTrue(policy.canStartBackgroundGesture)
+        assertTrue(LauncherTrigger.HOME_SWIPE_UP in policy.enabledTriggers)
+        assertFalse(LauncherTrigger.HOME_SWIPE_DOWN in policy.enabledTriggers)
     }
 
     @Test
@@ -30,9 +30,9 @@ class HomeBackgroundGesturePolicyTest {
             )
         )
 
-        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
-        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
-        assertFalse(policy.isEnabled(LauncherTrigger.HOME_TAP))
+        assertTrue(LauncherTrigger.HOME_SWIPE_UP in policy.enabledTriggers)
+        assertTrue(LauncherTrigger.HOME_SWIPE_DOWN in policy.enabledTriggers)
+        assertFalse(LauncherTrigger.HOME_TAP in policy.enabledTriggers)
     }
 
     @Test

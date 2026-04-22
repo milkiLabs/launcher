@@ -20,19 +20,10 @@ internal data class HomeBackgroundGesturePolicy(
     val canStartBackgroundGesture: Boolean,
     val enabledTriggers: Set<LauncherTrigger> = emptySet()
 ) {
-    fun shouldTrackGesture(): Boolean {
-        return canStartBackgroundGesture
-    }
-
-    fun isEnabled(trigger: LauncherTrigger): Boolean {
-        return trigger in enabledTriggers
-    }
-
-    fun directionalTriggers(): List<LauncherTrigger> {
-        return enabledTriggers.filter { trigger ->
+    val directionalTriggers: List<LauncherTrigger> =
+        enabledTriggers.filter { trigger ->
             trigger.metadata.kind == LauncherGestureKind.SWIPE
         }
-    }
 }
 
 /**

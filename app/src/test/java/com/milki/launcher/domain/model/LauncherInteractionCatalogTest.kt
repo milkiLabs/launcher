@@ -1,7 +1,6 @@
 package com.milki.launcher.domain.model
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,12 +23,16 @@ class LauncherInteractionCatalogTest {
 
     @Test
     fun swipe_triggers_only_include_swipe_gestures() {
+        val swipeTriggers = LauncherInteractionCatalog.configurableTriggers.filter { trigger ->
+            trigger.metadata.kind == LauncherGestureKind.SWIPE
+        }
+
         assertEquals(
             listOf(
                 LauncherTrigger.HOME_SWIPE_UP,
                 LauncherTrigger.HOME_SWIPE_DOWN
             ),
-            LauncherInteractionCatalog.swipeTriggers
+            swipeTriggers
         )
     }
 
@@ -58,24 +61,6 @@ class LauncherInteractionCatalogTest {
             ),
             LauncherTrigger.HOME_SWIPE_DOWN.metadata
         )
-    }
-
-    @Test
-    fun trigger_for_direction_resolves_known_swipe_triggers() {
-        assertEquals(
-            LauncherTrigger.HOME_SWIPE_UP,
-            LauncherInteractionCatalog.triggerForDirection(LauncherGestureDirection.UP)
-        )
-        assertEquals(
-            LauncherTrigger.HOME_SWIPE_DOWN,
-            LauncherInteractionCatalog.triggerForDirection(LauncherGestureDirection.DOWN)
-        )
-    }
-
-    @Test
-    fun trigger_for_direction_returns_null_for_unsupported_directions() {
-        assertNull(LauncherInteractionCatalog.triggerForDirection(LauncherGestureDirection.LEFT))
-        assertNull(LauncherInteractionCatalog.triggerForDirection(LauncherGestureDirection.RIGHT))
     }
 
     @Test

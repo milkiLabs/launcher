@@ -64,9 +64,9 @@ class HomeSurfaceInteractionControllerTest {
         )
 
         assertTrue(policy.canStartBackgroundGesture)
-        assertTrue(policy.isEnabled(LauncherTrigger.HOME_TAP))
-        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
-        assertTrue(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
+        assertTrue(LauncherTrigger.HOME_TAP in policy.enabledTriggers)
+        assertTrue(LauncherTrigger.HOME_SWIPE_UP in policy.enabledTriggers)
+        assertTrue(LauncherTrigger.HOME_SWIPE_DOWN in policy.enabledTriggers)
     }
 
     @Test
@@ -87,9 +87,9 @@ class HomeSurfaceInteractionControllerTest {
             )
         )
 
-        assertTrue(policy.isEnabled(LauncherTrigger.HOME_TAP))
-        assertFalse(policy.isEnabled(LauncherTrigger.HOME_SWIPE_UP))
-        assertFalse(policy.isEnabled(LauncherTrigger.HOME_SWIPE_DOWN))
+        assertTrue(LauncherTrigger.HOME_TAP in policy.enabledTriggers)
+        assertFalse(LauncherTrigger.HOME_SWIPE_UP in policy.enabledTriggers)
+        assertFalse(LauncherTrigger.HOME_SWIPE_DOWN in policy.enabledTriggers)
     }
 
     @Test

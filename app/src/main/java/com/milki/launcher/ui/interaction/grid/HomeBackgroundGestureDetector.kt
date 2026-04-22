@@ -34,7 +34,7 @@ internal fun Modifier.detectHomeBackgroundGestures(
             val pressedCell = layoutMetrics.pixelToCell(down.position)
             val startCellOccupied = items.findOccupantAt(pressedCell) != null
 
-            if (!policy.shouldTrackGesture()) {
+            if (!policy.canStartBackgroundGesture) {
                 return@awaitEachGesture
             }
 
@@ -158,7 +158,7 @@ private fun HomeBackgroundGesturePolicy.matchingTrigger(
     dragOffset: Offset,
     minimumDistancePx: Float
 ): LauncherTrigger? {
-    return directionalTriggers().firstOrNull { trigger ->
+    return directionalTriggers.firstOrNull { trigger ->
         dragOffset.matchesTriggerDirection(
             trigger = trigger,
             minimumDistancePx = minimumDistancePx
@@ -169,7 +169,7 @@ private fun HomeBackgroundGesturePolicy.matchingTrigger(
 private fun HomeBackgroundGesturePolicy.hasDirectionalMotion(
     dragOffset: Offset
 ): Boolean {
-    return directionalTriggers().any { trigger ->
+    return directionalTriggers.any { trigger ->
         dragOffset.matchesTriggerDirection(
             trigger = trigger,
             minimumDistancePx = 0f
