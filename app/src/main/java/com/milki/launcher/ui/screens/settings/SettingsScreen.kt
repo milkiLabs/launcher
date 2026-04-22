@@ -64,7 +64,6 @@ import com.milki.launcher.ui.theme.Spacing
 fun SettingsScreen(
     settings: LauncherSettings,
     showSetDefaultLauncherOption: Boolean,
-    onNavigateBack: () -> Unit,
     backupStatusMessage: String?,
     importReport: LauncherImportResult?,
     onDismissImportReport: () -> Unit,

@@ -269,7 +269,8 @@ class PermissionHandler(
      * the dialog won't show - the system will immediately call our callback
      * with false. In this case, we should direct the user to Settings.
      *
-     * TODO: Add logic to detect "permanently denied" and guide user to Settings
+     * A future improvement here is detecting the permanently-denied state and
+     * taking the user directly to the relevant Settings screen when needed.
      */
     fun requestContactsPermission() {
         contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)

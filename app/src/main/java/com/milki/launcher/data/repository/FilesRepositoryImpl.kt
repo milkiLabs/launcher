@@ -201,7 +201,7 @@ class FilesRepositoryImpl(
             // The cursor is like a ResultSet in JDBC - it points to rows of results
             val cursor = contentResolver.query(
                 uri,
-                PROJECTION,
+                mediaStoreProjection,
                 selection,
                 selectionArgs,
                 "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC"
@@ -266,7 +266,7 @@ class FilesRepositoryImpl(
                 // LIMIT clause limits the number of results
                 val cursor = contentResolver.query(
                     MediaStore.Files.getContentUri("external"),
-                    PROJECTION,
+                    mediaStoreProjection,
                     null,
                     null,
                     "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC LIMIT $limit"
@@ -401,7 +401,7 @@ class FilesRepositoryImpl(
      * - BUCKET_DISPLAY_NAME: The folder name containing the file
      * - RELATIVE_PATH: The relative path to the file
      */
-    private val PROJECTION = arrayOf(
+    private val mediaStoreProjection = arrayOf(
         MediaStore.Files.FileColumns._ID,
         MediaStore.Files.FileColumns.DISPLAY_NAME,
         MediaStore.Files.FileColumns.MIME_TYPE,

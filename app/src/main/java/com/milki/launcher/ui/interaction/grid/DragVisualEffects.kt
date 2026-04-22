@@ -213,15 +213,11 @@ fun animateDragVisuals(
  *
  * @param basePosition The starting grid position in pixels
  * @param dragOffset The current drag offset in pixels
- * @param cellWidthPx The width of a grid cell in pixels
- * @param cellHeightPx The height of a grid cell in pixels
  * @return The pixel offset for the preview
  */
 fun calculatePreviewOffset(
     basePosition: Offset,
-    dragOffset: Offset,
-    cellWidthPx: Float,
-    cellHeightPx: Float
+    dragOffset: Offset
 ): IntOffset {
     val previewX = basePosition.x + dragOffset.x
     val previewY = basePosition.y + dragOffset.y

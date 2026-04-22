@@ -30,6 +30,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.milki.launcher.domain.model.ProviderId
 
+private val HexColorRegex = Regex("^#[0-9A-F]{6}$")
+
+private const val HEX_RADIX = 16
+private const val RED_START_INDEX = 1
+private const val GREEN_START_INDEX = 3
+private const val BLUE_START_INDEX = 5
+private const val COLOR_COMPONENT_LENGTH = 2
+private const val HEX_PREFIX = "#"
+
 /**
  * UI-only visual representation for a search provider.
  *
@@ -84,14 +93,22 @@ fun rememberSearchProviderVisual(
  * Returns null when input is invalid.
  */
 private fun parseHexColorOrNull(hex: String?): Color? {
-    val normalized = hex?.trim()?.uppercase() ?: return null
-    val withHash = if (normalized.startsWith("#")) normalized else "#$normalized"
-    if (!Regex("^#[0-9A-F]{6}$").matches(withHash)) {
-        return null
+    val normalized = hex?.trim()?.uppercase()
+    val withHash = normalized?.let { value ->
+        if (value.startsWith(HEX_PREFIX)) value else "$HEX_PREFIX$value"
     }
 
-    val red = withHash.substring(1, 3).toInt(16)
-    val green = withHash.substring(3, 5).toInt(16)
-    val blue = withHash.substring(5, 7).toInt(16)
-    return Color(red = red, green = green, blue = blue)
+    return if (withHash != null && HexColorRegex.matches(withHash)) {
+        Color(
+            red = withHash.hexColorComponent(RED_START_INDEX),
+            green = withHash.hexColorComponent(GREEN_START_INDEX),
+            blue = withHash.hexColorComponent(BLUE_START_INDEX)
+        )
+    } else {
+        null
+    }
+}
+
+private fun String.hexColorComponent(startIndex: Int): Int {
+    return substring(startIndex, startIndex + COLOR_COMPONENT_LENGTH).toInt(HEX_RADIX)
 }

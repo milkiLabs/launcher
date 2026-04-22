@@ -131,7 +131,6 @@ class SettingsActivity : ComponentActivity() {
                 SettingsScreen(
                     settings = settings,
                     showSetDefaultLauncherOption = !isDefaultLauncher,
-                    onNavigateBack = { finish() },
                     backupStatusMessage = backupStatusMessage,
                     importReport = importReport,
                     onDismissImportReport = settingsViewModel::clearLastImportReport,
