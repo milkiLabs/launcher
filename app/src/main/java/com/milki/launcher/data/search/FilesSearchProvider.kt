@@ -19,7 +19,11 @@ package com.milki.launcher.data.search
 
 import android.Manifest
 import android.os.Build
-import com.milki.launcher.domain.model.*
+import com.milki.launcher.domain.model.FileDocumentSearchResult
+import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.ProviderId
+import com.milki.launcher.domain.model.SearchProviderConfig
+import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SearchProvider

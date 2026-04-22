@@ -32,7 +32,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
-import com.milki.launcher.domain.model.*
+import com.milki.launcher.domain.model.AppSearchResult
+import com.milki.launcher.domain.model.ContactSearchResult
+import com.milki.launcher.domain.model.FileDocumentSearchResult
+import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.SearchProviderConfig
+import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.model.UrlSearchResult
+import com.milki.launcher.domain.model.WebSearchResult
+import com.milki.launcher.domain.model.YouTubeSearchResult
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem

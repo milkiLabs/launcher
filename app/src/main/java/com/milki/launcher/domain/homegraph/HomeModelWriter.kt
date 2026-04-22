@@ -14,85 +14,150 @@ class HomeModelWriter(
 ) {
 
     sealed interface Command {
+        fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result
+
         data class AddPinnedItem(
             val item: HomeItem,
             val maxRows: Int = 100
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.addPinnedItem(currentItems, this)
+            }
+        }
 
         data class MoveTopLevelItem(
             val itemId: String,
             val newPosition: GridPosition
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.moveTopLevelItem(currentItems, this)
+            }
+        }
 
         data class PinOrMoveToPosition(
             val item: HomeItem,
             val targetPosition: GridPosition
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.pinOrMove(currentItems, this)
+            }
+        }
 
         data class RemoveItemById(
             val itemId: String
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.removeItemsById(
+                    currentItems = currentItems,
+                    command = RemoveItemsById(itemIds = setOf(itemId))
+                )
+            }
+        }
 
         data class RemoveItemsById(
             val itemIds: Set<String>
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.removeItemsById(currentItems, this)
+            }
+        }
 
         data class CreateFolder(
             val draggedItem: HomeItem,
             val targetItemId: String,
             val atPosition: GridPosition
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.createFolder(currentItems, this)
+            }
+        }
 
         data class AddItemToFolder(
             val folderId: String,
             val item: HomeItem,
             val targetIndex: Int? = null
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.addItemToFolder(currentItems, this)
+            }
+        }
 
         data class RemoveItemFromFolder(
             val folderId: String,
             val itemId: String
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.removeItemFromFolder(currentItems, this)
+            }
+        }
 
         data class ReorderFolderItems(
             val folderId: String,
             val newChildren: List<HomeItem>
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.reorderFolderItems(currentItems, this)
+            }
+        }
 
         data class MoveItemBetweenFolders(
             val sourceFolderId: String,
             val targetFolderId: String,
             val itemId: String
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.moveItemBetweenFolders(currentItems, this)
+            }
+        }
 
         data class ExtractFolderChildOntoItem(
             val sourceFolderId: String,
             val childItemId: String,
             val targetItemId: String,
             val atPosition: GridPosition
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.extractFolderChildOntoItem(currentItems, this)
+            }
+        }
 
         data class MergeFolders(
             val sourceFolderId: String,
             val targetFolderId: String
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.mergeFolders(currentItems, this)
+            }
+        }
 
         data class RenameFolder(
             val folderId: String,
             val newName: String
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.renameFolder(currentItems, this)
+            }
+        }
 
         data class ExtractItemFromFolder(
             val folderId: String,
             val itemId: String,
             val targetPosition: GridPosition
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.extractItemFromFolder(currentItems, this)
+            }
+        }
 
         data class UpdateWidgetFrame(
             val widgetId: String,
             val newPosition: GridPosition,
             val newSpan: GridSpan
-        ) : Command
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.updateWidgetFrame(currentItems, this)
+            }
+        }
     }
 
     sealed interface Error {
@@ -111,26 +176,7 @@ class HomeModelWriter(
     }
 
     fun apply(currentItems: List<HomeItem>, command: Command): Result {
-        return when (command) {
-            is Command.AddPinnedItem -> addPinnedItem(currentItems, command)
-            is Command.MoveTopLevelItem -> moveTopLevelItem(currentItems, command)
-            is Command.PinOrMoveToPosition -> pinOrMove(currentItems, command)
-            is Command.RemoveItemById -> removeItemsById(
-                currentItems = currentItems,
-                command = Command.RemoveItemsById(itemIds = setOf(command.itemId))
-            )
-            is Command.RemoveItemsById -> removeItemsById(currentItems, command)
-            is Command.CreateFolder -> createFolder(currentItems, command)
-            is Command.AddItemToFolder -> addItemToFolder(currentItems, command)
-            is Command.RemoveItemFromFolder -> removeItemFromFolder(currentItems, command)
-            is Command.ReorderFolderItems -> reorderFolderItems(currentItems, command)
-            is Command.MoveItemBetweenFolders -> moveItemBetweenFolders(currentItems, command)
-            is Command.ExtractFolderChildOntoItem -> extractFolderChildOntoItem(currentItems, command)
-            is Command.MergeFolders -> mergeFolders(currentItems, command)
-            is Command.RenameFolder -> renameFolder(currentItems, command)
-            is Command.ExtractItemFromFolder -> extractItemFromFolder(currentItems, command)
-            is Command.UpdateWidgetFrame -> updateWidgetFrame(currentItems, command)
-        }
+        return command.execute(this, currentItems)
     }
 
     private fun addPinnedItem(
@@ -142,7 +188,7 @@ class HomeModelWriter(
         }
 
         val mutable = currentItems.toMutableList()
-        val position = findAvailablePosition(mutable, command.maxRows)
+        val position = findAvailablePosition(mutable, command.maxRows, gridColumns)
         mutable.add(command.item.withPosition(position))
         return Result.Applied(mutable)
     }
@@ -152,25 +198,32 @@ class HomeModelWriter(
         command: Command.MoveTopLevelItem
     ): Result {
         val index = currentItems.indexOfFirst { it.id == command.itemId }
-        if (index == -1) return Result.Rejected(Error.ItemNotFound)
-
-        val existing = currentItems[index]
+        val existing = currentItems.getOrNull(index)
         val span = (existing as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
-        if (!isWithinGrid(command.newPosition, span)) {
-            return Result.Rejected(Error.OutOfBounds)
+        val occupied = if (existing == null) {
+            emptyMap()
+        } else {
+            HomeGraph.buildOccupiedCells(
+                items = currentItems,
+                excludeItemId = command.itemId
+            )
         }
 
-        val occupied = HomeGraph.buildOccupiedCells(
-            items = currentItems,
-            excludeItemId = command.itemId
-        )
-        if (!isSpanFree(command.newPosition, span, occupied)) {
-            return Result.Rejected(Error.TargetOccupied)
+        val rejection = when {
+            existing == null -> Error.ItemNotFound
+            !isWithinGrid(command.newPosition, span, gridColumns) -> Error.OutOfBounds
+            !isSpanFree(command.newPosition, span, occupied) -> Error.TargetOccupied
+            else -> null
         }
 
-        val updated = currentItems.toMutableList()
-        updated[index] = existing.withPosition(command.newPosition)
-        return Result.Applied(updated)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            val updated = currentItems.toMutableList()
+            updated[index] = requireNotNull(existing).withPosition(command.newPosition)
+            Result.Applied(updated)
+        }
+        return result
     }
 
     private fun pinOrMove(
@@ -185,96 +238,118 @@ class HomeModelWriter(
 
         val canonicalItem = existingItem ?: command.item
         val span = (canonicalItem as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
-        if (!isWithinGrid(command.targetPosition, span)) {
-            return Result.Rejected(Error.OutOfBounds)
-        }
-
         val occupied = HomeGraph.buildOccupiedCells(mutable)
-        if (!isSpanFree(command.targetPosition, span, occupied)) {
-            return Result.Rejected(Error.TargetOccupied)
+        val rejection = when {
+            !isWithinGrid(command.targetPosition, span, gridColumns) -> Error.OutOfBounds
+            !isSpanFree(command.targetPosition, span, occupied) -> Error.TargetOccupied
+            else -> null
         }
 
-        val placed = canonicalItem.withPosition(command.targetPosition)
-        val insertionIndex = if (existingIndex in 0..mutable.size) existingIndex else mutable.size
-        mutable.add(insertionIndex, placed)
-        return Result.Applied(mutable)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            val placed = canonicalItem.withPosition(command.targetPosition)
+            val insertionIndex = if (existingIndex in 0..mutable.size) existingIndex else mutable.size
+            mutable.add(insertionIndex, placed)
+            Result.Applied(mutable)
+        }
+        return result
     }
 
     private fun removeItemsById(
         currentItems: List<HomeItem>,
         command: Command.RemoveItemsById
     ): Result {
-        if (command.itemIds.isEmpty()) {
-            return Result.Rejected(Error.ItemNotFound)
-        }
-
         val existingIds = command.itemIds.filterTo(mutableSetOf()) { itemId ->
             containsItemIdAnywhere(currentItems, itemId)
         }
-        if (existingIds.isEmpty()) {
-            return Result.Rejected(Error.ItemNotFound)
+
+        val rejection = if (command.itemIds.isEmpty() || existingIds.isEmpty()) {
+            Error.ItemNotFound
+        } else {
+            null
         }
 
-        val mutable = currentItems.toMutableList()
-        existingIds.forEach { itemId ->
-            evictItemEverywhere(mutable, itemId)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            val mutable = currentItems.toMutableList()
+            existingIds.forEach { itemId ->
+                evictItemEverywhere(mutable, itemId)
+            }
+            Result.Applied(mutable)
         }
-        return Result.Applied(mutable)
+        return result
     }
 
     private fun createFolder(
         currentItems: List<HomeItem>,
         command: Command.CreateFolder
     ): Result {
-        if (command.draggedItem is HomeItem.FolderItem || command.draggedItem is HomeItem.WidgetItem) {
-            return Result.Rejected(Error.InvalidFolderOperation)
-        }
-
         val mutable = currentItems.toMutableList()
         val liveTarget = findLiveNonFolderTarget(
             items = mutable,
             targetItemId = command.targetItemId,
             atPosition = command.atPosition
-        ) ?: return Result.Rejected(Error.ItemNotFound)
+        )
 
-        if (command.draggedItem.id == liveTarget.id) {
-            return Result.Rejected(Error.InvalidFolderOperation)
+        val rejection = when {
+            command.draggedItem is HomeItem.FolderItem || command.draggedItem is HomeItem.WidgetItem ->
+                Error.InvalidFolderOperation
+            liveTarget == null -> Error.ItemNotFound
+            command.draggedItem.id == liveTarget.id -> Error.InvalidFolderOperation
+            else -> null
         }
 
-        evictItemEverywhere(mutable, command.draggedItem.id)
-        evictItemEverywhere(mutable, liveTarget.id)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            val confirmedTarget = requireNotNull(liveTarget)
+            evictItemEverywhere(mutable, command.draggedItem.id)
+            evictItemEverywhere(mutable, confirmedTarget.id)
 
-        val folder = HomeItem.FolderItem.create(command.draggedItem, liveTarget, command.atPosition)
-        mutable.add(folder)
-        return Result.Applied(mutable)
+            val folder = HomeItem.FolderItem.create(
+                command.draggedItem,
+                confirmedTarget,
+                command.atPosition
+            )
+            mutable.add(folder)
+            Result.Applied(mutable)
+        }
+        return result
     }
 
     private fun addItemToFolder(
         currentItems: List<HomeItem>,
         command: Command.AddItemToFolder
     ): Result {
-        if (command.item is HomeItem.FolderItem || command.item is HomeItem.WidgetItem) {
-            return Result.Rejected(Error.InvalidFolderOperation)
-        }
-
         val mutable = currentItems.toMutableList()
-        val (_, folder) = findFolderIndexAndModel(mutable, command.folderId)
-            ?: return Result.Rejected(Error.FolderNotFound)
-
-        if (folder.children.any { it.id == command.item.id }) {
-            return Result.Rejected(Error.DuplicateItem)
+        val folderLookup = findFolderLookup(mutable, command.folderId)
+        val rejection = when {
+            command.item is HomeItem.FolderItem || command.item is HomeItem.WidgetItem ->
+                Error.InvalidFolderOperation
+            folderLookup == null -> Error.FolderNotFound
+            folderLookup.folder.children.any { it.id == command.item.id } -> Error.DuplicateItem
+            else -> null
         }
 
-        evictItemEverywhere(mutable, command.item.id)
-        val (updatedFolderIndex, updatedFolder) = findFolderIndexAndModel(mutable, command.folderId)
-            ?: return Result.Rejected(Error.FolderNotFound)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            evictItemEverywhere(mutable, command.item.id)
+            val updatedFolderLookup = findFolderLookup(mutable, command.folderId)
+            if (updatedFolderLookup == null) {
+                Result.Rejected(Error.FolderNotFound)
+            } else {
+                val children = updatedFolderLookup.folder.children.toMutableList()
+                val insertAt = command.targetIndex?.coerceIn(0, children.size) ?: children.size
+                children.add(insertAt, command.item.withPosition(GridPosition.DEFAULT))
 
-        val children = updatedFolder.children.toMutableList()
-        val insertAt = command.targetIndex?.coerceIn(0, children.size) ?: children.size
-        children.add(insertAt, command.item.withPosition(GridPosition.DEFAULT))
-
-        mutable[updatedFolderIndex] = updatedFolder.copy(children = children)
-        return Result.Applied(mutable)
+                mutable[updatedFolderLookup.index] = updatedFolderLookup.folder.copy(children = children)
+                Result.Applied(mutable)
+            }
+        }
+        return result
     }
 
     private fun removeItemFromFolder(
@@ -300,14 +375,14 @@ class HomeModelWriter(
         command: Command.ReorderFolderItems
     ): Result {
         val mutable = currentItems.toMutableList()
-        val (folderIndex, folder) = findFolderIndexAndModel(mutable, command.folderId)
+        val folderLookup = findFolderLookup(mutable, command.folderId)
             ?: return Result.Rejected(Error.FolderNotFound)
 
         val safeChildren = command.newChildren
             .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
             .map { it.withPosition(GridPosition.DEFAULT) }
 
-        mutable[folderIndex] = folder.copy(children = safeChildren)
+        mutable[folderLookup.index] = folderLookup.folder.copy(children = safeChildren)
         return Result.Applied(mutable)
     }
 
@@ -315,37 +390,35 @@ class HomeModelWriter(
         currentItems: List<HomeItem>,
         command: Command.MoveItemBetweenFolders
     ): Result {
-        if (command.sourceFolderId == command.targetFolderId) {
-            return Result.Rejected(Error.InvalidFolderOperation)
-        }
-
         val mutable = currentItems.toMutableList()
-        val source = mutable.firstOrNull { it.id == command.sourceFolderId } as? HomeItem.FolderItem
-            ?: return Result.Rejected(Error.FolderNotFound)
-        val target = mutable.firstOrNull { it.id == command.targetFolderId } as? HomeItem.FolderItem
-            ?: return Result.Rejected(Error.FolderNotFound)
-
-        val child = source.children.firstOrNull { it.id == command.itemId }
-            ?: return Result.Rejected(Error.ItemNotFound)
-        if (child is HomeItem.WidgetItem) {
-            return Result.Rejected(Error.InvalidFolderOperation)
-        }
-        if (target.children.any { it.id == command.itemId }) {
-            return Result.Rejected(Error.DuplicateItem)
+        val source = findFolderLookup(mutable, command.sourceFolderId)?.folder
+        val target = findFolderLookup(mutable, command.targetFolderId)?.folder
+        val child = source?.children?.firstOrNull { it.id == command.itemId }
+        val rejection = when {
+            command.sourceFolderId == command.targetFolderId -> Error.InvalidFolderOperation
+            source == null || target == null -> Error.FolderNotFound
+            child == null -> Error.ItemNotFound
+            child is HomeItem.WidgetItem -> Error.InvalidFolderOperation
+            target.children.any { it.id == command.itemId } -> Error.DuplicateItem
+            else -> null
         }
 
-        evictItemEverywhere(mutable, command.itemId)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            evictItemEverywhere(mutable, command.itemId)
 
-        val targetIndex = mutable.indexOfFirst { it.id == command.targetFolderId }
-        if (targetIndex == -1) return Result.Rejected(Error.FolderNotFound)
-        val updatedTarget = mutable[targetIndex] as? HomeItem.FolderItem
-            ?: return Result.Rejected(Error.FolderNotFound)
-
-        val children = updatedTarget.children.toMutableList()
-        children.add(child.withPosition(GridPosition.DEFAULT))
-        mutable[targetIndex] = updatedTarget.copy(children = children)
-
-        return Result.Applied(mutable)
+            val updatedTargetLookup = findFolderLookup(mutable, command.targetFolderId)
+            if (updatedTargetLookup == null) {
+                Result.Rejected(Error.FolderNotFound)
+            } else {
+                val children = updatedTargetLookup.folder.children.toMutableList()
+                children.add(requireNotNull(child).withPosition(GridPosition.DEFAULT))
+                mutable[updatedTargetLookup.index] = updatedTargetLookup.folder.copy(children = children)
+                Result.Applied(mutable)
+            }
+        }
+        return result
     }
 
     private fun extractFolderChildOntoItem(
@@ -353,31 +426,36 @@ class HomeModelWriter(
         command: Command.ExtractFolderChildOntoItem
     ): Result {
         val mutable = currentItems.toMutableList()
-        val source = mutable.firstOrNull { it.id == command.sourceFolderId } as? HomeItem.FolderItem
-            ?: return Result.Rejected(Error.FolderNotFound)
-
-        val child = source.children.firstOrNull { it.id == command.childItemId }
-            ?: return Result.Rejected(Error.ItemNotFound)
-        if (child is HomeItem.WidgetItem) {
-            return Result.Rejected(Error.InvalidFolderOperation)
-        }
-
+        val source = findFolderLookup(mutable, command.sourceFolderId)?.folder
+        val child = source?.children?.firstOrNull { it.id == command.childItemId }
         val liveTarget = findLiveNonFolderTarget(
             items = mutable,
             targetItemId = command.targetItemId,
             atPosition = command.atPosition
-        ) ?: return Result.Rejected(Error.ItemNotFound)
+        )
 
-        if (child.id == liveTarget.id) {
-            return Result.Rejected(Error.InvalidFolderOperation)
+        val rejection = when {
+            source == null -> Error.FolderNotFound
+            child == null -> Error.ItemNotFound
+            child is HomeItem.WidgetItem -> Error.InvalidFolderOperation
+            liveTarget == null -> Error.ItemNotFound
+            child.id == liveTarget.id -> Error.InvalidFolderOperation
+            else -> null
         }
 
-        evictItemEverywhere(mutable, child.id)
-        evictItemEverywhere(mutable, liveTarget.id)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            val confirmedChild = requireNotNull(child)
+            val confirmedTarget = requireNotNull(liveTarget)
+            evictItemEverywhere(mutable, confirmedChild.id)
+            evictItemEverywhere(mutable, confirmedTarget.id)
 
-        val folder = HomeItem.FolderItem.create(child, liveTarget, command.atPosition)
-        mutable.add(folder)
-        return Result.Applied(mutable)
+            val folder = HomeItem.FolderItem.create(confirmedChild, confirmedTarget, command.atPosition)
+            mutable.add(folder)
+            Result.Applied(mutable)
+        }
+        return result
     }
 
     private fun mergeFolders(
@@ -385,33 +463,33 @@ class HomeModelWriter(
         command: Command.MergeFolders
     ): Result {
         val mutable = currentItems.toMutableList()
-        val sourceIndex = mutable.indexOfFirst { it.id == command.sourceFolderId }
-        val targetIndex = mutable.indexOfFirst { it.id == command.targetFolderId }
-        if (sourceIndex == -1 || targetIndex == -1) {
-            return Result.Rejected(Error.FolderNotFound)
+        val sourceLookup = findFolderLookup(mutable, command.sourceFolderId)
+        val targetLookup = findFolderLookup(mutable, command.targetFolderId)
+        val rejection = if (sourceLookup == null || targetLookup == null) {
+            Error.FolderNotFound
+        } else {
+            null
         }
 
-        val source = mutable[sourceIndex] as? HomeItem.FolderItem
-            ?: return Result.Rejected(Error.FolderNotFound)
-        val target = mutable[targetIndex] as? HomeItem.FolderItem
-            ?: return Result.Rejected(Error.FolderNotFound)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            val targetChildIds = requireNotNull(targetLookup).folder.children.map { it.id }.toSet()
+            val merged = targetLookup.folder.children + requireNotNull(sourceLookup).folder.children
+                .filterNot { it.id in targetChildIds }
+                .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
+                .map { it.withPosition(GridPosition.DEFAULT) }
 
-        val targetChildIds = target.children.map { it.id }.toSet()
-        val merged = target.children + source.children
-            .filterNot { it.id in targetChildIds }
-            .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
-            .map { it.withPosition(GridPosition.DEFAULT) }
-
-        mutable.removeAll { it.id == command.sourceFolderId }
-        val updatedTargetIndex = mutable.indexOfFirst { it.id == command.targetFolderId }
-        if (updatedTargetIndex == -1) {
-            return Result.Rejected(Error.FolderNotFound)
+            mutable.removeAll { it.id == command.sourceFolderId }
+            val updatedTargetLookup = findFolderLookup(mutable, command.targetFolderId)
+            if (updatedTargetLookup == null) {
+                Result.Rejected(Error.FolderNotFound)
+            } else {
+                mutable[updatedTargetLookup.index] = updatedTargetLookup.folder.copy(children = merged)
+                Result.Applied(mutable)
+            }
         }
-        val updatedTarget = mutable[updatedTargetIndex] as? HomeItem.FolderItem
-            ?: return Result.Rejected(Error.FolderNotFound)
-        mutable[updatedTargetIndex] = updatedTarget.copy(children = merged)
-
-        return Result.Applied(mutable)
+        return result
     }
 
     private fun renameFolder(
@@ -419,10 +497,10 @@ class HomeModelWriter(
         command: Command.RenameFolder
     ): Result {
         val mutable = currentItems.toMutableList()
-        val (folderIndex, folder) = findFolderIndexAndModel(mutable, command.folderId)
+        val folderLookup = findFolderLookup(mutable, command.folderId)
             ?: return Result.Rejected(Error.FolderNotFound)
         val safeName = command.newName.trim().ifBlank { "Folder" }
-        mutable[folderIndex] = folder.copy(name = safeName)
+        mutable[folderLookup.index] = folderLookup.folder.copy(name = safeName)
         return Result.Applied(mutable)
     }
 
@@ -432,159 +510,174 @@ class HomeModelWriter(
     ): Result {
         val mutable = currentItems.toMutableList()
         val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.folderId)
-        if (command.targetPosition in occupied) {
-            return Result.Rejected(Error.TargetOccupied)
-        }
-
         val child = removeChildFromFolderWithCleanup(
             items = mutable,
             folderId = command.folderId,
             childItemId = command.itemId
-        ) ?: return Result.Rejected(Error.ItemNotFound)
+        )
 
-        evictItemEverywhere(mutable, child.id)
-        mutable.add(child.withPosition(command.targetPosition))
-        return Result.Applied(mutable)
+        val rejection = when {
+            command.targetPosition in occupied -> Error.TargetOccupied
+            child == null -> Error.ItemNotFound
+            else -> null
+        }
+
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            val confirmedChild = requireNotNull(child)
+            evictItemEverywhere(mutable, confirmedChild.id)
+            mutable.add(confirmedChild.withPosition(command.targetPosition))
+            Result.Applied(mutable)
+        }
+        return result
     }
 
     private fun updateWidgetFrame(
         currentItems: List<HomeItem>,
         command: Command.UpdateWidgetFrame
     ): Result {
-        if (command.newSpan.columns < 1 || command.newSpan.rows < 1) {
-            return Result.Rejected(Error.InvalidWidgetOperation)
-        }
-
         val mutable = currentItems.toMutableList()
         val widgetIndex = mutable.indexOfFirst { it.id == command.widgetId }
-        if (widgetIndex == -1) {
-            return Result.Rejected(Error.ItemNotFound)
+        val widget = mutable.getOrNull(widgetIndex) as? HomeItem.WidgetItem
+        val occupied = if (widget == null) {
+            emptyMap()
+        } else {
+            HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.widgetId)
+        }
+        val rejection = when {
+            command.newSpan.columns < 1 || command.newSpan.rows < 1 -> Error.InvalidWidgetOperation
+            widgetIndex == -1 -> Error.ItemNotFound
+            widget == null -> Error.InvalidWidgetOperation
+            !isWithinGrid(command.newPosition, command.newSpan, gridColumns) -> Error.OutOfBounds
+            !isSpanFree(command.newPosition, command.newSpan, occupied) -> Error.TargetOccupied
+            else -> null
         }
 
-        val widget = mutable[widgetIndex] as? HomeItem.WidgetItem
-            ?: return Result.Rejected(Error.InvalidWidgetOperation)
-
-        if (!isWithinGrid(command.newPosition, command.newSpan)) {
-            return Result.Rejected(Error.OutOfBounds)
+        val result = if (rejection != null) {
+            Result.Rejected(rejection)
+        } else {
+            mutable[widgetIndex] = requireNotNull(widget)
+                .withPosition(command.newPosition)
+                .withSpan(command.newSpan)
+            Result.Applied(mutable)
         }
+        return result
+    }
+}
 
-        val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.widgetId)
-        if (!isSpanFree(command.newPosition, command.newSpan, occupied)) {
-            return Result.Rejected(Error.TargetOccupied)
-        }
+private data class FolderLookup(
+    val index: Int,
+    val folder: HomeItem.FolderItem
+)
 
-        mutable[widgetIndex] = widget
-            .withPosition(command.newPosition)
-            .withSpan(command.newSpan)
-        return Result.Applied(mutable)
+private fun isWithinGrid(
+    position: GridPosition,
+    span: GridSpan,
+    gridColumns: Int
+): Boolean {
+    return position.row >= 0 &&
+        position.column >= 0 &&
+        position.column + span.columns <= gridColumns
+}
+
+private fun isSpanFree(
+    position: GridPosition,
+    span: GridSpan,
+    occupied: Map<GridPosition, String>
+): Boolean {
+    return span.occupiedPositions(position).none { cell -> cell in occupied }
+}
+
+private fun evictItemEverywhere(items: MutableList<HomeItem>, itemId: String) {
+    items.removeAll { it.id == itemId }
+
+    var folderIndex = items.indexOfFirst { candidate ->
+        (candidate as? HomeItem.FolderItem)?.children?.any { it.id == itemId } == true
     }
 
-    private fun isWithinGrid(position: GridPosition, span: GridSpan): Boolean {
-        if (position.row < 0 || position.column < 0) return false
-        return position.column + span.columns <= gridColumns
-    }
-
-    private fun isSpanFree(
-        position: GridPosition,
-        span: GridSpan,
-        occupied: Map<GridPosition, String>
-    ): Boolean {
-        for (cell in span.occupiedPositions(position)) {
-            if (cell in occupied) return false
-        }
-        return true
-    }
-
-    private fun evictItemEverywhere(items: MutableList<HomeItem>, itemId: String) {
-        items.removeAll { it.id == itemId }
-
-        var removed = true
-        while (removed) {
-            removed = false
-            for (index in items.indices) {
-                val folder = items[index] as? HomeItem.FolderItem ?: continue
-                if (folder.children.none { it.id == itemId }) continue
-
-                val remaining = folder.children.filterNot { it.id == itemId }
-                when (remaining.size) {
-                    0 -> items.removeAt(index)
-                    1 -> {
-                        val promoted = remaining.first().withPosition(folder.position)
-                        items.removeAt(index)
-                        items.add(promoted)
-                    }
-
-                    else -> items[index] = folder.copy(children = remaining)
-                }
-
-                removed = true
-                break
-            }
+    while (folderIndex != -1) {
+        val folder = items[folderIndex] as HomeItem.FolderItem
+        val remaining = folder.children.filterNot { it.id == itemId }
+        applyFolderCleanup(items, folderIndex, folder, remaining)
+        folderIndex = items.indexOfFirst { candidate ->
+            (candidate as? HomeItem.FolderItem)?.children?.any { it.id == itemId } == true
         }
     }
+}
 
-    private fun removeChildFromFolderWithCleanup(
-        items: MutableList<HomeItem>,
-        folderId: String,
-        childItemId: String
-    ): HomeItem? {
-        val (folderIndex, folder) = findFolderIndexAndModel(items, folderId) ?: return null
-        val removedChild = folder.children.firstOrNull { it.id == childItemId } ?: return null
-        val remaining = folder.children.filterNot { it.id == childItemId }
+private fun removeChildFromFolderWithCleanup(
+    items: MutableList<HomeItem>,
+    folderId: String,
+    childItemId: String
+): HomeItem? {
+    val folderLookup = findFolderLookup(items, folderId)
+    val removedChild = folderLookup?.folder?.children?.firstOrNull { it.id == childItemId }
 
-        when (remaining.size) {
-            0 -> items.removeAt(folderIndex)
-            1 -> {
-                val promoted = remaining.first().withPosition(folder.position)
-                items.removeAt(folderIndex)
-                items.add(promoted)
-            }
-
-            else -> items[folderIndex] = folder.copy(children = remaining)
-        }
-
-        return removedChild
+    if (folderLookup != null && removedChild != null) {
+        val remaining = folderLookup.folder.children.filterNot { it.id == childItemId }
+        applyFolderCleanup(items, folderLookup.index, folderLookup.folder, remaining)
     }
 
-    private fun findFolderIndexAndModel(
-        items: List<HomeItem>,
-        folderId: String
-    ): Pair<Int, HomeItem.FolderItem>? {
-        val folderIndex = items.indexOfFirst { it.id == folderId }
-        if (folderIndex == -1) return null
-        val folder = items[folderIndex] as? HomeItem.FolderItem ?: return null
-        return folderIndex to folder
-    }
+    return removedChild
+}
 
-    private fun containsItemIdAnywhere(items: List<HomeItem>, itemId: String): Boolean {
-        if (items.any { it.id == itemId }) return true
-        return items.any { candidate ->
-            val folder = candidate as? HomeItem.FolderItem ?: return@any false
-            folder.children.any { it.id == itemId }
+private fun applyFolderCleanup(
+    items: MutableList<HomeItem>,
+    folderIndex: Int,
+    folder: HomeItem.FolderItem,
+    remainingChildren: List<HomeItem>
+) {
+    when (remainingChildren.size) {
+        0 -> items.removeAt(folderIndex)
+        1 -> {
+            val promoted = remainingChildren.first().withPosition(folder.position)
+            items.removeAt(folderIndex)
+            items.add(promoted)
         }
-    }
 
-    private fun findAvailablePosition(items: List<HomeItem>, maxRows: Int): GridPosition {
-        val occupied = HomeGraph.buildOccupiedCells(items)
-        for (row in 0 until maxRows) {
-            for (column in 0 until gridColumns) {
-                val position = GridPosition(row, column)
-                if (position !in occupied) return position
-            }
-        }
-        return GridPosition(maxRows, 0)
+        else -> items[folderIndex] = folder.copy(children = remainingChildren)
     }
+}
 
-    private fun findLiveNonFolderTarget(
-        items: List<HomeItem>,
-        targetItemId: String,
-        atPosition: GridPosition
-    ): HomeItem? {
-        return items.firstOrNull {
-            it.id == targetItemId &&
-                it.position == atPosition &&
-                it !is HomeItem.FolderItem &&
-                it !is HomeItem.WidgetItem
+private fun findFolderLookup(items: List<HomeItem>, folderId: String): FolderLookup? {
+    val folderIndex = items.indexOfFirst { it.id == folderId }
+    val folder = items.getOrNull(folderIndex) as? HomeItem.FolderItem
+    return folder?.let { FolderLookup(folderIndex, it) }
+}
+
+private fun containsItemIdAnywhere(items: List<HomeItem>, itemId: String): Boolean {
+    return items.any { it.id == itemId } ||
+        items.any { candidate ->
+            (candidate as? HomeItem.FolderItem)?.children?.any { it.id == itemId } == true
         }
+}
+
+private fun findAvailablePosition(
+    items: List<HomeItem>,
+    maxRows: Int,
+    gridColumns: Int
+): GridPosition {
+    val occupied = HomeGraph.buildOccupiedCells(items)
+    val firstFreePosition = (0 until maxRows)
+        .asSequence()
+        .flatMap { row ->
+            (0 until gridColumns).asSequence().map { column -> GridPosition(row, column) }
+        }
+        .firstOrNull { position -> position !in occupied }
+
+    return firstFreePosition ?: GridPosition(maxRows, 0)
+}
+
+private fun findLiveNonFolderTarget(
+    items: List<HomeItem>,
+    targetItemId: String,
+    atPosition: GridPosition
+): HomeItem? {
+    return items.firstOrNull { item ->
+        item.id == targetItemId &&
+            item.position == atPosition &&
+            item !is HomeItem.FolderItem &&
+            item !is HomeItem.WidgetItem
     }
 }

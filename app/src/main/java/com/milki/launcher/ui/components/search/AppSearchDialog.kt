@@ -34,32 +34,59 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.text.input.ImeAction
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.milki.launcher.domain.model.*
-import com.milki.launcher.domain.search.ClipboardSuggestion
-import com.milki.launcher.domain.search.QuerySuggestion
+import android.util.Log
+import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
@@ -67,6 +94,11 @@ import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 import kotlinx.coroutines.delay
+
+private const val SEARCH_LOADING_INDICATOR_DELAY_MS = 300L
+private const val SEARCH_DIALOG_SCRIM_ALPHA = 0.16f
+private const val SEARCH_DIALOG_MAX_WIDTH_DP = 720
+private const val APP_SEARCH_DIALOG_LOG_TAG = "AppSearchDialog"
 
 /**
  * AppSearchDialog - Main search dialog component supporting multiple search modes.
@@ -90,27 +122,9 @@ fun AppSearchDialog(
     onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    /**
-     * Get the action handler from CompositionLocal.
-     * This allows us to emit actions without prop drilling.
-     */
     val actionHandler = LocalSearchActionHandler.current
-    
-    /**
-     * FocusRequester allows us to programmatically request focus
-     * on the text field when the dialog opens. This provides a
-     * better user experience by immediately showing the keyboard.
-     */
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-
-    /**
-     * Software keyboard controller lets us explicitly ask Android to show
-     * the IME after the text field receives focus.
-     *
-     * This is not strictly required for all devices, but helps improve
-     * consistency across OEM keyboard implementations.
-     */
     val keyboardController = LocalSoftwareKeyboardController.current
     val showLoadingIndicator by produceState(
         initialValue = false,
@@ -121,29 +135,12 @@ fun AppSearchDialog(
             return@produceState
         }
 
-        delay(300)
+        delay(SEARCH_LOADING_INDICATOR_DELAY_MS)
         value = uiState.isLoading
     }
-
-    /**
-     * Lifecycle owner to react to resume events for focus requests.
-     */
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    /**
-     * BackHandler intercepts the system back button.
-     * When pressed, it calls onDismiss to close the dialog
-     * instead of navigating back in the activity.
-     */
     BackHandler { onDismiss() }
-
-    /**
-     * Dialog is the main container for the search UI.
-     *
-     * PROPERTIES:
-     * - usePlatformDefaultWidth = false: Allows custom sizing
-     * - decorFitsSystemWindows = false: We handle system/IME insets manually
-     */
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -154,169 +151,245 @@ fun AppSearchDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.16f))
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = SEARCH_DIALOG_SCRIM_ALPHA))
         ) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onDismiss
-                    )
+            SearchDialogDismissLayer(onDismiss = onDismiss)
+            SearchDialogSheet(
+                uiState = uiState,
+                onQueryChange = onQueryChange,
+                onDismiss = onDismiss,
+                showLoadingIndicator = showLoadingIndicator,
+                focusRequester = focusRequester,
+                actionHandler = actionHandler
             )
-
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(
-                            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
-                        )
-                    )
-                    .windowInsetsPadding(
-                        WindowInsets.navigationBars
-                            .union(WindowInsets.ime)
-                            .only(WindowInsetsSides.Bottom)
-                    )
-                    .padding(
-                        start = Spacing.mediumLarge,
-                        end = Spacing.mediumLarge,
-                        top = Spacing.smallMedium,
-                        bottom = Spacing.smallMedium
-                    ),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .widthIn(max = 720.dp)
-                        .heightIn(max = maxHeight)
-                        .animateContentSize(),
-                    shape = RoundedCornerShape(CornerRadius.large),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = Spacing.smallMedium
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = maxHeight)
-                            .animateContentSize()
-                    ) {
-                        /**
-                         * Shared unified search input with provider-aware visuals.
-                         */
-                        val providerVisual = rememberSearchProviderVisual(
-                            providerId = uiState.activeProviderConfig?.providerId,
-                            customAccentHex =
-                                uiState.activeProviderConfig?.providerId?.let(
-                                    uiState.providerAccentColorById::get
-                                )
-                        )
-                        val indicatorColor by animateColorAsState(
-                            targetValue = providerVisual?.accentColor
-                                ?: MaterialTheme.colorScheme.primary,
-                            label = "search_indicator_color"
-                        )
-
-                        UnifiedSearchInputField(
-                            query = uiState.query,
-                            onQueryChange = onQueryChange,
-                            placeholderText = uiState.placeholderText,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = Spacing.mediumLarge)
-                                .padding(top = Spacing.mediumLarge),
-                            focusRequester = focusRequester,
-                            leadingIcon = providerVisual?.icon ?: Icons.Default.Search,
-                            leadingIconTint = providerVisual?.accentColor
-                                ?: MaterialTheme.colorScheme.onSurfaceVariant,
-                            leadingIconContentDescription = uiState.activeProviderConfig?.name,
-                            indicatorColor = indicatorColor,
-                            imeAction = ImeAction.Done,
-                            onImeAction = {
-                                uiState.results.firstOrNull()?.let { result ->
-                                    actionHandler(SearchResultAction.Tap(result))
-                                }
-                            },
-                            onClear = { onQueryChange("") },
-                            supportingContent = {
-                                if (uiState.activeProviderConfig != null) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = Spacing.smallMedium, bottom = Spacing.smallMedium),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = providerVisual?.icon ?: Icons.Default.Search,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(IconSize.extraSmall),
-                                            tint = providerVisual?.accentColor
-                                                ?: MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(modifier = Modifier.width(Spacing.smallMedium))
-                                        Text(
-                                            text = "${uiState.activeProviderConfig.name}: ${uiState.activeProviderConfig.description}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = providerVisual?.accentColor
-                                                ?: MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            }
-                        )
-
-                        SearchLoadingIndicatorSlot(
-                            isVisible = showLoadingIndicator,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = Spacing.mediumLarge)
-                        )
-
-                        SearchDialogBody(
-                            uiState = uiState,
-                            onExternalAppDragStart = onDismiss,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f, fill = false)
-                        )
-                    }
-                }
-            }
         }
     }
 
-    LaunchedEffect(uiState.autoFocusKeyboard) {
-        if (!uiState.autoFocusKeyboard) return@LaunchedEffect
-        try {
-            focusRequester.requestFocus()
-            keyboardController?.show()
-        } catch (e: Exception) {
-            // Ignore if layout isn't ready
-        }
-    }
-
-    DisposableEffect(lifecycleOwner, uiState.autoFocusKeyboard) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && uiState.autoFocusKeyboard) {
-                try {
-                    focusRequester.requestFocus()
-                    keyboardController?.show()
-                } catch (e: Exception) {
-                    // Ignore if layout isn't ready
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+    SearchDialogFocusEffects(
+        autoFocusKeyboard = uiState.autoFocusKeyboard,
+        focusRequester = focusRequester,
+        keyboardController = keyboardController,
+        lifecycleOwner = lifecycleOwner
+    )
 
     DisposableEffect(focusManager, keyboardController) {
         onDispose {
             focusManager.clearFocus(force = true)
             keyboardController?.hide()
         }
+    }
+}
+
+@Composable
+private fun SearchDialogDismissLayer(onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            )
+    )
+}
+
+@Composable
+private fun SearchDialogSheet(
+    uiState: SearchUiState,
+    onQueryChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    showLoadingIndicator: Boolean,
+    focusRequester: FocusRequester,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+                )
+            )
+            .windowInsetsPadding(
+                WindowInsets.navigationBars
+                    .union(WindowInsets.ime)
+                    .only(WindowInsetsSides.Bottom)
+            )
+            .padding(
+                start = Spacing.mediumLarge,
+                end = Spacing.mediumLarge,
+                top = Spacing.smallMedium,
+                bottom = Spacing.smallMedium
+            ),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = SEARCH_DIALOG_MAX_WIDTH_DP.dp)
+                .heightIn(max = maxHeight)
+                .animateContentSize(),
+            shape = RoundedCornerShape(CornerRadius.large),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = Spacing.smallMedium
+        ) {
+            SearchDialogContent(
+                uiState = uiState,
+                onQueryChange = onQueryChange,
+                onDismiss = onDismiss,
+                showLoadingIndicator = showLoadingIndicator,
+                focusRequester = focusRequester,
+                actionHandler = actionHandler,
+                maxHeight = maxHeight
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchDialogContent(
+    uiState: SearchUiState,
+    onQueryChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    showLoadingIndicator: Boolean,
+    focusRequester: FocusRequester,
+    actionHandler: (SearchResultAction) -> Unit,
+    maxHeight: Dp
+) {
+    val providerVisual = rememberSearchProviderVisual(
+        providerId = uiState.activeProviderConfig?.providerId,
+        customAccentHex = uiState.activeProviderConfig?.providerId?.let(
+            uiState.providerAccentColorById::get
+        )
+    )
+    val indicatorColor by animateColorAsState(
+        targetValue = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary,
+        label = "search_indicator_color"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = maxHeight)
+            .animateContentSize()
+    ) {
+        UnifiedSearchInputField(
+            query = uiState.query,
+            onQueryChange = onQueryChange,
+            placeholderText = uiState.placeholderText,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.mediumLarge)
+                .padding(top = Spacing.mediumLarge),
+            focusRequester = focusRequester,
+            leadingIcon = providerVisual?.icon ?: Icons.Default.Search,
+            leadingIconTint = providerVisual?.accentColor
+                ?: MaterialTheme.colorScheme.onSurfaceVariant,
+            leadingIconContentDescription = uiState.activeProviderConfig?.name,
+            indicatorColor = indicatorColor,
+            imeAction = ImeAction.Done,
+            onImeAction = {
+                uiState.results.firstOrNull()?.let { result ->
+                    actionHandler(SearchResultAction.Tap(result))
+                }
+            },
+            onClear = { onQueryChange("") },
+            supportingContent = {
+                ActiveProviderSupportingContent(
+                    uiState = uiState,
+                    providerVisual = providerVisual
+                )
+            }
+        )
+
+        SearchLoadingIndicatorSlot(
+            isVisible = showLoadingIndicator,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.mediumLarge)
+        )
+
+        SearchDialogBody(
+            uiState = uiState,
+            onExternalAppDragStart = onDismiss,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+        )
+    }
+}
+
+@Composable
+private fun ActiveProviderSupportingContent(
+    uiState: SearchUiState,
+    providerVisual: SearchProviderVisual?
+) {
+    val activeProvider = uiState.activeProviderConfig ?: return
+    val accentColor = providerVisual?.accentColor ?: MaterialTheme.colorScheme.primary
+    val providerDescription = "${activeProvider.name}: ${activeProvider.description}"
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.smallMedium),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = providerVisual?.icon ?: Icons.Default.Search,
+            contentDescription = null,
+            modifier = Modifier.size(IconSize.extraSmall),
+            tint = accentColor
+        )
+        Spacer(modifier = Modifier.width(Spacing.smallMedium))
+        Text(
+            text = providerDescription,
+            style = MaterialTheme.typography.bodySmall,
+            color = accentColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun SearchDialogFocusEffects(
+    autoFocusKeyboard: Boolean,
+    focusRequester: FocusRequester,
+    keyboardController: SoftwareKeyboardController?,
+    lifecycleOwner: LifecycleOwner
+) {
+    LaunchedEffect(autoFocusKeyboard) {
+        if (autoFocusKeyboard) {
+            requestDialogFocus(
+                focusRequester = focusRequester,
+                keyboardController = keyboardController
+            )
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, autoFocusKeyboard) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && autoFocusKeyboard) {
+                requestDialogFocus(
+                    focusRequester = focusRequester,
+                    keyboardController = keyboardController
+                )
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+}
+
+private fun requestDialogFocus(
+    focusRequester: FocusRequester,
+    keyboardController: SoftwareKeyboardController?
+) {
+    runCatching {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }.onFailure { error ->
+        Log.w(APP_SEARCH_DIALOG_LOG_TAG, "Search dialog focus request skipped", error)
     }
 }
 

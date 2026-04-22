@@ -11,6 +11,10 @@ import org.junit.runner.RunWith
 @LargeTest
 class LauncherBaselineProfile {
 
+    private companion object {
+        private const val BenchmarkTransitions = 3
+    }
+
     @get:Rule
     val baselineProfileRule = BaselineProfileRule()
 
@@ -25,7 +29,7 @@ class LauncherBaselineProfile {
             seedHome = true
         )
 
-        repeat(3) {
+        repeat(BenchmarkTransitions) {
             benchmarkDriver.transitionTo(LauncherBenchmarkSurface.HOME)
             benchmarkDriver.transitionTo(LauncherBenchmarkSurface.DRAWER)
             benchmarkDriver.transitionTo(LauncherBenchmarkSurface.HOME)

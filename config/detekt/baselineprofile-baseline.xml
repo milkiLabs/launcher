@@ -1,15 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>MagicNumber:LauncherBaselineProfile.kt:LauncherBaselineProfile$3</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:internal const val BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP = "DOWN_UP"</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:private const val ACTION_BENCHMARK = "com.milki.launcher.action.BENCHMARK"</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:private const val EXTRA_BENCHMARK_DRAWER_QUERY = "com.milki.launcher.extra.BENCHMARK_DRAWER_QUERY"</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:private const val EXTRA_BENCHMARK_DRAWER_SCROLL_SEQUENCE = "com.milki.launcher.extra.BENCHMARK_DRAWER_SCROLL_SEQUENCE"</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:private const val EXTRA_BENCHMARK_SEED_HOME = "com.milki.launcher.extra.BENCHMARK_SEED_HOME"</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:private const val EXTRA_BENCHMARK_TARGET = "com.milki.launcher.extra.BENCHMARK_TARGET"</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:private const val MAIN_ACTIVITY_NAME = "com.milki.launcher.app.activity.MainActivity"</ID>
-    <ID>TopLevelPropertyNaming:LauncherBenchmarkDriver.kt:private const val PACKAGE_NAME = "com.milki.launcher"</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>

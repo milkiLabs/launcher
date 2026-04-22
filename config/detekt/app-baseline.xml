@@ -16,8 +16,6 @@
     <ID>CyclomaticComplexMethod:HomeScreenWidgetView.kt:WidgetLongPressFrameLayout$override fun dispatchTouchEvent: Boolean</ID>
     <ID>CyclomaticComplexMethod:SettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen</ID>
     <ID>ForbiddenComment:PermissionHandler.kt:PermissionHandler$* Requests contacts permission from the user. * * The result will be handled by our callback registered in registerContactsLauncher(). * * If the user previously denied the permission and checked "Don't ask again", * the dialog won't show - the system will immediately call our callback * with false. In this case, we should direct the user to Settings. * * TODO: Add logic to detect "permanently denied" and guide user to Settings</ID>
-    <ID>FunctionParameterNaming:LauncherSettings.kt:LauncherInteractionCatalog$_trigger: LauncherTrigger</ID>
-    <ID>InvalidPackageDeclaration:HomeAvailabilityPruner.kt:package com.milki.launcher.presentation.home</ID>
     <ID>LongMethod:AppDrawerOverlay.kt:@Composable fun AppDrawerOverlay</ID>
     <ID>LongMethod:AppSearchDialog.kt:@Composable fun AppSearchDialog</ID>
     <ID>LongMethod:AppSearchDialog.kt:@Composable private fun SearchDialogBody</ID>
@@ -142,20 +140,6 @@
     <ID>MaxLineLength:SearchResultContactItem.kt:val</ID>
     <ID>MaxLineLength:SettingsSourceEditorComponents.kt:!SearchSource.isValidUrlTemplate(normalizedTemplate) -&gt; errorText = "URL template must start with http/https and include {query}"</ID>
     <ID>MaxLineLength:WidgetHostManager.kt:WidgetHostManager$"Failed to bind widgetId=$appWidgetId provider=${providerInfo.provider} profile=${providerInfo.profile}"</ID>
-    <ID>NewLineAtEndOfFile:AppExternalDragGesture.kt:com.milki.launcher.ui.components.common.AppExternalDragGesture.kt</ID>
-    <ID>NewLineAtEndOfFile:AppItemContextMenuSupport.kt:com.milki.launcher.ui.components.common.AppItemContextMenuSupport.kt</ID>
-    <ID>NewLineAtEndOfFile:AppQueryRanker.kt:com.milki.launcher.domain.search.AppQueryRanker.kt</ID>
-    <ID>NewLineAtEndOfFile:ExampleInstrumentedTest.kt:com.milki.launcher.ExampleInstrumentedTest.kt</ID>
-    <ID>NewLineAtEndOfFile:HomeItemLayoutPresets.kt:com.milki.launcher.ui.components.launcher.HomeItemLayoutPresets.kt</ID>
-    <ID>NewLineAtEndOfFile:IconLabelCell.kt:com.milki.launcher.ui.components.common.IconLabelCell.kt</ID>
-    <ID>NewLineAtEndOfFile:LauncherDefaultState.kt:com.milki.launcher.core.launcher.LauncherDefaultState.kt</ID>
-    <ID>NewLineAtEndOfFile:LauncherIconVisibilityController.kt:com.milki.launcher.core.launcher.LauncherIconVisibilityController.kt</ID>
-    <ID>NewLineAtEndOfFile:PinnedFileAvailability.kt:com.milki.launcher.core.file.PinnedFileAvailability.kt</ID>
-    <ID>NewLineAtEndOfFile:PrefixMutationResult.kt:com.milki.launcher.domain.model.PrefixMutationResult.kt</ID>
-    <ID>NewLineAtEndOfFile:QueryTextMatcher.kt:com.milki.launcher.domain.search.QueryTextMatcher.kt</ID>
-    <ID>NewLineAtEndOfFile:SettingsContainerCard.kt:com.milki.launcher.ui.components.settings.SettingsContainerCard.kt</ID>
-    <ID>NewLineAtEndOfFile:SettingsSearchSourceStorageCodec.kt:com.milki.launcher.data.repository.settings.SettingsSearchSourceStorageCodec.kt</ID>
-    <ID>NewLineAtEndOfFile:UnifiedSearchInputField.kt:com.milki.launcher.ui.components.search.UnifiedSearchInputField.kt</ID>
     <ID>ReturnCount:AppExternalDragDrop.kt:private fun startExternalDragWithFallbackHosts: Boolean</ID>
     <ID>ReturnCount:AppIconDiskSnapshotStore.kt:AppIconDiskSnapshotStore$fun load: Drawable?</ID>
     <ID>ReturnCount:AppIconDiskSnapshotStore.kt:AppIconDiskSnapshotStore$fun save</ID>
@@ -246,38 +230,10 @@
     <ID>TooManyFunctions:SettingsRepository.kt:SettingsRepository</ID>
     <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
     <ID>TooManyFunctions:WidgetHostManager.kt:WidgetHostManager</ID>
-    <ID>TopLevelPropertyNaming:FolderPopupDialogSupport.kt:internal const val FOLDER_AUTO_PAGE_DELAY_MS = 170L</ID>
-    <ID>TopLevelPropertyNaming:FolderPopupDialogSupport.kt:internal const val FOLDER_DRAG_GHOST_ALPHA = 0.18f</ID>
-    <ID>TopLevelPropertyNaming:FolderPopupDialogSupport.kt:internal const val FOLDER_DRAG_PREVIEW_Z_INDEX = 12f</ID>
-    <ID>TopLevelPropertyNaming:FolderPopupDialogSupport.kt:internal const val FOLDER_DRAG_THRESHOLD_PX = 20f</ID>
-    <ID>TopLevelPropertyNaming:FolderPopupDialogSupport.kt:internal const val FOLDER_MIN_START_SCALE = 0.28f</ID>
-    <ID>TopLevelPropertyNaming:FolderPopupDialogSupport.kt:internal const val FOLDER_OPEN_ANIMATION_MS = 240</ID>
-    <ID>TopLevelPropertyNaming:FolderPopupDialogSupport.kt:internal const val FOLDER_PREVIEW_ALPHA = 0.92f</ID>
-    <ID>TopLevelPropertyNaming:LauncherActivityIntent.kt:const val ACTION_BENCHMARK = "com.milki.launcher.action.BENCHMARK"</ID>
-    <ID>TopLevelPropertyNaming:LauncherActivityIntent.kt:const val BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP = "DOWN_UP"</ID>
-    <ID>TopLevelPropertyNaming:LauncherActivityIntent.kt:const val EXTRA_BENCHMARK_DRAWER_QUERY = "com.milki.launcher.extra.BENCHMARK_DRAWER_QUERY"</ID>
-    <ID>TopLevelPropertyNaming:LauncherActivityIntent.kt:const val EXTRA_BENCHMARK_DRAWER_SCROLL_SEQUENCE = "com.milki.launcher.extra.BENCHMARK_DRAWER_SCROLL_SEQUENCE"</ID>
-    <ID>TopLevelPropertyNaming:LauncherActivityIntent.kt:const val EXTRA_BENCHMARK_SEED_HOME = "com.milki.launcher.extra.BENCHMARK_SEED_HOME"</ID>
-    <ID>TopLevelPropertyNaming:LauncherActivityIntent.kt:const val EXTRA_BENCHMARK_TARGET = "com.milki.launcher.extra.BENCHMARK_TARGET"</ID>
-    <ID>TopLevelPropertyNaming:LauncherIconVisibilityController.kt:private const val MAIN_ACTIVITY_LAUNCHER_ALIAS = "com.milki.launcher.app.activity.MainActivityLauncherAlias"</ID>
-    <ID>TopLevelPropertyNaming:PinnedItem.kt:private const val HOME_ITEM_LABEL_MAX_LENGTH = 18</ID>
     <ID>UnusedParameter:DragVisualEffects.kt:cellHeightPx: Float</ID>
     <ID>UnusedParameter:DragVisualEffects.kt:cellWidthPx: Float</ID>
-    <ID>UnusedParameter:LauncherSettings.kt:LauncherInteractionCatalog$_trigger: LauncherTrigger</ID>
     <ID>UnusedParameter:PinnedItem.kt:onLongClick: () -&gt; Unit</ID>
     <ID>UnusedParameter:SettingsScreen.kt:onNavigateBack: () -&gt; Unit</ID>
-    <ID>UnusedPrivateClass:AppExternalDragDrop.kt:AppRectangularDragShadowBuilder : DragShadowBuilder</ID>
     <ID>VariableNaming:FilesRepositoryImpl.kt:FilesRepositoryImpl$/** * Column projection for MediaStore queries. * * This defines which columns we want to retrieve from the MediaStore database. * Only requesting the columns we need improves query performance. * * COLUMNS: * - _ID: Unique identifier for the file (used to build content URIs) * - DISPLAY_NAME: The file name (e.g., "document.pdf") * - MIME_TYPE: The MIME type (e.g., "application/pdf") * - SIZE: File size in bytes * - DATE_MODIFIED: Last modified time (Unix timestamp in seconds) * - BUCKET_DISPLAY_NAME: The folder name containing the file * - RELATIVE_PATH: The relative path to the file */ private val PROJECTION = arrayOf( MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.DISPLAY_NAME, MediaStore.Files.FileColumns.MIME_TYPE, MediaStore.Files.FileColumns.SIZE, MediaStore.Files.FileColumns.DATE_MODIFIED, MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME, MediaStore.Files.FileColumns.RELATIVE_PATH )</ID>
-    <ID>WildcardImport:ActionExecutor.kt:import com.milki.launcher.domain.model.*</ID>
-    <ID>WildcardImport:AppSearchDialog.kt:import androidx.compose.foundation.layout.*</ID>
-    <ID>WildcardImport:AppSearchDialog.kt:import androidx.compose.material3.*</ID>
-    <ID>WildcardImport:AppSearchDialog.kt:import androidx.compose.runtime.*</ID>
-    <ID>WildcardImport:AppSearchDialog.kt:import com.milki.launcher.domain.model.*</ID>
-    <ID>WildcardImport:ContactsSearchProvider.kt:import com.milki.launcher.domain.model.*</ID>
-    <ID>WildcardImport:ExampleInstrumentedTest.kt:import org.junit.Assert.*</ID>
-    <ID>WildcardImport:FilesSearchProvider.kt:import com.milki.launcher.domain.model.*</ID>
-    <ID>WildcardImport:SearchResultAction.kt:import com.milki.launcher.domain.model.*</ID>
-    <ID>WildcardImport:SearchResultsList.kt:import com.milki.launcher.domain.model.*</ID>
-    <ID>WildcardImport:SettingsViewModel.kt:import com.milki.launcher.domain.model.*</ID>
   </CurrentIssues>
 </SmellBaseline>

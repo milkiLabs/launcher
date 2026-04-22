@@ -18,7 +18,12 @@
 
 package com.milki.launcher.data.search
 
-import com.milki.launcher.domain.model.*
+import com.milki.launcher.domain.model.Contact
+import com.milki.launcher.domain.model.ContactSearchResult
+import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.ProviderId
+import com.milki.launcher.domain.model.SearchProviderConfig
+import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SearchProvider

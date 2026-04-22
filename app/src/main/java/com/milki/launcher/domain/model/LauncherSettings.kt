@@ -63,7 +63,7 @@ object LauncherInteractionCatalog {
     val configurableTriggers: List<LauncherTrigger> = LauncherTrigger.entries
     val allActions: List<LauncherTriggerAction> = LauncherTriggerAction.entries
 
-    fun availableActions(_trigger: LauncherTrigger): List<LauncherTriggerAction> {
+    fun availableActions(): List<LauncherTriggerAction> {
         return allActions
     }
 

@@ -1,4 +1,4 @@
-package com.milki.launcher.presentation.home
+package com.milki.launcher.presentation.home.prune
 
 import android.content.ComponentName
 import android.content.Context

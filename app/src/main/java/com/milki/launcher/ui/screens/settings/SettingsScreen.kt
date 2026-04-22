@@ -306,7 +306,7 @@ private fun HomeScreenSection(
         DropdownSettingItem(
             title = trigger.displayName,
             selectedValue = settings.actionForTrigger(trigger).displayName,
-            options = LauncherInteractionCatalog.availableActions(trigger)
+            options = LauncherInteractionCatalog.availableActions()
                 .map { action -> action.displayName to action },
             onOptionSelected = { selectedAction ->
                 actions.onSetTriggerAction(trigger, selectedAction)

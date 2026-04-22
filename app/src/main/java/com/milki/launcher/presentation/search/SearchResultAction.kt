@@ -39,7 +39,10 @@
 
 package com.milki.launcher.presentation.search
 
-import com.milki.launcher.domain.model.*
+import com.milki.launcher.domain.model.Contact
+import com.milki.launcher.domain.model.FileDocument
+import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.SearchResult
 
 /**
  * Sealed class representing all possible actions from search results and home screen.

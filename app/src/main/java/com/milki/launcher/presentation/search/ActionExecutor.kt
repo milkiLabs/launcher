@@ -23,8 +23,15 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
-import com.milki.launcher.domain.model.*
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.model.AppSearchResult
+import com.milki.launcher.domain.model.ContactSearchResult
+import com.milki.launcher.domain.model.FileDocumentSearchResult
+import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.UrlSearchResult
+import com.milki.launcher.domain.model.WebSearchResult
+import com.milki.launcher.domain.model.YouTubeSearchResult
 import com.milki.launcher.presentation.home.HomeMutationHandler
 import com.milki.launcher.core.intent.openFile
 import com.milki.launcher.core.intent.launchApp

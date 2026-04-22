@@ -477,25 +477,6 @@ private class AppIconDragShadowBuilder(
 }
 
 /**
- * Drag shadow builder that draws a rectangular widget preview area.
- */
-private class AppRectangularDragShadowBuilder(
-    private val iconDrawable: Drawable,
-    private val shadowWidthPx: Int,
-    private val shadowHeightPx: Int
-) : View.DragShadowBuilder() {
-    override fun onProvideShadowMetrics(outShadowSize: Point, outShadowTouchPoint: Point) {
-        outShadowSize.set(shadowWidthPx, shadowHeightPx)
-        outShadowTouchPoint.set(shadowWidthPx / 2, shadowHeightPx / 2)
-    }
-
-    override fun onDrawShadow(canvas: Canvas) {
-        iconDrawable.setBounds(0, 0, shadowWidthPx, shadowHeightPx)
-        iconDrawable.draw(canvas)
-    }
-}
-
-/**
  * Drag shadow builder that draws a plain rectangular box for widget drags.
  *
  * WHY NOT EMPTY SHADOW:
