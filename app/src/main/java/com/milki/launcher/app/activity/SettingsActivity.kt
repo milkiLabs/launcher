@@ -10,10 +10,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Build
 import android.provider.Settings
-import kotlinx.coroutines.CompletableDeferred
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlin.coroutines.resume
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,14 +55,12 @@ class SettingsActivity : ComponentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModel()
 
     private var isDefaultLauncher by mutableStateOf(false)
-    private var pendingImportWidgetPermissionResult: CompletableDeferred<Boolean>? = null
+    private var pendingWidgetPermissionResult: ((Boolean) -> Unit)? = null
 
-    private val requestImportWidgetBindPermissionLauncher =
+    private val requestWidgetBindPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            pendingImportWidgetPermissionResult
-                ?.takeIf { !it.isCompleted }
-                ?.complete(result.resultCode == RESULT_OK)
-            pendingImportWidgetPermissionResult = null
+            pendingWidgetPermissionResult?.invoke(result.resultCode == RESULT_OK)
+            pendingWidgetPermissionResult = null
         }
 
     private val exportBackupLauncher =
@@ -78,16 +77,11 @@ class SettingsActivity : ComponentActivity() {
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-                grantUriPermission(
-                    packageName,
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                settingsViewModel.importBackup(uri) { _, bindIntent ->
-                    val deferred = CompletableDeferred<Boolean>()
-                    pendingImportWidgetPermissionResult = deferred
-                    requestImportWidgetBindPermissionLauncher.launch(bindIntent)
-                    deferred.await()
+                settingsViewModel.importBackup(uri) { bindIntent ->
+                    awaitActivityResult(
+                        launcher = requestWidgetBindPermissionLauncher,
+                        intent = bindIntent
+                    )
                 }
             }
         }
@@ -222,5 +216,28 @@ class SettingsActivity : ComponentActivity() {
         }.getOrDefault(false)
     }
 
+    private suspend fun awaitActivityResult(
+        launcher: ActivityResultLauncher<Intent>,
+        intent: Intent
+    ): Boolean = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+        pendingWidgetPermissionResult = { granted ->
+            if (continuation.isActive) {
+                continuation.resume(granted)
+            }
+        }
+
+        runCatching {
+            launcher.launch(intent)
+        }.onFailure {
+            pendingWidgetPermissionResult = null
+            if (continuation.isActive) {
+                continuation.resume(false)
+            }
+        }
+
+        continuation.invokeOnCancellation {
+            pendingWidgetPermissionResult = null
+        }
+    }
 
 }

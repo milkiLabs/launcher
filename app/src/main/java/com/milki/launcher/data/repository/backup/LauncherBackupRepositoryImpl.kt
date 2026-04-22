@@ -2,7 +2,6 @@ package com.milki.launcher.data.repository.backup
 
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import com.milki.launcher.core.file.ContentUriFailurePolicy
 import com.milki.launcher.core.file.PinnedFileAvailability
@@ -18,6 +17,7 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -72,7 +72,7 @@ class LauncherBackupRepositoryImpl(
 
     override suspend fun importFromUri(
         uri: Uri,
-        onWidgetBindPermissionRequested: suspend (appWidgetId: Int, intent: Intent) -> Boolean
+        requestWidgetBindPermission: WidgetBindPermissionRequester
     ): LauncherImportResult {
         return runCatching {
             val filePayload = appContext.contentResolver.openInputStream(uri)
@@ -103,13 +103,13 @@ class LauncherBackupRepositoryImpl(
             val importContext = ImportContext(
                 validPackages = validPackages,
                 validPinnedAppComponents = validComponents,
-                skippedReasons = skippedReasons
+                skippedReasons = skippedReasons,
+                requestWidgetBindPermission = requestWidgetBindPermission
             )
 
             val sanitizedHomeItems = sanitizeTopLevelItems(
                 items = snapshot.homeItems,
-                context = importContext,
-                onWidgetBindPermissionRequested = onWidgetBindPermissionRequested
+                context = importContext
             )
 
             val existingHomeItems = homeRepository.readPinnedItems()
@@ -142,15 +142,13 @@ class LauncherBackupRepositoryImpl(
 
     private suspend fun sanitizeTopLevelItems(
         items: List<HomeItem>,
-        context: ImportContext,
-        onWidgetBindPermissionRequested: suspend (appWidgetId: Int, intent: Intent) -> Boolean
+        context: ImportContext
     ): List<HomeItem> {
         val seenIds = mutableSetOf<String>()
         return items.mapNotNull { item ->
             val sanitized = sanitizeItem(
                 item = item,
-                context = context,
-                onWidgetBindPermissionRequested = onWidgetBindPermissionRequested
+                context = context
             ) ?: return@mapNotNull null
             if (!seenIds.add(sanitized.id)) {
                 context.skip(
@@ -166,8 +164,7 @@ class LauncherBackupRepositoryImpl(
 
     private suspend fun sanitizeItem(
         item: HomeItem,
-        context: ImportContext,
-        onWidgetBindPermissionRequested: suspend (appWidgetId: Int, intent: Intent) -> Boolean
+        context: ImportContext
     ): HomeItem? {
         return when (item) {
             is HomeItem.PinnedApp -> sanitizePinnedApp(item, context)
@@ -175,15 +172,13 @@ class LauncherBackupRepositoryImpl(
             is HomeItem.AppShortcut -> sanitizeAppShortcut(item, context)
             is HomeItem.WidgetItem -> sanitizeWidget(
                 item = item,
-                context = context,
-                onWidgetBindPermissionRequested = onWidgetBindPermissionRequested
+                context = context
             )
 
             is HomeItem.PinnedContact -> item
             is HomeItem.FolderItem -> sanitizeFolder(
                 folder = item,
-                context = context,
-                onWidgetBindPermissionRequested = onWidgetBindPermissionRequested
+                context = context
             )
         }
     }
@@ -238,8 +233,7 @@ class LauncherBackupRepositoryImpl(
 
     private suspend fun sanitizeWidget(
         item: HomeItem.WidgetItem,
-        context: ImportContext,
-        onWidgetBindPermissionRequested: suspend (appWidgetId: Int, intent: Intent) -> Boolean
+        context: ImportContext
     ): HomeItem.WidgetItem? {
         if (item.providerPackage !in context.validPackages) {
             context.skip(
@@ -252,42 +246,29 @@ class LauncherBackupRepositoryImpl(
         val providerComponent = runCatching {
             ComponentName(item.providerPackage, item.providerClass)
         }.getOrNull()
-
-        if (providerComponent == null) {
-            context.skip(
-                category = SkippedImportCategory.WIDGET,
+            ?: return skipWidget(
+                context = context,
                 message = "Invalid widget provider component ${item.providerPackage}/${item.providerClass}"
             )
-            return null
-        }
 
         val providerInfo = widgetHostManager.findInstalledProvider(providerComponent)
-        if (providerInfo == null) {
-            context.skip(
-                category = SkippedImportCategory.WIDGET,
+            ?: return skipWidget(
+                context = context,
                 message = "Widget provider not installed ${item.providerPackage}/${item.providerClass}"
             )
-            return null
-        }
 
         val appWidgetId = widgetHostManager.allocateWidgetId()
-        val bound = widgetHostManager.bindWidget(appWidgetId, providerInfo)
-        if (!bound) {
-            val permissionGranted = onWidgetBindPermissionRequested(
-                appWidgetId,
-                widgetHostManager.createBindPermissionIntent(
-                    appWidgetId = appWidgetId,
-                    providerInfo = providerInfo
-                )
+        val isBound = bindWidgetForImport(
+            appWidgetId = appWidgetId,
+            providerInfo = providerInfo,
+            context = context
+        )
+        if (!isBound) {
+            widgetHostManager.deallocateWidgetId(appWidgetId)
+            return skipWidget(
+                context = context,
+                message = "Widget permission not granted for ${item.label}"
             )
-            if (!permissionGranted) {
-                widgetHostManager.deallocateWidgetId(appWidgetId)
-                context.skip(
-                    category = SkippedImportCategory.WIDGET,
-                    message = "Widget permission not granted for ${item.label}"
-                )
-                return null
-            }
         }
 
         val needsConfiguration = widgetHostManager.getProviderInfo(appWidgetId)?.configure != null
@@ -312,14 +293,12 @@ class LauncherBackupRepositoryImpl(
 
     private suspend fun sanitizeFolder(
         folder: HomeItem.FolderItem,
-        context: ImportContext,
-        onWidgetBindPermissionRequested: suspend (appWidgetId: Int, intent: Intent) -> Boolean
+        context: ImportContext
     ): HomeItem.FolderItem? {
         val sanitizedChildren = folder.children.mapNotNull { child ->
             sanitizeItem(
                 item = child,
-                context = context,
-                onWidgetBindPermissionRequested = onWidgetBindPermissionRequested
+                context = context
             )
         }
 
@@ -332,6 +311,34 @@ class LauncherBackupRepositoryImpl(
         }
 
         return folder.copy(children = sanitizedChildren)
+    }
+
+    private suspend fun bindWidgetForImport(
+        appWidgetId: Int,
+        providerInfo: android.appwidget.AppWidgetProviderInfo,
+        context: ImportContext
+    ): Boolean {
+        if (widgetHostManager.bindWidget(appWidgetId, providerInfo)) {
+            return true
+        }
+
+        return context.requestWidgetBindPermission(
+            widgetHostManager.createBindPermissionIntent(
+                appWidgetId = appWidgetId,
+                providerInfo = providerInfo
+            )
+        )
+    }
+
+    private fun skipWidget(
+        context: ImportContext,
+        message: String
+    ): HomeItem.WidgetItem? {
+        context.skip(
+            category = SkippedImportCategory.WIDGET,
+            message = message
+        )
+        return null
     }
 
     private fun collectWidgetIds(items: List<HomeItem>): List<Int> {
@@ -368,7 +375,8 @@ class LauncherBackupRepositoryImpl(
     private data class ImportContext(
         val validPackages: Set<String>,
         val validPinnedAppComponents: Set<String>,
-        val skippedReasons: MutableList<SkippedImportReason>
+        val skippedReasons: MutableList<SkippedImportReason>,
+        val requestWidgetBindPermission: WidgetBindPermissionRequester
     ) {
         fun skip(category: SkippedImportCategory, message: String) {
             skippedReasons += SkippedImportReason(

@@ -12,7 +12,6 @@
 
 package com.milki.launcher.presentation.settings
 
-import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -26,6 +25,7 @@ import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -383,15 +383,15 @@ class SettingsViewModel(
 
     fun importBackup(
         sourceUri: Uri,
-        onWidgetBindPermissionRequested: suspend (appWidgetId: Int, intent: Intent) -> Boolean
+        requestWidgetBindPermission: WidgetBindPermissionRequester
     ) {
         viewModelScope.launch {
             val result = launcherBackupRepository.importFromUri(
                 uri = sourceUri,
-                onWidgetBindPermissionRequested = onWidgetBindPermissionRequested
+                requestWidgetBindPermission = requestWidgetBindPermission
             )
             _lastImportReport.value = result
-            _backupStatusMessage.value = result.toUiMessage()
+            _backupStatusMessage.value = result.message
         }
     }
 
@@ -401,17 +401,6 @@ class SettingsViewModel(
 
     fun clearLastImportReport() {
         _lastImportReport.value = null
-    }
-
-    private fun LauncherImportResult.toUiMessage(): String {
-        if (!success) return message
-        if (skippedCount == 0) return message
-
-        val preview = skippedReasons
-            .take(3)
-            .joinToString(separator = "\n") { reason -> reason.message }
-
-        return "$message\n$preview"
     }
 
 }
