@@ -149,6 +149,13 @@ data class SearchSource(
             return prefix.trim().lowercase()
         }
 
+        fun normalizePrefixes(prefixes: List<String>): List<String> {
+            return prefixes
+                .map(::normalizePrefix)
+                .filter { it.isNotBlank() && !it.contains(" ") }
+                .distinct()
+        }
+
         /**
          * Normalizes color input into strict #RRGGBB form.
          * Falls back to Google blue when input is invalid.

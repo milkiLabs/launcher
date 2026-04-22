@@ -174,13 +174,11 @@ data class GridCalculator(
         startPosition: GridPosition,
         offset: Offset
     ): GridPosition {
-        val targetColumn = startPosition.column + (offset.x / cellWidthPx).roundToInt()
-        val targetRow = startPosition.row + (offset.y / cellHeightPx).roundToInt()
-        
-        return GridPosition(
-            row = targetRow.coerceIn(0, rows - 1),
-            column = targetColumn.coerceIn(0, columns - 1)
+        val targetPosition = GridPosition(
+            row = calculateTargetRow(startPosition.row, offset.y),
+            column = calculateTargetColumn(startPosition.column, offset.x)
         )
+        return clampPosition(targetPosition)
     }
     
     /**
@@ -336,12 +334,18 @@ data class GridCalculator(
         offset: Offset,
         span: GridSpan
     ): GridPosition {
-        val targetColumn = startPosition.column + (offset.x / cellWidthPx).roundToInt()
-        val targetRow = startPosition.row + (offset.y / cellHeightPx).roundToInt()
-
-        return GridPosition(
-            row = targetRow.coerceIn(0, (rows - span.rows).coerceAtLeast(0)),
-            column = targetColumn.coerceIn(0, (columns - span.columns).coerceAtLeast(0))
+        val targetPosition = GridPosition(
+            row = calculateTargetRow(startPosition.row, offset.y),
+            column = calculateTargetColumn(startPosition.column, offset.x)
         )
+        return clampSpanOrigin(targetPosition, span)
+    }
+
+    private fun calculateTargetColumn(startColumn: Int, offsetX: Float): Int {
+        return startColumn + (offsetX / cellWidthPx).roundToInt()
+    }
+
+    private fun calculateTargetRow(startRow: Int, offsetY: Float): Int {
+        return startRow + (offsetY / cellHeightPx).roundToInt()
     }
 }

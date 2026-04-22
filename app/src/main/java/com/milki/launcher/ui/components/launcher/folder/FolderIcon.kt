@@ -36,7 +36,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.launcher.homeItemIconLabelLayout
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconLabelCell
 import com.milki.launcher.ui.components.common.IconLabelLayout
@@ -89,21 +89,10 @@ fun FolderIcon(
     compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val layout = if (compact) {
-        IconLabelLayout(
-            iconSize = IconSize.appHomeCompact,
-            contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
-            labelTopPadding = Spacing.none,
-            labelMaxLines = 1
-        )
-    } else {
-        IconLabelLayout(
-            iconSize = IconSize.appGrid,
-            contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
-            labelTopPadding = Spacing.smallMedium,
-            labelMaxLines = 1
-        )
-    }
+    val layout = homeItemIconLabelLayout(
+        compact = compact,
+        regularContentVerticalPadding = Spacing.none
+    )
 
     val contentPadding = Spacing.smallMedium
     val miniIconSize = IconSize.small

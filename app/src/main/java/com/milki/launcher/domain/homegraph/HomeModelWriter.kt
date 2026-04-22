@@ -258,9 +258,7 @@ class HomeModelWriter(
         }
 
         val mutable = currentItems.toMutableList()
-        val folderIndex = mutable.indexOfFirst { it.id == command.folderId }
-        if (folderIndex == -1) return Result.Rejected(Error.FolderNotFound)
-        val folder = mutable[folderIndex] as? HomeItem.FolderItem
+        val (_, folder) = findFolderIndexAndModel(mutable, command.folderId)
             ?: return Result.Rejected(Error.FolderNotFound)
 
         if (folder.children.any { it.id == command.item.id }) {
@@ -268,9 +266,7 @@ class HomeModelWriter(
         }
 
         evictItemEverywhere(mutable, command.item.id)
-        val updatedFolderIndex = mutable.indexOfFirst { it.id == command.folderId }
-        if (updatedFolderIndex == -1) return Result.Rejected(Error.FolderNotFound)
-        val updatedFolder = mutable[updatedFolderIndex] as? HomeItem.FolderItem
+        val (updatedFolderIndex, updatedFolder) = findFolderIndexAndModel(mutable, command.folderId)
             ?: return Result.Rejected(Error.FolderNotFound)
 
         val children = updatedFolder.children.toMutableList()
@@ -304,9 +300,7 @@ class HomeModelWriter(
         command: Command.ReorderFolderItems
     ): Result {
         val mutable = currentItems.toMutableList()
-        val folderIndex = mutable.indexOfFirst { it.id == command.folderId }
-        if (folderIndex == -1) return Result.Rejected(Error.FolderNotFound)
-        val folder = mutable[folderIndex] as? HomeItem.FolderItem
+        val (folderIndex, folder) = findFolderIndexAndModel(mutable, command.folderId)
             ?: return Result.Rejected(Error.FolderNotFound)
 
         val safeChildren = command.newChildren
@@ -425,10 +419,7 @@ class HomeModelWriter(
         command: Command.RenameFolder
     ): Result {
         val mutable = currentItems.toMutableList()
-        val folderIndex = mutable.indexOfFirst { it.id == command.folderId }
-        if (folderIndex == -1) return Result.Rejected(Error.FolderNotFound)
-
-        val folder = mutable[folderIndex] as? HomeItem.FolderItem
+        val (folderIndex, folder) = findFolderIndexAndModel(mutable, command.folderId)
             ?: return Result.Rejected(Error.FolderNotFound)
         val safeName = command.newName.trim().ifBlank { "Folder" }
         mutable[folderIndex] = folder.copy(name = safeName)
@@ -537,10 +528,7 @@ class HomeModelWriter(
         folderId: String,
         childItemId: String
     ): HomeItem? {
-        val folderIndex = items.indexOfFirst { it.id == folderId }
-        if (folderIndex == -1) return null
-
-        val folder = items[folderIndex] as? HomeItem.FolderItem ?: return null
+        val (folderIndex, folder) = findFolderIndexAndModel(items, folderId) ?: return null
         val removedChild = folder.children.firstOrNull { it.id == childItemId } ?: return null
         val remaining = folder.children.filterNot { it.id == childItemId }
 
@@ -556,6 +544,16 @@ class HomeModelWriter(
         }
 
         return removedChild
+    }
+
+    private fun findFolderIndexAndModel(
+        items: List<HomeItem>,
+        folderId: String
+    ): Pair<Int, HomeItem.FolderItem>? {
+        val folderIndex = items.indexOfFirst { it.id == folderId }
+        if (folderIndex == -1) return null
+        val folder = items[folderIndex] as? HomeItem.FolderItem ?: return null
+        return folderIndex to folder
     }
 
     private fun containsItemIdAnywhere(items: List<HomeItem>, itemId: String): Boolean {

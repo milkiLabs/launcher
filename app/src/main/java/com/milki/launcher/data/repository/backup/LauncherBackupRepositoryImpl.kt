@@ -3,6 +3,8 @@ package com.milki.launcher.data.repository.backup
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import com.milki.launcher.core.file.ContentUriFailurePolicy
+import com.milki.launcher.core.file.PinnedFileAvailability
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.backup.LauncherBackupFile
@@ -19,8 +21,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.io.FileNotFoundException
 
 class LauncherBackupRepositoryImpl(
     private val appContext: Context,
@@ -198,7 +198,12 @@ class LauncherBackupRepositoryImpl(
         item: HomeItem.PinnedFile,
         context: ImportContext
     ): HomeItem.PinnedFile? {
-        if (!isPinnedFileAvailable(item)) {
+        if (!PinnedFileAvailability.isAvailable(
+                contentResolver = appContext.contentResolver,
+                uriString = item.uri,
+                contentUriFailurePolicy = ContentUriFailurePolicy.TREAT_AS_UNAVAILABLE
+            )
+        ) {
             context.skip(
                 category = SkippedImportCategory.FILE,
                 message = "Missing or inaccessible file ${item.name}"
@@ -289,34 +294,6 @@ class LauncherBackupRepositoryImpl(
         }
 
         return folder.copy(children = sanitizedChildren)
-    }
-
-    private fun isPinnedFileAvailable(item: HomeItem.PinnedFile): Boolean {
-        val uri = runCatching { Uri.parse(item.uri) }.getOrNull() ?: return false
-        val scheme = uri.scheme ?: return false
-
-        if (scheme.equals("file", ignoreCase = true)) {
-            val path = uri.path ?: return false
-            return File(path).exists()
-        }
-
-        if (!scheme.equals("content", ignoreCase = true)) {
-            return false
-        }
-
-        return try {
-            appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use {
-                true
-            } ?: false
-        } catch (_: FileNotFoundException) {
-            false
-        } catch (_: IllegalArgumentException) {
-            false
-        } catch (_: SecurityException) {
-            false
-        } catch (_: Exception) {
-            false
-        }
     }
 
     private fun collectWidgetIds(items: List<HomeItem>): List<Int> {

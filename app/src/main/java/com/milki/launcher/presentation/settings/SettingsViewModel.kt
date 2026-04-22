@@ -130,7 +130,7 @@ class SettingsViewModel(
         onValidationResult: (String) -> Unit
     ) {
         viewModelScope.launch {
-            val normalizedPrefixes = normalizePrefixes(prefixes)
+            val normalizedPrefixes = SearchSource.normalizePrefixes(prefixes)
 
             val newSource = SearchSource.create(
                 name = name.trim(),
@@ -156,7 +156,7 @@ class SettingsViewModel(
         onValidationResult: (String) -> Unit
     ) {
         viewModelScope.launch {
-            val normalizedPrefixes = normalizePrefixes(prefixes)
+            val normalizedPrefixes = SearchSource.normalizePrefixes(prefixes)
 
             val mutationResult = settingsRepository.updateSearchSource(
                 sourceId = sourceId,
@@ -344,13 +344,6 @@ class SettingsViewModel(
      */
     private fun getDefaultPrefix(providerId: String): String {
         return PrefixConfig.defaults[providerId]?.primaryPrefix.orEmpty()
-    }
-
-    private fun normalizePrefixes(prefixes: List<String>): List<String> {
-        return prefixes
-            .map(SearchSource.Companion::normalizePrefix)
-            .filter { it.isNotBlank() && !it.contains(" ") }
-            .distinct()
     }
 
     // ========================================================================

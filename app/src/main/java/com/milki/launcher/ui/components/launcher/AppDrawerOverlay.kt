@@ -59,7 +59,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.data.icon.AppIconMemoryCache
@@ -72,11 +71,9 @@ import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.buildAppItemMenuActions
+import com.milki.launcher.ui.components.common.detectAppExternalDragGesture
 import com.milki.launcher.ui.components.common.rememberItemContextMenuState
 import com.milki.launcher.ui.components.common.rememberAppQuickActions
-import com.milki.launcher.ui.interaction.dragdrop.startExternalAppDrag
-import com.milki.launcher.ui.interaction.grid.GridConfig
-import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -357,38 +354,19 @@ private fun DrawerGridCell(
     onExternalDragStarted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hostView = LocalView.current
-
     Box(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .detectDragGesture(
-                    key = "${appInfo.packageName}/${appInfo.activityName}",
-                    dragThreshold = GridConfig.Default.dragThresholdPx,
+                .detectAppExternalDragGesture(
+                    appInfo = appInfo,
+                    dragShadowSize = IconSize.appGrid,
                     onTap = onClick,
-                    onLongPress = {
-                        onLongPress()
-                    },
+                    onLongPress = onLongPress,
                     onLongPressRelease = onLongPressRelease,
-                    onDragStart = {
-                        onDragStarted()
-
-                        val dragStarted = startExternalAppDrag(
-                            hostView = hostView,
-                            appInfo = appInfo,
-                            dragShadowSize = IconSize.appGrid
-                        )
-
-                        if (dragStarted) {
-                            hostView.post {
-                                onExternalDragStarted()
-                            }
-                        }
-                    },
-                    onDrag = { change, _ -> change.consume() },
-                    onDragEnd = {},
-                    onDragCancel = onDragCancelled
+                    onDragStart = onDragStarted,
+                    onDragCancel = onDragCancelled,
+                    onExternalDragStarted = onExternalDragStarted
                 )
                 .padding(vertical = Spacing.extraSmall),
             horizontalAlignment = Alignment.CenterHorizontally

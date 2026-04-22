@@ -26,7 +26,6 @@ package com.milki.launcher.ui.components.launcher
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -237,21 +236,10 @@ private fun PinnedItemContent(
     item: HomeItem,
     compactLayout: Boolean
 ) {
-    val layout = if (compactLayout) {
-        IconLabelLayout(
-            iconSize = IconSize.appHomeCompact,
-            contentPadding = PaddingValues(vertical = Spacing.none, horizontal = Spacing.none),
-            labelTopPadding = Spacing.none,
-            labelMaxLines = 1
-        )
-    } else {
-        IconLabelLayout(
-            iconSize = IconSize.appGrid,
-            contentPadding = PaddingValues(vertical = Spacing.extraSmall, horizontal = Spacing.none),
-            labelTopPadding = Spacing.smallMedium,
-            labelMaxLines = 1
-        )
-    }
+    val layout = homeItemIconLabelLayout(
+        compact = compactLayout,
+        regularContentVerticalPadding = Spacing.extraSmall
+    )
 
     // ── Folder short-circuit ──────────────────────────────────────────────────
     // FolderItem has its own layout with a 2×2 mini-icon preview grid.

@@ -436,22 +436,17 @@ class SettingsRepositoryImpl(
         }
 
         preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS] =
-            settingsStorageJson.encodeToString(
-                configurations
-                    .filterValues { it.prefixes.isNotEmpty() }
-                    .mapValues { (_, prefixConfig) -> prefixConfig.prefixes }
-            )
+            serializePrefixConfigurations(configurations)
     }
 
     private fun writeSearchSources(
         sources: List<SearchSource>,
         preferences: androidx.datastore.preferences.core.MutablePreferences
     ) {
-        val normalized = normalizeAndValidateSearchSources(sources)
         preferences[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] =
             SearchSourcesStorageState.INITIALIZED
         preferences[SettingsPreferenceKeys.SEARCH_SOURCES] =
-            settingsStorageJson.encodeToString(normalized)
+            serializeSearchSources(sources)
     }
 
     private fun writeTriggerActions(
@@ -467,54 +462,16 @@ class SettingsRepositoryImpl(
             settingsStorageJson.encodeToString(serialized)
     }
 
-    private fun parsePrefixConfigurations(json: String?): ProviderPrefixConfiguration {
-        if (json.isNullOrBlank()) {
-            return emptyMap()
-        }
-
-        return runCatching {
-            val serializedConfiguration: SerializedPrefixConfiguration =
-                settingsStorageJson.decodeFromString(json)
-
-            serializedConfiguration
-                .filterValues { it.isNotEmpty() }
-                .mapValues { (_, prefixes) -> com.milki.launcher.domain.model.PrefixConfig(prefixes) }
-        }.getOrElse {
-            emptyMap()
-        }
-    }
-
     private fun parseSearchSources(preferences: Preferences): List<SearchSource> {
         val json = preferences[SettingsPreferenceKeys.SEARCH_SOURCES]
         val isInitialized =
             preferences[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] ==
                 SearchSourcesStorageState.INITIALIZED
 
-        return if (!isInitialized) {
-            if (json.isNullOrBlank()) {
-                SearchSource.defaultSources()
-            } else {
-                runCatching {
-                    val decoded: SerializedSearchSources =
-                        settingsStorageJson.decodeFromString(json)
-                    normalizeAndValidateSearchSources(decoded)
-                }.getOrElse {
-                    SearchSource.defaultSources()
-                }
-            }
-        } else {
-            if (json.isNullOrBlank()) {
-                emptyList()
-            } else {
-                runCatching {
-                    val decoded: SerializedSearchSources =
-                        settingsStorageJson.decodeFromString(json)
-                    normalizeAndValidateSearchSources(decoded)
-                }.getOrElse {
-                    emptyList()
-                }
-            }
-        }
+        return parseSearchSources(
+            json = json,
+            isInitialized = isInitialized
+        )
     }
 
     private fun parseTriggerActions(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerAction> {
@@ -567,41 +524,4 @@ class SettingsRepositoryImpl(
         }
     }
 
-    private fun normalizeAndValidateSearchSources(
-        rawSources: List<SearchSource>
-    ): List<SearchSource> {
-        val normalized = rawSources.mapIndexed { index, source ->
-            val normalizedPrefixes = source.prefixes
-                .map(SearchSource.Companion::normalizePrefix)
-                .filter { it.isNotBlank() && !it.contains(" ") }
-                .distinct()
-
-            val safeName = source.name.trim().ifBlank { "Source ${index + 1}" }
-            val safeTemplate = if (SearchSource.isValidUrlTemplate(source.urlTemplate)) {
-                source.urlTemplate.trim()
-            } else {
-                "https://www.google.com/search?q={query}"
-            }
-
-            source.copy(
-                name = safeName,
-                urlTemplate = safeTemplate,
-                prefixes = normalizedPrefixes,
-                accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex)
-            )
-        }
-
-        val seenPrefixes = mutableSetOf<String>()
-        return normalized.map { source ->
-            val filteredPrefixes = source.prefixes.filter { prefix ->
-                if (prefix in seenPrefixes) {
-                    false
-                } else {
-                    seenPrefixes.add(prefix)
-                    true
-                }
-            }
-            source.copy(prefixes = filteredPrefixes)
-        }
-    }
 }

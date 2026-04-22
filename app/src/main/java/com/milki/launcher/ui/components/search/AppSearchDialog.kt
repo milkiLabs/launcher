@@ -344,6 +344,19 @@ private fun SearchDialogBody(
     modifier: Modifier = Modifier
 ) {
     val actionHandler = LocalSearchActionHandler.current
+    val onSearchTextInBrowser: (String) -> Unit = { queryText ->
+        actionHandler(
+            SearchResultAction.OpenUrlInBrowser(
+                url = buildGoogleSearchUrl(queryText)
+            )
+        )
+    }
+    val onOpenUrlSuggestion: (UrlSearchResult) -> Unit = { urlResult ->
+        actionHandler(SearchResultAction.Tap(urlResult))
+    }
+    val onComposeEmailSuggestion: (String) -> Unit = { emailAddress ->
+        actionHandler(SearchResultAction.ComposeEmail(emailAddress))
+    }
 
     Column(
         modifier = modifier
@@ -392,21 +405,9 @@ private fun SearchDialogBody(
             if (suggestionToShow != null) {
                 ClipboardSuggestionBottomChip(
                     suggestion = suggestionToShow,
-                    onSearchTextInBrowser = { queryText ->
-                        val encodedQuery = Uri.encode(queryText)
-                        val url = "https://www.google.com/search?q=$encodedQuery"
-                        actionHandler(
-                            SearchResultAction.OpenUrlInBrowser(
-                                url = url
-                            )
-                        )
-                    },
-                    onOpenUrl = { urlResult ->
-                        actionHandler(SearchResultAction.Tap(urlResult))
-                    },
-                    onComposeEmail = { emailAddress ->
-                        actionHandler(SearchResultAction.ComposeEmail(emailAddress))
-                    }
+                    onSearchTextInBrowser = onSearchTextInBrowser,
+                    onOpenUrl = onOpenUrlSuggestion,
+                    onComposeEmail = onComposeEmailSuggestion
                 )
             }
         } else if (uiState.shouldShowQuerySuggestion) {
@@ -415,23 +416,16 @@ private fun SearchDialogBody(
             if (suggestionToShow != null) {
                 QuerySuggestionBottomChip(
                     suggestion = suggestionToShow,
-                    onSearchWeb = { searchQuery ->
-                        val encodedQuery = Uri.encode(searchQuery)
-                        val url = "https://www.google.com/search?q=$encodedQuery"
-                        actionHandler(
-                            SearchResultAction.OpenUrlInBrowser(
-                                url = url
-                            )
-                        )
-                    },
-                    onOpenUrl = { urlResult ->
-                        actionHandler(SearchResultAction.Tap(urlResult))
-                    },
-                    onComposeEmail = { emailAddress ->
-                        actionHandler(SearchResultAction.ComposeEmail(emailAddress))
-                    }
+                    onSearchWeb = onSearchTextInBrowser,
+                    onOpenUrl = onOpenUrlSuggestion,
+                    onComposeEmail = onComposeEmailSuggestion
                 )
             }
         }
     }
+}
+
+private fun buildGoogleSearchUrl(query: String): String {
+    val encodedQuery = Uri.encode(query)
+    return "https://www.google.com/search?q=$encodedQuery"
 }

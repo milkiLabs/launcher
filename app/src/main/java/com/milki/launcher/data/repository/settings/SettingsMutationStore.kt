@@ -6,8 +6,6 @@ import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchSource
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 
 /**
  * Dedicated store for settings mutation logic that operates on a mutable
@@ -54,7 +52,7 @@ internal class SettingsMutationStore {
             } else {
                 "https://www.google.com/search?q={query}"
             },
-            prefixes = normalizePrefixes(source.prefixes),
+            prefixes = SearchSource.normalizePrefixes(source.prefixes),
             accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex)
         )
 
@@ -89,7 +87,7 @@ internal class SettingsMutationStore {
             return PrefixMutationResult.TargetNotFound
         }
 
-        val normalizedPrefixes = normalizePrefixes(prefixes)
+        val normalizedPrefixes = SearchSource.normalizePrefixes(prefixes)
         val conflictingOwner = findConflictingOwner(
             prefixesToClaim = normalizedPrefixes,
             ignoredOwner = PrefixOwner(
@@ -170,7 +168,7 @@ internal class SettingsMutationStore {
             parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
         val currentSources = parseSearchSources(preferences)
         val updatedConfigurations = currentConfigurations.toMutableMap()
-        val normalizedPrefixes = normalizePrefixes(prefixes)
+        val normalizedPrefixes = SearchSource.normalizePrefixes(prefixes)
 
         val conflictingOwner = findConflictingOwner(
             prefixesToClaim = normalizedPrefixes,
@@ -219,7 +217,7 @@ internal class SettingsMutationStore {
         val currentConfigurations =
             parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
         val currentSources = parseSearchSources(preferences)
-        val currentPrefixes = normalizePrefixes(
+        val currentPrefixes = SearchSource.normalizePrefixes(
             currentConfigurations[providerId]?.prefixes ?: listOf(defaultPrefix)
         )
 
@@ -342,10 +340,7 @@ internal class SettingsMutationStore {
         val updatedSources = currentSources.map { source ->
             if (source.id == sourceId) {
                 source.copy(
-                    prefixes = (source.prefixes + normalizedPrefix)
-                        .map(SearchSource.Companion::normalizePrefix)
-                        .filter { it.isNotBlank() && !it.contains(" ") }
-                        .distinct()
+                    prefixes = SearchSource.normalizePrefixes(source.prefixes + normalizedPrefix)
                 )
             } else {
                 source
@@ -394,13 +389,6 @@ internal class SettingsMutationStore {
         return PrefixMutationResult.Success
     }
 
-    private fun normalizePrefixes(prefixes: List<String>): List<String> {
-        return prefixes
-            .map(SearchSource.Companion::normalizePrefix)
-            .filter { it.isNotBlank() && !it.contains(" ") }
-            .distinct()
-    }
-
     private fun findConflictingOwner(
         prefixesToClaim: List<String>,
         ignoredOwner: PrefixOwner?,
@@ -416,7 +404,7 @@ internal class SettingsMutationStore {
         val effectiveProviderPrefixes = ProviderId.all.associateWith { providerId ->
             val prefixes = providerConfigurations[providerId]?.prefixes
                 ?: PrefixConfig.defaults[providerId]?.prefixes.orEmpty()
-            normalizePrefixes(prefixes)
+            SearchSource.normalizePrefixes(prefixes)
         }
 
         for ((providerId, providerPrefixes) in effectiveProviderPrefixes) {
@@ -434,7 +422,7 @@ internal class SettingsMutationStore {
             if (owner == ignoredOwner) {
                 continue
             }
-            if (normalizePrefixes(source.prefixes).any(requested::contains)) {
+            if (SearchSource.normalizePrefixes(source.prefixes).any(requested::contains)) {
                 return owner
             }
         }
@@ -465,36 +453,6 @@ internal class SettingsMutationStore {
             serializeSearchSources(sources)
     }
 
-    private fun parsePrefixConfigurations(json: String?): ProviderPrefixConfiguration {
-        if (json.isNullOrBlank()) {
-            return emptyMap()
-        }
-
-        return runCatching {
-            val serializedConfiguration: SerializedPrefixConfiguration =
-                settingsStorageJson.decodeFromString(json)
-
-            serializedConfiguration
-                .filterValues { it.isNotEmpty() }
-                .mapValues { (_, prefixes) -> PrefixConfig(prefixes) }
-        }.getOrElse {
-            emptyMap()
-        }
-    }
-
-    private fun serializePrefixConfigurations(
-        config: ProviderPrefixConfiguration
-    ): String {
-        if (config.isEmpty()) {
-            return "{}"
-        }
-
-        val serializedConfiguration: SerializedPrefixConfiguration =
-            config.mapValues { (_, prefixConfig) -> prefixConfig.prefixes }
-
-        return settingsStorageJson.encodeToString(serializedConfiguration)
-    }
-
     private fun parseSearchSources(preferences: MutablePreferences): List<SearchSource> {
         val json = preferences[SettingsPreferenceKeys.SEARCH_SOURCES]
         val isInitialized =
@@ -505,79 +463,5 @@ internal class SettingsMutationStore {
             json = json,
             isInitialized = isInitialized
         )
-    }
-
-    private fun parseSearchSources(
-        json: String?,
-        isInitialized: Boolean
-    ): List<SearchSource> {
-        if (!isInitialized) {
-            if (json.isNullOrBlank()) {
-                return SearchSource.defaultSources()
-            }
-
-            return runCatching {
-                val decoded: SerializedSearchSources =
-                    settingsStorageJson.decodeFromString(json)
-                normalizeAndValidateSearchSources(decoded)
-            }.getOrElse {
-                SearchSource.defaultSources()
-            }
-        }
-
-        if (json.isNullOrBlank()) {
-            return emptyList()
-        }
-
-        return runCatching {
-            val decoded: SerializedSearchSources =
-                settingsStorageJson.decodeFromString(json)
-            normalizeAndValidateSearchSources(decoded)
-        }.getOrElse {
-            emptyList()
-        }
-    }
-
-    private fun serializeSearchSources(sources: List<SearchSource>): String {
-        val normalized = normalizeAndValidateSearchSources(sources)
-        return settingsStorageJson.encodeToString(normalized)
-    }
-
-    private fun normalizeAndValidateSearchSources(
-        rawSources: List<SearchSource>
-    ): List<SearchSource> {
-        val normalized = rawSources.mapIndexed { index, source ->
-            val normalizedPrefixes = source.prefixes
-                .map(SearchSource.Companion::normalizePrefix)
-                .filter { it.isNotBlank() && !it.contains(" ") }
-                .distinct()
-
-            val safeName = source.name.trim().ifBlank { "Source ${index + 1}" }
-            val safeTemplate = if (SearchSource.isValidUrlTemplate(source.urlTemplate)) {
-                source.urlTemplate.trim()
-            } else {
-                "https://www.google.com/search?q={query}"
-            }
-
-            source.copy(
-                name = safeName,
-                urlTemplate = safeTemplate,
-                prefixes = normalizedPrefixes,
-                accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex)
-            )
-        }
-
-        val seenPrefixes = mutableSetOf<String>()
-        return normalized.map { source ->
-            val filteredPrefixes = source.prefixes.filter { prefix ->
-                if (prefix in seenPrefixes) {
-                    false
-                } else {
-                    seenPrefixes.add(prefix)
-                    true
-                }
-            }
-            source.copy(prefixes = filteredPrefixes)
-        }
     }
 }

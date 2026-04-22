@@ -6,6 +6,8 @@ import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import com.milki.launcher.core.file.ContentUriFailurePolicy
+import com.milki.launcher.core.file.PinnedFileAvailability
 import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
@@ -23,8 +25,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.io.File
-import java.io.FileNotFoundException
 
 /**
  * Keeps persisted home items aligned with app/file availability changes.
@@ -193,7 +193,12 @@ internal class HomeAvailabilityPruner(
                 }
 
                 is HomeItem.PinnedFile -> {
-                    if (!isPinnedFileAvailable(item)) {
+                    if (!PinnedFileAvailability.isAvailable(
+                            contentResolver = appContext.contentResolver,
+                            uriString = item.uri,
+                            contentUriFailurePolicy = ContentUriFailurePolicy.TREAT_AS_AVAILABLE
+                        )
+                    ) {
                         unavailableIds += item.id
                     }
                 }
@@ -205,34 +210,5 @@ internal class HomeAvailabilityPruner(
 
         items.forEach(::visit)
         return unavailableIds.toList()
-    }
-
-    private fun isPinnedFileAvailable(item: HomeItem.PinnedFile): Boolean {
-        val uri = runCatching { Uri.parse(item.uri) }.getOrNull() ?: return false
-        val scheme = uri.scheme ?: return false
-
-        if (scheme.equals("file", ignoreCase = true)) {
-            val path = uri.path ?: return false
-            return File(path).exists()
-        }
-
-        if (!scheme.equals("content", ignoreCase = true)) {
-            return false
-        }
-
-        return try {
-            appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use {
-                true
-            } ?: false
-        } catch (_: FileNotFoundException) {
-            false
-        } catch (_: IllegalArgumentException) {
-            false
-        } catch (_: SecurityException) {
-            // Permission races are treated as transient; do not prune eagerly.
-            true
-        } catch (_: Exception) {
-            true
-        }
     }
 }

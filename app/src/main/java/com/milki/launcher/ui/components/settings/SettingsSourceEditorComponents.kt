@@ -112,15 +112,7 @@ fun SourceSettingItem(
     val sourceColor = parseHexColorOrFallback(source.accentColorHex)
     var showAddPrefixDialog by remember { mutableStateOf(false) }
 
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
-        shape = RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = Spacing.none
-    ) {
-        Column(modifier = Modifier.padding(Spacing.medium)) {
+    SettingsContainerCard {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -224,7 +216,6 @@ fun SourceSettingItem(
                     duplicatePrefixMessage = "Prefix already exists in this source"
                 )
             }
-        }
     }
 }
 

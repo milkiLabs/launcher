@@ -20,14 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
-import com.milki.launcher.ui.interaction.grid.GridConfig
-import com.milki.launcher.ui.interaction.grid.detectDragGesture
-import com.milki.launcher.ui.interaction.dragdrop.startExternalAppDrag
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -75,7 +71,6 @@ fun AppGridItem(
     val menuActions = remember(appInfo, quickActions) {
         buildAppItemMenuActions(appInfo, quickActions)
     }
-    val hostView = LocalView.current
     val layout = IconLabelLayout(
         iconSize = IconSize.appGrid,
         contentPadding = contentPadding,
@@ -87,30 +82,15 @@ fun AppGridItem(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .detectDragGesture(
-                    key = "${appInfo.packageName}/${appInfo.activityName}",
-                    dragThreshold = GridConfig.Default.dragThresholdPx,
+                .detectAppExternalDragGesture(
+                    appInfo = appInfo,
+                    dragShadowSize = IconSize.appGrid,
                     onTap = onClick,
-                    onLongPress = { menuState.onLongPress() },
+                    onLongPress = menuState::onLongPress,
                     onLongPressRelease = menuState::onLongPressRelease,
-                    onDragStart = {
-                        menuState.onDragStart()
-
-                        val dragStarted = startExternalAppDrag(
-                            hostView = hostView,
-                            appInfo = appInfo,
-                            dragShadowSize = IconSize.appGrid
-                        )
-
-                        if (dragStarted) {
-                            hostView.post {
-                                onExternalDragStarted()
-                            }
-                        }
-                    },
-                    onDrag = { change, _ -> change.consume() },
-                    onDragEnd = {},
-                    onDragCancel = menuState::onDragCancel
+                    onDragStart = menuState::onDragStart,
+                    onDragCancel = menuState::onDragCancel,
+                    onExternalDragStarted = onExternalDragStarted
                 ),
             color = Color.Transparent,
             shape = RoundedCornerShape(CornerRadius.medium)

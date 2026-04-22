@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -43,6 +44,61 @@ import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
 
+@Composable
+private fun SettingsCardSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
+        shape = RoundedCornerShape(CornerRadius.medium),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = Spacing.none,
+        content = content
+    )
+}
+
+@Composable
+private fun SettingsLeadingIcon(
+    icon: ImageVector,
+    tint: Color
+) {
+    Icon(
+        imageVector = icon,
+        contentDescription = null,
+        tint = tint,
+        modifier = Modifier
+            .size(IconSize.standard)
+            .padding(end = Spacing.smallMedium)
+    )
+}
+
+@Composable
+private fun SettingsTitleSubtitle(
+    title: String,
+    subtitle: String?,
+    modifier: Modifier = Modifier,
+    titleColor: Color = MaterialTheme.colorScheme.onSurface,
+    subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = titleColor
+        )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = subtitleColor
+            )
+        }
+    }
+}
+
 /**
  * Toggle switch setting item.
  */
@@ -55,14 +111,7 @@ fun SwitchSettingItem(
     icon: ImageVector? = null,
     enabled: Boolean = true
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = Spacing.none
-    ) {
+    SettingsCardSurface {
         Row(
             modifier = Modifier
                 .clickable(enabled = enabled) { onCheckedChange(!checked) }
@@ -70,42 +119,31 @@ fun SwitchSettingItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
+                SettingsLeadingIcon(
+                    icon = icon,
                     tint = if (enabled) {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                    },
-                    modifier = Modifier
-                        .size(IconSize.standard)
-                        .padding(end = Spacing.smallMedium)
+                    }
                 )
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (enabled) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    }
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (enabled) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                        }
-                    )
+            SettingsTitleSubtitle(
+                title = title,
+                subtitle = subtitle,
+                modifier = Modifier.weight(1f),
+                titleColor = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                },
+                subtitleColor = if (enabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                 }
-            }
+            )
 
             Switch(
                 checked = checked,
@@ -144,7 +182,7 @@ fun <T> DropdownSettingItem(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(CornerRadius.medium),
+            shape = RoundedCornerShape(CornerRadius.medium),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             tonalElevation = Spacing.none
         ) {
@@ -155,30 +193,17 @@ fun <T> DropdownSettingItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (icon != null) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .size(IconSize.standard)
-                            .padding(end = Spacing.smallMedium)
+                    SettingsLeadingIcon(
+                        icon = icon,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    if (subtitle != null) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                SettingsTitleSubtitle(
+                    title = title,
+                    subtitle = subtitle,
+                    modifier = Modifier.weight(1f)
+                )
 
                 Text(
                     text = selectedValue,
@@ -258,14 +283,7 @@ fun SliderSettingItem(
     steps: Int = 0,
     valueLabel: (Int) -> String = { it.toString() }
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = Spacing.none
-    ) {
+    SettingsCardSurface {
         Column(
             modifier = Modifier.padding(horizontal = Spacing.mediumLarge, vertical = Spacing.medium)
         ) {
@@ -274,22 +292,13 @@ fun SliderSettingItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    if (subtitle != null) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                SettingsTitleSubtitle(
+                    title = title,
+                    subtitle = subtitle,
+                    modifier = Modifier.weight(1f)
+                )
                 Surface(
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(CornerRadius.small),
+                    shape = RoundedCornerShape(CornerRadius.small),
                     color = MaterialTheme.colorScheme.primaryContainer,
                     tonalElevation = Spacing.none
                 ) {
@@ -328,14 +337,7 @@ fun ActionSettingItem(
     textColor: Color = MaterialTheme.colorScheme.onSurface,
     trailingContent: @Composable (() -> Unit)? = null
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = Spacing.none
-    ) {
+    SettingsCardSurface {
         Row(
             modifier = Modifier
                 .clickable(onClick = onClick)
@@ -343,30 +345,18 @@ fun ActionSettingItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .size(IconSize.standard)
-                        .padding(end = Spacing.smallMedium)
+                SettingsLeadingIcon(
+                    icon = icon,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = textColor
-                )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            SettingsTitleSubtitle(
+                title = title,
+                subtitle = subtitle,
+                modifier = Modifier.weight(1f),
+                titleColor = textColor
+            )
 
             if (trailingContent != null) {
                 trailingContent()

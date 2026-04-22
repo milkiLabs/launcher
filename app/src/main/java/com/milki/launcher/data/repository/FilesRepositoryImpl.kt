@@ -35,6 +35,7 @@
 package com.milki.launcher.data.repository
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -211,99 +212,23 @@ class FilesRepositoryImpl(
             // cursor?.use { } automatically closes the cursor when done
             // This is important for preventing memory leaks
             cursor?.use {
-                // Get column indices once for efficiency
-                // getColumnIndexOrThrow throws an exception if the column doesn't exist
-                // This is safer than returning -1 and potentially getting wrong data
-                val idColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
-                val nameColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
-                val mimeTypeColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)
-                val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
-                val dateModifiedColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)
-                
-                // These columns might not exist on all Android versions
-                // getColumnIndex returns -1 if the column doesn't exist
-                val bucketColumn = it.getColumnIndex(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)
-                val relativePathColumn = it.getColumnIndex(MediaStore.Files.FileColumns.RELATIVE_PATH)
+                val columns = resolveMediaStoreColumns(it)
                 
                 // Iterate through all rows in the result set
                 while (it.moveToNext()) {
-                    try {
-                        currentCoroutineContext().ensureActive()
-                        if (files.size >= maxItems) {
-                            break
-                        }
-
-                        // Extract the file ID
-                        // MediaStore uses IDs to uniquely identify files
-                        val id = it.getLong(idColumn)
-                        
-                        // Skip duplicates
-                        // The same file might appear in multiple collections
-                        if (id in addedFileIds) continue
-                        
-                        // Extract file metadata from the cursor
-                        val name = it.getString(nameColumn) ?: continue
-                        val rawMimeType = it.getString(mimeTypeColumn) ?: ""
-                        val normalizedMimeType = MimeTypeUtil.normalizeMimeType(
-                            fileName = name,
-                            providedMimeType = rawMimeType
-                        )
-                        val size = it.getLong(sizeColumn)
-                        
-                        // DATE_MODIFIED is stored as Unix timestamp in seconds
-                        // Convert to milliseconds by multiplying by 1000
-                        val dateModified = it.getLong(dateModifiedColumn) * 1000
-                        
-                        // Get the folder path
-                        // BUCKET_DISPLAY_NAME is the folder name (e.g., "Downloads")
-                        // RELATIVE_PATH is the full relative path (e.g., "Download/Documents/")
-                        val bucket = if (bucketColumn >= 0) it.getString(bucketColumn) else null
-                        val relativePath = if (relativePathColumn >= 0) it.getString(relativePathColumn) else null
-                        
-                        // Determine the folder name to display
-                        // Priority: bucket name > last directory in relative path > "Storage"
-                        val folderPath = bucket 
-                            ?: relativePath?.substringAfterLast('/')?.trimEnd('/') 
-                            ?: "Storage"
-                        
-                        Log.d(TAG, "Found file: $name, mimeType: $normalizedMimeType, size: $size")
-                        
-                        // Apply filters using FileFilterConfig
-                        // This replaces the old isImageOrVideo() method with comprehensive filtering
-                        if (!FileFilterConfig.shouldIncludeFile(
-                            fileName = name,
-                            mimeType = normalizedMimeType,
-                            size = size,
-                            relativePath = relativePath ?: ""
-                        )) {
-                            Log.d(TAG, "Filtered out: $name")
-                            continue
-                        }
-                        
-                        // File passed all filters - add to results
-                        addedFileIds.add(id)
-                        
-                        // Build the content URI for this file
-                        // This URI can be used to open the file with an Intent
-                        val fileUri = Uri.withAppendedPath(uri, id.toString())
-                        
-                        files.add(
-                            FileDocument(
-                                id = id,
-                                name = name,
-                                mimeType = normalizedMimeType,
-                                size = size,
-                                dateModified = dateModified,
-                                uri = fileUri,
-                                folderPath = folderPath
-                            )
-                        )
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        // Log error but continue processing other files
-                        Log.e(TAG, "Error reading file from cursor", e)
+                    currentCoroutineContext().ensureActive()
+                    if (files.size >= maxItems) {
+                        break
                     }
+
+                    addFileFromCursorRow(
+                        cursor = it,
+                        columns = columns,
+                        collectionUri = uri,
+                        files = files,
+                        addedFileIds = addedFileIds,
+                        logFilteredOut = true
+                    )
                 }
             }
         } catch (e: CancellationException) {
@@ -348,70 +273,18 @@ class FilesRepositoryImpl(
                 )
                 
                 cursor?.use {
-                    // Get column indices
-                    val idColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
-                    val nameColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
-                    val mimeTypeColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)
-                    val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
-                    val dateModifiedColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)
-                    val bucketColumn = it.getColumnIndex(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME)
-                    val relativePathColumn = it.getColumnIndex(MediaStore.Files.FileColumns.RELATIVE_PATH)
+                    val columns = resolveMediaStoreColumns(it)
                     
                     while (it.moveToNext()) {
-                        try {
-                            currentCoroutineContext().ensureActive()
-
-                            val id = it.getLong(idColumn)
-                            if (id in addedFileIds) continue
-                            
-                            val name = it.getString(nameColumn) ?: continue
-                            val rawMimeType = it.getString(mimeTypeColumn) ?: ""
-                            val normalizedMimeType = MimeTypeUtil.normalizeMimeType(
-                                fileName = name,
-                                providedMimeType = rawMimeType
-                            )
-                            val size = it.getLong(sizeColumn)
-                            val dateModified = it.getLong(dateModifiedColumn) * 1000
-                            
-                            val bucket = if (bucketColumn >= 0) it.getString(bucketColumn) else null
-                            val relativePath = if (relativePathColumn >= 0) it.getString(relativePathColumn) else null
-                            val folderPath = bucket 
-                                ?: relativePath?.substringAfterLast('/')?.trimEnd('/') 
-                                ?: "Storage"
-                            
-                            // Apply filters using FileFilterConfig
-                            if (!FileFilterConfig.shouldIncludeFile(
-                                fileName = name,
-                                mimeType = normalizedMimeType,
-                                size = size,
-                                relativePath = relativePath ?: ""
-                            )) {
-                                continue
-                            }
-                            
-                            addedFileIds.add(id)
-                            
-                            val fileUri = Uri.withAppendedPath(
-                                MediaStore.Files.getContentUri("external"),
-                                id.toString()
-                            )
-                            
-                            files.add(
-                                FileDocument(
-                                    id = id,
-                                    name = name,
-                                    mimeType = normalizedMimeType,
-                                    size = size,
-                                    dateModified = dateModified,
-                                    uri = fileUri,
-                                    folderPath = folderPath
-                                )
-                            )
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error reading file from cursor", e)
-                        }
+                        currentCoroutineContext().ensureActive()
+                        addFileFromCursorRow(
+                            cursor = it,
+                            columns = columns,
+                            collectionUri = MediaStore.Files.getContentUri("external"),
+                            files = files,
+                            addedFileIds = addedFileIds,
+                            logFilteredOut = false
+                        )
                     }
                 }
                 
@@ -422,6 +295,94 @@ class FilesRepositoryImpl(
                 Log.e(TAG, "Error getting recent files", e)
                 emptyList()
             }
+        }
+    }
+
+    private data class MediaStoreColumns(
+        val idColumn: Int,
+        val nameColumn: Int,
+        val mimeTypeColumn: Int,
+        val sizeColumn: Int,
+        val dateModifiedColumn: Int,
+        val bucketColumn: Int,
+        val relativePathColumn: Int
+    )
+
+    private fun resolveMediaStoreColumns(cursor: Cursor): MediaStoreColumns {
+        return MediaStoreColumns(
+            idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID),
+            nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME),
+            mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE),
+            sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE),
+            dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED),
+            bucketColumn = cursor.getColumnIndex(MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME),
+            relativePathColumn = cursor.getColumnIndex(MediaStore.Files.FileColumns.RELATIVE_PATH)
+        )
+    }
+
+    private suspend fun addFileFromCursorRow(
+        cursor: Cursor,
+        columns: MediaStoreColumns,
+        collectionUri: Uri,
+        files: MutableList<FileDocument>,
+        addedFileIds: MutableSet<Long>,
+        logFilteredOut: Boolean
+    ) {
+        try {
+            val id = cursor.getLong(columns.idColumn)
+            if (id in addedFileIds) return
+
+            val name = cursor.getString(columns.nameColumn) ?: return
+            val rawMimeType = cursor.getString(columns.mimeTypeColumn) ?: ""
+            val normalizedMimeType = MimeTypeUtil.normalizeMimeType(
+                fileName = name,
+                providedMimeType = rawMimeType
+            )
+            val size = cursor.getLong(columns.sizeColumn)
+            val dateModified = cursor.getLong(columns.dateModifiedColumn) * 1000
+
+            val bucket = if (columns.bucketColumn >= 0) cursor.getString(columns.bucketColumn) else null
+            val relativePath =
+                if (columns.relativePathColumn >= 0) cursor.getString(columns.relativePathColumn) else null
+            val folderPath = bucket
+                ?: relativePath?.substringAfterLast('/')?.trimEnd('/')
+                ?: "Storage"
+
+            if (!FileFilterConfig.shouldIncludeFile(
+                    fileName = name,
+                    mimeType = normalizedMimeType,
+                    size = size,
+                    relativePath = relativePath ?: ""
+                )
+            ) {
+                if (logFilteredOut) {
+                    Log.d(TAG, "Filtered out: $name")
+                }
+                return
+            }
+
+            addedFileIds.add(id)
+            val fileUri = Uri.withAppendedPath(collectionUri, id.toString())
+
+            if (logFilteredOut) {
+                Log.d(TAG, "Found file: $name, mimeType: $normalizedMimeType, size: $size")
+            }
+
+            files.add(
+                FileDocument(
+                    id = id,
+                    name = name,
+                    mimeType = normalizedMimeType,
+                    size = size,
+                    dateModified = dateModified,
+                    uri = fileUri,
+                    folderPath = folderPath
+                )
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading file from cursor", e)
         }
     }
 

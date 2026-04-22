@@ -241,19 +241,7 @@ private fun WidgetPickerHeader(
             modifier = headerDragHandleModifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top
         ) {
-            Surface(
-                shape = RoundedCornerShape(CornerRadius.large),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Widgets,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(Spacing.medium)
-                        .size(IconSize.standard)
-                )
-            }
+            WidgetHeaderIcon()
 
             Column(
                 modifier = Modifier
@@ -319,6 +307,23 @@ private fun StatPill(label: String) {
 }
 
 @Composable
+private fun WidgetHeaderIcon() {
+    Surface(
+        shape = RoundedCornerShape(CornerRadius.large),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Widgets,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(Spacing.medium)
+                .size(IconSize.standard)
+        )
+    }
+}
+
+@Composable
 private fun LoadingWidgetCatalogState() {
     Surface(
         modifier = Modifier
@@ -337,19 +342,7 @@ private fun LoadingWidgetCatalogState() {
             horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                shape = RoundedCornerShape(CornerRadius.large),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Widgets,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(Spacing.medium)
-                        .size(IconSize.standard)
-                )
-            }
+            WidgetHeaderIcon()
 
             Column(
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
