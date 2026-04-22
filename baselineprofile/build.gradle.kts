@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.test)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -29,6 +30,23 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+detekt {
+    baseline = rootProject.layout.projectDirectory.file("config/detekt/baselineprofile-baseline.xml").asFile
+    config.setFrom(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
+    buildUponDefaultConfig = true
+    parallel = true
+    basePath.set(rootProject.projectDir)
+    source.setFrom(
+        "src/main/java",
+        "src/main/kotlin",
+        "src/test/java",
+        "src/test/kotlin",
+        "src/androidTest/java",
+        "src/androidTest/kotlin",
+    )
+    ignoredBuildTypes = listOf("benchmark")
 }
 
 dependencies {

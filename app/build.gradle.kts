@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.detekt)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -85,6 +86,23 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+detekt {
+    baseline = rootProject.layout.projectDirectory.file("config/detekt/app-baseline.xml").asFile
+    config.setFrom(rootProject.layout.projectDirectory.file("config/detekt/detekt.yml"))
+    buildUponDefaultConfig = true
+    parallel = true
+    basePath.set(rootProject.projectDir)
+    source.setFrom(
+        "src/main/java",
+        "src/main/kotlin",
+        "src/test/java",
+        "src/test/kotlin",
+        "src/androidTest/java",
+        "src/androidTest/kotlin",
+    )
+    ignoredBuildTypes = listOf("release", "fast", "benchmark")
 }
 
 dependencies {
