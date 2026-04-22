@@ -20,7 +20,10 @@ import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import com.milki.launcher.domain.model.UrlHandlerApp
+
+private const val URL_HANDLER_RESOLVER_TAG = "UrlHandlerResolver"
 
 /**
  * Resolves which apps can handle a given URL.
@@ -92,17 +95,7 @@ class UrlHandlerResolver(
          */
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
 
-        return try {
-            /**
-             * Resolve the activity that will handle this intent.
-             * This returns the "best" match - either the user's default
-             * or the system's best guess.
-             *
-             * On Android 11+ (API 30+), we need to handle the new package
-             * visibility restrictions. Apps must declare which packages they
-             * want to see in the manifest. Our queries are defined in
-             * AndroidManifest.xml under <queries>.
-             */
+        return runCatching {
             val resolveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 packageManager.resolveActivity(
                     intent,
@@ -113,20 +106,10 @@ class UrlHandlerResolver(
                 packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
             }
 
-            /**
-             * If we found a handler, extract its information.
-             * If no handler found, the URL will open in browser (fallback).
-             */
-            resolveInfo?.let { info ->
-                createHandlerApp(info)
-            }
-        } catch (e: Exception) {
-            /**
-             * If anything goes wrong (malformed URL, security exception, etc.),
-             * return null to indicate browser fallback.
-             */
-            null
-        }
+            resolveInfo?.let(::createHandlerApp)
+        }.onFailure { throwable ->
+            Log.w(URL_HANDLER_RESOLVER_TAG, "Failed to resolve default URL handler for $url", throwable)
+        }.getOrNull()
     }
 
     /**
@@ -146,11 +129,7 @@ class UrlHandlerResolver(
     fun getAllUrlHandlers(url: String): List<UrlHandlerApp> {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
 
-        return try {
-            /**
-             * Query all activities that can handle this URL.
-             * This returns ALL apps that can handle the URL, not just the default.
-             */
+        return runCatching {
             val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 packageManager.queryIntentActivities(
                     intent,
@@ -160,34 +139,23 @@ class UrlHandlerResolver(
                 @Suppress("DEPRECATION")
                 packageManager.queryIntentActivities(intent, 0)
             }
-
-            /**
-             * Resolve the default handler so we can mark it.
-             * This helps the user know which app will open if they just tap.
-             */
             val defaultHandler = resolveUrlHandler(url)
 
-            /**
-             * Convert ResolveInfo objects to our domain model.
-             * We filter out the launcher itself to avoid showing it as an option.
-             */
             resolveInfos
                 .filter { it.activityInfo.packageName != context.packageName }
                 .mapNotNull { info ->
-                    val handlerApp = createHandlerApp(info)
-                    /**
-                     * Mark the default handler so the UI can highlight it.
-                     */
-                    if (handlerApp != null && handlerApp.id == defaultHandler?.id) {
-                        handlerApp.copy(isDefault = true)
-                    } else {
-                        handlerApp
+                    createHandlerApp(info)?.let { handlerApp ->
+                        if (handlerApp.id == defaultHandler?.id) {
+                            handlerApp.copy(isDefault = true)
+                        } else {
+                            handlerApp
+                        }
                     }
                 }
                 .sortedByDescending { it.isDefault }
-        } catch (e: Exception) {
-            emptyList()
-        }
+        }.onFailure { throwable ->
+            Log.w(URL_HANDLER_RESOLVER_TAG, "Failed to query URL handlers for $url", throwable)
+        }.getOrElse { emptyList() }
     }
 
     /**
@@ -348,15 +316,8 @@ class UrlHandlerResolver(
      * @return UrlHandlerApp or null if the info is invalid
      */
     private fun createHandlerApp(resolveInfo: ResolveInfo): UrlHandlerApp? {
-        return try {
+        return runCatching {
             val activityInfo = resolveInfo.activityInfo
-
-            /**
-             * Get the app's label (human-readable name).
-             * This could be "YouTube", "Chrome", "Maps", etc.
-             *
-             * loadLabel() returns a CharSequence which we convert to String.
-             */
             val label = resolveInfo.loadLabel(packageManager).toString()
 
             UrlHandlerApp(
@@ -365,8 +326,12 @@ class UrlHandlerResolver(
                 label = label,
                 isDefault = false
             )
-        } catch (e: Exception) {
-            null
-        }
+        }.onFailure { throwable ->
+            Log.w(
+                URL_HANDLER_RESOLVER_TAG,
+                "Failed to build handler app for ${resolveInfo.activityInfo.packageName}",
+                throwable
+            )
+        }.getOrNull()
     }
 }

@@ -161,81 +161,7 @@ object ExternalDragPayloadCodec {
      * Creates ClipData for platform drag transfer from any supported drag item.
      */
     fun createClipData(item: ExternalDragItem): ClipData {
-        val payloadText = when (item) {
-            is ExternalDragItem.App -> {
-                json.encodeToString(
-                    ExternalPayloadDto.AppPayload(
-                        name = item.appInfo.name,
-                        packageName = item.appInfo.packageName,
-                        activityName = item.appInfo.activityName
-                    )
-                )
-            }
-
-            is ExternalDragItem.File -> {
-                val file = item.fileDocument
-                json.encodeToString(
-                    ExternalPayloadDto.FilePayload(
-                        id = file.id,
-                        name = file.name,
-                        mimeType = file.mimeType,
-                        size = file.size,
-                        dateModified = file.dateModified,
-                        uri = file.uri.toString(),
-                        folderPath = file.folderPath
-                    )
-                )
-            }
-
-            is ExternalDragItem.Contact -> {
-                val contact = item.contact
-                json.encodeToString(
-                    ExternalPayloadDto.ContactPayload(
-                        id = contact.id,
-                        displayName = contact.displayName,
-                        phoneNumbers = contact.phoneNumbers,
-                        emails = contact.emails,
-                        photoUri = contact.photoUri,
-                        lookupKey = contact.lookupKey
-                    )
-                )
-            }
-
-            is ExternalDragItem.Shortcut -> {
-                val shortcut = item.shortcut
-                json.encodeToString(
-                    ExternalPayloadDto.ShortcutPayload(
-                        packageName = shortcut.packageName,
-                        shortcutId = shortcut.shortcutId,
-                        shortLabel = shortcut.shortLabel,
-                        longLabel = shortcut.longLabel
-                    )
-                )
-            }
-
-            is ExternalDragItem.FolderChild -> {
-                // FolderChild is decoded entirely from localState (the object is passed
-                // directly and read back in decodeDragItem before any JSON parsing).
-                // ClipData requires a non-empty text, so we use the child item's id as
-                // a minimal stable identifier; the actual payload is never decoded from it.
-                item.childItem.id
-            }
-
-            is ExternalDragItem.Widget -> {
-                // Widget payloads must have a ClipData fallback because localState
-                // can be unavailable on some OEM/global drag paths.
-                json.encodeToString(
-                    ExternalPayloadDto.WidgetPayload(
-                        providerPackage = item.providerComponent.packageName,
-                        providerClass = item.providerComponent.className,
-                        spanColumns = item.span.columns,
-                        spanRows = item.span.rows
-                    )
-                )
-            }
-        }
-
-        return ClipData.newPlainText(DRAG_CLIP_LABEL, payloadText)
+        return ClipData.newPlainText(DRAG_CLIP_LABEL, CodecSupport.encodePayloadText(item))
     }
 
     /**
@@ -251,20 +177,13 @@ object ExternalDragPayloadCodec {
      */
     fun isLikelyLauncherPayload(dragEvent: DragEvent): Boolean {
         val description = dragEvent.clipDescription
-        if (description == null) {
-            return dragEvent.localState is ExternalDragItem ||
-                dragEvent.localState is AppInfo ||
-                dragEvent.localState is FileDocument ||
-                dragEvent.localState is Contact ||
-                dragEvent.localState is HomeItem.AppShortcut
-        }
+        val label = description?.label?.toString()
 
-        val label = description.label?.toString()
-        if (label == DRAG_CLIP_LABEL || label == LEGACY_APP_DRAG_CLIP_LABEL) {
-            return true
+        return when {
+            description == null -> CodecSupport.hasSupportedLocalState(dragEvent.localState)
+            label == DRAG_CLIP_LABEL || label == LEGACY_APP_DRAG_CLIP_LABEL -> true
+            else -> description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)
         }
-
-        return description.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)
     }
 
     /**
@@ -276,35 +195,141 @@ object ExternalDragPayloadCodec {
      * Decodes any supported drag payload from localState or ClipData JSON.
      */
     fun decodeDragItem(dragEvent: DragEvent): ExternalDragItem? {
-        val localStateItem = when (val localState = dragEvent.localState) {
-            is ExternalDragItem -> localState
-            is AppInfo -> ExternalDragItem.App(localState)
-            is FileDocument -> ExternalDragItem.File(localState)
-            is Contact -> ExternalDragItem.Contact(localState)
-            is HomeItem.AppShortcut -> ExternalDragItem.Shortcut(localState)
-            else -> null
-        }
-
-        if (localStateItem != null) {
-            return localStateItem
-        }
-
         val descriptionLabel = dragEvent.clipDescription?.label?.toString()
-        // IMPORTANT:
-        // Some OEM/platform drag paths may alter or drop custom ClipDescription
-        // labels when crossing windows. We therefore do NOT hard-reject unknown
-        // labels here. Instead, we attempt to parse the payload text and only
-        // return a drag item when the JSON shape matches our known launcher types.
-        // Non-launcher/plain-text drags naturally decode to null below.
+        val rawText = CodecSupport.firstPayloadText(dragEvent.clipData)
 
-        val clipData = dragEvent.clipData ?: return null
-        if (clipData.itemCount <= 0) return null
+        return CodecSupport.decodeLocalStateItem(dragEvent.localState)
+            ?: CodecSupport.decodeClipPayload(descriptionLabel = descriptionLabel, rawText = rawText)
+    }
 
-        val rawText = clipData.getItemAt(0).text?.toString() ?: return null
+    /**
+     * App-only compatibility decode helper.
+     */
+    fun decodeAppInfo(dragEvent: DragEvent): AppInfo? {
+        return (decodeDragItem(dragEvent) as? ExternalDragItem.App)?.appInfo
+    }
 
-        if (descriptionLabel == LEGACY_APP_DRAG_CLIP_LABEL) {
+    private object CodecSupport {
+        fun encodePayloadText(item: ExternalDragItem): String {
+            return when (item) {
+                is ExternalDragItem.App -> encodeAppPayload(item.appInfo)
+                is ExternalDragItem.File -> encodeFilePayload(item.fileDocument)
+                is ExternalDragItem.Contact -> encodeContactPayload(item.contact)
+                is ExternalDragItem.Shortcut -> encodeShortcutPayload(item.shortcut)
+                is ExternalDragItem.FolderChild -> item.childItem.id
+                is ExternalDragItem.Widget -> encodeWidgetPayload(item)
+            }
+        }
+
+        fun hasSupportedLocalState(localState: Any?): Boolean {
+            return when (localState) {
+                is ExternalDragItem,
+                is AppInfo,
+                is FileDocument,
+                is Contact,
+                is HomeItem.AppShortcut -> true
+
+                else -> false
+            }
+        }
+
+        fun decodeLocalStateItem(localState: Any?): ExternalDragItem? {
+            return when (localState) {
+                is ExternalDragItem -> localState
+                is AppInfo -> ExternalDragItem.App(localState)
+                is FileDocument -> ExternalDragItem.File(localState)
+                is Contact -> ExternalDragItem.Contact(localState)
+                is HomeItem.AppShortcut -> ExternalDragItem.Shortcut(localState)
+                else -> null
+            }
+        }
+
+        fun decodeClipPayload(
+            descriptionLabel: String?,
+            rawText: String?
+        ): ExternalDragItem? {
+            return rawText?.let { payloadText ->
+                if (descriptionLabel == LEGACY_APP_DRAG_CLIP_LABEL) {
+                    decodeLegacyAppPayload(payloadText)
+                } else {
+                    decodeStructuredPayload(payloadText)
+                }
+            }
+        }
+
+        fun firstPayloadText(clipData: ClipData?): String? {
+            return clipData
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.text
+                ?.toString()
+        }
+
+        private fun encodeAppPayload(appInfo: AppInfo): String {
+            return json.encodeToString(
+                ExternalPayloadDto.AppPayload(
+                    name = appInfo.name,
+                    packageName = appInfo.packageName,
+                    activityName = appInfo.activityName
+                )
+            )
+        }
+
+        private fun encodeFilePayload(file: FileDocument): String {
+            return json.encodeToString(
+                ExternalPayloadDto.FilePayload(
+                    id = file.id,
+                    name = file.name,
+                    mimeType = file.mimeType,
+                    size = file.size,
+                    dateModified = file.dateModified,
+                    uri = file.uri.toString(),
+                    folderPath = file.folderPath
+                )
+            )
+        }
+
+        private fun encodeContactPayload(contact: com.milki.launcher.domain.model.Contact): String {
+            return json.encodeToString(
+                ExternalPayloadDto.ContactPayload(
+                    id = contact.id,
+                    displayName = contact.displayName,
+                    phoneNumbers = contact.phoneNumbers,
+                    emails = contact.emails,
+                    photoUri = contact.photoUri,
+                    lookupKey = contact.lookupKey
+                )
+            )
+        }
+
+        private fun encodeShortcutPayload(shortcut: HomeItem.AppShortcut): String {
+            return json.encodeToString(
+                ExternalPayloadDto.ShortcutPayload(
+                    packageName = shortcut.packageName,
+                    shortcutId = shortcut.shortcutId,
+                    shortLabel = shortcut.shortLabel,
+                    longLabel = shortcut.longLabel
+                )
+            )
+        }
+
+        private fun encodeWidgetPayload(item: ExternalDragItem.Widget): String {
+            return json.encodeToString(
+                ExternalPayloadDto.WidgetPayload(
+                    providerPackage = item.providerComponent.packageName,
+                    providerClass = item.providerComponent.className,
+                    spanColumns = item.span.columns,
+                    spanRows = item.span.rows
+                )
+            )
+        }
+
+        private fun decodeLegacyAppPayload(rawText: String): ExternalDragItem.App? {
             return runCatching {
-                val payload = json.decodeFromString(ExternalPayloadDto.AppPayload.serializer(), rawText)
+                val payload = json.decodeFromString(
+                    ExternalPayloadDto.AppPayload.serializer(),
+                    rawText
+                )
                 ExternalDragItem.App(
                     AppInfo(
                         name = payload.name,
@@ -315,80 +340,96 @@ object ExternalDragPayloadCodec {
             }.getOrNull()
         }
 
-        return runCatching {
-            val dto = json.parseToJsonElement(rawText).jsonObject
-            when (dto["type"]?.jsonPrimitive?.contentOrNull) {
-                "app" -> {
-                    val payload = json.decodeFromString(ExternalPayloadDto.AppPayload.serializer(), rawText)
-                    ExternalDragItem.App(
-                        AppInfo(
-                            name = payload.name,
-                            packageName = payload.packageName,
-                            activityName = payload.activityName
-                        )
-                    )
-                }
+        private fun decodeStructuredPayload(rawText: String): ExternalDragItem? {
+            return runCatching {
+                val payloadType = json.parseToJsonElement(rawText)
+                    .jsonObject["type"]
+                    ?.jsonPrimitive
+                    ?.contentOrNull
+                decodeStructuredPayload(payloadType = payloadType, rawText = rawText)
+            }.getOrNull()
+        }
 
-                "file" -> {
-                    val payload = json.decodeFromString(ExternalPayloadDto.FilePayload.serializer(), rawText)
-                    ExternalDragItem.File(
-                        FileDocument(
-                            id = payload.id,
-                            name = payload.name,
-                            mimeType = payload.mimeType,
-                            size = payload.size,
-                            dateModified = payload.dateModified,
-                            uri = Uri.parse(payload.uri),
-                            folderPath = payload.folderPath
-                        )
-                    )
-                }
-
-                "contact" -> {
-                    val payload = json.decodeFromString(ExternalPayloadDto.ContactPayload.serializer(), rawText)
-                    ExternalDragItem.Contact(
-                        Contact(
-                            id = payload.id,
-                            displayName = payload.displayName,
-                            phoneNumbers = payload.phoneNumbers,
-                            emails = payload.emails,
-                            photoUri = payload.photoUri,
-                            lookupKey = payload.lookupKey
-                        )
-                    )
-                }
-
-                "shortcut" -> {
-                    val payload = json.decodeFromString(ExternalPayloadDto.ShortcutPayload.serializer(), rawText)
-                    ExternalDragItem.Shortcut(
-                        HomeItem.AppShortcut(
-                            id = "shortcut:${payload.packageName}/${payload.shortcutId}",
-                            packageName = payload.packageName,
-                            shortcutId = payload.shortcutId,
-                            shortLabel = payload.shortLabel,
-                            longLabel = payload.longLabel
-                        )
-                    )
-                }
-
-                "widget" -> {
-                    val payload = json.decodeFromString(ExternalPayloadDto.WidgetPayload.serializer(), rawText)
-                    ExternalDragItem.Widget(
-                        providerInfo = null,
-                        providerComponent = ComponentName(payload.providerPackage, payload.providerClass),
-                        span = GridSpan(columns = payload.spanColumns, rows = payload.spanRows)
-                    )
-                }
-
+        private fun decodeStructuredPayload(
+            payloadType: String?,
+            rawText: String
+        ): ExternalDragItem? {
+            return when (payloadType) {
+                "app" -> decodeAppPayload(rawText)
+                "file" -> decodeFilePayload(rawText)
+                "contact" -> decodeContactPayload(rawText)
+                "shortcut" -> decodeShortcutPayload(rawText)
+                "widget" -> decodeWidgetPayload(rawText)
                 else -> null
             }
-        }.getOrNull()
-    }
+        }
 
-    /**
-     * App-only compatibility decode helper.
-     */
-    fun decodeAppInfo(dragEvent: DragEvent): AppInfo? {
-        return (decodeDragItem(dragEvent) as? ExternalDragItem.App)?.appInfo
+        private fun decodeAppPayload(rawText: String): ExternalDragItem.App {
+            val payload = json.decodeFromString(ExternalPayloadDto.AppPayload.serializer(), rawText)
+            return ExternalDragItem.App(
+                AppInfo(
+                    name = payload.name,
+                    packageName = payload.packageName,
+                    activityName = payload.activityName
+                )
+            )
+        }
+
+        private fun decodeFilePayload(rawText: String): ExternalDragItem.File {
+            val payload = json.decodeFromString(ExternalPayloadDto.FilePayload.serializer(), rawText)
+            return ExternalDragItem.File(
+                FileDocument(
+                    id = payload.id,
+                    name = payload.name,
+                    mimeType = payload.mimeType,
+                    size = payload.size,
+                    dateModified = payload.dateModified,
+                    uri = Uri.parse(payload.uri),
+                    folderPath = payload.folderPath
+                )
+            )
+        }
+
+        private fun decodeContactPayload(rawText: String): ExternalDragItem.Contact {
+            val payload = json.decodeFromString(
+                ExternalPayloadDto.ContactPayload.serializer(),
+                rawText
+            )
+            return ExternalDragItem.Contact(
+                Contact(
+                    id = payload.id,
+                    displayName = payload.displayName,
+                    phoneNumbers = payload.phoneNumbers,
+                    emails = payload.emails,
+                    photoUri = payload.photoUri,
+                    lookupKey = payload.lookupKey
+                )
+            )
+        }
+
+        private fun decodeShortcutPayload(rawText: String): ExternalDragItem.Shortcut {
+            val payload = json.decodeFromString(
+                ExternalPayloadDto.ShortcutPayload.serializer(),
+                rawText
+            )
+            return ExternalDragItem.Shortcut(
+                HomeItem.AppShortcut(
+                    id = "shortcut:${payload.packageName}/${payload.shortcutId}",
+                    packageName = payload.packageName,
+                    shortcutId = payload.shortcutId,
+                    shortLabel = payload.shortLabel,
+                    longLabel = payload.longLabel
+                )
+            )
+        }
+
+        private fun decodeWidgetPayload(rawText: String): ExternalDragItem.Widget {
+            val payload = json.decodeFromString(ExternalPayloadDto.WidgetPayload.serializer(), rawText)
+            return ExternalDragItem.Widget(
+                providerInfo = null,
+                providerComponent = ComponentName(payload.providerPackage, payload.providerClass),
+                span = GridSpan(columns = payload.spanColumns, rows = payload.spanRows)
+            )
+        }
     }
 }

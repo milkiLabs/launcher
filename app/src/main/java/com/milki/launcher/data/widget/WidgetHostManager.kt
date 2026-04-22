@@ -51,11 +51,9 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.util.SizeF
-import android.view.WindowManager
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
 import com.milki.launcher.ui.interaction.grid.GridConfig
-import kotlin.math.roundToInt
 
 class WidgetHostManager(
     private val context: Context
@@ -124,53 +122,40 @@ class WidgetHostManager(
         return providerInfo.loadLabel(packageManager) ?: providerInfo.provider.shortClassName
     }
 
-    fun setActivityStarted(started: Boolean) {
-        activityStarted = started
+    fun updateHostState(
+        started: Boolean? = null,
+        resumed: Boolean? = null,
+        isNormal: Boolean? = null
+    ) {
+        started?.let { activityStarted = it }
+        resumed?.let { activityResumed = it }
+        isNormal?.let { stateIsNormal = it }
         syncListeningState()
-    }
-
-    fun setActivityResumed(resumed: Boolean) {
-        activityResumed = resumed
-        syncListeningState()
-    }
-
-    fun setStateIsNormal(isNormal: Boolean) {
-        stateIsNormal = isNormal
-        syncListeningState()
-    }
-
-    private fun startListening() {
-        try {
-            appWidgetHost.startListening()
-        } catch (e: Exception) {
-            // startListening() can throw on some devices if the widget database is corrupted.
-            // We catch and log rather than crashing the launcher.
-            Log.e(TAG, "Failed to start widget host listening", e)
-        }
-    }
-
-    private fun stopListening() {
-        try {
-            appWidgetHost.stopListening()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to stop widget host listening", e)
-        }
     }
 
     private fun syncListeningState() {
         val shouldListen = activityStarted && activityResumed && stateIsNormal
         if (shouldListen == isListening) return
 
-        runCatching {
-            if (shouldListen) {
-                startListening()
-            } else {
-                stopListening()
-            }
-        }.onSuccess {
+        if (updateListeningRegistration(shouldListen)) {
             isListening = shouldListen
-        }.onFailure { throwable ->
-            Log.e(TAG, "Failed to sync listening state shouldListen=$shouldListen", throwable)
+        }
+    }
+
+    private fun updateListeningRegistration(shouldListen: Boolean): Boolean {
+        val action = if (shouldListen) "start" else "stop"
+        val hostCommand = if (shouldListen) {
+            appWidgetHost::startListening
+        } else {
+            appWidgetHost::stopListening
+        }
+
+        return try {
+            hostCommand()
+            true
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "Failed to $action widget host listening", e)
+            false
         }
     }
 
@@ -201,7 +186,7 @@ class WidgetHostManager(
     fun deallocateWidgetId(widgetId: Int) {
         try {
             appWidgetHost.deleteAppWidgetId(widgetId)
-        } catch (e: Exception) {
+        } catch (e: IllegalArgumentException) {
             Log.e(TAG, "Failed to deallocate widget ID $widgetId", e)
         }
     }
@@ -212,27 +197,21 @@ class WidgetHostManager(
         options: Bundle? = null
     ): Boolean {
         return try {
-            if (options != null) {
-                appWidgetManager.bindAppWidgetIdIfAllowed(
-                    appWidgetId,
-                    providerInfo.profile,
-                    providerInfo.provider,
-                    options
-                )
-            } else {
-                appWidgetManager.bindAppWidgetIdIfAllowed(
-                    appWidgetId,
-                    providerInfo.profile,
-                    providerInfo.provider,
-                    Bundle.EMPTY
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "Failed to bind widgetId=$appWidgetId provider=${providerInfo.provider} profile=${providerInfo.profile}",
-                e
+            appWidgetManager.bindAppWidgetIdIfAllowed(
+                appWidgetId,
+                providerInfo.profile,
+                providerInfo.provider,
+                options ?: Bundle.EMPTY
             )
+        } catch (e: IllegalArgumentException) {
+            val providerSummary =
+                "widgetId=$appWidgetId provider=${providerInfo.provider} profile=${providerInfo.profile}"
+            Log.e(TAG, "Failed to bind $providerSummary", e)
+            false
+        } catch (e: SecurityException) {
+            val providerSummary =
+                "widgetId=$appWidgetId provider=${providerInfo.provider} profile=${providerInfo.profile}"
+            Log.e(TAG, "Failed to bind $providerSummary", e)
             false
         }
     }
@@ -267,7 +246,7 @@ class WidgetHostManager(
 
     fun needsConfigure(appWidgetId: Int): Boolean {
         val providerInfo = getProviderInfo(appWidgetId) ?: return false
-        return needsInitialConfigure(providerInfo)
+        return needsInitialWidgetConfigure(providerInfo)
     }
 
     /**
@@ -305,7 +284,7 @@ class WidgetHostManager(
      * @param providerInfo The AppWidgetProviderInfo for this widget (from getProviderInfo).
      * @return An AppWidgetHostView ready to be displayed.
      */
-    fun createHostView(widgetId: Int, providerInfo: AppWidgetProviderInfo): android.appwidget.AppWidgetHostView {
+    fun createHostView(widgetId: Int, providerInfo: AppWidgetProviderInfo): AppWidgetHostView {
         return appWidgetHost.createView(context, widgetId, providerInfo)
     }
 
@@ -357,8 +336,8 @@ class WidgetHostManager(
      * waiting for the first host-view layout pass.
      */
     fun createBindOptions(span: GridSpan): Bundle {
-        val (widthPx, heightPx) = estimateWidgetSizePx(span)
-        return createWidgetSizeOptions(widthPx = widthPx, heightPx = heightPx)
+        val (widthPx, heightPx) = estimateWidgetSizePx(context, span)
+        return createWidgetSizeOptions(context, widthPx = widthPx, heightPx = heightPx)
     }
 
     /**
@@ -369,9 +348,9 @@ class WidgetHostManager(
         widthPx: Int,
         heightPx: Int
     ) {
-        val sizeOptions = createWidgetSizeOptions(widthPx = widthPx, heightPx = heightPx)
-        val widthDp = pxToDp(widthPx)
-        val heightDp = pxToDp(heightPx)
+        val sizeOptions = createWidgetSizeOptions(context, widthPx = widthPx, heightPx = heightPx)
+        val widthDp = pxToDp(context, widthPx)
+        val heightDp = pxToDp(context, heightPx)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             hostView.updateAppWidgetSize(
                 sizeOptions,
@@ -406,22 +385,7 @@ class WidgetHostManager(
      * @return A Pair of (minColumns, minRows) representing the minimum grid span.
      */
     fun calculateMinSpan(providerInfo: AppWidgetProviderInfo): Pair<Int, Int> {
-        // On API 31+, use the targetCellWidth/Height which is more accurate.
-        // On older APIs, calculate from minWidth/minHeight dp values.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val targetCols = providerInfo.targetCellWidth
-            val targetRows = providerInfo.targetCellHeight
-            if (targetCols > 0 && targetRows > 0) {
-                return Pair(targetCols, targetRows)
-            }
-        }
-
-        // Fallback: convert dp dimensions to cell count using the standard formula.
-        // The formula is: cells = floor((size - 30) / 70) + 1
-        // This approximation is used by AOSP launcher and works well for 4-column grids.
-        val minCols = dpToCells(providerInfo.minWidth)
-        val minRows = dpToCells(providerInfo.minHeight)
-        return Pair(minCols, minRows)
+        return calculateMinWidgetSpan(providerInfo)
     }
 
     /**
@@ -436,12 +400,7 @@ class WidgetHostManager(
      * @return A Pair of (minResizeColumns, minResizeRows).
      */
     fun calculateMinResizeSpan(providerInfo: AppWidgetProviderInfo): Pair<Int, Int> {
-        val minResizeWidth = providerInfo.minResizeWidth
-        val minResizeHeight = providerInfo.minResizeHeight
-        if (minResizeWidth <= 0 || minResizeHeight <= 0) {
-            return calculateMinSpan(providerInfo)
-        }
-        return Pair(dpToCells(minResizeWidth), dpToCells(minResizeHeight))
+        return calculateMinWidgetResizeSpan(providerInfo)
     }
 
     /**
@@ -509,58 +468,4 @@ class WidgetHostManager(
      * @param dp The dimension in dp.
      * @return The number of cells, minimum 1.
      */
-    private fun dpToCells(dp: Int): Int {
-        return ((dp - 30) / 70 + 1).coerceAtLeast(1)
-    }
-
-    private fun needsInitialConfigure(providerInfo: AppWidgetProviderInfo): Boolean {
-        if (providerInfo.configure == null) return false
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-            return true
-        }
-
-        val featureFlags = providerInfo.widgetFeatures
-        val isOptionalConfiguration =
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                (featureFlags and WIDGET_FEATURE_CONFIGURATION_OPTIONAL) != 0 &&
-                (featureFlags and WIDGET_FEATURE_RECONFIGURABLE) != 0
-
-        return !isOptionalConfiguration
-    }
-
-    private fun createWidgetSizeOptions(widthPx: Int, heightPx: Int): Bundle {
-        val widthDp = pxToDp(widthPx)
-        val heightDp = pxToDp(heightPx)
-        return Bundle().apply {
-            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp)
-            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp)
-            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
-            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                putParcelableArrayList(
-                    AppWidgetManager.OPTION_APPWIDGET_SIZES,
-                    arrayListOf(SizeF(widthDp.toFloat(), heightDp.toFloat()))
-                )
-            }
-        }
-    }
-
-    private fun estimateWidgetSizePx(span: GridSpan): Pair<Int, Int> {
-        val displayMetrics = context.resources.displayMetrics
-        val windowWidthPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val windowManager = context.getSystemService(WindowManager::class.java)
-            windowManager?.currentWindowMetrics?.bounds?.width() ?: displayMetrics.widthPixels
-        } else {
-            displayMetrics.widthPixels
-        }
-
-        val cellSizePx = windowWidthPx.toFloat() / GridConfig.Default.columns
-        val widthPx = (cellSizePx * span.columns).roundToInt().coerceAtLeast(1)
-        val heightPx = (cellSizePx * span.rows).roundToInt().coerceAtLeast(1)
-        return widthPx to heightPx
-    }
-
-    private fun pxToDp(px: Int): Int {
-        return (px / context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1)
-    }
 }

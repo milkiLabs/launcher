@@ -16,7 +16,7 @@ The goal is not to "make the baseline disappear at any cost". The goal is:
 
 Snapshot refreshed after multiple cleanup passes on 2026-04-22.
 
-- `config/detekt/app-baseline.xml`: 158 findings remaining
+- `config/detekt/app-baseline.xml`: 116 findings remaining
 - `config/detekt/baselineprofile-baseline.xml`: empty
 - `baselineprofile` should now be treated as "clean by default"
 
@@ -76,38 +76,102 @@ Important:
 - Baselines were regenerated later on 2026-04-22 after compile, Detekt, and targeted tests were green.
 - A follow-up regeneration after the remaining file renames brought the count down again.
 
+## Status Update (2026-04-22, current pass)
+
+Completed in this batch:
+
+- `WidgetHostManager.kt`
+  - moved widget sizing/configure helpers into dedicated support functions
+  - narrowed widget-host exception handling to specific runtime cases
+  - collapsed lifecycle state setters into one host-state update API
+- `SettingsMutationStore.kt`
+  - converted the main prefix mutation hotspots into single-decision `when` flows
+  - extracted owner/result helpers to remove the worst return-heavy branches
+- `ExternalDragPayloadCodec.kt`
+  - split payload encode/decode responsibilities behind a private support object
+  - cleared the object-level function pressure without changing the public API
+- `FilesRepositoryImpl.kt`
+  - extracted cursor-row decoding into named outcomes
+  - replaced generic exception catches with narrower Android/runtime cases
+  - replaced the seconds-to-millis magic number with a named constant
+- `HomeScreenWidgetView.kt`
+  - split the widget gesture wrapper into smaller action handlers
+  - extracted host-view creation/layout/callback binding helpers
+  - replaced generic host-view creation catching with a narrower failure path
+- `AppIconDiskSnapshotStore.kt`
+  - replaced snapshot save/load guard returns with single-decision flows
+  - extracted the PNG quality magic number into a named constant
+- `LauncherActions.kt`
+  - extracted folder callback type aliases to remove long line signatures
+- `UrlValidator.kt`
+  - reduced validator/helper return-heavy branches into single-return flows
+- `ContactsQueryLayer.kt`
+  - replaced raw cursor index literals with named cursor-index types
+  - removed the jump-heavy batch lookup loop structure
+
+Verification:
+
+- `./gradlew app:detekt` passed repeatedly during the pass and after the final cleanup batch.
+- `./gradlew -Dkotlin.compiler.execution.strategy=in-process app:compileDebugKotlin` passed after the refactors.
+- `./gradlew -Dkotlin.compiler.execution.strategy=in-process app:testDebugUnitTest --tests com.milki.launcher.data.repository.settings.SettingsMutationStorePrefixConflictTest` passed.
+- `./gradlew -Dkotlin.compiler.execution.strategy=in-process app:testDebugUnitTest --tests com.milki.launcher.ui.screens.LauncherActionsContractTest` passed.
+- `./gradlew app:detektBaseline` was rerun after verification.
+- `FileOpener.kt` and `UrlHandlerResolver.kt` were cleaned in a follow-up reliability batch, then verified again with:
+  - `./gradlew app:detekt`
+  - `./gradlew -Dkotlin.compiler.execution.strategy=in-process app:compileDebugKotlin`
+  - `./gradlew app:detektBaseline`
+
+Result:
+
+- App baseline reduced from `158` findings at the start of this pass to `120` findings after regeneration.
+- A final reliability cleanup reduced the baseline again from `120` to `116`.
+- The old hotspot files for this pass are now cleared from the baseline:
+  - `WidgetHostManager.kt`
+  - `SettingsMutationStore.kt`
+  - `ExternalDragPayloadCodec.kt`
+  - `FilesRepositoryImpl.kt`
+  - `HomeScreenWidgetView.kt`
+  - `AppIconDiskSnapshotStore.kt`
+  - `LauncherActions.kt`
+  - `UrlValidator.kt`
+  - `ContactsQueryLayer.kt`
+  - `FileOpener.kt`
+  - `UrlHandlerResolver.kt`
+
 ### Remaining Findings By Rule
 
-- `ReturnCount`: 51
-- `MagicNumber`: 38
-- `LongMethod`: 30
-- `MaxLineLength`: 13
-- `CyclomaticComplexMethod`: 9
-- `TooGenericExceptionCaught`: 6
-- `TooManyFunctions`: 5
-- `SwallowedException`: 3
+- `ReturnCount`: 34
+- `MagicNumber`: 32
+- `LongMethod`: 26
+- `MaxLineLength`: 9
+- `CyclomaticComplexMethod`: 7
+- `TooManyFunctions`: 4
 - `ComplexCondition`: 2
-- `LoopWithTooManyJumpStatements`: 1
+- `SwallowedException`: 1
+- `TooGenericExceptionCaught`: 1
 
 ### Main Hotspot Files
 
 These files give the biggest payoff because they contain multiple findings each:
 
-- `WidgetOverlayLayer.kt`: 7
-- `SettingsSourceEditorComponents.kt`: 7
-- `WidgetHostManager.kt`: 6
-- `SettingsMutationStore.kt`: 6
-- `FolderPopupDialogSupport.kt`: 6
-- `HomeScreenWidgetView.kt`: 5
-- `ExternalDragPayloadCodec.kt`: 5
-- `AppDrawerOverlay.kt`: 5
-- `WidgetPickerBottomSheet.kt`: 4
-- `LauncherSheet.kt`: 4
-- `ItemActionMenu.kt`: 4
-- `FilesRepositoryImpl.kt`: 4
-- `DropHighlightLayer.kt`: 4
-- `DraggablePinnedItemsGridLayers.kt`: 4
-- `ExternalHomeDropDispatcher.kt`: 11 in the pre-regeneration snapshot, but the first dispatcher cleanup batch landed on 2026-04-22
+- `LauncherSheet.kt`: 2
+- `AppDrawerOverlay.kt`: 2
+- `DraggablePinnedItemsGridLayers.kt`: 2
+- `DropHighlightLayer.kt`: 2
+- `FolderPopupDialog.kt`: 2
+- `HomeBackgroundGestureDetector.kt`: 2
+- `SettingsScreen.kt`: 2
+- `AppIconMemoryCache.kt`: 2
+- `SettingsViewModel.kt`: 2
+- `ClipboardSuggestionResolver.kt`: 2
+- `PermissionOrchestrator.kt`: 2
+- `ExternalAppDragDropCoordinator.kt`: 1
+- `AppSearchDialog.kt`: 1
+
+Current source of truth:
+
+- Prefer the regenerated baseline plus the sections above over older rule-phase lists below.
+- Some deeper sections still contain historical candidate lists from before the current cleanup wave.
 
 ## Core Working Rules
 
@@ -125,10 +189,18 @@ Future agents should follow these rules while doing Detekt cleanup:
 
 The best next steps are:
 
-1. Finish the remaining low-risk mechanical findings.
-2. Tackle control-flow simplification in leaf/helper functions.
-3. Tackle complexity and long methods in UI files by extracting private composables/helpers.
-4. Tackle large stateful domain classes only after helper-level cleanup is done.
+1. Tackle the remaining 2-hit UI files that can often clear both `LongMethod` and `CyclomaticComplexMethod` together:
+   - `AppDrawerOverlay.kt`
+   - `LauncherSheet.kt`
+   - `DraggablePinnedItemsGridLayers.kt`
+   - `DropHighlightLayer.kt`
+   - `FolderPopupDialog.kt`
+   - `SettingsScreen.kt`
+2. Run the small reliability cleanup batch:
+   - `DragGestureDetector.kt`
+   - `AppIconMemoryCache.kt`
+3. Continue trimming the leaf/helper `ReturnCount` backlog before reopening any large stateful class work.
+4. Leave the remaining `TooManyFunctions` files for a later decomposition pass unless a helper extraction naturally removes them.
 
 `HomeModelWriter.kt` already has a dedicated structural cleanup batch in progress history. Keep the same "tightly scoped only" rule for `WidgetHostManager.kt`.
 

@@ -46,6 +46,8 @@ import com.milki.launcher.data.widget.WidgetHostManager
 import kotlin.math.abs
 import kotlin.math.max
 
+private const val HOME_SCREEN_WIDGET_VIEW_TAG = "HomeScreenWidgetView"
+
 /**
  * Touch-aware wrapper for hosted widget views that provides reliable long-press
  * detection across the entire widget surface.
@@ -144,101 +146,121 @@ private class WidgetLongPressFrameLayout(context: Context) : FrameLayout(context
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
+        val consumed = when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = event.x
-                downY = event.y
-                lastX = event.x
-                lastY = event.y
-                accumulatedDragX = 0f
-                accumulatedDragY = 0f
-                isLongPressCandidate = true
-                hasFiredLongPress = false
-                isDragActive = false
-                removeCallbacks(longPressRunnable)
-                postDelayed(longPressRunnable, longPressTimeoutMs)
+                handleActionDown(event)
+                false
             }
 
-            MotionEvent.ACTION_MOVE -> {
-                if (isLongPressCandidate) {
-                    val movedTooFar =
-                        abs(event.x - downX) > touchSlopPx || abs(event.y - downY) > touchSlopPx
-                    if (movedTooFar) {
-                        isLongPressCandidate = false
-                        removeCallbacks(longPressRunnable)
-                    }
-                }
-
-                // Long-press already fired: this move may transition into drag mode.
-                if (hasFiredLongPress) {
-                    val deltaX = event.x - lastX
-                    val deltaY = event.y - lastY
-                    lastX = event.x
-                    lastY = event.y
-
-                    if (!isDragActive) {
-                        accumulatedDragX += deltaX
-                        accumulatedDragY += deltaY
-                        val dragThresholdPx = max(touchSlopPx.toFloat(), dragStartThresholdPx)
-                        val crossedDragThreshold =
-                            abs(accumulatedDragX) > dragThresholdPx ||
-                                abs(accumulatedDragY) > dragThresholdPx
-                        if (crossedDragThreshold) {
-                            isDragActive = true
-                            onWidgetDragStart?.invoke()
-                        }
-                    }
-
-                    if (isDragActive) {
-                        onWidgetDrag?.invoke(Offset(deltaX, deltaY))
-                        // While dragging we consume at wrapper level so the inner
-                        // widget does not receive click/up and trigger accidental actions.
-                        return true
-                    }
-                }
-            }
-
+            MotionEvent.ACTION_MOVE -> handleActionMove(event)
             MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL -> {
-                val wasDragActive = isDragActive
-                val hadLongPress = hasFiredLongPress
-
-                isLongPressCandidate = false
-                isDragActive = false
-                removeCallbacks(longPressRunnable)
-
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_UP -> {
-                        if (wasDragActive) {
-                            onWidgetDragEnd?.invoke()
-                            return true
-                        }
-                        if (hadLongPress) {
-                            onWidgetLongPressRelease?.invoke()
-                            // Consume UP after long-press so it cannot be
-                            // interpreted as a widget click by child views.
-                            return true
-                        }
-                    }
-                    MotionEvent.ACTION_CANCEL -> {
-                        if (wasDragActive) {
-                            onWidgetDragCancel?.invoke()
-                            return true
-                        }
-                        if (hadLongPress) {
-                            onWidgetLongPressRelease?.invoke()
-                            return true
-                        }
-                    }
-                }
-            }
+            MotionEvent.ACTION_CANCEL -> handleActionEnd(event.actionMasked)
+            else -> false
         }
 
-        // Always continue normal event dispatch to child widget views so taps
-        // and widget-defined PendingIntent interactions still work.
-        return super.dispatchTouchEvent(event)
+        return consumed || super.dispatchTouchEvent(event)
+    }
+
+    private fun handleActionDown(event: MotionEvent) {
+        downX = event.x
+        downY = event.y
+        lastX = event.x
+        lastY = event.y
+        accumulatedDragX = 0f
+        accumulatedDragY = 0f
+        isLongPressCandidate = true
+        hasFiredLongPress = false
+        isDragActive = false
+        removeCallbacks(longPressRunnable)
+        postDelayed(longPressRunnable, longPressTimeoutMs)
+    }
+
+    private fun handleActionMove(event: MotionEvent): Boolean {
+        cancelLongPressIfNeeded(event)
+        if (!hasFiredLongPress) {
+            return false
+        }
+
+        val delta = updateDragDelta(event)
+        startDragIfNeeded(delta)
+        return if (isDragActive) {
+            onWidgetDrag?.invoke(delta)
+            true
+        } else {
+            false
+        }
+    }
+
+    private fun cancelLongPressIfNeeded(event: MotionEvent) {
+        val movedTooFar =
+            abs(event.x - downX) > touchSlopPx || abs(event.y - downY) > touchSlopPx
+
+        if (isLongPressCandidate && movedTooFar) {
+            isLongPressCandidate = false
+            removeCallbacks(longPressRunnable)
+        }
+    }
+
+    private fun updateDragDelta(event: MotionEvent): Offset {
+        val delta = Offset(event.x - lastX, event.y - lastY)
+        lastX = event.x
+        lastY = event.y
+        return delta
+    }
+
+    private fun startDragIfNeeded(delta: Offset) {
+        if (isDragActive) {
+            return
+        }
+
+        accumulatedDragX += delta.x
+        accumulatedDragY += delta.y
+
+        val dragThresholdPx = max(touchSlopPx.toFloat(), dragStartThresholdPx)
+        val crossedDragThreshold =
+            abs(accumulatedDragX) > dragThresholdPx || abs(accumulatedDragY) > dragThresholdPx
+
+        if (crossedDragThreshold) {
+            isDragActive = true
+            onWidgetDragStart?.invoke()
+        }
+    }
+
+    private fun handleActionEnd(actionMasked: Int): Boolean {
+        val releaseState = GestureReleaseState(
+            wasDragActive = isDragActive,
+            hadLongPress = hasFiredLongPress
+        )
+
+        isLongPressCandidate = false
+        isDragActive = false
+        removeCallbacks(longPressRunnable)
+
+        return when {
+            releaseState.wasDragActive && actionMasked == MotionEvent.ACTION_UP -> {
+                onWidgetDragEnd?.invoke()
+                true
+            }
+
+            releaseState.wasDragActive && actionMasked == MotionEvent.ACTION_CANCEL -> {
+                onWidgetDragCancel?.invoke()
+                true
+            }
+
+            releaseState.hadLongPress -> {
+                onWidgetLongPressRelease?.invoke()
+                true
+            }
+
+            else -> false
+        }
     }
 }
+
+private data class GestureReleaseState(
+    val wasDragActive: Boolean,
+    val hadLongPress: Boolean
+)
 
 /**
  * Renders an Android AppWidget inside a Compose layout.
@@ -287,69 +309,24 @@ fun HomeScreenWidgetView(
     // Create the AppWidgetHostView once for this widget ID.
     // If the widget's provider is uninstalled, getProviderInfo returns null
     // and we can't create a view — show nothing in that case.
-    val hostView: AppWidgetHostView? = remember(appWidgetId) {
-        try {
-            val providerInfo = widgetHostManager.getProviderInfo(appWidgetId)
-            if (providerInfo != null) {
-                widgetHostManager.createHostView(appWidgetId, providerInfo)
-            } else {
-                Log.w("HomeScreenWidgetView", "No provider info for widget $appWidgetId — provider may be uninstalled")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("HomeScreenWidgetView", "Failed to create host view for widget $appWidgetId", e)
-            null
-        }
-    }
+    val hostView = rememberHostView(appWidgetId = appWidgetId, widgetHostManager = widgetHostManager)
 
     if (hostView == null) return
 
     AndroidView(
-        factory = { context ->
-            // Wrap in a dedicated touch-aware FrameLayout so long-press detection
-            // is reliable even when AppWidgetHostView children consume events.
-            WidgetLongPressFrameLayout(context).apply {
-                // Remove from any previous parent (safety net).
-                (hostView.parent as? android.view.ViewGroup)?.removeView(hostView)
-                addView(hostView, FrameLayout.LayoutParams(widthPx, heightPx))
-            }
-        },
+        factory = { context -> createWidgetFrameLayout(context, hostView, widthPx, heightPx) },
         update = { frameLayout ->
-            // Update the widget's layout size when the span changes (e.g. after resize).
-            val layoutParams = hostView.layoutParams
-            if (layoutParams != null) {
-                layoutParams.width = widthPx
-                layoutParams.height = heightPx
-                hostView.layoutParams = layoutParams
-            }
-
-            // Tell the provider about the current exact rendered size.
-            widgetHostManager.updateWidgetSize(
-                hostView = hostView,
-                widthPx = widthPx,
-                heightPx = heightPx
+            updateHostViewLayout(hostView = hostView, widthPx = widthPx, heightPx = heightPx)
+            widgetHostManager.updateWidgetSize(hostView = hostView, widthPx = widthPx, heightPx = heightPx)
+            frameLayout.bindWidgetCallbacks(
+                dragStartThresholdPx = dragStartThresholdPx,
+                onWidgetLongPress = currentOnWidgetLongPress.value,
+                onWidgetLongPressRelease = currentOnWidgetLongPressRelease.value,
+                onWidgetDragStart = currentOnWidgetDragStart.value,
+                onWidgetDrag = currentOnWidgetDrag.value,
+                onWidgetDragEnd = currentOnWidgetDragEnd.value,
+                onWidgetDragCancel = currentOnWidgetDragCancel.value
             )
-
-            // Keep callback updated for the current composition lambda.
-            frameLayout.onWidgetLongPress = {
-                currentOnWidgetLongPress.value.invoke()
-            }
-            frameLayout.onWidgetLongPressRelease = {
-                currentOnWidgetLongPressRelease.value.invoke()
-            }
-            frameLayout.onWidgetDragStart = {
-                currentOnWidgetDragStart.value.invoke()
-            }
-            frameLayout.onWidgetDrag = { delta ->
-                currentOnWidgetDrag.value.invoke(delta)
-            }
-            frameLayout.onWidgetDragEnd = {
-                currentOnWidgetDragEnd.value.invoke()
-            }
-            frameLayout.onWidgetDragCancel = {
-                currentOnWidgetDragCancel.value.invoke()
-            }
-            frameLayout.dragStartThresholdPx = dragStartThresholdPx
         },
         modifier = modifier
     )
@@ -358,7 +335,89 @@ fun HomeScreenWidgetView(
     // the composition. This prevents "View already has a parent" crashes.
     DisposableEffect(appWidgetId) {
         onDispose {
-            (hostView.parent as? android.view.ViewGroup)?.removeView(hostView)
+            detachHostView(hostView)
         }
     }
+}
+
+@Composable
+private fun rememberHostView(
+    appWidgetId: Int,
+    widgetHostManager: WidgetHostManager
+): AppWidgetHostView? {
+    return remember(appWidgetId) {
+        tryCreateHostView(appWidgetId = appWidgetId, widgetHostManager = widgetHostManager)
+    }
+}
+
+private fun tryCreateHostView(
+    appWidgetId: Int,
+    widgetHostManager: WidgetHostManager
+): AppWidgetHostView? {
+    val providerInfo = widgetHostManager.getProviderInfo(appWidgetId)
+
+    return if (providerInfo != null) {
+        try {
+            widgetHostManager.createHostView(appWidgetId, providerInfo)
+        } catch (e: IllegalStateException) {
+            Log.e(
+                HOME_SCREEN_WIDGET_VIEW_TAG,
+                "Failed to create host view for widget $appWidgetId",
+                e
+            )
+            null
+        }
+    } else {
+        Log.w(
+            HOME_SCREEN_WIDGET_VIEW_TAG,
+            "No provider info for widget $appWidgetId; provider may be uninstalled"
+        )
+        null
+    }
+}
+
+private fun createWidgetFrameLayout(
+    context: Context,
+    hostView: AppWidgetHostView,
+    widthPx: Int,
+    heightPx: Int
+): WidgetLongPressFrameLayout {
+    return WidgetLongPressFrameLayout(context).apply {
+        detachHostView(hostView)
+        addView(hostView, FrameLayout.LayoutParams(widthPx, heightPx))
+    }
+}
+
+private fun updateHostViewLayout(
+    hostView: AppWidgetHostView,
+    widthPx: Int,
+    heightPx: Int
+) {
+    hostView.layoutParams?.let { layoutParams ->
+        layoutParams.width = widthPx
+        layoutParams.height = heightPx
+        hostView.layoutParams = layoutParams
+    }
+}
+
+private fun WidgetLongPressFrameLayout.bindWidgetCallbacks(
+    dragStartThresholdPx: Float,
+    onWidgetLongPress: () -> Unit,
+    onWidgetLongPressRelease: () -> Unit,
+    onWidgetDragStart: () -> Unit,
+    onWidgetDrag: (Offset) -> Unit,
+    onWidgetDragEnd: () -> Unit,
+    onWidgetDragCancel: () -> Unit
+) {
+    this.onWidgetLongPress = onWidgetLongPress
+    this.onWidgetLongPressRelease = onWidgetLongPressRelease
+    this.onWidgetDragStart = onWidgetDragStart
+    this.onWidgetDrag = onWidgetDrag
+    this.onWidgetDragEnd = onWidgetDragEnd
+    this.onWidgetDragCancel = onWidgetDragCancel
+    this.dragStartThresholdPx = dragStartThresholdPx
+}
+
+private fun detachHostView(hostView: AppWidgetHostView) {
+    (hostView.parent as? android.view.ViewGroup)?.removeView(hostView)
 }

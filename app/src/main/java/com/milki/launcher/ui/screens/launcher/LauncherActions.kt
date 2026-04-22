@@ -4,6 +4,19 @@ import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 
+typealias CreateFolderAction = (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit
+typealias ExtractItemFromFolderAction =
+    (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit
+typealias MoveFolderItemToFolderAction =
+    (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit
+typealias FolderChildDroppedOnItemAction =
+    (
+        sourceFolderId: String,
+        childItem: HomeItem,
+        occupantItem: HomeItem,
+        atPosition: GridPosition
+    ) -> Unit
+
 /**
  * Aggregates all callback contracts emitted from the launcher screen.
  *
@@ -37,7 +50,7 @@ data class HomeActions(
  * Folder lifecycle and drag-drop interactions.
  */
 data class FolderActions(
-    val onCreateFolder: (item1: HomeItem, item2: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _ -> },
+    val onCreateFolder: CreateFolderAction = { _, _, _ -> },
     val onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
     val onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit = { _, _ -> },
     val onFolderClose: () -> Unit = {},
@@ -45,9 +58,9 @@ data class FolderActions(
     val onFolderItemClick: (HomeItem) -> Unit = {},
     val onFolderItemRemove: (folderId: String, itemId: String) -> Unit = { _, _ -> },
     val onFolderItemReorder: (folderId: String, newChildren: List<HomeItem>) -> Unit = { _, _ -> },
-    val onExtractItemFromFolder: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
-    val onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit = { _, _, _ -> },
-    val onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> }
+    val onExtractItemFromFolder: ExtractItemFromFolderAction = { _, _, _ -> },
+    val onMoveFolderItemToFolder: MoveFolderItemToFolderAction = { _, _, _ -> },
+    val onFolderChildDroppedOnItem: FolderChildDroppedOnItemAction = { _, _, _, _ -> }
 )
 
 /**

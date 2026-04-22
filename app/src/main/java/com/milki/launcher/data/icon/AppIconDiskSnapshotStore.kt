@@ -22,6 +22,7 @@ object AppIconDiskSnapshotStore {
     private const val TAG = "AppIconDiskCache"
     private const val CACHE_DIR_NAME = "app_icon_snapshots"
     private const val DEFAULT_BITMAP_SIZE_PX = 192
+    private const val PNG_COMPRESSION_QUALITY = 100
     private val INVALID_FILE_KEY_CHARS = Regex("[^A-Za-z0-9._-]")
 
     private val lock = Any()
@@ -41,21 +42,16 @@ object AppIconDiskSnapshotStore {
     }
 
     fun load(packageName: String, packageManager: PackageManager): Drawable? {
-        val directory = cacheDir ?: return null
-        val cacheKey = buildCacheKey(packageName, packageManager) ?: return null
-        val snapshotFile = File(directory, "$cacheKey.png")
+        val snapshotFile = buildSnapshotFile(packageName, packageManager)
+        val bitmap = snapshotFile
+            ?.takeIf(File::exists)
+            ?.let { BitmapFactory.decodeFile(it.absolutePath) }
 
-        if (!snapshotFile.exists()) {
-            return null
+        if (snapshotFile != null && snapshotFile.exists() && bitmap == null) {
+            snapshotFile.delete()
         }
 
-        val bitmap = BitmapFactory.decodeFile(snapshotFile.absolutePath)
-            ?: run {
-                snapshotFile.delete()
-                return null
-            }
-
-        return BitmapDrawable(appResources ?: Resources.getSystem(), bitmap)
+        return bitmap?.let { BitmapDrawable(appResources ?: Resources.getSystem(), it) }
     }
 
     fun save(
@@ -63,26 +59,23 @@ object AppIconDiskSnapshotStore {
         packageManager: PackageManager,
         drawable: Drawable
     ) {
-        val directory = cacheDir ?: return
-        val cacheKey = buildCacheKey(packageName, packageManager) ?: return
-        val snapshotFile = File(directory, "$cacheKey.png")
+        val snapshotDirectory = cacheDir
+        val snapshotFile = buildSnapshotFile(packageName, packageManager)
+        val bitmap = drawable.toBitmapOrNull()
+        val shouldSaveSnapshot = snapshotFile?.exists() == false && bitmap != null
 
-        if (snapshotFile.exists()) {
-            return
-        }
+        if (snapshotDirectory != null && snapshotFile != null && shouldSaveSnapshot) {
+            pruneObsoleteSnapshotsForPackage(snapshotDirectory, packageName, snapshotFile.name)
 
-        pruneObsoleteSnapshotsForPackage(directory, packageName, snapshotFile.name)
-
-        val bitmap = drawable.toBitmapOrNull() ?: return
-
-        runCatching {
-            FileOutputStream(snapshotFile).use { output ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-                output.flush()
+            runCatching {
+                FileOutputStream(snapshotFile).use { output ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, PNG_COMPRESSION_QUALITY, output)
+                    output.flush()
+                }
+            }.onFailure { exception ->
+                snapshotFile.delete()
+                Log.w(TAG, "Failed to save icon snapshot for $packageName", exception)
             }
-        }.onFailure { exception ->
-            snapshotFile.delete()
-            Log.w(TAG, "Failed to save icon snapshot for $packageName", exception)
         }
     }
 
@@ -119,6 +112,20 @@ object AppIconDiskSnapshotStore {
         }
 
         return "${normalizedPackageName}_${versionCode}_${packageInfo.lastUpdateTime}_${densityDpi}"
+    }
+
+    private fun buildSnapshotFile(
+        packageName: String,
+        packageManager: PackageManager
+    ): File? {
+        val directory = cacheDir
+        val cacheKey = buildCacheKey(packageName, packageManager)
+
+        return if (directory != null && cacheKey != null) {
+            File(directory, "$cacheKey.png")
+        } else {
+            null
+        }
     }
 
     private fun readPackageInfo(

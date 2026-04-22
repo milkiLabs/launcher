@@ -132,8 +132,7 @@ internal class LauncherHostRuntime(
     }
 
     fun onResume() {
-        widgetHostManager.setActivityResumed(true)
-        widgetHostManager.setStateIsNormal(true)
+        widgetHostManager.updateHostState(resumed = true, isNormal = true)
         if (::actionExecutor.isInitialized) {
             permissionHandler.updateStates()
         }
@@ -141,15 +140,15 @@ internal class LauncherHostRuntime(
     }
 
     fun onPause() {
-        widgetHostManager.setActivityResumed(false)
+        widgetHostManager.updateHostState(resumed = false)
     }
 
     fun onStart() {
-        widgetHostManager.setActivityStarted(true)
+        widgetHostManager.updateHostState(started = true)
     }
 
     fun onStop() {
-        widgetHostManager.setActivityStarted(false)
+        widgetHostManager.updateHostState(started = false)
         surfaceStateCoordinator.onStop()
     }
 

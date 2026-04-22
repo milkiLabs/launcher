@@ -164,39 +164,19 @@ object UrlValidator {
      * ```
      */
     fun validateUrl(input: String): UrlValidationResult? {
-        // Step 1: Trim and check for fast-fail conditions
         val trimmed = input.trim()
-        
-        // FAST-FAIL: Empty or space-containing queries aren't URLs
-        // Users searching for apps will type single words like "youtube" or "maps"
-        // URLs typed by users never have spaces
-        if (trimmed.isEmpty() || trimmed.contains(" ")) {
-            return null
-        }
-        
-        // Step 2: Determine if we have an explicit URL prefix
-        val hasSchemePrefix = hasExplicitUrlPrefix(trimmed)
-        
-        // Step 3: Try to validate and extract the URL
         val validatedUrl = when {
-            // Case A: Has explicit prefix (http://, https://, www.)
-            hasSchemePrefix -> validateWithPrefix(trimmed)
-            
-            // Case B: No prefix, try standard validation
+            trimmed.isEmpty() || trimmed.contains(" ") -> null
+            hasExplicitUrlPrefix(trimmed) -> validateWithPrefix(trimmed)
             else -> validateWithoutPrefix(trimmed)
         }
-        
-        // Step 4: Return null if no valid URL was found
-        if (validatedUrl == null) return null
-        
-        // Step 5: Ensure the URL has a scheme for Intent.ACTION_VIEW
-        // Without https://, the intent won't open a browser
-        val normalizedUrl = ensureScheme(validatedUrl)
-        
-        return UrlValidationResult(
-            url = normalizedUrl,
-            displayUrl = trimmed
-        )
+
+        return validatedUrl?.let { url ->
+            UrlValidationResult(
+                url = ensureScheme(url),
+                displayUrl = trimmed
+            )
+        }
     }
 
     /**
@@ -283,20 +263,11 @@ object UrlValidator {
      * @return Validated URL string, or null if invalid
      */
     private fun validateWithoutPrefix(input: String): String? {
-        // STAGE 1: Try Android's built-in WEB_URL pattern
-        // This handles most standard URL formats
-        if (Patterns.WEB_URL.matcher(input).matches()) {
-            return input
+        return when {
+            Patterns.WEB_URL.matcher(input).matches() -> input
+            fallbackUrlPattern.matches(input) -> input
+            else -> null
         }
-        
-        // STAGE 2: Fallback regex for newer/regional TLDs
-        // Older Android versions may not recognize newer TLDs like .ai, .eg, .shop
-        // This pattern matches: domain.tld or domain.tld/path with any 2+ letter TLD
-        if (fallbackUrlPattern.matches(input)) {
-            return input
-        }
-        
-        return null
     }
 
     /**
@@ -326,14 +297,11 @@ object UrlValidator {
      * @return true if it looks like a domain
      */
     private fun looksLikeDomain(input: String): Boolean {
-        // Must contain a dot (domains have TLDs)
-        if (!input.contains(".")) return false
-        
-        // Must not start or end with a dot
-        if (input.startsWith(".") || input.endsWith(".")) return false
-        
-        // Simple check: word.word pattern
         val parts = input.split(".")
-        return parts.size >= 2 && parts.all { it.isNotEmpty() }
+        return input.contains(".") &&
+            !input.startsWith(".") &&
+            !input.endsWith(".") &&
+            parts.size >= 2 &&
+            parts.all { it.isNotEmpty() }
     }
 }

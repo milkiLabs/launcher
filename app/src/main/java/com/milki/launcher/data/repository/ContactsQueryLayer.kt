@@ -110,23 +110,19 @@ internal class ContactsQueryLayer(
             selectionArgs,
             null
         )?.use { cursor ->
-            if (!cursor.moveToFirst()) {
-                return@use null
+            val indices = PhoneLookupCursorIndices.create(cursor)
+            val hasRow = cursor.moveToFirst()
+            val row = if (hasRow) readPhoneLookupRow(cursor, indices) else null
+
+            row?.let {
+                mapper.buildPhoneLookupContact(
+                    contactId = it.contactId,
+                    displayName = it.displayName,
+                    phoneNumbers = getPhoneNumbersForContact(it.contactId),
+                    photoUri = it.photoUri,
+                    lookupKey = it.lookupKey
+                )
             }
-
-            val contactId = cursor.getLong(0)
-            val displayName = cursor.getString(1) ?: return@use null
-            val photoUri = cursor.getString(2)
-            val lookupKey = cursor.getString(3) ?: return@use null
-            val phoneNumbers = getPhoneNumbersForContact(contactId)
-
-            mapper.buildPhoneLookupContact(
-                contactId = contactId,
-                displayName = displayName,
-                phoneNumbers = phoneNumbers,
-                photoUri = photoUri,
-                lookupKey = lookupKey
-            )
         }
     }
 
@@ -151,26 +147,15 @@ internal class ContactsQueryLayer(
         )?.use { cursor ->
             val builtContacts = mutableMapOf<Long, Contact>()
             val phoneToContactId = mutableMapOf<String, Long>()
+            val indices = PhoneBatchCursorIndices.create(cursor)
 
             while (cursor.moveToNext()) {
-                val contactId = cursor.getLong(0)
-                val matchedPhone = cursor.getString(1) ?: continue
-                val displayName = cursor.getString(2) ?: continue
-                val photoUri = cursor.getString(3)
-                val lookupKey = cursor.getString(4) ?: continue
-
-                phoneToContactId[matchedPhone] = contactId
-
-                if (contactId !in builtContacts) {
-                    val allPhoneNumbers = getPhoneNumbersForContact(contactId)
-                    builtContacts[contactId] = mapper.buildPhoneLookupContact(
-                        contactId = contactId,
-                        displayName = displayName,
-                        phoneNumbers = allPhoneNumbers,
-                        photoUri = photoUri,
-                        lookupKey = lookupKey
-                    )
-                }
+                appendPhoneBatchRow(
+                    cursor = cursor,
+                    indices = indices,
+                    builtContacts = builtContacts,
+                    phoneToContactId = phoneToContactId
+                )
             }
 
             for ((phone, contactId) in phoneToContactId) {
@@ -208,6 +193,27 @@ internal class ContactsQueryLayer(
         }
 
         return phoneNumbers
+    }
+
+    private fun appendPhoneBatchRow(
+        cursor: Cursor,
+        indices: PhoneBatchCursorIndices,
+        builtContacts: MutableMap<Long, Contact>,
+        phoneToContactId: MutableMap<String, Long>
+    ) {
+        readPhoneBatchRow(cursor, indices)?.let { row ->
+            phoneToContactId[row.matchedPhone] = row.contactId
+
+            if (row.contactId !in builtContacts) {
+                builtContacts[row.contactId] = mapper.buildPhoneLookupContact(
+                    contactId = row.contactId,
+                    displayName = row.displayName,
+                    phoneNumbers = getPhoneNumbersForContact(row.contactId),
+                    photoUri = row.photoUri,
+                    lookupKey = row.lookupKey
+                )
+            }
+        }
     }
 
     companion object {
@@ -271,6 +277,108 @@ private data class SearchContactCursorIndices(
                 emailAddressIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS)
             )
         }
+    }
+}
+
+private data class PhoneLookupCursorIndices(
+    val contactIdIndex: Int,
+    val displayNameIndex: Int,
+    val photoUriIndex: Int,
+    val lookupKeyIndex: Int
+) {
+    companion object {
+        fun create(cursor: Cursor): PhoneLookupCursorIndices {
+            return PhoneLookupCursorIndices(
+                contactIdIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.CONTACT_ID),
+                displayNameIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME),
+                photoUriIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.PHOTO_URI),
+                lookupKeyIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY)
+            )
+        }
+    }
+}
+
+private data class PhoneBatchCursorIndices(
+    val contactIdIndex: Int,
+    val matchedPhoneIndex: Int,
+    val displayNameIndex: Int,
+    val photoUriIndex: Int,
+    val lookupKeyIndex: Int
+) {
+    companion object {
+        fun create(cursor: Cursor): PhoneBatchCursorIndices {
+            return PhoneBatchCursorIndices(
+                contactIdIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.CONTACT_ID),
+                matchedPhoneIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                displayNameIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME),
+                photoUriIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.PHOTO_URI),
+                lookupKeyIndex =
+                    cursor.getColumnIndexOrThrow(ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY)
+            )
+        }
+    }
+}
+
+private data class PhoneLookupRow(
+    val contactId: Long,
+    val displayName: String,
+    val photoUri: String?,
+    val lookupKey: String
+)
+
+private data class PhoneBatchRow(
+    val contactId: Long,
+    val matchedPhone: String,
+    val displayName: String,
+    val photoUri: String?,
+    val lookupKey: String
+)
+
+private fun readPhoneLookupRow(
+    cursor: Cursor,
+    indices: PhoneLookupCursorIndices
+): PhoneLookupRow? {
+    val displayName = cursor.getString(indices.displayNameIndex)
+    val lookupKey = cursor.getString(indices.lookupKeyIndex)
+
+    return if (displayName != null && lookupKey != null) {
+        PhoneLookupRow(
+            contactId = cursor.getLong(indices.contactIdIndex),
+            displayName = displayName,
+            photoUri = cursor.getString(indices.photoUriIndex),
+            lookupKey = lookupKey
+        )
+    } else {
+        null
+    }
+}
+
+private fun readPhoneBatchRow(
+    cursor: Cursor,
+    indices: PhoneBatchCursorIndices
+): PhoneBatchRow? {
+    val matchedPhone = cursor.getString(indices.matchedPhoneIndex)
+    val displayName = cursor.getString(indices.displayNameIndex)
+    val lookupKey = cursor.getString(indices.lookupKeyIndex)
+
+    return if (matchedPhone != null && displayName != null && lookupKey != null) {
+        PhoneBatchRow(
+            contactId = cursor.getLong(indices.contactIdIndex),
+            matchedPhone = matchedPhone,
+            displayName = displayName,
+            photoUri = cursor.getString(indices.photoUriIndex),
+            lookupKey = lookupKey
+        )
+    } else {
+        null
     }
 }
 

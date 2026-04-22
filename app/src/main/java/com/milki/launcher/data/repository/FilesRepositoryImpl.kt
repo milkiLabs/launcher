@@ -64,6 +64,7 @@ class FilesRepositoryImpl(
 
     companion object {
         private const val TAG = "FilesRepositoryImpl"
+        private const val MILLISECONDS_PER_SECOND = 1_000L
     }
 
     /**
@@ -108,56 +109,53 @@ class FilesRepositoryImpl(
      * @return List of matching FileDocument objects, sorted by date modified (newest first)
      */
     override suspend fun searchFiles(query: String, maxItems: Int): List<FileDocument> {
-        if (!hasFilesPermission()) {
+        val hasPermission = hasFilesPermission()
+        if (!hasPermission) {
             Log.w(TAG, "searchFiles called without permission")
-            return emptyList()
         }
 
-        if (maxItems <= 0) {
-            return emptyList()
-        }
+        return if (hasPermission && maxItems > 0) {
+            withContext(Dispatchers.IO) {
+                try {
+                    val files = mutableListOf<FileDocument>()
+                    val addedFileIds = mutableSetOf<Long>()
 
-        return withContext(Dispatchers.IO) {
-            try {
-                val files = mutableListOf<FileDocument>()
-                val addedFileIds = mutableSetOf<Long>()
-                
-                Log.d(TAG, "Searching files with query: $query")
-                currentCoroutineContext().ensureActive()
-                
-                // Query multiple MediaStore collections to get all files
-                // On Android 11+, scoped storage limits what MediaStore.Files returns
-                
-                // 1. Query MediaStore.Files (general files)
-                queryMediaStoreCollection(
-                    uri = MediaStore.Files.getContentUri("external"),
-                    query = query,
-                    files = files,
-                    addedFileIds = addedFileIds,
-                    maxItems = maxItems
-                )
-                
-                // 2. Query MediaStore.Downloads (downloaded files)
-                // Available on Android 10 (API 29) and above
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && files.size < maxItems) {
+                    Log.d(TAG, "Searching files with query: $query")
                     currentCoroutineContext().ensureActive()
+
                     queryMediaStoreCollection(
-                        uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        uri = MediaStore.Files.getContentUri("external"),
                         query = query,
                         files = files,
                         addedFileIds = addedFileIds,
                         maxItems = maxItems
                     )
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && files.size < maxItems) {
+                        currentCoroutineContext().ensureActive()
+                        queryMediaStoreCollection(
+                            uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                            query = query,
+                            files = files,
+                            addedFileIds = addedFileIds,
+                            maxItems = maxItems
+                        )
+                    }
+
+                    Log.d(TAG, "Returning ${files.size} files")
+                    files
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: IllegalArgumentException) {
+                    Log.e(TAG, "Error searching files", e)
+                    emptyList()
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Error searching files", e)
+                    emptyList()
                 }
-                
-                Log.d(TAG, "Returning ${files.size} files")
-                files
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Error searching files", e)
-                emptyList()
             }
+        } else {
+            emptyList()
         }
     }
 
@@ -233,7 +231,9 @@ class FilesRepositoryImpl(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "Error querying URI: $uri", e)
+        } catch (e: SecurityException) {
             Log.e(TAG, "Error querying URI: $uri", e)
         }
     }
@@ -291,7 +291,10 @@ class FilesRepositoryImpl(
                 files
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception) {
+            } catch (e: IllegalArgumentException) {
+                Log.e(TAG, "Error getting recent files", e)
+                emptyList()
+            } catch (e: SecurityException) {
                 Log.e(TAG, "Error getting recent files", e)
                 emptyList()
             }
@@ -329,61 +332,99 @@ class FilesRepositoryImpl(
         logFilteredOut: Boolean
     ) {
         try {
-            val id = cursor.getLong(columns.idColumn)
-            if (id in addedFileIds) return
+            when (val outcome = readCursorRow(cursor, columns, collectionUri, addedFileIds)) {
+                CursorRowOutcome.Skip -> Unit
+                is CursorRowOutcome.FilteredOut -> {
+                    if (logFilteredOut) {
+                        Log.d(TAG, "Filtered out: ${outcome.fileName}")
+                    }
+                }
 
-            val name = cursor.getString(columns.nameColumn) ?: return
-            val rawMimeType = cursor.getString(columns.mimeTypeColumn) ?: ""
-            val normalizedMimeType = MimeTypeUtil.normalizeMimeType(
-                fileName = name,
+                is CursorRowOutcome.Include -> {
+                    addedFileIds.add(outcome.fileDocument.id)
+                    if (logFilteredOut) {
+                        Log.d(
+                            TAG,
+                            "Found file: ${outcome.fileDocument.name}, " +
+                                "mimeType: ${outcome.normalizedMimeType}, size: ${outcome.fileDocument.size}"
+                        )
+                    }
+                    files.add(outcome.fileDocument)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "Error reading file from cursor", e)
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "Error reading file from cursor", e)
+        }
+    }
+
+    private fun readCursorRow(
+        cursor: Cursor,
+        columns: MediaStoreColumns,
+        collectionUri: Uri,
+        addedFileIds: Set<Long>
+    ): CursorRowOutcome {
+        val id = cursor.getLong(columns.idColumn)
+        val name = cursor.getString(columns.nameColumn)
+        val rawMimeType = cursor.getString(columns.mimeTypeColumn) ?: ""
+        val normalizedMimeType = name?.let {
+            MimeTypeUtil.normalizeMimeType(
+                fileName = it,
                 providedMimeType = rawMimeType
             )
-            val size = cursor.getLong(columns.sizeColumn)
-            val dateModified = cursor.getLong(columns.dateModifiedColumn) * 1000
+        }.orEmpty()
+        val size = cursor.getLong(columns.sizeColumn)
+        val dateModified = cursor.getLong(columns.dateModifiedColumn) * MILLISECONDS_PER_SECOND
+        val bucket = readOptionalString(cursor, columns.bucketColumn)
+        val relativePath = readOptionalString(cursor, columns.relativePathColumn)
+        val folderPath = bucket
+            ?: relativePath?.substringAfterLast('/')?.trimEnd('/')
+            ?: "Storage"
+        val shouldInclude = name != null &&
+            id !in addedFileIds &&
+            FileFilterConfig.shouldIncludeFile(
+                fileName = name,
+                mimeType = normalizedMimeType,
+                size = size,
+                relativePath = relativePath.orEmpty()
+            )
 
-            val bucket = if (columns.bucketColumn >= 0) cursor.getString(columns.bucketColumn) else null
-            val relativePath =
-                if (columns.relativePathColumn >= 0) cursor.getString(columns.relativePathColumn) else null
-            val folderPath = bucket
-                ?: relativePath?.substringAfterLast('/')?.trimEnd('/')
-                ?: "Storage"
-
-            if (!FileFilterConfig.shouldIncludeFile(
-                    fileName = name,
-                    mimeType = normalizedMimeType,
-                    size = size,
-                    relativePath = relativePath ?: ""
-                )
-            ) {
-                if (logFilteredOut) {
-                    Log.d(TAG, "Filtered out: $name")
-                }
-                return
-            }
-
-            addedFileIds.add(id)
-            val fileUri = Uri.withAppendedPath(collectionUri, id.toString())
-
-            if (logFilteredOut) {
-                Log.d(TAG, "Found file: $name, mimeType: $normalizedMimeType, size: $size")
-            }
-
-            files.add(
-                FileDocument(
+        return when {
+            id in addedFileIds || name == null -> CursorRowOutcome.Skip
+            !shouldInclude -> CursorRowOutcome.FilteredOut(name)
+            else -> CursorRowOutcome.Include(
+                fileDocument = FileDocument(
                     id = id,
                     name = name,
                     mimeType = normalizedMimeType,
                     size = size,
                     dateModified = dateModified,
-                    uri = fileUri,
+                    uri = Uri.withAppendedPath(collectionUri, id.toString()),
                     folderPath = folderPath
-                )
+                ),
+                normalizedMimeType = normalizedMimeType
             )
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.e(TAG, "Error reading file from cursor", e)
         }
+    }
+
+    private fun readOptionalString(cursor: Cursor, columnIndex: Int): String? {
+        return if (columnIndex >= 0) cursor.getString(columnIndex) else null
+    }
+
+    private sealed interface CursorRowOutcome {
+        data object Skip : CursorRowOutcome
+
+        data class FilteredOut(
+            val fileName: String
+        ) : CursorRowOutcome
+
+        data class Include(
+            val fileDocument: FileDocument,
+            val normalizedMimeType: String
+        ) : CursorRowOutcome
     }
 
     /**
