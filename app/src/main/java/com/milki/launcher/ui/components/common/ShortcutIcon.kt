@@ -24,6 +24,9 @@ import com.milki.launcher.ui.theme.IconSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private const val SHORTCUT_BADGE_SIZE_RATIO = 0.34f
+private const val SHORTCUT_BADGE_PADDING_RATIO = 0.12f
+
 /**
  * Renders an app-published shortcut icon, with optional browser/app badge.
  */
@@ -81,8 +84,8 @@ private fun BoxScope.ShortcutBrowserBadge(
     packageName: String,
     iconSize: Dp
 ) {
-    val badgeSize = (iconSize * 0.34f).coerceAtLeast(16.dp)
-    val badgePadding = (badgeSize * 0.12f).coerceAtLeast(2.dp)
+    val badgeSize = (iconSize * SHORTCUT_BADGE_SIZE_RATIO).coerceAtLeast(16.dp)
+    val badgePadding = (badgeSize * SHORTCUT_BADGE_PADDING_RATIO).coerceAtLeast(2.dp)
 
     Surface(
         modifier = Modifier

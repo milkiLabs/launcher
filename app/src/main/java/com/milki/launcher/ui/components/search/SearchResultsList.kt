@@ -47,6 +47,8 @@ import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppListItem
 import com.milki.launcher.ui.theme.Spacing
 
+private const val APP_RESULTS_GRID_COLUMNS = 4
+
 /**
  * SearchResultsList - Displays search results in either a grid or list layout.
  *
@@ -78,12 +80,12 @@ fun SearchResultsList(
      * This allows us to emit actions without prop drilling.
      */
     val actionHandler = LocalSearchActionHandler.current
-    
+
     /**
      * Check if all results are app results.
      * If true, we can display them in a compact grid layout.
      * If false (mixed types including URL results), we use the traditional list layout.
-     * 
+     *
      * URL results are displayed in list format because they have additional
      * information (the full URL) that benefits from the wider list item layout.
      */
@@ -155,7 +157,7 @@ private fun AppResultsGrid(
             .padding(horizontal = Spacing.smallMedium),
         verticalArrangement = Arrangement.spacedBy(Spacing.small)
     ) {
-        appResults.chunked(4).forEach { rowResults ->
+        appResults.chunked(APP_RESULTS_GRID_COLUMNS).forEach { rowResults ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small)
@@ -170,7 +172,7 @@ private fun AppResultsGrid(
                     }
                 }
 
-                repeat(4 - rowResults.size) {
+                repeat(APP_RESULTS_GRID_COLUMNS - rowResults.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -225,7 +227,7 @@ private fun MixedResultsList(
      * top when new results arrive.
      */
     val scrollState = rememberScrollState()
-    
+
     /**
      * LaunchedEffect with results as the key ensures this effect runs
      * whenever the results list changes. We use this to scroll to the
@@ -309,7 +311,7 @@ private fun MixedResultsList(
                     PermissionRequestItem(
                         result = result,
                         accentColor = accentColor,
-                        onClick = { 
+                        onClick = {
                             actionHandler(SearchResultAction.RequestPermission(
                                 result.permission,
                                 result.providerPrefix

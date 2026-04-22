@@ -80,6 +80,15 @@ import com.milki.launcher.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+private const val PORTRAIT_RECENT_ROW_CAPACITY = 4
+private const val LANDSCAPE_RECENT_ROW_CAPACITY = 6
+private const val BENCHMARK_SCROLL_DOWN_FRACTION = 0.75f
+private const val DRAWER_GRID_PORTRAIT_COLUMNS = 4
+private const val RECENT_ROW_ITEM_KEY = "drawer_recently_changed_row"
+private const val RECENT_ROW_CONTENT_TYPE = "drawer_recently_changed_row"
+private const val SECTION_HEADER_CONTENT_TYPE = "drawer_section_header"
+private const val APP_ITEM_CONTENT_TYPE = "drawer_app_item"
+
 internal fun drawerGridItemKey(index: Int, item: DrawerAdapterItem): String {
     return when (item) {
         is DrawerAdapterItem.SectionHeader -> "header:${item.title}:$index"
@@ -105,7 +114,11 @@ fun AppDrawerOverlay(
     val actionHandler = LocalSearchActionHandler.current
     val gridState = rememberLazyGridState()
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
-    val recentRowCapacity = if (isPortrait) 4 else 6
+    val recentRowCapacity = if (isPortrait) {
+        PORTRAIT_RECENT_ROW_CAPACITY
+    } else {
+        LANDSCAPE_RECENT_ROW_CAPACITY
+    }
     val topRecentApps = uiState.recentlyChangedApps.take(recentRowCapacity)
     val shouldShowTopRecentRow = uiState.query.isBlank() && topRecentApps.isNotEmpty()
 
@@ -116,40 +129,17 @@ fun AppDrawerOverlay(
     var menuTargetApp by remember { mutableStateOf<AppInfo?>(null) }
     val menuState = rememberItemContextMenuState()
 
-    // ── Batch icon preloading ───────────────────────────────────────
-    // Preload all drawer icons on IO when items arrive. This ensures
-    // scroll never triggers per-item icon loading on the main thread.
-    val context = LocalContext.current
-    LaunchedEffect(uiState.adapterItems) {
-        val appEntries = uiState.adapterItems
-            .filterIsInstance<DrawerAdapterItem.AppEntry>()
-        if (appEntries.isEmpty()) return@LaunchedEffect
-
-        withContext(Dispatchers.IO) {
-            AppIconMemoryCache.preloadMissing(
-                appEntries.map { it.app.packageName },
-                context.packageManager
-            )
-        }
-    }
-
-    LaunchedEffect(uiState.query) {
-        if (uiState.adapterItems.isNotEmpty()) {
-            gridState.scrollToItem(0)
-        }
-    }
-
-    LaunchedEffect(uiState.benchmarkScrollSequenceToken) {
-        if (uiState.benchmarkScrollSequenceToken == 0L) return@LaunchedEffect
-
-        val lastIndex = uiState.adapterItems.lastIndex
-        if (lastIndex <= 0) return@LaunchedEffect
-
-        val downIndex = ((lastIndex * 0.75f).toInt()).coerceIn(1, lastIndex)
-        gridState.animateScrollToItem(downIndex)
-        gridState.animateScrollToItem(lastIndex)
-        gridState.animateScrollToItem(0)
-    }
+    HandleDrawerIconPreload(adapterItems = uiState.adapterItems)
+    HandleDrawerQueryScroll(
+        query = uiState.query,
+        hasItems = uiState.adapterItems.isNotEmpty(),
+        gridState = gridState
+    )
+    HandleBenchmarkScrollSequence(
+        benchmarkScrollSequenceToken = uiState.benchmarkScrollSequenceToken,
+        itemCount = uiState.adapterItems.size,
+        gridState = gridState
+    )
 
     Surface(
         modifier = modifier
@@ -187,140 +177,286 @@ fun AppDrawerOverlay(
                 onClear = { onQueryChange("") }
             )
 
-            if (uiState.isLoading) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+            when {
+                uiState.isLoading -> {
+                    DrawerLoadingState()
                 }
-            } else if (uiState.adapterItems.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = Spacing.medium)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = if (uiState.query.isBlank()) "No apps installed" else "No apps found",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                uiState.adapterItems.isEmpty() -> {
+                    DrawerEmptyState(query = uiState.query)
+                }
+
+                else -> {
+                    DrawerGrid(
+                        adapterItems = uiState.adapterItems,
+                        isPortrait = isPortrait,
+                        shouldShowTopRecentRow = shouldShowTopRecentRow,
+                        topRecentApps = topRecentApps,
+                        recentRowCapacity = recentRowCapacity,
+                        gridState = gridState,
+                        menuTargetApp = menuTargetApp,
+                        menuState = menuState,
+                        onMenuTargetChange = { menuTargetApp = it },
+                        onAppClick = { appInfo ->
+                            actionHandler(SearchResultAction.Tap(AppSearchResult(appInfo)))
+                            onDismiss()
+                        },
+                        onExternalDragStarted = onDismiss
                     )
                 }
-            } else {
-                // ── App grid ─────────────────────────────────────────
-                LazyVerticalGrid(
-                    columns = if (isPortrait) {
-                        GridCells.Fixed(4)
-                    } else {
-                        GridCells.Adaptive(minSize = IconSize.appGrid + Spacing.large)
-                    },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = Spacing.medium),
-                    state = gridState,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
-                ) {
-                    if (shouldShowTopRecentRow) {
-                        items(
-                            count = 1,
-                            key = { "drawer_recently_changed_row" },
-                            span = { GridItemSpan(maxLineSpan) },
-                            contentType = { "drawer_recently_changed_row" }
-                        ) {
-                            RecentlyChangedAppsRow(
-                                apps = topRecentApps,
-                                rowCapacity = recentRowCapacity,
-                                onAppClick = { app ->
-                                    actionHandler(SearchResultAction.Tap(AppSearchResult(app)))
-                                    onDismiss()
-                                },
-                                onExternalDragStarted = onDismiss,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = Spacing.small)
-                            )
-                        }
-                    }
-
-                    items(
-                        count = uiState.adapterItems.size,
-                        key = { index ->
-                            val item = uiState.adapterItems[index]
-                            drawerGridItemKey(index = index, item = item)
-                        },
-                        span = { index ->
-                            val item = uiState.adapterItems[index]
-                            when (item) {
-                                is DrawerAdapterItem.SectionHeader -> GridItemSpan(maxLineSpan)
-                                is DrawerAdapterItem.AppEntry -> GridItemSpan(1)
-                            }
-                        },
-                        contentType = { index ->
-                            val item = uiState.adapterItems[index]
-                            when (item) {
-                                is DrawerAdapterItem.SectionHeader -> "drawer_section_header"
-                                is DrawerAdapterItem.AppEntry -> "drawer_app_item"
-                            }
-                        }
-                    ) { index ->
-                        val item = uiState.adapterItems[index]
-                        when (item) {
-                            is DrawerAdapterItem.SectionHeader -> {
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = Spacing.small, bottom = Spacing.extraSmall)
-                                )
-                            }
-
-                            is DrawerAdapterItem.AppEntry -> {
-                                val appInfo = item.app
-                                val isMenuTarget = menuTargetApp == appInfo
-
-                                DrawerGridCell(
-                                    appInfo = appInfo,
-                                    onClick = {
-                                        actionHandler(SearchResultAction.Tap(AppSearchResult(appInfo)))
-                                        onDismiss()
-                                    },
-                                    onLongPress = {
-                                        menuTargetApp = appInfo
-                                        menuState.onLongPress()
-                                    },
-                                    onLongPressRelease = menuState::onLongPressRelease,
-                                    onDragStarted = {
-                                        menuTargetApp = null
-                                        menuState.onDragStart()
-                                    },
-                                    onDragCancelled = menuState::onDragCancel,
-                                    showMenu = isMenuTarget && menuState.showMenu,
-                                    menuFocusable = menuState.isMenuFocusable,
-                                    onMenuDismiss = {
-                                        menuTargetApp = null
-                                        menuState.dismiss()
-                                    },
-                                    onExternalDragStarted = onDismiss
-                                )
-                            }
-                        }
-                    }
-                }
             }
+        }
+    }
+}
+
+@Composable
+private fun HandleDrawerIconPreload(adapterItems: List<DrawerAdapterItem>) {
+    val context = LocalContext.current
+
+    LaunchedEffect(adapterItems) {
+        val appEntries = adapterItems.filterIsInstance<DrawerAdapterItem.AppEntry>()
+        if (appEntries.isEmpty()) return@LaunchedEffect
+
+        withContext(Dispatchers.IO) {
+            AppIconMemoryCache.preloadMissing(
+                appEntries.map { it.app.packageName },
+                context.packageManager
+            )
+        }
+    }
+}
+
+@Composable
+private fun HandleDrawerQueryScroll(
+    query: String,
+    hasItems: Boolean,
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState
+) {
+    LaunchedEffect(query) {
+        if (hasItems) {
+            gridState.scrollToItem(0)
+        }
+    }
+}
+
+@Composable
+private fun HandleBenchmarkScrollSequence(
+    benchmarkScrollSequenceToken: Long,
+    itemCount: Int,
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState
+) {
+    LaunchedEffect(benchmarkScrollSequenceToken) {
+        if (benchmarkScrollSequenceToken == 0L) return@LaunchedEffect
+
+        val lastIndex = itemCount - 1
+        if (lastIndex <= 0) return@LaunchedEffect
+
+        val downIndex = ((lastIndex * BENCHMARK_SCROLL_DOWN_FRACTION).toInt()).coerceIn(1, lastIndex)
+        gridState.animateScrollToItem(downIndex)
+        gridState.animateScrollToItem(lastIndex)
+        gridState.animateScrollToItem(0)
+    }
+}
+
+@Composable
+private fun DrawerLoadingState() {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+}
+
+@Composable
+private fun DrawerEmptyState(query: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = Spacing.medium)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = if (query.isBlank()) "No apps installed" else "No apps found",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun DrawerGrid(
+    adapterItems: List<DrawerAdapterItem>,
+    isPortrait: Boolean,
+    shouldShowTopRecentRow: Boolean,
+    topRecentApps: List<AppInfo>,
+    recentRowCapacity: Int,
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState,
+    menuTargetApp: AppInfo?,
+    menuState: com.milki.launcher.ui.components.common.ItemContextMenuState,
+    onMenuTargetChange: (AppInfo?) -> Unit,
+    onAppClick: (AppInfo) -> Unit,
+    onExternalDragStarted: () -> Unit
+) {
+    LazyVerticalGrid(
+        columns = drawerGridColumns(isPortrait = isPortrait),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = Spacing.medium),
+        state = gridState,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+        verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+    ) {
+        addRecentAppsRow(
+            shouldShowTopRecentRow = shouldShowTopRecentRow,
+            topRecentApps = topRecentApps,
+            recentRowCapacity = recentRowCapacity,
+            onAppClick = onAppClick,
+            onExternalDragStarted = onExternalDragStarted
+        )
+
+        addDrawerItems(
+            adapterItems = adapterItems,
+            menuTargetApp = menuTargetApp,
+            menuState = menuState,
+            onMenuTargetChange = onMenuTargetChange,
+            onAppClick = onAppClick,
+            onExternalDragStarted = onExternalDragStarted
+        )
+    }
+}
+
+private fun drawerGridColumns(isPortrait: Boolean): GridCells {
+    return if (isPortrait) {
+        GridCells.Fixed(DRAWER_GRID_PORTRAIT_COLUMNS)
+    } else {
+        GridCells.Adaptive(minSize = IconSize.appGrid + Spacing.large)
+    }
+}
+
+private fun androidx.compose.foundation.lazy.grid.LazyGridScope.addRecentAppsRow(
+    shouldShowTopRecentRow: Boolean,
+    topRecentApps: List<AppInfo>,
+    recentRowCapacity: Int,
+    onAppClick: (AppInfo) -> Unit,
+    onExternalDragStarted: () -> Unit
+) {
+    if (!shouldShowTopRecentRow) return
+
+    items(
+        count = 1,
+        key = { RECENT_ROW_ITEM_KEY },
+        span = { GridItemSpan(maxLineSpan) },
+        contentType = { RECENT_ROW_CONTENT_TYPE }
+    ) {
+        RecentlyChangedAppsRow(
+            apps = topRecentApps,
+            rowCapacity = recentRowCapacity,
+            onAppClick = onAppClick,
+            onExternalDragStarted = onExternalDragStarted,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = Spacing.small)
+        )
+    }
+}
+
+private fun androidx.compose.foundation.lazy.grid.LazyGridScope.addDrawerItems(
+    adapterItems: List<DrawerAdapterItem>,
+    menuTargetApp: AppInfo?,
+    menuState: com.milki.launcher.ui.components.common.ItemContextMenuState,
+    onMenuTargetChange: (AppInfo?) -> Unit,
+    onAppClick: (AppInfo) -> Unit,
+    onExternalDragStarted: () -> Unit
+) {
+    items(
+        count = adapterItems.size,
+        key = { index ->
+            val item = adapterItems[index]
+            drawerGridItemKey(index = index, item = item)
+        },
+        span = { index ->
+            val item = adapterItems[index]
+            when (item) {
+                is DrawerAdapterItem.SectionHeader -> GridItemSpan(maxLineSpan)
+                is DrawerAdapterItem.AppEntry -> GridItemSpan(1)
+            }
+        },
+        contentType = { index ->
+            val item = adapterItems[index]
+            when (item) {
+                is DrawerAdapterItem.SectionHeader -> SECTION_HEADER_CONTENT_TYPE
+                is DrawerAdapterItem.AppEntry -> APP_ITEM_CONTENT_TYPE
+            }
+        }
+    ) { index ->
+        DrawerGridItem(
+            item = adapterItems[index],
+            menuTargetApp = menuTargetApp,
+            menuState = menuState,
+            onMenuTargetChange = onMenuTargetChange,
+            onAppClick = onAppClick,
+            onExternalDragStarted = onExternalDragStarted
+        )
+    }
+}
+
+@Composable
+private fun DrawerGridItem(
+    item: DrawerAdapterItem,
+    menuTargetApp: AppInfo?,
+    menuState: com.milki.launcher.ui.components.common.ItemContextMenuState,
+    onMenuTargetChange: (AppInfo?) -> Unit,
+    onAppClick: (AppInfo) -> Unit,
+    onExternalDragStarted: () -> Unit
+) {
+    when (item) {
+        is DrawerAdapterItem.SectionHeader -> {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = Spacing.small, bottom = Spacing.extraSmall)
+            )
+        }
+
+        is DrawerAdapterItem.AppEntry -> {
+            val appInfo = item.app
+            val isMenuTarget = menuTargetApp == appInfo
+
+            DrawerGridCell(
+                appInfo = appInfo,
+                onClick = { onAppClick(appInfo) },
+                onLongPress = {
+                    onMenuTargetChange(appInfo)
+                    menuState.onLongPress()
+                },
+                onLongPressRelease = menuState::onLongPressRelease,
+                onDragStarted = {
+                    onMenuTargetChange(null)
+                    menuState.onDragStart()
+                },
+                onDragCancelled = menuState::onDragCancel,
+                showMenu = isMenuTarget && menuState.showMenu,
+                menuFocusable = menuState.isMenuFocusable,
+                onMenuDismiss = {
+                    onMenuTargetChange(null)
+                    menuState.dismiss()
+                },
+                onExternalDragStarted = onExternalDragStarted
+            )
         }
     }
 }
