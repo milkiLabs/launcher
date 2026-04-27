@@ -325,6 +325,8 @@ private fun CustomSourcesSection(
     onRequestEditSource: (SearchSource) -> Unit,
     onRequestDeleteSource: (String) -> Unit
 ) {
+    val availableDefaultSources = settings.searchSources
+
     SettingsCategory(title = "Search Sources")
 
     Text(
@@ -337,6 +339,23 @@ private fun CustomSourcesSection(
         )
     )
 
+    // Default search engine selector
+    if (availableDefaultSources.isNotEmpty()) {
+        val defaultSourceName = availableDefaultSources
+            .firstOrNull { it.id == settings.defaultSearchSourceId }
+            ?.name
+            ?: availableDefaultSources.first().name
+
+        DropdownSettingItem(
+            title = "Default search engine",
+            selectedValue = defaultSourceName,
+            options = availableDefaultSources.map { source -> source.name to source },
+            onOptionSelected = { selectedSource ->
+                actions.onSetDefaultSearchSource(selectedSource.id)
+            }
+        )
+    }
+
     ActionSettingItem(
         title = "Add custom source",
         subtitle = "Define name, URL template, prefixes, and color",
@@ -348,6 +367,7 @@ private fun CustomSourcesSection(
         SourceSettingItem(
             source = source,
             onToggleEnabled = { enabled -> actions.onSetSearchSourceEnabled(source.id, enabled) },
+            onToggleSuggestedAction = { show -> actions.onSetSearchSourceSuggestedAction(source.id, show) },
             onAddPrefix = { prefix, onResult ->
                 actions.onAddPrefixToSource(source.id, prefix, onResult)
             },

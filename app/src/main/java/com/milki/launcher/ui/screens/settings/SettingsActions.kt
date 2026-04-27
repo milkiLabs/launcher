@@ -43,8 +43,11 @@ data class SettingsCustomSourceActions(
     ) -> Unit,
     val onDeleteSearchSource: (String) -> Unit,
     val onSetSearchSourceEnabled: (String, Boolean) -> Unit,
+    val onSetSearchSourceSuggestedAction: (String, Boolean) -> Unit,
     val onAddPrefixToSource: (String, String, (String) -> Unit) -> Unit,
-    val onRemovePrefixFromSource: (String, String) -> Unit
+    val onRemovePrefixFromSource: (String, String) -> Unit,
+    /** Sets the user's preferred default search engine (null = first enabled source). */
+    val onSetDefaultSearchSource: (String?) -> Unit
 )
 
 /**

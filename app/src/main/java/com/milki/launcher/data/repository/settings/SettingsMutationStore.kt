@@ -154,6 +154,28 @@ internal class SettingsMutationStore {
         writeSearchSources(updatedSources, preferences)
     }
 
+    fun setSearchSourceSuggestedAction(
+        preferences: MutablePreferences,
+        sourceId: String,
+        showAsSuggestedAction: Boolean
+    ) {
+        val currentSources = parseSearchSources(preferences)
+
+        if (currentSources.none { it.id == sourceId }) {
+            return
+        }
+
+        val updatedSources = currentSources.map { source ->
+            if (source.id == sourceId) {
+                source.copy(showAsSuggestedAction = showAsSuggestedAction)
+            } else {
+                source
+            }
+        }
+
+        writeSearchSources(updatedSources, preferences)
+    }
+
     fun setProviderPrefixes(
         preferences: MutablePreferences,
         providerId: String,

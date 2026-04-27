@@ -83,6 +83,9 @@ internal object SettingsPreferenceKeys {
 
     // Explicit persisted state marker for search source semantics.
     val SEARCH_SOURCES_STATE = stringPreferencesKey("search_sources_state")
+
+    // ID of the user-selected default search engine source.
+    val DEFAULT_SEARCH_SOURCE_ID = stringPreferencesKey("default_search_source_id")
 }
 
 /**

@@ -104,6 +104,7 @@ fun SourceLikeToggleSettingItem(
 fun SourceSettingItem(
     source: SearchSource,
     onToggleEnabled: (Boolean) -> Unit,
+    onToggleSuggestedAction: (Boolean) -> Unit,
     onAddPrefix: (String, (String) -> Unit) -> Unit,
     onRemovePrefix: (String) -> Unit,
     onEdit: () -> Unit,
@@ -158,12 +159,21 @@ fun SourceSettingItem(
             Spacer(modifier = Modifier.height(Spacing.small))
 
             SwitchSettingItem(
-                title = "Enabled",
-                subtitle = "Use this source for prefix search",
+                title = "Prefix search",
+                subtitle = "Enable searching by prefix (e.g. 'yt query')",
                 checked = source.isEnabled,
                 onCheckedChange = onToggleEnabled
             )
 
+            Spacer(modifier = Modifier.height(Spacing.small))
+
+            SwitchSettingItem(
+                title = "Suggested action",
+                subtitle = "Show this source as a quick action chip",
+                checked = source.showAsSuggestedAction,
+                onCheckedChange = onToggleSuggestedAction
+            )
+            
             Spacer(modifier = Modifier.height(Spacing.small))
 
             Text(

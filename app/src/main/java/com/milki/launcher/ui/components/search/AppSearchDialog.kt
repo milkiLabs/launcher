@@ -417,11 +417,14 @@ private fun SearchDialogBody(
     modifier: Modifier = Modifier
 ) {
     val actionHandler = LocalSearchActionHandler.current
-    val onSearchTextInBrowser: (String) -> Unit = { queryText ->
+    val onSearchInBrowser: (String) -> Unit = { queryText ->
+        // Use the first ordered source (default) for the clipboard chip search action
+        val encodedQuery = Uri.encode(queryText)
+        val url = uiState.orderedSuggestedSources.firstOrNull()
+            ?.buildUrl(encodedQuery)
+            ?: buildFallbackSearchUrl(queryText)
         actionHandler(
-            SearchResultAction.OpenUrlInBrowser(
-                url = buildGoogleSearchUrl(queryText)
-            )
+            SearchResultAction.OpenUrlInBrowser(url = url)
         )
     }
     val onOpenUrlSuggestion: (UrlSearchResult) -> Unit = { urlResult ->
@@ -464,12 +467,11 @@ private fun SearchDialogBody(
         }
 
         /**
-         * Suggestion chips are intentionally placed at the bottom of
-         * the dialog, below recent apps/results, as requested.
+         * Suggestion area at the bottom of the dialog.
          *
          * MUTUAL EXCLUSIVITY:
          * - Clipboard chip shows when query is BLANK
-         * - Query chip shows when query is NOT BLANK
+         * - Suggested actions chip row shows when query is NOT BLANK
          * - They never both appear at the same time
          */
         if (uiState.shouldShowClipboardSuggestion) {
@@ -478,27 +480,24 @@ private fun SearchDialogBody(
             if (suggestionToShow != null) {
                 ClipboardSuggestionBottomChip(
                     suggestion = suggestionToShow,
-                    onSearchTextInBrowser = onSearchTextInBrowser,
+                    onSearchTextInBrowser = onSearchInBrowser,
                     onOpenUrl = onOpenUrlSuggestion,
                     onComposeEmail = onComposeEmailSuggestion
                 )
             }
         } else if (uiState.shouldShowQuerySuggestion) {
-            val suggestionToShow = uiState.querySuggestion
-
-            if (suggestionToShow != null) {
-                QuerySuggestionBottomChip(
-                    suggestion = suggestionToShow,
-                    onSearchWeb = onSearchTextInBrowser,
-                    onOpenUrl = onOpenUrlSuggestion,
-                    onComposeEmail = onComposeEmailSuggestion
-                )
-            }
+            SuggestedActionsChipRow(
+                sources = uiState.orderedSuggestedSources,
+                query = uiState.query,
+                onOpenUrl = { url ->
+                    actionHandler(SearchResultAction.OpenUrlInBrowser(url = url))
+                }
+            )
         }
     }
 }
 
-private fun buildGoogleSearchUrl(query: String): String {
+private fun buildFallbackSearchUrl(query: String): String {
     val encodedQuery = Uri.encode(query)
     return "https://www.google.com/search?q=$encodedQuery"
 }

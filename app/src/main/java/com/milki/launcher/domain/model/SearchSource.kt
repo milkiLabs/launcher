@@ -49,6 +49,7 @@ data class SearchSource(
     val urlTemplate: String,
     val prefixes: List<String>,
     val isEnabled: Boolean,
+    val showAsSuggestedAction: Boolean = true,
     val accentColorHex: String
 ) {
 
@@ -80,7 +81,8 @@ data class SearchSource(
             urlTemplate: String,
             prefixes: List<String>,
             accentColorHex: String,
-            isEnabled: Boolean = true
+            isEnabled: Boolean = true,
+            showAsSuggestedAction: Boolean = true
         ): SearchSource {
             return SearchSource(
                 id = "source_${UUID.randomUUID()}",
@@ -88,6 +90,7 @@ data class SearchSource(
                 urlTemplate = urlTemplate,
                 prefixes = prefixes,
                 isEnabled = isEnabled,
+                showAsSuggestedAction = showAsSuggestedAction,
                 accentColorHex = normalizeHexColor(accentColorHex)
             )
         }
@@ -108,6 +111,7 @@ data class SearchSource(
                     urlTemplate = "https://duckduckgo.com/?q={query}",
                     prefixes = listOf("d"),
                     isEnabled = true,
+                    showAsSuggestedAction = true,
                     accentColorHex = "#DE5833"
                 ),
                 SearchSource(
@@ -116,6 +120,7 @@ data class SearchSource(
                     urlTemplate = "https://www.youtube.com/results?search_query={query}",
                     prefixes = listOf("y", "yt"),
                     isEnabled = true,
+                    showAsSuggestedAction = true,
                     accentColorHex = "#FF0000"
                 ),
                 SearchSource(
@@ -124,6 +129,7 @@ data class SearchSource(
                     urlTemplate = "https://www.instagram.com/explore/tags/{query}/",
                     prefixes = listOf("ig"),
                     isEnabled = true,
+                    showAsSuggestedAction = true,
                     accentColorHex = "#E1306C"
                 )
             )

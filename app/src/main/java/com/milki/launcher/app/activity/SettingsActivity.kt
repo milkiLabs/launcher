@@ -115,8 +115,10 @@ class SettingsActivity : ComponentActivity() {
                         onUpdateSearchSource = settingsViewModel::updateSearchSource,
                         onDeleteSearchSource = settingsViewModel::deleteSearchSource,
                         onSetSearchSourceEnabled = settingsViewModel::setSearchSourceEnabled,
+                        onSetSearchSourceSuggestedAction = settingsViewModel::setSearchSourceSuggestedAction,
                         onAddPrefixToSource = settingsViewModel::addPrefixToSource,
-                        onRemovePrefixFromSource = settingsViewModel::removePrefixFromSource
+                        onRemovePrefixFromSource = settingsViewModel::removePrefixFromSource,
+                        onSetDefaultSearchSource = settingsViewModel::setDefaultSearchSource
                     ),
                     localPrefixes = SettingsLocalPrefixActions(
                         onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,

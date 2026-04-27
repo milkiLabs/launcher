@@ -3,6 +3,7 @@ package com.milki.launcher.presentation.search
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.model.SearchSource
 
 /**
  * Snapshot of slower-changing background inputs used by the search pipeline.
@@ -26,5 +27,9 @@ internal data class SearchPipelineOutput(
 internal data class SearchRuntimeSettings(
     val maxSearchResults: Int = 8,
     val showRecentApps: Boolean = true,
-    val autoFocusKeyboard: Boolean = true
+    val autoFocusKeyboard: Boolean = true,
+    /** Enabled search sources to surface in the suggested-action chip row. */
+    val searchSources: List<SearchSource> = emptyList(),
+    /** User's preferred default search engine source ID. */
+    val defaultSearchSourceId: String? = null
 )

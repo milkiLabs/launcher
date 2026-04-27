@@ -167,6 +167,26 @@ class SettingsRepositoryImpl(
         }
     }
 
+    override suspend fun setSearchSourceSuggestedAction(sourceId: String, showAsSuggestedAction: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            mutationStore.setSearchSourceSuggestedAction(
+                preferences = preferences,
+                sourceId = sourceId,
+                showAsSuggestedAction = showAsSuggestedAction
+            )
+        }
+    }
+
+    override suspend fun setDefaultSearchSourceId(sourceId: String?) {
+        context.settingsDataStore.edit { preferences ->
+            if (sourceId == null) {
+                preferences.remove(SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID)
+            } else {
+                preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID] = sourceId
+            }
+        }
+    }
+
     override suspend fun setProviderPrefixes(
         providerId: String,
         prefixes: List<String>
@@ -332,7 +352,8 @@ class SettingsRepositoryImpl(
 
             searchSources = parsedSearchSources,
             prefixConfigurations = parsedPrefixConfigurations,
-            hiddenApps = preferences[SettingsPreferenceKeys.HIDDEN_APPS] ?: defaults.hiddenApps
+            hiddenApps = preferences[SettingsPreferenceKeys.HIDDEN_APPS] ?: defaults.hiddenApps,
+            defaultSearchSourceId = preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID]
         )
     }
 
@@ -396,6 +417,15 @@ class SettingsRepositoryImpl(
 
         if (currentSettings.hiddenApps != newSettings.hiddenApps) {
             preferences[SettingsPreferenceKeys.HIDDEN_APPS] = newSettings.hiddenApps
+        }
+
+        if (currentSettings.defaultSearchSourceId != newSettings.defaultSearchSourceId) {
+            val newId = newSettings.defaultSearchSourceId
+            if (newId == null) {
+                preferences.remove(SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID)
+            } else {
+                preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID] = newId
+            }
         }
     }
 

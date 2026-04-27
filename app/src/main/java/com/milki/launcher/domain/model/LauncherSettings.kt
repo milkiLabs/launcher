@@ -224,6 +224,15 @@ data class LauncherSettings(
      */
     val searchSources: List<SearchSource> = SearchSource.defaultSources(),
 
+    /**
+     * ID of the SearchSource the user has designated as their default search engine.
+     *
+     * When null, the first enabled source in [searchSources] is used as the default.
+     * This source appears first and is visually highlighted in the suggested-action
+     * chip row shown while the user is typing in the search dialog.
+     */
+    val defaultSearchSourceId: String? = null,
+
     // ========================================================================
     // PREFIX CONFIGURATION
     // ========================================================================

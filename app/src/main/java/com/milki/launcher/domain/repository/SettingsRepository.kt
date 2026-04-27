@@ -126,6 +126,18 @@ interface SettingsRepository {
     suspend fun setSearchSourceEnabled(sourceId: String, enabled: Boolean)
 
     /**
+     * Set whether this source appears as a suggested action chip by ID.
+     */
+    suspend fun setSearchSourceSuggestedAction(sourceId: String, showAsSuggestedAction: Boolean)
+
+    /**
+     * Set the ID of the user's preferred default search engine.
+     *
+     * Passing null clears the preference and defaults to first enabled source.
+     */
+    suspend fun setDefaultSearchSourceId(sourceId: String?)
+
+    /**
      * Replace all prefixes for one provider with a new list.
      *
      * HOT-PATH OPTIMIZATION NOTE:

@@ -49,7 +49,6 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
-import com.milki.launcher.domain.search.QuerySuggestionResolver
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
@@ -84,15 +83,13 @@ import kotlinx.coroutines.withContext
  * @property providerRegistry Registry of search providers
  * @property filterAppsUseCase Use case for filtering apps
  * @property clipboardSuggestionResolver Resolver that classifies clipboard text into one smart action suggestion
- * @property querySuggestionResolver Resolver that classifies query text into one smart action suggestion
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
     private val settingsRepository: SettingsRepository,
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
-    private val clipboardSuggestionResolver: ClipboardSuggestionResolver,
-    private val querySuggestionResolver: QuerySuggestionResolver
+    private val clipboardSuggestionResolver: ClipboardSuggestionResolver
 ) : ViewModel() {
     private val stateHolder = SearchViewModelStateHolder(viewModelScope)
 
@@ -139,7 +136,6 @@ class SearchViewModel(
         )
         observeInstalledApps()
         observeRecentApps()
-        observeQueryForSuggestions()
         settingsAdapter.bind(
             scope = viewModelScope,
             runtimeSettings = stateHolder.runtimeSettings,
@@ -189,20 +185,6 @@ class SearchViewModel(
         }
     }
 
-    /**
-     * Observe query changes and resolve query suggestions.
-     */
-    private fun observeQueryForSuggestions() {
-        viewModelScope.launch {
-            stateHolder.query.collect { currentQuery ->
-                val suggestion = withContext(Dispatchers.Default) {
-                    querySuggestionResolver.resolveFromQuery(currentQuery)
-                }
-                stateHolder.querySuggestion.value = suggestion
-            }
-        }
-    }
-
     // ========================================================================
     // PUBLIC API - Called from UI
     // ========================================================================
@@ -239,7 +221,6 @@ class SearchViewModel(
         stateHolder.isSearchVisible.value = false
         stateHolder.query.value = ""
         stateHolder.clipboardSuggestion.value = null
-        stateHolder.querySuggestion.value = null
     }
 
     /**

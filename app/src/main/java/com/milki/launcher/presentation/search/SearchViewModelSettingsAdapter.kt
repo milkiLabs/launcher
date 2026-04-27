@@ -88,7 +88,9 @@ internal class SearchViewModelSettingsAdapter(
                     runtimeSettings.value = SearchRuntimeSettings(
                         maxSearchResults = projection.maxSearchResults.coerceAtLeast(1),
                         showRecentApps = projection.showRecentApps,
-                        autoFocusKeyboard = projection.autoFocusKeyboard
+                        autoFocusKeyboard = projection.autoFocusKeyboard,
+                        searchSources = projection.searchSources.filter { it.showAsSuggestedAction },
+                        defaultSearchSourceId = projection.defaultSearchSourceId
                     )
                     prefixConfigurations.value = mergedConfigurations
                     providerAccentColorById.value = projection.searchSources.associate { it.id to it.accentColorHex }
@@ -111,7 +113,8 @@ private data class SearchRuntimeSettingsProjection(
     val prefixConfigurations: ProviderPrefixConfiguration,
     val maxSearchResults: Int,
     val showRecentApps: Boolean,
-    val autoFocusKeyboard: Boolean
+    val autoFocusKeyboard: Boolean,
+    val defaultSearchSourceId: String?
 ) {
     companion object {
         fun from(settings: com.milki.launcher.domain.model.LauncherSettings): SearchRuntimeSettingsProjection {
@@ -122,7 +125,8 @@ private data class SearchRuntimeSettingsProjection(
                 prefixConfigurations = settings.prefixConfigurations,
                 maxSearchResults = settings.maxSearchResults,
                 showRecentApps = settings.showRecentApps,
-                autoFocusKeyboard = settings.autoFocusKeyboard
+                autoFocusKeyboard = settings.autoFocusKeyboard,
+                defaultSearchSourceId = settings.defaultSearchSourceId
             )
         }
     }

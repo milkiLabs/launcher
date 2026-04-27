@@ -28,8 +28,8 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.search.ClipboardSuggestion
-import com.milki.launcher.domain.search.QuerySuggestion
 
 /**
  * Complete UI state for the search screen.
@@ -58,7 +58,6 @@ import com.milki.launcher.domain.search.QuerySuggestion
  * @property activeProviderConfig Configuration of the active provider (null for app search)
  * @property isLoading Whether a search is in progress
  * @property clipboardSuggestion Optional single clipboard-driven suggestion
- * @property querySuggestion Optional single query-driven suggestion (shown when typing)
  */
 data class SearchUiState(
     val query: String = "",
@@ -68,8 +67,11 @@ data class SearchUiState(
     val isLoading: Boolean = false,
     val autoFocusKeyboard: Boolean = true,
     val clipboardSuggestion: ClipboardSuggestion? = null,
-    val querySuggestion: QuerySuggestion? = null,
-    val providerAccentColorById: Map<String, String> = emptyMap()
+    val providerAccentColorById: Map<String, String> = emptyMap(),
+    /** Enabled search sources used to render the suggested-action chip row. */
+    val suggestedActionSources: List<SearchSource> = emptyList(),
+    /** The user's preferred default search engine source ID. */
+    val defaultSearchSourceId: String? = null
 ) {
     /**
      * Whether results are available to display.
@@ -93,18 +95,18 @@ data class SearchUiState(
             clipboardSuggestion != null
 
     /**
-     * Controls query suggestion chip visibility.
+     * Controls query suggestion chip row visibility.
      *
      * UX RULES:
      * - Show only while dialog is visible
      * - Show only in default app-search mode (no provider prefix)
      * - Show only when query is NOT blank (user is typing)
-     * - Show only when we have a valid query suggestion
+     * - Show only when there is at least one suggested action source
      *
      * MUTUAL EXCLUSIVITY:
-     * This chip and the clipboard chip are mutually exclusive:
+     * This chip row and the clipboard chip are mutually exclusive:
      * - Clipboard chip shows when query is BLANK
-     * - Query chip shows when query is NOT BLANK
+     * - Suggested actions row shows when query is NOT BLANK
      *
      * This prevents UI clutter and provides a clear, focused suggestion.
      */
@@ -112,7 +114,23 @@ data class SearchUiState(
         get() = isSearchVisible &&
             activeProviderConfig == null &&
             query.isNotBlank() &&
-            querySuggestion != null
+            suggestedActionSources.isNotEmpty()
+
+    /**
+     * Ordered list of sources for the suggested-action chip row.
+     *
+     * The default source (matching [defaultSearchSourceId]) is always first.
+     * If no explicit default is set, the first enabled source leads.
+     */
+    val orderedSuggestedSources: List<SearchSource>
+        get() {
+            if (suggestedActionSources.isEmpty()) return emptyList()
+            val defaultId = defaultSearchSourceId
+                ?: return suggestedActionSources
+            val default = suggestedActionSources.firstOrNull { it.id == defaultId }
+                ?: return suggestedActionSources
+            return listOf(default) + suggestedActionSources.filter { it.id != defaultId }
+        }
 
     /**
      * Placeholder text for the search field.

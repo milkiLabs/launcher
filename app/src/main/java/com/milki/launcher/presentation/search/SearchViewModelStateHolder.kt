@@ -3,7 +3,6 @@ package com.milki.launcher.presentation.search
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.search.ClipboardSuggestion
-import com.milki.launcher.domain.search.QuerySuggestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,7 +34,6 @@ internal class SearchViewModelStateHolder(
     val runtimeSettings = MutableStateFlow(SearchRuntimeSettings())
     val prefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
     val clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
-    val querySuggestion = MutableStateFlow<QuerySuggestion?>(null)
     val providerAccentColorById = MutableStateFlow<Map<String, String>>(emptyMap())
 
     val backgroundState: StateFlow<SearchBackgroundState> = combine(
@@ -63,9 +61,8 @@ internal class SearchViewModelStateHolder(
         query,
         isSearchVisible,
         presentationState,
-        clipboardSuggestion,
-        querySuggestion
-    ) { currentQuery, visible, presentationState, clipSuggestion, qrySuggestion ->
+        clipboardSuggestion
+    ) { currentQuery, visible, presentationState, clipSuggestion ->
         val (output, runtimeSettings) = presentationState
         SearchUiState(
             query = currentQuery,
@@ -75,7 +72,8 @@ internal class SearchViewModelStateHolder(
             isLoading = visible && output.isLoading,
             autoFocusKeyboard = runtimeSettings.autoFocusKeyboard,
             clipboardSuggestion = if (visible) clipSuggestion else null,
-            querySuggestion = if (visible) qrySuggestion else null
+            suggestedActionSources = if (visible) runtimeSettings.searchSources else emptyList(),
+            defaultSearchSourceId = runtimeSettings.defaultSearchSourceId
         )
     }
         .combine(providerAccentColorById) { partialState, colorMap ->

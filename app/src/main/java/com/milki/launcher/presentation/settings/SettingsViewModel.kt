@@ -195,6 +195,26 @@ class SettingsViewModel(
     }
 
     /**
+     * Toggles whether the source is shown as a suggested action chip.
+     */
+    fun setSearchSourceSuggestedAction(sourceId: String, showAsSuggestedAction: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setSearchSourceSuggestedAction(sourceId, showAsSuggestedAction)
+        }
+    }
+
+    /**
+     * Sets the preferred default search engine source.
+     *
+     * Passing null clears the preference, falling back to the first enabled source.
+     */
+    fun setDefaultSearchSource(sourceId: String?) {
+        viewModelScope.launch {
+            settingsRepository.setDefaultSearchSourceId(sourceId)
+        }
+    }
+
+    /**
      * Adds a prefix to a source.
      *
      * INPUT VALIDATION STRATEGY:
