@@ -17,16 +17,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
 @Composable
-fun UrlSuggestionChipRow(
+fun UrlSuggestionRow(
     urlResult: UrlSearchResult,
     onOpenInBrowser: () -> Unit,
     onOpenInApp: (() -> Unit)?,
+    title: String,
     modifier: Modifier = Modifier
 ) {
     val hasHandlerApp = urlResult.handlerApp != null
@@ -37,7 +37,7 @@ fun UrlSuggestionChipRow(
             .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.smallMedium)
     ) {
         Text(
-            text = "URL detected",
+            text = title,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(bottom = Spacing.small)
@@ -104,7 +104,7 @@ fun UrlSuggestionChipRow(
                             modifier = Modifier.size(IconSize.small)
                         )
                     },
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

@@ -479,10 +479,13 @@ private fun SearchDialogBody(
             val suggestionToShow = uiState.clipboardSuggestion
 
             if (suggestionToShow != null) {
-                ClipboardSuggestionBottomChip(
+                ClipboardSuggestionChip(
                     suggestion = suggestionToShow,
                     onSearchTextInBrowser = onSearchInBrowser,
                     onOpenUrl = onOpenUrlSuggestion,
+                    onOpenInBrowser = { url ->
+                        actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url = url))
+                    },
                     onComposeEmail = onComposeEmailSuggestion
                 )
             }
@@ -490,14 +493,15 @@ private fun SearchDialogBody(
             val urlSuggestion = uiState.queryUrlSuggestion
 
             if (urlSuggestion != null) {
-                UrlSuggestionChipRow(
+                UrlSuggestionRow(
                     urlResult = urlSuggestion,
                     onOpenInBrowser = {
                         actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url = urlSuggestion.url))
                     },
                     onOpenInApp = urlSuggestion.handlerApp?.let {
                         { actionHandler(SearchResultAction.Tap(urlSuggestion)) }
-                    }
+                    },
+                    title = "URL detected"
                 )
             }
         } else if (uiState.shouldShowQuerySuggestion) {
