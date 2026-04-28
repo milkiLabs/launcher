@@ -45,11 +45,14 @@ package com.milki.launcher.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
+import com.milki.launcher.domain.search.UrlHandlerResolver
+import com.milki.launcher.core.url.UrlValidator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
@@ -89,7 +92,8 @@ class SearchViewModel(
     private val settingsRepository: SettingsRepository,
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
-    private val clipboardSuggestionResolver: ClipboardSuggestionResolver
+    private val clipboardSuggestionResolver: ClipboardSuggestionResolver,
+    private val urlHandlerResolver: UrlHandlerResolver
 ) : ViewModel() {
     private val stateHolder = SearchViewModelStateHolder(viewModelScope)
 
@@ -221,6 +225,7 @@ class SearchViewModel(
         stateHolder.isSearchVisible.value = false
         stateHolder.query.value = ""
         stateHolder.clipboardSuggestion.value = null
+        stateHolder.queryUrlSuggestion.value = null
     }
 
     /**
@@ -243,6 +248,22 @@ class SearchViewModel(
      */
     fun onQueryChange(newQuery: String) {
         stateHolder.query.value = newQuery
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val validationResult = UrlValidator.validateUrl(newQuery)
+            val urlResult = if (validationResult != null) {
+                val handlerApp = urlHandlerResolver.resolveUrlHandler(validationResult.url)
+                UrlSearchResult(
+                    url = validationResult.url,
+                    displayUrl = validationResult.displayUrl,
+                    handlerApp = handlerApp,
+                    browserFallback = true
+                )
+            } else {
+                null
+            }
+            stateHolder.queryUrlSuggestion.value = urlResult
+        }
     }
 
     /**

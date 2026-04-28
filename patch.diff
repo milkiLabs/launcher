@@ -1,0 +1,22 @@
+--- app/src/main/java/com/milki/launcher/ui/components/search/AppSearchDialog.kt
++++ app/src/main/java/com/milki/launcher/ui/components/search/AppSearchDialog.kt
+@@ -485,6 +485,18 @@
+                     onComposeEmail = onComposeEmailSuggestion
+                 )
+             }
++        } else if (uiState.shouldShowDetectedUrlSuggestion) {}
++            val urlResult = uiState.detectedUrlResult
++            if (urlResult != null) {}
++                ClipboardSuggestionBottomChip()
++                    suggestion = com.milki.launcher.domain.search.ClipboardSuggestion.OpenUrl()
++                        urlResult = urlResult,
++                        rawText = uiState.query
++                    ),
++                    onSearchTextInBrowser = onSearchInBrowser,
++                    onOpenUrl = onOpenUrlSuggestion,
++                    onComposeEmail = onComposeEmailSuggestion
++                )
++            }
+         } else if (uiState.shouldShowQuerySuggestion) {}
+             SuggestedActionsChipRow()
+                 sources = uiState.orderedSuggestedSources,

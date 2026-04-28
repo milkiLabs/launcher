@@ -96,6 +96,12 @@ sealed class SearchResultAction {
     data class OpenUrlInBrowser(val url: String) : SearchResultAction()
 
     /**
+     * User explicitly wants to open URL in external browser, not OS-preferred handler.
+     * This is different from OpenUrlInBrowser because it always opens in a actual browser.
+     */
+    data class OpenUrlInExternalBrowser(val url: String) : SearchResultAction()
+
+    /**
      * User tapped a clipboard suggestion to compose an email.
      */
     data class ComposeEmail(
@@ -174,6 +180,7 @@ fun SearchResultAction.shouldCloseSearch(): Boolean = when (this) {
     is SearchResultAction.Tap -> true
     is SearchResultAction.DialContact -> true
     is SearchResultAction.OpenUrlInBrowser -> true
+    is SearchResultAction.OpenUrlInExternalBrowser -> true
     is SearchResultAction.ComposeEmail -> true
     is SearchResultAction.PinFile -> false
     is SearchResultAction.PinContact -> false

@@ -107,6 +107,7 @@ class ActionExecutor(
             is SearchResultAction.Tap -> handleTap(action)
             is SearchResultAction.DialContact -> handleDialContact(action)
             is SearchResultAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
+            is SearchResultAction.OpenUrlInExternalBrowser -> handleOpenUrlInExternalBrowser(action)
             is SearchResultAction.ComposeEmail -> handleComposeEmail(action)
             is SearchResultAction.PinFile -> handlePinFile(action)
             is SearchResultAction.PinContact -> handlePinContact(action)
@@ -226,6 +227,47 @@ class ActionExecutor(
         }
     }
 
+    private fun openUrlInExternalBrowser(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        
+        val defaultBrowser = resolveDefaultBrowser()
+        if (defaultBrowser != null) {
+            intent.setPackage(defaultBrowser)
+            try {
+                context.startActivity(intent)
+                return
+            } catch (e: ActivityNotFoundException) {
+            }
+        }
+        
+        try {
+            context.startActivity(Intent.createChooser(intent, "Open with"))
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No app available to open URL", e)
+            Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun resolveDefaultBrowser(): String? {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))
+        val resolveInfo = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.resolveActivity(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+        } catch (e: Exception) {
+            null
+        }
+        return resolveInfo?.activityInfo?.packageName
+    }
+
     private fun callContact(result: ContactSearchResult) {
         val phone = result.contact.phoneNumbers.firstOrNull() ?: return
         
@@ -325,6 +367,10 @@ class ActionExecutor(
 
     private fun handleOpenUrlInBrowser(action: SearchResultAction.OpenUrlInBrowser) {
         openUrlInBrowser(action.url)
+    }
+
+    private fun handleOpenUrlInExternalBrowser(action: SearchResultAction.OpenUrlInExternalBrowser) {
+        openUrlInExternalBrowser(action.url)
     }
 
     // ========================================================================

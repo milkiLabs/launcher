@@ -174,16 +174,32 @@ class UrlHandlerResolver(
      */
     fun isDeepLink(url: String): Boolean {
         val handler = resolveUrlHandler(url) ?: return false
-
-        /**
-         * Check if the handler is a browser.
-         * Browsers can handle any URL, but they're not "deep links".
-         *
-         * We detect browsers by checking if they handle generic http URLs
-         * without domain restrictions. This is a heuristic and may not
-         * catch all browsers, but it works for common cases.
-         */
         return !isBrowserPackage(handler.packageName)
+    }
+
+    /**
+     * Gets the default browser app that handles generic http/https URLs.
+     *
+     * @return UrlHandlerApp for the default browser, or null if no browser is available
+     */
+    fun resolveDefaultBrowser(): UrlHandlerApp? {
+        val genericHttpUrl = "https://example.com"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(genericHttpUrl))
+
+        return runCatching {
+            val resolveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.resolveActivity(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+            resolveInfo?.let { createHandlerApp(it) }
+        }.onFailure { throwable ->
+            Log.w(URL_HANDLER_RESOLVER_TAG, "Failed to resolve default browser", throwable)
+        }.getOrNull()
     }
 
     /**

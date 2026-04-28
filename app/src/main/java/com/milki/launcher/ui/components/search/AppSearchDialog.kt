@@ -471,8 +471,9 @@ private fun SearchDialogBody(
          *
          * MUTUAL EXCLUSIVITY:
          * - Clipboard chip shows when query is BLANK
-         * - Suggested actions chip row shows when query is NOT BLANK
-         * - They never both appear at the same time
+         * - URL suggestion shows when query LOOKS LIKE A URL
+         * - Suggested actions chip row shows when query is NOT a URL
+         * - Only one shows at a time
          */
         if (uiState.shouldShowClipboardSuggestion) {
             val suggestionToShow = uiState.clipboardSuggestion
@@ -483,6 +484,20 @@ private fun SearchDialogBody(
                     onSearchTextInBrowser = onSearchInBrowser,
                     onOpenUrl = onOpenUrlSuggestion,
                     onComposeEmail = onComposeEmailSuggestion
+                )
+            }
+        } else if (uiState.shouldShowQueryUrlSuggestion) {
+            val urlSuggestion = uiState.queryUrlSuggestion
+
+            if (urlSuggestion != null) {
+                UrlSuggestionChipRow(
+                    urlResult = urlSuggestion,
+                    onOpenInBrowser = {
+                        actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url = urlSuggestion.url))
+                    },
+                    onOpenInApp = urlSuggestion.handlerApp?.let {
+                        { actionHandler(SearchResultAction.Tap(urlSuggestion)) }
+                    }
                 )
             }
         } else if (uiState.shouldShowQuerySuggestion) {

@@ -29,6 +29,7 @@ package com.milki.launcher.presentation.search
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.SearchSource
+import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.search.ClipboardSuggestion
 
 /**
@@ -67,6 +68,7 @@ data class SearchUiState(
     val isLoading: Boolean = false,
     val autoFocusKeyboard: Boolean = true,
     val clipboardSuggestion: ClipboardSuggestion? = null,
+    val queryUrlSuggestion: UrlSearchResult? = null,
     val providerAccentColorById: Map<String, String> = emptyMap(),
     /** Enabled search sources used to render the suggested-action chip row. */
     val suggestedActionSources: List<SearchSource> = emptyList(),
@@ -95,6 +97,26 @@ data class SearchUiState(
             clipboardSuggestion != null
 
     /**
+     * Controls URL suggestion chip visibility for query-based URLs.
+     *
+     * UX RULES:
+     * - Show only while dialog is visible
+     * - Show only in default app-search mode (no provider prefix)
+     * - Show only when query is NOT blank (user is typing)
+     * - Show only when query looks like a URL (not a search query)
+     *
+     * MUTUAL EXCLUSIVITY WITH SEARCH SUGGESTIONS:
+     * URL suggestion and search suggestions are mutually exclusive:
+     * - If query looks like URL → show URL suggestion chip
+     * - If query doesn't look like URL → show search suggestion chips
+     */
+    val shouldShowQueryUrlSuggestion: Boolean
+        get() = isSearchVisible &&
+            activeProviderConfig == null &&
+            query.isNotBlank() &&
+            queryUrlSuggestion != null
+
+    /**
      * Controls query suggestion chip row visibility.
      *
      * UX RULES:
@@ -102,11 +124,13 @@ data class SearchUiState(
      * - Show only in default app-search mode (no provider prefix)
      * - Show only when query is NOT blank (user is typing)
      * - Show only when there is at least one suggested action source
+     * - NOT a URL (URLs show queryUrlSuggestion instead)
      *
      * MUTUAL EXCLUSIVITY:
-     * This chip row and the clipboard chip are mutually exclusive:
+     * This chip row, the clipboard chip, and query URL suggestion are mutually exclusive:
      * - Clipboard chip shows when query is BLANK
-     * - Suggested actions row shows when query is NOT BLANK
+     * - Query URL suggestion shows when query LOOKS LIKE A URL
+     * - Search suggestions show when query is NOT a URL
      *
      * This prevents UI clutter and provides a clear, focused suggestion.
      */
@@ -114,7 +138,8 @@ data class SearchUiState(
         get() = isSearchVisible &&
             activeProviderConfig == null &&
             query.isNotBlank() &&
-            suggestedActionSources.isNotEmpty()
+            suggestedActionSources.isNotEmpty() &&
+            queryUrlSuggestion == null
 
     /**
      * Ordered list of sources for the suggested-action chip row.

@@ -242,7 +242,8 @@ val searchModule = module {
             settingsRepository = get(),
             providerRegistry = get(),
             filterAppsUseCase = get(),
-            clipboardSuggestionResolver = get()
+            clipboardSuggestionResolver = get(),
+            urlHandlerResolver = get()
         )
     }
 }
