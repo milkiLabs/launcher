@@ -1,6 +1,7 @@
 package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.search.ActionSuggestion
 import kotlinx.coroutines.CoroutineScope
@@ -24,8 +25,8 @@ internal class SearchViewModelStateHolder(
     val query = MutableStateFlow("")
     val isSearchVisible = MutableStateFlow(false)
 
-    val hasContactsPermission = MutableStateFlow(false)
-    val hasFilesPermission = MutableStateFlow(false)
+    val contactsPermissionState = MutableStateFlow(PermissionAccessState.CAN_REQUEST)
+    val filesPermissionState = MutableStateFlow(PermissionAccessState.CAN_REQUEST)
 
     val installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val recentApps = MutableStateFlow<List<AppInfo>>(emptyList())
@@ -40,14 +41,14 @@ internal class SearchViewModelStateHolder(
     val backgroundState: StateFlow<SearchBackgroundState> = combine(
         installedApps,
         recentApps,
-        hasContactsPermission,
-        hasFilesPermission
-    ) { installed, recent, contactsPerm, filesPerm ->
+        contactsPermissionState,
+        filesPermissionState
+    ) { installed, recent, contactsPermissionState, filesPermissionState ->
         SearchBackgroundState(
             installedApps = installed,
             recentApps = recent,
-            hasContactsPermission = contactsPerm,
-            hasFilesPermission = filesPerm
+            contactsPermissionState = contactsPermissionState,
+            filesPermissionState = filesPermissionState
         )
     }.stateIn(scope, SharingStarted.Eagerly, SearchBackgroundState())
 

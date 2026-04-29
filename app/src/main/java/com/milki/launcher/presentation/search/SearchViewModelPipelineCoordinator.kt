@@ -2,6 +2,7 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
+import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.repository.SearchRequest
@@ -90,6 +91,8 @@ internal class SearchViewModelPipelineCoordinator(
                             parsed = parsed,
                             installedApps = input.background.installedApps,
                             recentApps = input.background.recentApps,
+                            contactsPermissionState = input.background.contactsPermissionState,
+                            filesPermissionState = input.background.filesPermissionState,
                             settings = input.runtimeSettings
                         )
 
@@ -116,6 +119,8 @@ internal class SearchViewModelPipelineCoordinator(
         parsed: ParsedQuery,
         installedApps: List<AppInfo>,
         recentApps: List<AppInfo>,
+        contactsPermissionState: PermissionAccessState,
+        filesPermissionState: PermissionAccessState,
         settings: SearchRuntimeSettings
     ): List<SearchResult> {
         if (parsed.provider != null) {
@@ -123,7 +128,9 @@ internal class SearchViewModelPipelineCoordinator(
                 provider = parsed.provider,
                 request = SearchRequest(
                     query = parsed.query,
-                    maxResults = settings.maxSearchResults
+                    maxResults = settings.maxSearchResults,
+                    contactsPermissionState = contactsPermissionState,
+                    filesPermissionState = filesPermissionState
                 )
             )
         }

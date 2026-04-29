@@ -20,6 +20,7 @@ package com.milki.launcher.data.search
 
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.ContactSearchResult
+import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchProviderConfig
@@ -77,15 +78,23 @@ class ContactsSearchProvider(
      * @return List of ContactSearchResult or PermissionRequestResult, or empty list
      */
     override suspend fun search(request: SearchRequest): List<SearchResult> {
-        // Check permission first
-        if (!contactsRepository.hasContactsPermission()) {
-            // Permission not granted - return permission request placeholder
+        if (!request.contactsPermissionState.isGranted) {
+            val requiresSettings = request.contactsPermissionState == PermissionAccessState.REQUIRES_SETTINGS
+
             return listOf(
                 PermissionRequestResult(
                     permission = android.Manifest.permission.READ_CONTACTS,
                     providerPrefix = config.prefix,
-                    message = "Contacts permission required to search contacts",
-                    buttonText = "Grant Permission"
+                    message = if (requiresSettings) {
+                        "Contacts access is blocked. Open Settings to search contacts"
+                    } else {
+                        "Contacts permission required to search contacts"
+                    },
+                    buttonText = if (requiresSettings) {
+                        "Open Settings"
+                    } else {
+                        "Grant Permission"
+                    }
                 )
             )
         }

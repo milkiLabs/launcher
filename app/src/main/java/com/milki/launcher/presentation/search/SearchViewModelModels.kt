@@ -1,6 +1,7 @@
 package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.SearchSource
@@ -11,8 +12,8 @@ import com.milki.launcher.domain.model.SearchSource
 internal data class SearchBackgroundState(
     val installedApps: List<AppInfo> = emptyList(),
     val recentApps: List<AppInfo> = emptyList(),
-    val hasContactsPermission: Boolean = false,
-    val hasFilesPermission: Boolean = false
+    val contactsPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST,
+    val filesPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST
 )
 
 /**

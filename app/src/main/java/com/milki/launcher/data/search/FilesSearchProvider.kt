@@ -20,6 +20,7 @@ package com.milki.launcher.data.search
 import android.Manifest
 import android.os.Build
 import com.milki.launcher.domain.model.FileDocumentSearchResult
+import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchProviderConfig
@@ -62,7 +63,7 @@ class FilesSearchProvider(
      * @return List of FileDocumentSearchResult or PermissionRequestResult, or empty list
      */
     override suspend fun search(request: SearchRequest): List<SearchResult> {
-        if (!filesRepository.hasFilesPermission()) {
+        if (!request.filesPermissionState.isGranted) {
             /**
              * On Android 11+, MANAGE_EXTERNAL_STORAGE is required to access all files.
              * This is a special permission that opens Settings for user approval.
@@ -74,10 +75,14 @@ class FilesSearchProvider(
                 Manifest.permission.READ_EXTERNAL_STORAGE
             }
             
-            val message = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                "Allow file access in Settings to search all files"
-            } else {
-                "Storage permission required to search files"
+            val requiresSettings = request.filesPermissionState == PermissionAccessState.REQUIRES_SETTINGS
+
+            val message = when {
+                requiresSettings -> "File access is blocked. Open Settings to search files"
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
+                    "Allow file access in Settings to search all files"
+
+                else -> "Storage permission required to search files"
             }
             
             return listOf(
@@ -85,7 +90,7 @@ class FilesSearchProvider(
                     permission = permission,
                     providerPrefix = config.prefix,
                     message = message,
-                    buttonText = "Grant Permission"
+                    buttonText = if (requiresSettings) "Open Settings" else "Grant Permission"
                 )
             )
         }

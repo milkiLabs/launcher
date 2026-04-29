@@ -45,6 +45,7 @@ package com.milki.launcher.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
@@ -263,15 +264,15 @@ class SearchViewModel(
      * Update contacts permission status.
      * Called from Activity when permission state changes.
      *
-        * This updates stateHolder.hasContactsPermission, which is one input to
-        * stateHolder.backgroundState. That background state update triggers the
-        * search pipeline to re-run. If the user is in contacts mode ("c "), the
-        * search can now succeed instead of showing the permission prompt.
+     * This updates stateHolder.contactsPermissionState, which is one input to
+     * stateHolder.backgroundState. That background state update triggers the
+     * search pipeline to re-run. If the user is in contacts mode ("c "), the
+     * search can now succeed instead of showing the permission prompt.
      *
-     * @param hasPermission Whether permission is granted
+     * @param state User-relevant permission access state
      */
-    fun updateContactsPermission(hasPermission: Boolean) {
-        stateHolder.hasContactsPermission.value = hasPermission
+    fun updateContactsPermission(state: PermissionAccessState) {
+        stateHolder.contactsPermissionState.value = state
     }
 
     /**
@@ -281,10 +282,10 @@ class SearchViewModel(
      * Same mechanism as contacts — feeds into background state, triggers
      * pipeline re-run.
      *
-     * @param hasPermission Whether permission is granted
+     * @param state User-relevant permission access state
      */
-    fun updateFilesPermission(hasPermission: Boolean) {
-        stateHolder.hasFilesPermission.value = hasPermission
+    fun updateFilesPermission(state: PermissionAccessState) {
+        stateHolder.filesPermissionState.value = state
     }
 
     /**

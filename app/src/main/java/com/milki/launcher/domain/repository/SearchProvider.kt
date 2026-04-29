@@ -36,12 +36,15 @@
 
 package com.milki.launcher.domain.repository
 
+import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 
 data class SearchRequest(
     val query: String,
-    val maxResults: Int
+    val maxResults: Int,
+    val contactsPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST,
+    val filesPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST
 )
 
 /**

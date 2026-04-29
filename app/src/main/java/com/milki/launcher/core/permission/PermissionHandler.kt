@@ -17,16 +17,17 @@
 package com.milki.launcher.core.permission
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.milki.launcher.domain.model.PermissionAccessState
 
 /**
  * Sink for propagating permission-state updates to higher layers.
@@ -34,8 +35,8 @@ import androidx.core.content.ContextCompat
  * This keeps core permission logic independent from presentation classes.
  */
 interface PermissionStateSink {
-    fun updateContactsPermission(hasPermission: Boolean)
-    fun updateFilesPermission(hasPermission: Boolean)
+    fun updateContactsPermission(state: PermissionAccessState)
+    fun updateFilesPermission(state: PermissionAccessState)
 }
 
 /**
@@ -51,6 +52,8 @@ class PermissionHandler(
     private val activity: ComponentActivity,
     private val permissionStateSink: PermissionStateSink
 ) {
+    private val accessStateStore = SharedPreferencesPermissionAccessStateStore(activity)
+
     // ========================================================================
     // PERMISSION LAUNCHERS
     // ========================================================================
@@ -156,8 +159,11 @@ class PermissionHandler(
         contactsPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            permissionStateSink.updateContactsPermission(isGranted)
-            onPermissionResult?.invoke(Manifest.permission.READ_CONTACTS, isGranted)
+            handleRuntimePermissionResult(
+                permission = Manifest.permission.READ_CONTACTS,
+                isGranted = isGranted,
+                updateState = permissionStateSink::updateContactsPermission
+            )
         }
     }
 
@@ -180,7 +186,10 @@ class PermissionHandler(
         callPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            onPermissionResult?.invoke(Manifest.permission.CALL_PHONE, isGranted)
+            handleRuntimePermissionResult(
+                permission = Manifest.permission.CALL_PHONE,
+                isGranted = isGranted
+            )
         }
     }
 
@@ -194,8 +203,11 @@ class PermissionHandler(
         filesPermissionLauncher = activity.registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
-            permissionStateSink.updateFilesPermission(isGranted)
-            onPermissionResult?.invoke(Manifest.permission.READ_EXTERNAL_STORAGE, isGranted)
+            handleRuntimePermissionResult(
+                permission = Manifest.permission.READ_EXTERNAL_STORAGE,
+                isGranted = isGranted,
+                updateState = permissionStateSink::updateFilesPermission
+            )
         }
     }
 
@@ -213,9 +225,8 @@ class PermissionHandler(
         manageStorageLauncher = activity.registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) {
-            updateFilesPermissionState()
             val hasPermission = PermissionUtil.hasFilesPermission(activity)
-            onPermissionResult?.invoke(Manifest.permission.MANAGE_EXTERNAL_STORAGE, hasPermission)
+            handleManageStorageResult(hasPermission)
         }
     }
 
@@ -243,17 +254,19 @@ class PermissionHandler(
      * ContextCompat.checkSelfPermission() returns PERMISSION_GRANTED or PERMISSION_DENIED.
      */
     private fun updateContactsPermissionState() {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            activity,
-            Manifest.permission.READ_CONTACTS
-        ) == PackageManager.PERMISSION_GRANTED
-
-        permissionStateSink.updateContactsPermission(hasPermission)
+        permissionStateSink.updateContactsPermission(
+            accessStateForRuntimePermission(Manifest.permission.READ_CONTACTS)
+        )
     }
 
     private fun updateFilesPermissionState() {
-        val hasPermission = PermissionUtil.hasFilesPermission(activity)
-        permissionStateSink.updateFilesPermission(hasPermission)
+        val state = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            accessStateForSpecialPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+        } else {
+            accessStateForRuntimePermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+
+        permissionStateSink.updateFilesPermission(state)
     }
 
     // ========================================================================
@@ -268,12 +281,13 @@ class PermissionHandler(
      * If the user previously denied the permission and checked "Don't ask again",
      * the dialog won't show - the system will immediately call our callback
      * with false. In this case, we should direct the user to Settings.
-     *
-     * A future improvement here is detecting the permanently-denied state and
-     * taking the user directly to the relevant Settings screen when needed.
      */
     fun requestContactsPermission() {
-        contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        requestRuntimePermission(
+            permission = Manifest.permission.READ_CONTACTS,
+            launcher = contactsPermissionLauncher,
+            updateState = permissionStateSink::updateContactsPermission
+        )
     }
 
     /**
@@ -286,7 +300,10 @@ class PermissionHandler(
      * which will execute the pending call if granted.
      */
     fun requestCallPermission() {
-        callPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
+        requestRuntimePermission(
+            permission = Manifest.permission.CALL_PHONE,
+            launcher = callPermissionLauncher
+        )
     }
 
     fun hasPermission(permission: String): Boolean {
@@ -327,6 +344,13 @@ class PermissionHandler(
      * before launching. This prevents crashes on devices without Settings.
      */
     private fun requestManageStoragePermission() {
+        if (PermissionUtil.hasFilesPermission(activity)) {
+            accessStateStore.clearRequiresSettings(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            permissionStateSink.updateFilesPermission(PermissionAccessState.GRANTED)
+            onPermissionResult?.invoke(Manifest.permission.MANAGE_EXTERNAL_STORAGE, true)
+            return
+        }
+
         val appSpecificIntent = Intent(
             Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
         ).apply {
@@ -339,6 +363,13 @@ class PermissionHandler(
             val generalIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
             if (generalIntent.resolveActivity(activity.packageManager) != null) {
                 manageStorageLauncher.launch(generalIntent)
+            } else {
+                Toast.makeText(
+                    activity,
+                    "Unable to open file access settings on this device.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                onPermissionResult?.invoke(Manifest.permission.MANAGE_EXTERNAL_STORAGE, false)
             }
         }
     }
@@ -349,6 +380,166 @@ class PermissionHandler(
      * The result is handled by our callback registered in registerFilesLauncher().
      */
     private fun requestReadStoragePermission() {
-        filesPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+        requestRuntimePermission(
+            permission = Manifest.permission.READ_EXTERNAL_STORAGE,
+            launcher = filesPermissionLauncher,
+            updateState = permissionStateSink::updateFilesPermission
+        )
+    }
+
+    private fun requestRuntimePermission(
+        permission: String,
+        launcher: ActivityResultLauncher<String>,
+        updateState: ((PermissionAccessState) -> Unit)? = null
+    ) {
+        if (hasPermission(permission)) {
+            accessStateStore.clearRequiresSettings(permission)
+            updateState?.invoke(PermissionAccessState.GRANTED)
+            onPermissionResult?.invoke(permission, true)
+            return
+        }
+
+        if (accessStateStore.requiresSettings(permission)) {
+            updateState?.invoke(PermissionAccessState.REQUIRES_SETTINGS)
+            Toast.makeText(
+                activity,
+                blockedMessage(permission),
+                Toast.LENGTH_LONG
+            ).show()
+            openApplicationDetailsSettings()
+            onPermissionResult?.invoke(permission, false)
+            return
+        }
+
+        launcher.launch(permission)
+    }
+
+    private fun handleRuntimePermissionResult(
+        permission: String,
+        isGranted: Boolean,
+        updateState: ((PermissionAccessState) -> Unit)? = null
+    ) {
+        val resolvedState = PermissionOutcomeResolver.resolveRuntimeRequestResult(
+            isGranted = isGranted,
+            shouldShowRationale = activity.shouldShowRequestPermissionRationale(permission)
+        )
+
+        when (resolvedState) {
+            PermissionAccessState.GRANTED -> {
+                accessStateStore.clearRequiresSettings(permission)
+            }
+
+            PermissionAccessState.CAN_REQUEST -> {
+                accessStateStore.clearRequiresSettings(permission)
+                Toast.makeText(
+                    activity,
+                    declinedMessage(permission),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            PermissionAccessState.REQUIRES_SETTINGS -> {
+                accessStateStore.markRequiresSettings(permission)
+                Toast.makeText(
+                    activity,
+                    blockedMessage(permission),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+        updateState?.invoke(resolvedState)
+        onPermissionResult?.invoke(permission, isGranted)
+    }
+
+    private fun handleManageStorageResult(hasPermission: Boolean) {
+        val state = if (hasPermission) {
+            accessStateStore.clearRequiresSettings(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            PermissionAccessState.GRANTED
+        } else {
+            accessStateStore.markRequiresSettings(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            Toast.makeText(
+                activity,
+                "File access was not granted. Open Settings to search files.",
+                Toast.LENGTH_LONG
+            ).show()
+            PermissionAccessState.REQUIRES_SETTINGS
+        }
+
+        permissionStateSink.updateFilesPermission(state)
+        onPermissionResult?.invoke(Manifest.permission.MANAGE_EXTERNAL_STORAGE, hasPermission)
+    }
+
+    private fun accessStateForRuntimePermission(permission: String): PermissionAccessState {
+        if (hasPermission(permission)) {
+            accessStateStore.clearRequiresSettings(permission)
+            return PermissionAccessState.GRANTED
+        }
+
+        return if (accessStateStore.requiresSettings(permission)) {
+            PermissionAccessState.REQUIRES_SETTINGS
+        } else {
+            PermissionAccessState.CAN_REQUEST
+        }
+    }
+
+    private fun accessStateForSpecialPermission(permission: String): PermissionAccessState {
+        if (PermissionUtil.hasFilesPermission(activity)) {
+            accessStateStore.clearRequiresSettings(permission)
+            return PermissionAccessState.GRANTED
+        }
+
+        return if (accessStateStore.requiresSettings(permission)) {
+            PermissionAccessState.REQUIRES_SETTINGS
+        } else {
+            PermissionAccessState.CAN_REQUEST
+        }
+    }
+
+    private fun openApplicationDetailsSettings() {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", activity.packageName, null)
+        )
+
+        if (intent.resolveActivity(activity.packageManager) != null) {
+            activity.startActivity(intent)
+        } else {
+            Toast.makeText(
+                activity,
+                "Unable to open app settings on this device.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun declinedMessage(permission: String): String {
+        return when (permission) {
+            Manifest.permission.READ_CONTACTS ->
+                "Contacts permission declined. Contact search will stay unavailable."
+
+            Manifest.permission.CALL_PHONE ->
+                "Call permission declined. Contact taps still open the dialer."
+
+            Manifest.permission.READ_EXTERNAL_STORAGE ->
+                "Storage permission declined. File search will stay unavailable."
+
+            else -> "Permission declined."
+        }
+    }
+
+    private fun blockedMessage(permission: String): String {
+        return when (permission) {
+            Manifest.permission.READ_CONTACTS ->
+                "Contacts permission is blocked. Open Settings to search contacts."
+
+            Manifest.permission.CALL_PHONE ->
+                "Call permission is blocked. Open Settings for direct calling."
+
+            Manifest.permission.READ_EXTERNAL_STORAGE ->
+                "Storage permission is blocked. Open Settings to search files."
+
+            else -> "Permission is blocked. Enable it in app settings."
+        }
     }
 }
