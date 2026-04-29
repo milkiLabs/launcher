@@ -28,6 +28,9 @@ package com.milki.launcher.ui.components.launcher
 
 import android.content.res.Configuration
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +45,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -54,9 +58,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -77,7 +83,9 @@ import com.milki.launcher.ui.components.common.rememberAppQuickActions
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val PORTRAIT_RECENT_ROW_CAPACITY = 4
@@ -113,6 +121,7 @@ fun AppDrawerOverlay(
 ) {
     val actionHandler = LocalSearchActionHandler.current
     val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val recentRowCapacity = if (isPortrait) {
         PORTRAIT_RECENT_ROW_CAPACITY
@@ -156,6 +165,10 @@ fun AppDrawerOverlay(
         ) {
             Box(
                 modifier = headerDragHandleModifier
+                    .interruptDrawerGridScrollOnTouch(
+                        gridState = gridState,
+                        scope = scope
+                    )
                     .fillMaxWidth()
                     .padding(vertical = Spacing.extraSmall)
             ) {
@@ -205,6 +218,18 @@ fun AppDrawerOverlay(
                     )
                 }
             }
+        }
+    }
+}
+
+private fun Modifier.interruptDrawerGridScrollOnTouch(
+    gridState: LazyGridState,
+    scope: CoroutineScope
+): Modifier = pointerInput(gridState) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false)
+        scope.launch {
+            gridState.stopScroll()
         }
     }
 }
