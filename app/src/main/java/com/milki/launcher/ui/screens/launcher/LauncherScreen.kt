@@ -35,13 +35,13 @@ import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.launcher.AppDrawerOverlay
 import com.milki.launcher.ui.components.launcher.DraggablePinnedItemsGrid
 import com.milki.launcher.ui.components.launcher.ItemActionMenu
-import com.milki.launcher.ui.components.launcher.LauncherSheet
+import com.milki.launcher.ui.components.launcher.LauncherSheetState
 import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.components.launcher.folder.FolderPopupDialog
-import com.milki.launcher.ui.components.launcher.launcherSheetDragHandle
 import com.milki.launcher.ui.components.launcher.rememberLauncherSheetState
 import com.milki.launcher.ui.components.launcher.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.search.AppSearchDialog
+import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -71,36 +71,25 @@ fun LauncherScreen(
     val widgetPickerSheetState = rememberLauncherSheetState()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
     val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
+    val shouldDismissTransientSurfaces =
+        searchUiState.isSearchVisible || openFolderItem != null
 
-    LaunchedEffect(searchUiState.isSearchVisible) {
-        if (searchUiState.isSearchVisible) {
+    LaunchedEffect(shouldDismissTransientSurfaces, openFolderItem?.id) {
+        if (shouldDismissTransientSurfaces) {
             actions.menu.onHomescreenMenuOpenChange(false)
             actions.drawer.onAppDrawerOpenChange(false)
             actions.widget.onWidgetPickerOpenChange(false)
         }
     }
 
-    LaunchedEffect(openFolderItem?.id) {
-        if (openFolderItem != null) {
-            actions.menu.onHomescreenMenuOpenChange(false)
-            actions.drawer.onAppDrawerOpenChange(false)
-            actions.widget.onWidgetPickerOpenChange(false)
-        }
-    }
-
-    val canHandleHomeBackgroundGestures =
-        !isHomescreenMenuOpen &&
-                !isAppDrawerOpen &&
-                !isWidgetPickerOpen &&
-                !searchUiState.isSearchVisible &&
-                openFolderItem == null
-
-    val activeHomeTriggers =
-        if (canHandleHomeBackgroundGestures) {
-            enabledHomeTriggers
-        } else {
-            emptySet()
-        }
+    val activeHomeTriggers = selectActiveHomeTriggers(
+        enabledHomeTriggers = enabledHomeTriggers,
+        isHomescreenMenuOpen = isHomescreenMenuOpen,
+        isAppDrawerOpen = isAppDrawerOpen,
+        isWidgetPickerOpen = isWidgetPickerOpen,
+        isSearchVisible = searchUiState.isSearchVisible,
+        openFolderItem = openFolderItem
+    )
 
     Box(
         modifier = Modifier
@@ -223,40 +212,18 @@ private fun HomeSurface(
     widgetHostManager: WidgetHostManager?,
     modifier: Modifier = Modifier
 ) {
-    val enabledDirectionalTriggers = enabledHomeTriggers.filterTo(linkedSetOf()) { trigger ->
-        trigger.metadata.kind == LauncherGestureKind.SWIPE
-    }
+    val backgroundGestures = buildHomeBackgroundGestures(
+        enabledHomeTriggers = enabledHomeTriggers,
+        onMenuAnchorChanged = onMenuAnchorChanged,
+        actions = actions
+    )
 
     DraggablePinnedItemsGrid(
         items = pinnedItems,
         onItemClick = actions.home.onPinnedItemClick,
         onItemLongPress = actions.home.onPinnedItemLongPress,
         onItemMove = actions.home.onPinnedItemMove,
-        backgroundGestures = com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings(
-            configuredTriggers = enabledHomeTriggers,
-            onEmptyAreaTap =
-                if (LauncherTrigger.HOME_TAP in enabledHomeTriggers) {
-                    { actions.home.onHomeTrigger(LauncherTrigger.HOME_TAP) }
-                } else {
-                    null
-                },
-            onEmptyAreaDoubleTap =
-                if (LauncherTrigger.HOME_DOUBLE_TAP in enabledHomeTriggers) {
-                    { actions.home.onHomeTrigger(LauncherTrigger.HOME_DOUBLE_TAP) }
-                } else {
-                    null
-                },
-            onEmptyAreaLongPress = { touchOffset ->
-                onMenuAnchorChanged(touchOffset)
-                actions.menu.onHomescreenMenuOpenChange(true)
-            },
-            onTrigger =
-                if (enabledDirectionalTriggers.isNotEmpty()) {
-                    actions.home.onHomeTrigger
-                } else {
-                    null
-                }
-        ),
+        backgroundGestures = backgroundGestures,
         onItemDroppedToHome = { item, position ->
             actions.home.onItemDroppedToHome(item, position)
             actions.search.onDismissSearch()
@@ -314,24 +281,21 @@ private fun FolderOverlayHost(
  */
 @Composable
 private fun DrawerHost(
-    appDrawerSheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
+    appDrawerSheetState: LauncherSheetState,
     isAppDrawerOpen: Boolean,
     appDrawerUiState: AppDrawerUiState,
     drawerActions: DrawerActions
 ) {
-    ManagedLauncherSheet(
+    LauncherSurfaceSheetHost(
         isOpen = isAppDrawerOpen,
         sheetState = appDrawerSheetState,
         onDismissRequest = { drawerActions.onAppDrawerOpenChange(false) }
-    ) {
+    ) { dragHandleModifier ->
         AppDrawerOverlay(
             uiState = appDrawerUiState,
             onQueryChange = drawerActions.onQueryChange,
             onDismiss = { drawerActions.onAppDrawerOpenChange(false) },
-            headerDragHandleModifier = Modifier.launcherSheetDragHandle(
-                state = appDrawerSheetState,
-                onDismissedByUser = { drawerActions.onAppDrawerOpenChange(false) }
-            ),
+            headerDragHandleModifier = dragHandleModifier,
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -342,7 +306,7 @@ private fun DrawerHost(
  */
 @Composable
 private fun WidgetPickerHost(
-    widgetPickerSheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
+    widgetPickerSheetState: LauncherSheetState,
     isWidgetPickerOpen: Boolean,
     widgetPickerQuery: String,
     widgetPickerCatalogStore: WidgetPickerCatalogStore?,
@@ -350,19 +314,16 @@ private fun WidgetPickerHost(
 ) {
     if (widgetPickerCatalogStore == null) return
 
-    ManagedLauncherSheet(
+    LauncherSurfaceSheetHost(
         isOpen = isWidgetPickerOpen,
         sheetState = widgetPickerSheetState,
         onDismissRequest = { widgetActions.onWidgetPickerOpenChange(false) }
-    ) {
+    ) { dragHandleModifier ->
         WidgetPickerBottomSheet(
             catalogStore = widgetPickerCatalogStore,
             searchQuery = widgetPickerQuery,
             onSearchQueryChange = widgetActions.onWidgetPickerQueryChange,
-            headerDragHandleModifier = Modifier.launcherSheetDragHandle(
-                state = widgetPickerSheetState,
-                onDismissedByUser = { widgetActions.onWidgetPickerOpenChange(false) }
-            ),
+            headerDragHandleModifier = dragHandleModifier,
             onExternalDragStarted = {
                 widgetActions.onWidgetPickerOpenChange(false)
             }
@@ -384,43 +345,51 @@ private fun SearchOverlayHost(
     )
 }
 
-@Composable
-private fun ManagedLauncherSheet(
-    isOpen: Boolean,
-    sheetState: com.milki.launcher.ui.components.launcher.LauncherSheetState,
-    onDismissRequest: () -> Unit,
-    onClosed: () -> Unit = {},
-    keepMountedWhenClosed: Boolean = false,
-    content: @Composable () -> Unit
-) {
-    var isMounted by remember { mutableStateOf(isOpen) }
+private fun selectActiveHomeTriggers(
+    enabledHomeTriggers: Set<LauncherTrigger>,
+    isHomescreenMenuOpen: Boolean,
+    isAppDrawerOpen: Boolean,
+    isWidgetPickerOpen: Boolean,
+    isSearchVisible: Boolean,
+    openFolderItem: HomeItem.FolderItem?
+): Set<LauncherTrigger> {
+    val isBackgroundGestureSurfaceBlocked =
+        isHomescreenMenuOpen ||
+                isAppDrawerOpen ||
+                isWidgetPickerOpen ||
+                isSearchVisible ||
+                openFolderItem != null
 
-    LaunchedEffect(isOpen) {
-        when (resolveLauncherSheetTargetChange(targetOpen = isOpen, isMounted = isMounted)) {
-            LauncherSheetTargetChange.MountAndAnimateOpen -> {
-                isMounted = true
-                sheetState.animateToExpanded()
-            }
+    return if (isBackgroundGestureSurfaceBlocked) {
+        emptySet()
+    } else {
+        enabledHomeTriggers
+    }
+}
 
-            LauncherSheetTargetChange.AnimateClosedThenUnmount -> {
-                sheetState.animateToHidden()
-                if (!keepMountedWhenClosed) {
-                    isMounted = false
-                }
-                onClosed()
-            }
-
-            LauncherSheetTargetChange.None -> Unit
-        }
+private fun buildHomeBackgroundGestures(
+    enabledHomeTriggers: Set<LauncherTrigger>,
+    onMenuAnchorChanged: (Offset) -> Unit,
+    actions: LauncherActions
+): HomeBackgroundGestureBindings {
+    val hasDirectionalTrigger = enabledHomeTriggers.any { trigger ->
+        trigger.metadata.kind == LauncherGestureKind.SWIPE
     }
 
-    if (!isMounted) return
-
-    LauncherSheet(
-        state = sheetState,
-        modifier = Modifier.fillMaxSize(),
-        onDismissedByUser = onDismissRequest
-    ) {
-        content()
-    }
+    return HomeBackgroundGestureBindings(
+        configuredTriggers = enabledHomeTriggers,
+        onEmptyAreaTap = enabledHomeTriggers.takeIf { LauncherTrigger.HOME_TAP in it }?.let {
+            { actions.home.onHomeTrigger(LauncherTrigger.HOME_TAP) }
+        },
+        onEmptyAreaDoubleTap = enabledHomeTriggers
+            .takeIf { LauncherTrigger.HOME_DOUBLE_TAP in it }
+            ?.let {
+                { actions.home.onHomeTrigger(LauncherTrigger.HOME_DOUBLE_TAP) }
+            },
+        onEmptyAreaLongPress = { touchOffset ->
+            onMenuAnchorChanged(touchOffset)
+            actions.menu.onHomescreenMenuOpenChange(true)
+        },
+        onTrigger = if (hasDirectionalTrigger) actions.home.onHomeTrigger else null
+    )
 }
