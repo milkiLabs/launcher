@@ -153,8 +153,12 @@ class WidgetHostManager(
         return try {
             hostCommand()
             true
-        } catch (e: IllegalStateException) {
-            Log.e(TAG, "Failed to $action widget host listening", e)
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "Failed to $action widget host listening; keeping launcher alive despite framework error",
+                e
+            )
             false
         }
     }
