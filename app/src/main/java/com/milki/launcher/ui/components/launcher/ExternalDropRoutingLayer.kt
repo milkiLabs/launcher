@@ -7,6 +7,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.drag.reorder.GridReorderEngine
+import com.milki.launcher.domain.drag.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -24,6 +26,7 @@ internal fun ExternalDropRoutingLayer(
     interactionController: HomeSurfaceInteractionController,
     layoutMetrics: AppDragDropLayoutMetrics,
     maxVisibleRows: Int,
+    reorderEngine: GridReorderEngine,
     widgetHostManager: WidgetHostManager?,
     onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit,
     onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
@@ -35,21 +38,15 @@ internal fun ExternalDropRoutingLayer(
     hapticConfirm: () -> Unit
 ) {
     val latestItems by rememberUpdatedState(items)
-
-    val dropDispatcher = ExternalHomeDropDispatcher(
-        gridColumns = config.columns,
-        maxVisibleRows = maxVisibleRows,
-        widgetHostManager = widgetHostManager,
-        callbacks = ExternalDropRoutingCallbacks(
-            onItemDroppedToHome = onItemDroppedToHome,
-            onCreateFolder = onCreateFolder,
-            onAddItemToFolder = onAddItemToFolder,
-            onFolderItemExtracted = onFolderItemExtracted,
-            onMoveFolderItemToFolder = onMoveFolderItemToFolder,
-            onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
-            onWidgetDroppedToHome = onWidgetDroppedToHome,
-            onConfirmDrop = hapticConfirm
-        )
+    val handlers = ExternalDropHandlers(
+        onItemDroppedToHome = onItemDroppedToHome,
+        onCreateFolder = onCreateFolder,
+        onAddItemToFolder = onAddItemToFolder,
+        onFolderItemExtracted = onFolderItemExtracted,
+        onMoveFolderItemToFolder = onMoveFolderItemToFolder,
+        onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
+        onWidgetDroppedToHome = onWidgetDroppedToHome,
+        onConfirmDrop = hapticConfirm
     )
 
     AppExternalDropTargetOverlay(
@@ -67,7 +64,7 @@ internal fun ExternalDropRoutingLayer(
         },
         onItemDropped = { item, localOffset ->
             val externalDragState = interactionController.externalDragState
-            val dropPosition = if (
+            val resolvedDropPosition = if (
                 externalDragState.isActive &&
                 externalDragState.targetPosition != null
             ) {
@@ -76,20 +73,23 @@ internal fun ExternalDropRoutingLayer(
                 layoutMetrics.pixelToCell(localOffset)
             }
 
-            val resolvedDropPosition = requireNotNull(dropPosition) {
-                "External drop routing requires a resolved grid position."
-            }
-
             interactionController.onExternalDropCommitted(
                 targetPosition = resolvedDropPosition,
                 item = item
             )
 
-            dropDispatcher.dispatch(
+            val action = resolveExternalDropAction(
                 item = item,
                 dropPosition = resolvedDropPosition,
-                items = latestItems
-            )
+                items = latestItems,
+                gridColumns = config.columns,
+                maxVisibleRows = maxVisibleRows,
+                widgetHostManager = widgetHostManager,
+                reorderEngine = reorderEngine,
+                reorderMode = ReorderMode.Commit
+            ) ?: return@AppExternalDropTargetOverlay false
+
+            return@AppExternalDropTargetOverlay applyExternalDropAction(action, handlers)
         },
         modifier = Modifier
             .fillMaxSize()

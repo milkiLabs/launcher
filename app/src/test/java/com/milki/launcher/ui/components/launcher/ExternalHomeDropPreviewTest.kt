@@ -2,6 +2,7 @@ package com.milki.launcher.ui.components.launcher
 
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
+import com.milki.launcher.domain.drag.reorder.ReorderMode
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -16,13 +17,14 @@ class ExternalHomeDropPreviewTest {
     @Test
     fun appDropOntoRegularHomeIcon_usesSecondaryValidHighlight() {
         val occupant = pinnedApp(id = "app:home", position = GridPosition(row = 1, column = 1))
-        val preview = resolveExternalDropPreviewState(
+        val preview = resolveExternalDropAction(
             item = externalApp(name = "Dragged"),
-            targetPosition = occupant.position,
+            dropPosition = occupant.position,
             items = listOf(occupant),
             gridColumns = 4,
-            maxVisibleRows = 4
-        )
+            maxVisibleRows = 4,
+            reorderMode = ReorderMode.Preview
+        )?.previewState
 
         assertNotNull(preview)
         assertEquals(GridPosition(row = 1, column = 1), preview?.targetPosition)
@@ -36,13 +38,14 @@ class ExternalHomeDropPreviewTest {
             children = listOf(pinnedApp(id = "app:child")),
             position = GridPosition(row = 2, column = 0)
         )
-        val preview = resolveExternalDropPreviewState(
+        val preview = resolveExternalDropAction(
             item = externalApp(name = "Dragged"),
-            targetPosition = folder.position,
+            dropPosition = folder.position,
             items = listOf(folder),
             gridColumns = 4,
-            maxVisibleRows = 4
-        )
+            maxVisibleRows = 4,
+            reorderMode = ReorderMode.Preview
+        )?.previewState
 
         assertNotNull(preview)
         assertEquals(ExternalDropHighlightKind.Secondary, preview?.highlightKind)
@@ -59,13 +62,14 @@ class ExternalHomeDropPreviewTest {
             position = GridPosition(row = 0, column = 0),
             span = GridSpan(columns = 2, rows = 2)
         )
-        val preview = resolveExternalDropPreviewState(
+        val preview = resolveExternalDropAction(
             item = externalApp(name = "Dragged"),
-            targetPosition = GridPosition(row = 1, column = 1),
+            dropPosition = GridPosition(row = 1, column = 1),
             items = listOf(widget),
             gridColumns = 4,
-            maxVisibleRows = 4
-        )
+            maxVisibleRows = 4,
+            reorderMode = ReorderMode.Preview
+        )?.previewState
 
         assertNotNull(preview)
         assertEquals(ExternalDropHighlightKind.Error, preview?.highlightKind)
@@ -77,17 +81,18 @@ class ExternalHomeDropPreviewTest {
         val providerInfo = AppWidgetProviderInfo().apply {
             provider = ComponentName("com.example.widgets", "ExampleWidgetProvider")
         }
-        val preview = resolveExternalDropPreviewState(
+        val preview = resolveExternalDropAction(
             item = ExternalDragItem.Widget(
                 providerInfo = providerInfo,
                 providerComponent = providerInfo.provider,
                 span = GridSpan.SINGLE
             ),
-            targetPosition = GridPosition(row = 0, column = 0),
+            dropPosition = GridPosition(row = 0, column = 0),
             items = listOf(occupant),
             gridColumns = 4,
-            maxVisibleRows = 4
-        )
+            maxVisibleRows = 4,
+            reorderMode = ReorderMode.Preview
+        )?.previewState
 
         assertNotNull(preview)
         assertEquals(GridPosition(row = 0, column = 1), preview?.targetPosition)

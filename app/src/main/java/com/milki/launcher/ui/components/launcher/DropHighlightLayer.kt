@@ -22,12 +22,14 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.drag.reorder.GridReorderEngine
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
+import com.milki.launcher.domain.drag.reorder.ReorderMode
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
@@ -51,6 +53,7 @@ internal fun DropHighlightLayer(
     cellWidthPx: Float,
     cellHeightPx: Float,
     maxVisibleRows: Int,
+    reorderEngine: GridReorderEngine,
     widgetHostManager: WidgetHostManager?,
     dragTargetOccupant: HomeItem?,
     resolvedInternalPreviewPosition: GridPosition?,
@@ -141,14 +144,16 @@ internal fun DropHighlightLayer(
     if (externalDragState.isActive) {
         externalDragState.targetPosition?.let { targetPosition ->
             val currentExternalItem = externalDragState.item
-            resolveExternalDropPreviewState(
+            resolveExternalDropAction(
                 item = currentExternalItem,
-                targetPosition = targetPosition,
+                dropPosition = targetPosition,
                 items = items,
                 gridColumns = config.columns,
                 maxVisibleRows = maxVisibleRows,
-                widgetHostManager = widgetHostManager
-            )?.let { previewState ->
+                widgetHostManager = widgetHostManager,
+                reorderEngine = reorderEngine,
+                reorderMode = ReorderMode.Preview
+            )?.previewState?.let { previewState ->
                 val highlightColor = when (previewState.highlightKind) {
                     ExternalDropHighlightKind.Primary -> MaterialTheme.colorScheme.primary
                     ExternalDropHighlightKind.Secondary -> MaterialTheme.colorScheme.secondary

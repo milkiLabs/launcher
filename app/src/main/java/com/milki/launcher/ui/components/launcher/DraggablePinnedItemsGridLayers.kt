@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.drag.reorder.GridReorderEngine
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -60,6 +61,7 @@ internal fun InternalGridDragLayer(
     cellWidthPx: Float,
     cellHeightPx: Float,
     maxVisibleRows: Int,
+    reorderEngine: GridReorderEngine,
     widgetHostManager: WidgetHostManager?,
     backgroundGestures: HomeBackgroundGestureBindings,
     onItemClick: (HomeItem) -> Unit,
@@ -75,17 +77,12 @@ internal fun InternalGridDragLayer(
     onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit
 ) {
     val latestItems by rememberUpdatedState(items)
-
-    val internalDropDispatcher = InternalHomeDropDispatcher(
-        gridColumns = config.columns,
-        gridRows = maxVisibleRows,
-        callbacks = InternalDropRoutingCallbacks(
-            onItemMove = onItemMove,
-            onCreateFolder = onCreateFolder,
-            onAddItemToFolder = onAddItemToFolder,
-            onMergeFolders = onMergeFolders,
-            onConfirmDrop = hapticConfirm
-        )
+    val internalDropHandlers = InternalDropHandlers(
+        onItemMove = onItemMove,
+        onCreateFolder = onCreateFolder,
+        onAddItemToFolder = onAddItemToFolder,
+        onMergeFolders = onMergeFolders,
+        onConfirmDrop = hapticConfirm
     )
 
     val backgroundGesturePolicy = interactionController.backgroundGesturePolicy(backgroundGestures)
@@ -113,11 +110,15 @@ internal fun InternalGridDragLayer(
     fun finishItemDrag(item: HomeItem) {
         val result = interactionController.finishInternalDrag(item, layoutMetrics) ?: return
         if (result is AppDragDropResult.Moved && result.itemId == item.id) {
-            internalDropDispatcher.dispatch(
+            val action = resolveInternalDropAction(
                 draggedItem = item,
                 dropPosition = result.to,
-                items = latestItems
+                items = latestItems,
+                gridColumns = config.columns,
+                gridRows = maxVisibleRows,
+                reorderEngine = reorderEngine
             )
+            applyInternalDropAction(action, internalDropHandlers)
         }
     }
 
