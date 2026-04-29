@@ -44,7 +44,7 @@ import com.milki.launcher.data.search.ContactsSearchProvider
 import com.milki.launcher.data.search.FilesSearchProvider
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.FilesRepository
-import com.milki.launcher.domain.search.ClipboardSuggestionResolver
+import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerResolver
@@ -200,7 +200,7 @@ val searchModule = module {
      * - UrlHandlerResolver (to resolve URLs to handler apps)
      */
     single {
-        ClipboardSuggestionResolver(
+        SuggestionResolver(
             context = get(),
             urlHandlerResolver = get()
         )
@@ -242,7 +242,7 @@ val searchModule = module {
             settingsRepository = get(),
             providerRegistry = get(),
             filterAppsUseCase = get(),
-            clipboardSuggestionResolver = get(),
+            suggestionResolver = get(),
             urlHandlerResolver = get()
         )
     }

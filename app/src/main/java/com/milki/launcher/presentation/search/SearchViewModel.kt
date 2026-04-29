@@ -48,9 +48,9 @@ import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
-import com.milki.launcher.domain.search.ClipboardSuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
+import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.core.url.UrlValidator
 import kotlinx.coroutines.Dispatchers
@@ -92,7 +92,7 @@ class SearchViewModel(
     private val settingsRepository: SettingsRepository,
     private val providerRegistry: SearchProviderRegistry,
     private val filterAppsUseCase: FilterAppsUseCase,
-    private val clipboardSuggestionResolver: ClipboardSuggestionResolver,
+    private val suggestionResolver: SuggestionResolver,
     private val urlHandlerResolver: UrlHandlerResolver
 ) : ViewModel() {
     private val stateHolder = SearchViewModelStateHolder(viewModelScope)
@@ -210,7 +210,7 @@ class SearchViewModel(
             )
         }
         stateHolder.isSearchVisible.value = true
-        stateHolder.clipboardSuggestion.value = clipboardSuggestionResolver.resolveFromClipboard()
+        stateHolder.clipboardSuggestion.value = suggestionResolver.resolveFromClipboard()
     }
 
     /**
@@ -225,7 +225,7 @@ class SearchViewModel(
         stateHolder.isSearchVisible.value = false
         stateHolder.query.value = ""
         stateHolder.clipboardSuggestion.value = null
-        stateHolder.queryUrlSuggestion.value = null
+        stateHolder.querySuggestion.value = null
     }
 
     /**
@@ -250,19 +250,12 @@ class SearchViewModel(
         stateHolder.query.value = newQuery
 
         viewModelScope.launch(Dispatchers.IO) {
-            val validationResult = UrlValidator.validateUrl(newQuery)
-            val urlResult = if (validationResult != null) {
-                val handlerApp = urlHandlerResolver.resolveUrlHandler(validationResult.url)
-                UrlSearchResult(
-                    url = validationResult.url,
-                    displayUrl = validationResult.displayUrl,
-                    handlerApp = handlerApp,
-                    browserFallback = true
-                )
+            val suggestion = if (newQuery.isNotBlank()) {
+                suggestionResolver.resolveFromText(newQuery)
             } else {
                 null
             }
-            stateHolder.queryUrlSuggestion.value = urlResult
+            stateHolder.querySuggestion.value = suggestion
         }
     }
 

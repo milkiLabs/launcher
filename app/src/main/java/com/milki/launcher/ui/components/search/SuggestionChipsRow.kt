@@ -33,24 +33,18 @@ import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
+import com.milki.launcher.domain.search.ActionSuggestion
+import com.milki.launcher.presentation.search.SearchResultAction
+
 @Composable
 fun SuggestionChipsRow(
     title: String,
+    suggestion: ActionSuggestion,
     sources: List<SearchSource>,
     defaultSourceId: String?,
-    text: String,
-    urlResult: UrlSearchResult?,
-    emailAddress: String?,
-    onSearchWithSource: (SearchSource, String) -> Unit,
-    onOpenInBrowser: (String) -> Unit,
-    onOpenInApp: (() -> Unit)?,
-    onComposeEmail: ((String) -> Unit)?,
+    actionHandler: (SearchResultAction) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val hasUrlResult = urlResult != null
-    val hasEmail = emailAddress != null
-    val hasSources = sources.isNotEmpty()
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -69,19 +63,19 @@ fun SuggestionChipsRow(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(Spacing.small)
         ) {
-            when {
-                hasUrlResult -> {
-                    val url = urlResult!!
+            when (suggestion) {
+                is ActionSuggestion.OpenUrl -> {
+                    val url = suggestion.urlResult
                     if (url.handlerApp != null) {
                         AssistChip(
-                            onClick = { onOpenInApp?.invoke() },
+                            onClick = { actionHandler(SearchResultAction.Tap(url)) },
                             label = { Text(url.handlerApp.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingIcon = {
                                 Icon(Icons.Filled.Language, null, Modifier.size(IconSize.small))
                             }
                         )
                         AssistChip(
-                            onClick = { onOpenInBrowser(url.url) },
+                            onClick = { actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url.url)) },
                             label = { Text("Open in browser", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingIcon = {
                                 Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(IconSize.small))
@@ -89,7 +83,7 @@ fun SuggestionChipsRow(
                         )
                     } else {
                         AssistChip(
-                            onClick = { onOpenInBrowser(url.url) },
+                            onClick = { actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url.url)) },
                             label = { Text("Open in browser", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingIcon = {
                                 Icon(Icons.Filled.Language, null, Modifier.size(IconSize.small))
@@ -97,28 +91,28 @@ fun SuggestionChipsRow(
                         )
                     }
                 }
-                hasEmail -> {
+                is ActionSuggestion.ComposeEmail -> {
                     AssistChip(
-                        onClick = { onComposeEmail?.invoke(emailAddress!!) },
-                        label = { Text("Email $emailAddress", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        onClick = { actionHandler(SearchResultAction.ComposeEmail(suggestion.emailAddress)) },
+                        label = { Text("Email ${suggestion.emailAddress}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = {
                             Icon(Icons.Filled.Email, null, Modifier.size(IconSize.small))
                         }
                     )
                 }
-                else -> {
-                    sources.forEachIndexed { index, source ->
+                is ActionSuggestion.SearchText -> {
+                    sources.forEach { source ->
                         val isDefault = source.id == defaultSourceId
                         val accentColor = remember(source.accentColorHex) {
                             parseColor(source.accentColorHex)
                         }
-                        val encodedText = remember(text) { Uri.encode(text) }
+                        val encodedText = remember(suggestion.queryText) { Uri.encode(suggestion.queryText) }
                         val searchUrl = source.buildUrl(encodedText)
 
                         if (isDefault) {
                             ElevatedFilterChip(
                                 selected = true,
-                                onClick = { onSearchWithSource(source, searchUrl) },
+                                onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
                                 label = { Text(source.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 leadingIcon = {
                                     Icon(Icons.Filled.Search, null, Modifier.size(IconSize.small))
@@ -133,7 +127,7 @@ fun SuggestionChipsRow(
                             )
                         } else {
                             AssistChip(
-                                onClick = { onSearchWithSource(source, searchUrl) },
+                                onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
                                 label = { Text(source.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 leadingIcon = {
                                     Icon(Icons.Filled.Search, null, Modifier.size(IconSize.small))
@@ -149,27 +143,21 @@ fun SuggestionChipsRow(
             }
         }
 
-        when {
-            hasUrlResult -> {
-                Text(
-                    text = urlResult!!.displayUrl,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = Spacing.small)
-                )
-            }
-            hasEmail == false && hasUrlResult == false && text.isNotBlank() -> {
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = Spacing.small)
-                )
-            }
+        val footerText = when (suggestion) {
+            is ActionSuggestion.OpenUrl -> suggestion.urlResult.displayUrl
+            is ActionSuggestion.ComposeEmail -> "" // Handled in chip
+            is ActionSuggestion.SearchText -> suggestion.queryText
+        }
+
+        if (footerText.isNotBlank()) {
+            Text(
+                text = footerText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = Spacing.small)
+            )
         }
     }
 }

@@ -87,7 +87,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import android.util.Log
 import com.milki.launcher.domain.model.UrlSearchResult
-import com.milki.launcher.domain.search.ClipboardSuggestion
+import com.milki.launcher.domain.search.ActionSuggestion
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
@@ -470,97 +470,23 @@ private fun SearchDialogBody(
         /**
          * Suggestion area at the bottom of the dialog.
          */
-        if (uiState.shouldShowClipboardSuggestion) {
-            val suggestion = uiState.clipboardSuggestion
+        val suggestionToShow = when {
+            uiState.shouldShowClipboardSuggestion -> uiState.clipboardSuggestion to "From clipboard"
+            uiState.shouldShowQuerySuggestion -> uiState.querySuggestion to "Suggested actions"
+            else -> null
+        }
+
+        if (suggestionToShow != null) {
+            val (suggestion, title) = suggestionToShow
             if (suggestion != null) {
-                when (suggestion) {
-                    is ClipboardSuggestion.OpenUrl -> {
-                        SuggestionChipsRow(
-                            title = "From clipboard",
-                            sources = emptyList(),
-                            defaultSourceId = null,
-                            text = suggestion.rawText,
-                            urlResult = suggestion.urlResult,
-                            emailAddress = null,
-                            onSearchWithSource = { _, _ -> },
-                            onOpenInBrowser = { url ->
-                                actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url = url))
-                            },
-                            onOpenInApp = {
-                                actionHandler(SearchResultAction.Tap(suggestion.urlResult))
-                            },
-                            onComposeEmail = null
-                        )
-                    }
-                    is ClipboardSuggestion.ComposeEmail -> {
-                        SuggestionChipsRow(
-                            title = "From clipboard",
-                            sources = emptyList(),
-                            defaultSourceId = null,
-                            text = "",
-                            urlResult = null,
-                            emailAddress = suggestion.emailAddress,
-                            onSearchWithSource = { _, _ -> },
-                            onOpenInBrowser = { },
-                            onOpenInApp = null,
-                            onComposeEmail = { addr ->
-                                actionHandler(SearchResultAction.ComposeEmail(addr))
-                            }
-                        )
-                    }
-                    is ClipboardSuggestion.SearchText -> {
-                        SuggestionChipsRow(
-                            title = "From clipboard",
-                            sources = uiState.orderedSuggestedSources,
-                            defaultSourceId = uiState.defaultSearchSourceId,
-                            text = suggestion.queryText,
-                            urlResult = null,
-                            emailAddress = null,
-                            onSearchWithSource = { source, url ->
-                                actionHandler(SearchResultAction.OpenUrlInBrowser(url = url))
-                            },
-                            onOpenInBrowser = { },
-                            onOpenInApp = null,
-                            onComposeEmail = null
-                        )
-                    }
-                }
-            }
-        } else if (uiState.shouldShowQueryUrlSuggestion) {
-            val urlSuggestion = uiState.queryUrlSuggestion
-            if (urlSuggestion != null) {
                 SuggestionChipsRow(
-                    title = "URL detected",
-                    sources = emptyList(),
-                    defaultSourceId = null,
-                    text = "",
-                    urlResult = urlSuggestion,
-                    emailAddress = null,
-                    onSearchWithSource = { _, _ -> },
-                    onOpenInBrowser = { url ->
-                        actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url = url))
-                    },
-                    onOpenInApp = urlSuggestion.handlerApp?.let {
-                        { actionHandler(SearchResultAction.Tap(urlSuggestion)) }
-                    },
-                    onComposeEmail = null
+                    title = title,
+                    suggestion = suggestion,
+                    sources = uiState.orderedSuggestedSources,
+                    defaultSourceId = uiState.defaultSearchSourceId,
+                    actionHandler = actionHandler
                 )
             }
-        } else if (uiState.shouldShowQuerySuggestion) {
-            SuggestionChipsRow(
-                title = "Suggested action",
-                sources = uiState.orderedSuggestedSources,
-                defaultSourceId = uiState.defaultSearchSourceId,
-                text = uiState.query,
-                urlResult = null,
-                emailAddress = null,
-                onSearchWithSource = { source, url ->
-                    actionHandler(SearchResultAction.OpenUrlInBrowser(url = url))
-                },
-                onOpenInBrowser = { },
-                onOpenInApp = null,
-                onComposeEmail = null
-            )
         }
     }
 }

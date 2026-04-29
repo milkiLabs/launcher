@@ -30,7 +30,7 @@ import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.UrlSearchResult
-import com.milki.launcher.domain.search.ClipboardSuggestion
+import com.milki.launcher.domain.search.ActionSuggestion
 
 /**
  * Complete UI state for the search screen.
@@ -45,6 +45,7 @@ import com.milki.launcher.domain.search.ClipboardSuggestion
  * - activeProviderConfig: Which provider mode is active (provider visuals are mapped in UI)
  * - isLoading: Whether to show the loading bar
  * - clipboardSuggestion: One smart action suggestion derived from clipboard text
+ * - querySuggestion: One smart action suggestion derived from query text
  *
  * WHAT'S NOT IN HERE (ViewModel-internal):
  * - installedApps, recentApps: Used internally by the search pipeline to compute
@@ -59,6 +60,7 @@ import com.milki.launcher.domain.search.ClipboardSuggestion
  * @property activeProviderConfig Configuration of the active provider (null for app search)
  * @property isLoading Whether a search is in progress
  * @property clipboardSuggestion Optional single clipboard-driven suggestion
+ * @property querySuggestion Optional single query-driven suggestion
  */
 data class SearchUiState(
     val query: String = "",
@@ -67,8 +69,8 @@ data class SearchUiState(
     val activeProviderConfig: SearchProviderConfig? = null,
     val isLoading: Boolean = false,
     val autoFocusKeyboard: Boolean = true,
-    val clipboardSuggestion: ClipboardSuggestion? = null,
-    val queryUrlSuggestion: UrlSearchResult? = null,
+    val clipboardSuggestion: ActionSuggestion? = null,
+    val querySuggestion: ActionSuggestion? = null,
     val providerAccentColorById: Map<String, String> = emptyMap(),
     /** Enabled search sources used to render the suggested-action chip row. */
     val suggestedActionSources: List<SearchSource> = emptyList(),
@@ -97,40 +99,17 @@ data class SearchUiState(
             clipboardSuggestion != null
 
     /**
-     * Controls URL suggestion chip visibility for query-based URLs.
-     *
-     * UX RULES:
-     * - Show only while dialog is visible
-     * - Show only in default app-search mode (no provider prefix)
-     * - Show only when query is NOT blank (user is typing)
-     * - Show only when query looks like a URL (not a search query)
-     *
-     * MUTUAL EXCLUSIVITY WITH SEARCH SUGGESTIONS:
-     * URL suggestion and search suggestions are mutually exclusive:
-     * - If query looks like URL → show URL suggestion chip
-     * - If query doesn't look like URL → show search suggestion chips
-     */
-    val shouldShowQueryUrlSuggestion: Boolean
-        get() = isSearchVisible &&
-            activeProviderConfig == null &&
-            query.isNotBlank() &&
-            queryUrlSuggestion != null
-
-    /**
      * Controls query suggestion chip row visibility.
      *
      * UX RULES:
      * - Show only while dialog is visible
      * - Show only in default app-search mode (no provider prefix)
      * - Show only when query is NOT blank (user is typing)
-     * - Show only when there is at least one suggested action source
-     * - NOT a URL (URLs show queryUrlSuggestion instead)
      *
      * MUTUAL EXCLUSIVITY:
-     * This chip row, the clipboard chip, and query URL suggestion are mutually exclusive:
+     * This chip row and the clipboard chip are mutually exclusive:
      * - Clipboard chip shows when query is BLANK
-     * - Query URL suggestion shows when query LOOKS LIKE A URL
-     * - Search suggestions show when query is NOT a URL
+     * - Query suggestions show when query is NOT BLANK
      *
      * This prevents UI clutter and provides a clear, focused suggestion.
      */
@@ -138,8 +117,7 @@ data class SearchUiState(
         get() = isSearchVisible &&
             activeProviderConfig == null &&
             query.isNotBlank() &&
-            suggestedActionSources.isNotEmpty() &&
-            queryUrlSuggestion == null
+            querySuggestion != null
 
     /**
      * Ordered list of sources for the suggested-action chip row.

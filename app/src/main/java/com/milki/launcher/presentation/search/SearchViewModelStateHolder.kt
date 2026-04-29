@@ -2,8 +2,7 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
-import com.milki.launcher.domain.model.UrlSearchResult
-import com.milki.launcher.domain.search.ClipboardSuggestion
+import com.milki.launcher.domain.search.ActionSuggestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,8 +33,8 @@ internal class SearchViewModelStateHolder(
     val searchOutput = MutableStateFlow(SearchPipelineOutput())
     val runtimeSettings = MutableStateFlow(SearchRuntimeSettings())
     val prefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
-    val clipboardSuggestion = MutableStateFlow<ClipboardSuggestion?>(null)
-    val queryUrlSuggestion = MutableStateFlow<UrlSearchResult?>(null)
+    val clipboardSuggestion = MutableStateFlow<ActionSuggestion?>(null)
+    val querySuggestion = MutableStateFlow<ActionSuggestion?>(null)
     val providerAccentColorById = MutableStateFlow<Map<String, String>>(emptyMap())
 
     val backgroundState: StateFlow<SearchBackgroundState> = combine(
@@ -64,8 +63,8 @@ internal class SearchViewModelStateHolder(
         isSearchVisible,
         presentationState,
         clipboardSuggestion,
-        queryUrlSuggestion
-    ) { currentQuery, visible, presentationState, clipSuggestion, urlSuggestion ->
+        querySuggestion
+    ) { currentQuery, visible, presentationState, clipSuggestion, qSuggestion ->
         val (output, runtimeSettings) = presentationState
         SearchUiState(
             query = currentQuery,
@@ -75,7 +74,7 @@ internal class SearchViewModelStateHolder(
             isLoading = visible && output.isLoading,
             autoFocusKeyboard = runtimeSettings.autoFocusKeyboard,
             clipboardSuggestion = if (visible) clipSuggestion else null,
-            queryUrlSuggestion = if (visible) urlSuggestion else null,
+            querySuggestion = if (visible) qSuggestion else null,
             suggestedActionSources = if (visible) runtimeSettings.searchSources else emptyList(),
             defaultSearchSourceId = runtimeSettings.defaultSearchSourceId
         )

@@ -3,27 +3,20 @@ package com.milki.launcher.domain.search
 import android.content.ClipboardManager
 import android.content.Context
 import android.util.Patterns
-import com.milki.launcher.domain.model.UrlSearchResult
 
 /**
- * ClipboardSuggestionResolver reads the current clipboard text once and converts it
- * into one actionable suggestion for the search dialog.
+ * SuggestionResolver reads text and converts it into one actionable suggestion.
  *
  * IMPORTANT BEHAVIORAL CONTRACT:
- * - This resolver performs a single snapshot read.
+ * - When resolving from clipboard, it performs a single snapshot read.
  * - It does NOT observe clipboard change events.
- * - The caller decides when to invoke it (we use search dialog open time).
  *
  * PRIORITY ORDER (highest to lowest):
  * 1) URL
  * 2) Email address
  * 3) Plain text search
- *
- * WHY PRIORITY MATTERS:
- * We intentionally return exactly one suggestion to keep the UI simple and avoid
- * overwhelming users with multiple clipboard chips.
  */
-class ClipboardSuggestionResolver(
+class SuggestionResolver(
     private val context: Context,
     private val urlHandlerResolver: UrlHandlerResolver
 ) {
@@ -31,7 +24,7 @@ class ClipboardSuggestionResolver(
     /**
      * Reads clipboard text and returns the best single suggestion, or null.
      */
-    fun resolveFromClipboard(): ClipboardSuggestion? {
+    fun resolveFromClipboard(): ActionSuggestion? {
         val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
             ?: return null
 
@@ -53,18 +46,18 @@ class ClipboardSuggestionResolver(
     /**
      * Converts raw text into one suggestion using deterministic priority rules.
      */
-    private fun resolveFromText(rawText: String): ClipboardSuggestion? {
+    fun resolveFromText(rawText: String): ActionSuggestion? {
         val urlSuggestion = resolveUrlSuggestion(rawText)
         if (urlSuggestion != null) return urlSuggestion
 
         if (Patterns.EMAIL_ADDRESS.matcher(rawText).matches()) {
-            return ClipboardSuggestion.ComposeEmail(
+            return ActionSuggestion.ComposeEmail(
                 emailAddress = rawText,
                 rawText = rawText
             )
         }
 
-        return ClipboardSuggestion.SearchText(
+        return ActionSuggestion.SearchText(
             queryText = rawText,
             rawText = rawText
         )
@@ -73,10 +66,10 @@ class ClipboardSuggestionResolver(
     /**
      * Attempts to parse the text as URL and resolve an app handler.
      */
-    private fun resolveUrlSuggestion(rawText: String): ClipboardSuggestion.OpenUrl? {
+    private fun resolveUrlSuggestion(rawText: String): ActionSuggestion.OpenUrl? {
         val result = SuggestionPatternMatcher.resolveUrlResult(rawText, urlHandlerResolver) ?: return null
 
-        return ClipboardSuggestion.OpenUrl(
+        return ActionSuggestion.OpenUrl(
             urlResult = result,
             rawText = rawText
         )

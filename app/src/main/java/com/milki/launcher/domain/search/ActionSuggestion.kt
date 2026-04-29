@@ -3,10 +3,10 @@ package com.milki.launcher.domain.search
 import com.milki.launcher.domain.model.UrlSearchResult
 
 /**
- * ClipboardSuggestion represents one actionable interpretation of clipboard text.
+ * ActionSuggestion represents one actionable interpretation of text (e.g. from clipboard or query).
  *
  * WHY THIS MODEL EXISTS:
- * The clipboard can contain many different kinds of text:
+ * The input can contain many different kinds of text:
  * - URLs
  * - email addresses
  * - plain text
@@ -19,12 +19,12 @@ import com.milki.launcher.domain.model.UrlSearchResult
  * This is intentionally a sealed class so the compiler enforces exhaustive handling
  * in all `when` expressions that consume suggestions.
  */
-sealed class ClipboardSuggestion {
+sealed class ActionSuggestion {
     /**
-     * The original clipboard text used to derive this suggestion.
+     * The original text used to derive this suggestion.
      *
      * Keeping the raw text helps the UI show context (for trust and clarity),
-     * and allows future analytics/debugging without re-reading clipboard data.
+     * and allows future analytics/debugging without re-reading data.
      */
     abstract val rawText: String
 
@@ -37,7 +37,7 @@ sealed class ClipboardSuggestion {
     data class OpenUrl(
         val urlResult: UrlSearchResult,
         override val rawText: String
-    ) : ClipboardSuggestion()
+    ) : ActionSuggestion()
 
     /**
      * Suggestion for composing an email.
@@ -45,7 +45,7 @@ sealed class ClipboardSuggestion {
     data class ComposeEmail(
         val emailAddress: String,
         override val rawText: String
-    ) : ClipboardSuggestion()
+    ) : ActionSuggestion()
 
     /**
      * Suggestion for using the text as a search query inside the launcher.
@@ -53,5 +53,5 @@ sealed class ClipboardSuggestion {
     data class SearchText(
         val queryText: String,
         override val rawText: String
-    ) : ClipboardSuggestion()
+    ) : ActionSuggestion()
 }
