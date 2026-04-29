@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.domain.model.SearchSource
+import com.milki.launcher.domain.model.LauncherTriggerTarget
 import kotlinx.serialization.json.Json
 
 /**
@@ -37,6 +38,11 @@ internal typealias SerializedSearchSources = List<SearchSource>
 internal typealias SerializedTriggerActions = Map<String, String>
 
 /**
+ * Shared serialized representation for trigger -> launch target payloads.
+ */
+internal typealias SerializedTriggerTargets = Map<String, LauncherTriggerTarget>
+
+/**
  * DataStore instance for launcher settings, scoped to application context.
  */
 internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -63,6 +69,7 @@ internal object SettingsPreferenceKeys {
 
     // Home Screen
     val TRIGGER_ACTIONS = stringPreferencesKey("trigger_actions")
+    val TRIGGER_TARGETS = stringPreferencesKey("trigger_targets")
 
     // Legacy Home Screen keys (read fallback only)
     val HOME_TAP_ACTION = stringPreferencesKey("home_tap_action")

@@ -16,14 +16,17 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.backup.LauncherImportResult
+import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.LauncherBackupRepository
+import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +42,7 @@ import kotlinx.coroutines.launch
  */
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
+    appRepository: AppRepository,
     private val launcherBackupRepository: LauncherBackupRepository
 ) : ViewModel() {
 
@@ -59,6 +63,13 @@ class SettingsViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = LauncherSettings()
+        )
+
+    val installedApps: StateFlow<List<AppInfo>> = appRepository.observeInstalledApps()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
         )
 
     private val _backupStatusMessage = MutableStateFlow<String?>(null)
@@ -103,6 +114,15 @@ class SettingsViewModel(
     ) {
         viewModelScope.launch {
             settingsRepository.setTriggerAction(trigger, action)
+        }
+    }
+
+    fun setTriggerOpenAppTarget(
+        trigger: LauncherTrigger,
+        target: LauncherTriggerTarget
+    ) {
+        viewModelScope.launch {
+            settingsRepository.setTriggerOpenAppTarget(trigger, target)
         }
     }
 

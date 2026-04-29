@@ -78,7 +78,10 @@ class SurfaceStateCoordinator(
         contextMenuDismissSignal += 1
     }
 
-    fun handleHomeTriggerAction(action: LauncherTriggerAction) {
+    fun handleHomeTriggerAction(
+        action: LauncherTriggerAction,
+        onOpenAppTarget: (() -> Unit)? = null
+    ) {
         when (action) {
             LauncherTriggerAction.OPEN_SEARCH -> {
                 dismissContextMenus()
@@ -104,6 +107,12 @@ class SurfaceStateCoordinator(
                 dismissContextMenus()
                 closeTransientSurfaces(keepSearch = false)
                 lockScreen()
+            }
+
+            LauncherTriggerAction.OPEN_APP -> {
+                dismissContextMenus()
+                closeTransientSurfaces(keepSearch = false)
+                onOpenAppTarget?.invoke()
             }
 
             LauncherTriggerAction.DO_NOTHING -> Unit

@@ -14,6 +14,7 @@ package com.milki.launcher.domain.repository
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
@@ -83,6 +84,14 @@ interface SettingsRepository {
      * Update one trigger -> action mapping.
      */
     suspend fun setTriggerAction(trigger: LauncherTrigger, action: LauncherTriggerAction)
+
+    /**
+     * Map a trigger to the "open app" action and persist the concrete app/shortcut target.
+     */
+    suspend fun setTriggerOpenAppTarget(
+        trigger: LauncherTrigger,
+        target: LauncherTriggerTarget
+    )
 
     /**
      * Update contacts provider enabled state.

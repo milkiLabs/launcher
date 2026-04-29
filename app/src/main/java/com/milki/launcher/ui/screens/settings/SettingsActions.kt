@@ -2,6 +2,7 @@ package com.milki.launcher.ui.screens.settings
 
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.LauncherTriggerTarget
 
 /**
  * SettingsActions.kt - Grouped action contracts for Settings UI
@@ -19,7 +20,8 @@ import com.milki.launcher.domain.model.LauncherTriggerAction
  * Actions used by Home Screen settings section.
  */
 data class SettingsHomeScreenActions(
-    val onSetTriggerAction: (LauncherTrigger, LauncherTriggerAction) -> Unit
+    val onSetTriggerAction: (LauncherTrigger, LauncherTriggerAction) -> Unit,
+    val onSetTriggerOpenAppTarget: (LauncherTrigger, LauncherTriggerTarget) -> Unit
 )
 
 /**

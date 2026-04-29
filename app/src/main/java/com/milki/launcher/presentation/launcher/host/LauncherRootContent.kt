@@ -17,13 +17,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.milki.launcher.core.intent.launchApp
+import com.milki.launcher.core.intent.launchAppShortcut
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.actionForTrigger
+import com.milki.launcher.domain.model.targetForTrigger
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
@@ -185,7 +190,15 @@ internal fun LauncherRootContent(
                     home = HomeActions(
                         onHomeTrigger = { trigger ->
                             val action = launcherSettings.actionForTrigger(trigger)
-                            surfaceStateCoordinator.handleHomeTriggerAction(action)
+                            surfaceStateCoordinator.handleHomeTriggerAction(
+                                action = action,
+                                onOpenAppTarget = {
+                                    openTriggerLaunchTarget(
+                                        context = context,
+                                        target = launcherSettings.targetForTrigger(trigger)
+                                    )
+                                }
+                            )
                         },
                         onPinnedItemClick = { item -> homeController.onPinnedItemClick(item, context) },
                         onPinnedItemLongPress = {},
@@ -256,5 +269,32 @@ internal fun LauncherRootContent(
                 )
             }
         }
+    }
+}
+
+private fun openTriggerLaunchTarget(
+    context: android.content.Context,
+    target: LauncherTriggerTarget?
+) {
+    when (target) {
+        is LauncherTriggerTarget.App -> {
+            launchApp(
+                context = context,
+                appInfo = AppInfo(
+                    name = target.displayName,
+                    packageName = target.packageName,
+                    activityName = target.activityName
+                )
+            )
+        }
+
+        is LauncherTriggerTarget.AppShortcut -> {
+            launchAppShortcut(
+                context = context,
+                appShortcut = target.toHomeShortcut()
+            )
+        }
+
+        null -> Unit
     }
 }

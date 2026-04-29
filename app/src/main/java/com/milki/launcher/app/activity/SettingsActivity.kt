@@ -102,13 +102,15 @@ class SettingsActivity : ComponentActivity() {
 
         setContent {
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
+            val installedApps by settingsViewModel.installedApps.collectAsStateWithLifecycle()
             val backupStatusMessage by settingsViewModel.backupStatusMessage.collectAsStateWithLifecycle()
             val importReport by settingsViewModel.lastImportReport.collectAsStateWithLifecycle()
             val settingsActions = remember(settingsViewModel) {
                 SettingsActions(
                     onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings,
                     homeScreen = SettingsHomeScreenActions(
-                        onSetTriggerAction = settingsViewModel::setTriggerAction
+                        onSetTriggerAction = settingsViewModel::setTriggerAction,
+                        onSetTriggerOpenAppTarget = settingsViewModel::setTriggerOpenAppTarget
                     ),
                     customSources = SettingsCustomSourceActions(
                         onAddSearchSource = settingsViewModel::addSearchSource,
@@ -143,6 +145,7 @@ class SettingsActivity : ComponentActivity() {
             LauncherTheme {
                 SettingsScreen(
                     settings = settings,
+                    installedApps = installedApps,
                     showSetDefaultLauncherOption = !isDefaultLauncher,
                     backupStatusMessage = backupStatusMessage,
                     importReport = importReport,

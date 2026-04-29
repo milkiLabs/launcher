@@ -117,9 +117,46 @@ enum class LauncherTrigger(
 enum class LauncherTriggerAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
     OPEN_APP_DRAWER("Open app drawer"),
+    OPEN_APP("Open an app"),
     OPEN_NOTIFICATION_SHADE("Open notification shade"),
     LOCK_SCREEN("Lock screen"),
     DO_NOTHING("Do nothing")
+}
+
+/**
+ * Payload for trigger actions that need a concrete launch target.
+ */
+@Serializable
+sealed class LauncherTriggerTarget {
+    abstract val displayName: String
+
+    @Serializable
+    data class App(
+        val packageName: String,
+        val activityName: String,
+        override val displayName: String
+    ) : LauncherTriggerTarget()
+
+    @Serializable
+    data class AppShortcut(
+        val packageName: String,
+        val shortcutId: String,
+        val shortLabel: String,
+        val longLabel: String = shortLabel
+    ) : LauncherTriggerTarget() {
+        override val displayName: String
+            get() = shortLabel.ifBlank { longLabel }
+
+        fun toHomeShortcut(): HomeItem.AppShortcut {
+            return HomeItem.AppShortcut(
+                id = "shortcut:$packageName/$shortcutId",
+                packageName = packageName,
+                shortcutId = shortcutId,
+                shortLabel = shortLabel,
+                longLabel = longLabel
+            )
+        }
+    }
 }
 
 /**
@@ -200,6 +237,9 @@ data class LauncherSettings(
     val triggerActions: Map<LauncherTrigger, LauncherTriggerAction> =
         LauncherInteractionCatalog.defaultTriggerActions(),
 
+    /** Optional launch target payloads for trigger actions such as OPEN_APP */
+    val triggerTargets: Map<LauncherTrigger, LauncherTriggerTarget> = emptyMap(),
+
     // ========================================================================
     // SEARCH PROVIDERS
     // ========================================================================
@@ -275,4 +315,11 @@ data class LauncherSettings(
  */
 fun LauncherSettings.actionForTrigger(trigger: LauncherTrigger): LauncherTriggerAction {
     return triggerActions[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
+}
+
+/**
+ * Resolves optional payload for a trigger action.
+ */
+fun LauncherSettings.targetForTrigger(trigger: LauncherTrigger): LauncherTriggerTarget? {
+    return triggerTargets[trigger]
 }

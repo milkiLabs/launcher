@@ -8,6 +8,7 @@ import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
@@ -101,6 +102,23 @@ class SettingsRepositoryImpl(
             }
             val updatedActions = currentActions + (trigger to action)
             writeTriggerActions(updatedActions, preferences)
+            if (action != LauncherTriggerAction.OPEN_APP) {
+                val updatedTargets = parseTriggerTargets(preferences) - trigger
+                writeTriggerTargets(updatedTargets, preferences)
+            }
+        }
+    }
+
+    override suspend fun setTriggerOpenAppTarget(
+        trigger: LauncherTrigger,
+        target: LauncherTriggerTarget
+    ) {
+        context.settingsDataStore.edit { preferences ->
+            val updatedActions = parseTriggerActions(preferences) +
+                (trigger to LauncherTriggerAction.OPEN_APP)
+            val updatedTargets = parseTriggerTargets(preferences) + (trigger to target)
+            writeTriggerActions(updatedActions, preferences)
+            writeTriggerTargets(updatedTargets, preferences)
         }
     }
 
@@ -342,6 +360,7 @@ class SettingsRepositoryImpl(
                 preferences[SettingsPreferenceKeys.SHOW_APP_ICONS] ?: defaults.showAppIcons,
 
             triggerActions = parseTriggerActions(preferences),
+            triggerTargets = parseTriggerTargets(preferences),
 
             contactsSearchEnabled =
                 preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED]
@@ -396,6 +415,10 @@ class SettingsRepositoryImpl(
 
         if (currentSettings.triggerActions != newSettings.triggerActions) {
             writeTriggerActions(newSettings.triggerActions, preferences)
+        }
+
+        if (currentSettings.triggerTargets != newSettings.triggerTargets) {
+            writeTriggerTargets(newSettings.triggerTargets, preferences)
         }
 
         if (currentSettings.contactsSearchEnabled != newSettings.contactsSearchEnabled) {
@@ -492,6 +515,22 @@ class SettingsRepositoryImpl(
             settingsStorageJson.encodeToString(serialized)
     }
 
+    private fun writeTriggerTargets(
+        triggerTargets: Map<LauncherTrigger, LauncherTriggerTarget>,
+        preferences: androidx.datastore.preferences.core.MutablePreferences
+    ) {
+        if (triggerTargets.isEmpty()) {
+            preferences.remove(SettingsPreferenceKeys.TRIGGER_TARGETS)
+            return
+        }
+
+        val serialized: SerializedTriggerTargets = triggerTargets
+            .mapKeys { (trigger, _) -> trigger.name }
+
+        preferences[SettingsPreferenceKeys.TRIGGER_TARGETS] =
+            settingsStorageJson.encodeToString(serialized)
+    }
+
     private fun parseSearchSources(preferences: Preferences): List<SearchSource> {
         val json = preferences[SettingsPreferenceKeys.SEARCH_SOURCES]
         val isInitialized =
@@ -524,6 +563,25 @@ class SettingsRepositoryImpl(
         }
 
         return mergeWithDefaultTriggerActions(parseLegacyTriggerActions(preferences))
+    }
+
+    private fun parseTriggerTargets(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerTarget> {
+        val storedJson = preferences[SettingsPreferenceKeys.TRIGGER_TARGETS]
+        if (storedJson.isNullOrBlank()) {
+            return emptyMap()
+        }
+
+        return runCatching {
+            val decoded: SerializedTriggerTargets = settingsStorageJson.decodeFromString(storedJson)
+            decoded.mapNotNull { (triggerName, target) ->
+                val trigger = runCatching { LauncherTrigger.valueOf(triggerName) }.getOrNull()
+                if (trigger == null) {
+                    null
+                } else {
+                    trigger to target
+                }
+            }.toMap()
+        }.getOrDefault(emptyMap())
     }
 
     private fun parseLegacyTriggerActions(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerAction> {

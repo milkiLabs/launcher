@@ -11,24 +11,36 @@
 
 package com.milki.launcher.ui.screens.settings
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,21 +51,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
+import com.milki.launcher.domain.model.LauncherTrigger
+import com.milki.launcher.domain.model.LauncherTriggerAction
+import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
 import com.milki.launcher.domain.model.backup.LauncherImportResult
+import com.milki.launcher.domain.model.targetForTrigger
+import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.ShortcutIcon
+import com.milki.launcher.ui.components.common.rememberAppQuickActions
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.DropdownSettingItem
 import com.milki.launcher.ui.components.settings.PrefixSettingItem
 import com.milki.launcher.ui.components.settings.SettingsCategory
 import com.milki.launcher.ui.components.settings.SourceEditorDialog
 import com.milki.launcher.ui.components.settings.SourceSettingItem
+import com.milki.launcher.ui.components.search.UnifiedSearchInputField
+import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -63,6 +88,7 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun SettingsScreen(
     settings: LauncherSettings,
+    installedApps: List<AppInfo>,
     showSetDefaultLauncherOption: Boolean,
     backupStatusMessage: String?,
     importReport: LauncherImportResult?,
@@ -76,6 +102,21 @@ fun SettingsScreen(
     var editingSource by remember { mutableStateOf<SearchSource?>(null) }
     var showAddSourceDialog by remember { mutableStateOf(false) }
     var sourceIdPendingDelete by remember { mutableStateOf<String?>(null) }
+    var appPickerTrigger by remember { mutableStateOf<LauncherTrigger?>(null) }
+
+    appPickerTrigger?.let { trigger ->
+        TriggerAppPickerScreen(
+            trigger = trigger,
+            installedApps = installedApps,
+            currentTarget = settings.targetForTrigger(trigger),
+            onBack = { appPickerTrigger = null },
+            onTargetSelected = { target ->
+                actions.homeScreen.onSetTriggerOpenAppTarget(trigger, target)
+                appPickerTrigger = null
+            }
+        )
+        return
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -112,7 +153,10 @@ fun SettingsScreen(
 
             HomeScreenSection(
                 settings = settings,
-                actions = actions.homeScreen
+                actions = actions.homeScreen,
+                onSelectOpenAppAction = { trigger ->
+                    appPickerTrigger = trigger
+                }
             )
 
             CustomSourcesSection(
@@ -297,21 +341,297 @@ private fun SkippedImportCategory.toDisplayTitle(): String {
 @Composable
 private fun HomeScreenSection(
     settings: LauncherSettings,
-    actions: SettingsHomeScreenActions
+    actions: SettingsHomeScreenActions,
+    onSelectOpenAppAction: (LauncherTrigger) -> Unit
 ) {
     SettingsCategory(title = "Home Screen")
 
     LauncherInteractionCatalog.configurableTriggers.forEach { trigger ->
+        val action = settings.actionForTrigger(trigger)
+        val target = settings.targetForTrigger(trigger)
         DropdownSettingItem(
             title = trigger.displayName,
-            selectedValue = settings.actionForTrigger(trigger).displayName,
+            subtitle = if (action == LauncherTriggerAction.OPEN_APP) {
+                target?.displayName ?: "Choose an app or shortcut"
+            } else {
+                null
+            },
+            selectedValue = action.displayName,
             options = LauncherInteractionCatalog.availableActions()
                 .map { action -> action.displayName to action },
             onOptionSelected = { selectedAction ->
-                actions.onSetTriggerAction(trigger, selectedAction)
+                if (selectedAction == LauncherTriggerAction.OPEN_APP) {
+                    onSelectOpenAppAction(trigger)
+                } else {
+                    actions.onSetTriggerAction(trigger, selectedAction)
+                }
             }
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TriggerAppPickerScreen(
+    trigger: LauncherTrigger,
+    installedApps: List<AppInfo>,
+    currentTarget: LauncherTriggerTarget?,
+    onBack: () -> Unit,
+    onTargetSelected: (LauncherTriggerTarget) -> Unit
+) {
+    BackHandler(onBack = onBack)
+
+    var query by remember { mutableStateOf("") }
+    val filteredApps = remember(installedApps, query) {
+        val normalizedQuery = query.trim().lowercase()
+        if (normalizedQuery.isBlank()) {
+            installedApps
+        } else {
+            installedApps.filter { app ->
+                app.nameLower.contains(normalizedQuery) ||
+                    app.packageLower.contains(normalizedQuery)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = "Choose app",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = trigger.displayName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = Spacing.mediumLarge)
+        ) {
+            UnifiedSearchInputField(
+                query = query,
+                onQueryChange = { query = it },
+                placeholderText = "Search apps and shortcuts",
+                onClear = { query = "" },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = Spacing.medium)
+            )
+
+            if (filteredApps.isEmpty()) {
+                TriggerAppPickerEmptyState()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+                ) {
+                    items(
+                        items = filteredApps,
+                        key = { app -> "${app.packageName}/${app.activityName}" }
+                    ) { app ->
+                        TriggerAppPickerAppGroup(
+                            app = app,
+                            query = query,
+                            currentTarget = currentTarget,
+                            onTargetSelected = onTargetSelected
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TriggerAppPickerAppGroup(
+    app: AppInfo,
+    query: String,
+    currentTarget: LauncherTriggerTarget?,
+    onTargetSelected: (LauncherTriggerTarget) -> Unit
+) {
+    val quickShortcuts = rememberAppQuickActions(
+        packageName = app.packageName,
+        shouldLoad = true,
+        maxCount = 8
+    )
+    val normalizedQuery = query.trim().lowercase()
+    val visibleShortcuts = remember(quickShortcuts, normalizedQuery) {
+        if (normalizedQuery.isBlank()) {
+            quickShortcuts
+        } else {
+            quickShortcuts.filter { shortcut ->
+                shortcut.shortLabel.lowercase().contains(normalizedQuery) ||
+                    shortcut.longLabel.lowercase().contains(normalizedQuery)
+            }
+        }
+    }
+
+    Column {
+        TriggerTargetRow(
+            title = app.name,
+            subtitle = app.packageName,
+            selected = currentTarget is LauncherTriggerTarget.App &&
+                currentTarget.packageName == app.packageName &&
+                currentTarget.activityName == app.activityName,
+            leadingContent = {
+                AppIcon(
+                    packageName = app.packageName,
+                    size = IconSize.appList
+                )
+            },
+            onClick = {
+                onTargetSelected(
+                    LauncherTriggerTarget.App(
+                        packageName = app.packageName,
+                        activityName = app.activityName,
+                        displayName = app.name
+                    )
+                )
+            }
+        )
+
+        visibleShortcuts.forEach { shortcut ->
+            TriggerTargetRow(
+                title = shortcut.shortLabel.ifBlank { shortcut.longLabel },
+                subtitle = "Shortcut in ${app.name}",
+                selected = currentTarget is LauncherTriggerTarget.AppShortcut &&
+                    currentTarget.packageName == shortcut.packageName &&
+                    currentTarget.shortcutId == shortcut.shortcutId,
+                leadingContent = {
+                    ShortcutIcon(
+                        shortcut = shortcut,
+                        size = IconSize.appList,
+                        showBrowserBadge = true
+                    )
+                },
+                onClick = {
+                    onTargetSelected(shortcut.toTriggerTarget())
+                },
+                modifier = Modifier.padding(start = Spacing.mediumLarge)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TriggerTargetRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    leadingContent: @Composable () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = Spacing.medium,
+                vertical = Spacing.smallMedium
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            leadingContent()
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = Spacing.medium)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Apps,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = Spacing.smallMedium)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TriggerAppPickerEmptyState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.extraLarge),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.Apps,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "No apps found",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(top = Spacing.smallMedium)
+        )
+        Text(
+            text = "Try a different search.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+private fun HomeItem.AppShortcut.toTriggerTarget(): LauncherTriggerTarget.AppShortcut {
+    return LauncherTriggerTarget.AppShortcut(
+        packageName = packageName,
+        shortcutId = shortcutId,
+        shortLabel = shortLabel,
+        longLabel = longLabel
+    )
 }
 
 /**
