@@ -3,8 +3,6 @@ package com.milki.launcher.ui.components.launcher
 import android.appwidget.AppWidgetProviderInfo
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.drag.drop.DropDecision
-import com.milki.launcher.domain.drag.drop.DropTargetNode
-import com.milki.launcher.domain.drag.drop.DropTargetRegistry
 import com.milki.launcher.domain.drag.drop.RejectReason
 import com.milki.launcher.domain.drag.reorder.GridReorderEngine
 import com.milki.launcher.domain.drag.reorder.ReorderInput
@@ -56,8 +54,23 @@ internal data class ExternalDropRoutingCallbacks(
     val onConfirmDrop: () -> Unit
 )
 
+internal enum class ExternalDropHighlightKind {
+    Primary,
+    Secondary,
+    Error
+}
+
+internal data class ExternalDropPreviewState(
+    val targetPosition: GridPosition,
+    val dragSpan: GridSpan,
+    val highlightKind: ExternalDropHighlightKind
+)
+
 /**
  * Centralizes external drop routing so composables only bridge UI events.
+ *
+ * The same pure resolver is used by both highlight preview and commit dispatch
+ * so valid folder-creation drops do not drift from actual drop behavior.
  */
 internal class ExternalHomeDropDispatcher(
     private val gridColumns: Int,
@@ -67,271 +80,278 @@ internal class ExternalHomeDropDispatcher(
 ) {
     private val reorderEngine = GridReorderEngine()
 
-    private val registry = DropTargetRegistry(
-        listOf(
-            FolderChildSameFolderNode,
-            FolderChildToFolderNode,
-            FolderChildToWidgetNode,
-            FolderChildOntoItemNode,
-            FolderChildExtractNode,
-            WidgetDropNode,
-            RegularToFolderNode,
-            RegularToWidgetNode,
-            RegularCreateFolderNode,
-            RegularDropToEmptyNode
-        )
-    )
-
     fun dispatch(
         item: ExternalDragDropItem,
         dropPosition: GridPosition,
         items: List<HomeItem>
     ): Boolean {
-        val context = ExternalDropContext(
+        val resolution = resolveExternalDropResolution(
             item = item,
             dropPosition = dropPosition,
-            occupantAtDrop = items.findOccupantAt(dropPosition),
-            previewHomeItem = item.toPreviewHomeItem(),
             items = items,
             gridColumns = gridColumns,
             maxVisibleRows = maxVisibleRows,
             widgetHostManager = widgetHostManager,
             reorderEngine = reorderEngine,
-            callbacks = callbacks
+            reorderMode = ReorderMode.Commit
         )
 
-        return when (val decision = registry.dispatch(context)) {
-            is DropDecision.Accepted -> true
+        return when (val decision = resolution.decision) {
+            is DropDecision.Accepted -> {
+                resolution.commitAction?.invoke(callbacks)
+                callbacks.onConfirmDrop()
+                true
+            }
             is DropDecision.Rejected -> decision.reason != RejectReason.PAYLOAD_UNSUPPORTED
             DropDecision.Pass -> false
         }
     }
 }
 
-private data class ExternalDropContext(
-    val item: ExternalDragDropItem,
-    val dropPosition: GridPosition,
-    val occupantAtDrop: HomeItem?,
-    val previewHomeItem: HomeItem?,
-    val items: List<HomeItem>,
-    val gridColumns: Int,
-    val maxVisibleRows: Int,
-    val widgetHostManager: WidgetHostManager?,
-    val reorderEngine: GridReorderEngine,
-    val callbacks: ExternalDropRoutingCallbacks
+internal fun resolveExternalDropPreviewState(
+    item: ExternalDragDropItem?,
+    targetPosition: GridPosition,
+    items: List<HomeItem>,
+    gridColumns: Int,
+    maxVisibleRows: Int,
+    widgetHostManager: WidgetHostManager? = null,
+    reorderEngine: GridReorderEngine = GridReorderEngine()
+): ExternalDropPreviewState? {
+    return resolveExternalDropResolution(
+        item = item,
+        dropPosition = targetPosition,
+        items = items,
+        gridColumns = gridColumns,
+        maxVisibleRows = maxVisibleRows,
+        widgetHostManager = widgetHostManager,
+        reorderEngine = reorderEngine,
+        reorderMode = ReorderMode.Preview
+    ).previewState
+}
+
+private data class ExternalDropResolution(
+    val decision: DropDecision,
+    val previewState: ExternalDropPreviewState?,
+    val commitAction: ((ExternalDropRoutingCallbacks) -> Unit)? = null
 )
 
-private object FolderChildSameFolderNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.folder-child.same-folder"
+private fun resolveExternalDropResolution(
+    item: ExternalDragDropItem?,
+    dropPosition: GridPosition,
+    items: List<HomeItem>,
+    gridColumns: Int,
+    maxVisibleRows: Int,
+    widgetHostManager: WidgetHostManager?,
+    reorderEngine: GridReorderEngine,
+    reorderMode: ReorderMode
+): ExternalDropResolution {
+    if (item == null) return ExternalDropResolution(decision = DropDecision.Pass, previewState = null)
 
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val folderChild = context.item as? ExternalDragItem.FolderChild
-        val occupant = context.occupantAtDrop as? HomeItem.FolderItem
-        val decision = when {
-            folderChild == null || occupant == null -> DropDecision.Pass
-            occupant.id == folderChild.folderId ->
-                DropDecision.Rejected(RejectReason.INVALID_FOLDER_ROUTE)
-            else -> DropDecision.Pass
-        }
-        return decision
+    return when (item) {
+        is ExternalDragItem.FolderChild -> resolveFolderChildDrop(
+            item = item,
+            dropPosition = dropPosition,
+            items = items
+        )
+        is ExternalDragItem.Widget -> resolveWidgetDrop(
+            item = item,
+            dropPosition = dropPosition,
+            items = items,
+            gridColumns = gridColumns,
+            maxVisibleRows = maxVisibleRows,
+            widgetHostManager = widgetHostManager,
+            reorderEngine = reorderEngine,
+            reorderMode = reorderMode
+        )
+        else -> resolveRegularExternalDrop(
+            item = item,
+            dropPosition = dropPosition,
+            items = items
+        )
     }
 }
 
-private object FolderChildToFolderNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.folder-child.to-folder"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val folderChild = context.item as? ExternalDragItem.FolderChild
-        val occupant = context.occupantAtDrop as? HomeItem.FolderItem
-        val decision = when {
-            folderChild == null || occupant == null -> DropDecision.Pass
-            occupant.id == folderChild.folderId -> DropDecision.Pass
-            else -> context.acceptDrop {
-                context.callbacks.onMoveFolderItemToFolder(
-                    folderChild.folderId,
-                    folderChild.childItem.id,
-                    occupant.id
-                )
-            }
+private fun resolveFolderChildDrop(
+    item: ExternalDragItem.FolderChild,
+    dropPosition: GridPosition,
+    items: List<HomeItem>
+): ExternalDropResolution {
+    val occupant = items.findOccupantAt(dropPosition)
+    return when {
+        occupant is HomeItem.FolderItem && occupant.id == item.folderId -> rejectedExternalDrop(
+            reason = RejectReason.INVALID_FOLDER_ROUTE,
+            targetPosition = dropPosition
+        )
+        occupant is HomeItem.FolderItem -> acceptedExternalDrop(
+            targetPosition = dropPosition,
+            highlightKind = ExternalDropHighlightKind.Secondary
+        ) { callbacks ->
+            callbacks.onMoveFolderItemToFolder(
+                item.folderId,
+                item.childItem.id,
+                occupant.id
+            )
         }
-        return decision
+        occupant is HomeItem.WidgetItem -> rejectedExternalDrop(
+            reason = RejectReason.INVALID_WIDGET_ROUTE,
+            targetPosition = dropPosition
+        )
+        occupant != null -> acceptedExternalDrop(
+            targetPosition = dropPosition,
+            highlightKind = ExternalDropHighlightKind.Secondary
+        ) { callbacks ->
+            callbacks.onFolderChildDroppedOnItem(
+                item.folderId,
+                item.childItem,
+                occupant,
+                dropPosition
+            )
+        }
+        else -> acceptedExternalDrop(
+            targetPosition = dropPosition,
+            highlightKind = ExternalDropHighlightKind.Primary
+        ) { callbacks ->
+            callbacks.onFolderItemExtracted(
+                item.folderId,
+                item.childItem.id,
+                dropPosition
+            )
+        }
     }
 }
 
-private object FolderChildToWidgetNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.folder-child.to-widget"
+private fun resolveRegularExternalDrop(
+    item: ExternalDragDropItem,
+    dropPosition: GridPosition,
+    items: List<HomeItem>
+): ExternalDropResolution {
+    val previewHomeItem = item.toPreviewHomeItem()
+        ?: return ExternalDropResolution(decision = DropDecision.Pass, previewState = null)
+    val occupant = items.findOccupantAt(dropPosition)
 
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val decision = when {
-            context.item !is ExternalDragItem.FolderChild -> DropDecision.Pass
-            context.occupantAtDrop is HomeItem.WidgetItem ->
-                DropDecision.Rejected(RejectReason.INVALID_WIDGET_ROUTE)
-            else -> DropDecision.Pass
+    return when (occupant) {
+        is HomeItem.FolderItem -> acceptedExternalDrop(
+            targetPosition = dropPosition,
+            highlightKind = ExternalDropHighlightKind.Secondary
+        ) { callbacks ->
+            callbacks.onAddItemToFolder(occupant.id, previewHomeItem)
         }
-        return decision
+        is HomeItem.WidgetItem -> rejectedExternalDrop(
+            reason = RejectReason.INVALID_WIDGET_ROUTE,
+            targetPosition = dropPosition
+        )
+        null -> acceptedExternalDrop(
+            targetPosition = dropPosition,
+            highlightKind = ExternalDropHighlightKind.Primary
+        ) { callbacks ->
+            callbacks.onItemDroppedToHome(previewHomeItem, dropPosition)
+        }
+        else -> acceptedExternalDrop(
+            targetPosition = dropPosition,
+            highlightKind = ExternalDropHighlightKind.Secondary
+        ) { callbacks ->
+            callbacks.onCreateFolder(previewHomeItem, occupant, occupant.position)
+        }
     }
 }
 
-private object FolderChildOntoItemNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.folder-child.onto-item"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val folderChild = context.item as? ExternalDragItem.FolderChild
-        val occupant = context.occupantAtDrop
-        val decision = when {
-            folderChild == null || occupant == null -> DropDecision.Pass
-            occupant is HomeItem.FolderItem || occupant is HomeItem.WidgetItem -> DropDecision.Pass
-            else -> context.acceptDrop {
-                context.callbacks.onFolderChildDroppedOnItem(
-                    folderChild.folderId,
-                    folderChild.childItem,
-                    occupant,
-                    context.dropPosition
-                )
-            }
-        }
-        return decision
-    }
-}
-
-private object FolderChildExtractNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.folder-child.extract"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val folderChild = context.item as? ExternalDragItem.FolderChild
-        val decision = when {
-            folderChild == null -> DropDecision.Pass
-            context.occupantAtDrop != null -> DropDecision.Pass
-            else -> context.acceptDrop {
-                context.callbacks.onFolderItemExtracted(
-                    folderChild.folderId,
-                    folderChild.childItem.id,
-                    context.dropPosition
-                )
-            }
-        }
-        return decision
-    }
-}
-
-private object WidgetDropNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.widget"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val widgetItem = context.item as? ExternalDragItem.Widget
-        val decision = if (widgetItem == null) {
-            DropDecision.Pass
-        } else {
-            context.evaluateWidgetDrop(widgetItem)
-        }
-        return decision
-    }
-}
-
-private object RegularToFolderNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.regular.to-folder"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val homeItem = context.previewHomeItem
-        val occupant = context.occupantAtDrop as? HomeItem.FolderItem
-        val decision = when {
-            homeItem == null || occupant == null -> DropDecision.Pass
-            else -> context.acceptDrop {
-                context.callbacks.onAddItemToFolder(occupant.id, homeItem)
-            }
-        }
-        return decision
-    }
-}
-
-private object RegularToWidgetNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.regular.to-widget"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val decision = when {
-            context.previewHomeItem == null -> DropDecision.Pass
-            context.occupantAtDrop is HomeItem.WidgetItem ->
-                DropDecision.Rejected(RejectReason.INVALID_WIDGET_ROUTE)
-            else -> DropDecision.Pass
-        }
-        return decision
-    }
-}
-
-private object RegularCreateFolderNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.regular.create-folder"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val homeItem = context.previewHomeItem
-        val occupant = context.occupantAtDrop
-        val decision = when {
-            homeItem == null || occupant == null -> DropDecision.Pass
-            occupant is HomeItem.FolderItem || occupant is HomeItem.WidgetItem -> DropDecision.Pass
-            else -> context.acceptDrop {
-                context.callbacks.onCreateFolder(homeItem, occupant, occupant.position)
-            }
-        }
-        return decision
-    }
-}
-
-private object RegularDropToEmptyNode : DropTargetNode<ExternalDropContext> {
-    override val id: String = "external.regular.empty"
-
-    override fun evaluate(context: ExternalDropContext): DropDecision {
-        val homeItem = context.previewHomeItem
-        val decision = when {
-            homeItem == null -> DropDecision.Pass
-            context.occupantAtDrop != null -> DropDecision.Pass
-            else -> context.acceptDrop {
-                context.callbacks.onItemDroppedToHome(homeItem, context.dropPosition)
-            }
-        }
-        return decision
-    }
-}
-
-private inline fun ExternalDropContext.acceptDrop(onAccept: () -> Unit): DropDecision {
-    onAccept()
-    callbacks.onConfirmDrop()
-    return DropDecision.Accepted
-}
-
-private fun ExternalDropContext.evaluateWidgetDrop(
-    widgetItem: ExternalDragItem.Widget
-): DropDecision {
+private fun resolveWidgetDrop(
+    item: ExternalDragItem.Widget,
+    dropPosition: GridPosition,
+    items: List<HomeItem>,
+    gridColumns: Int,
+    maxVisibleRows: Int,
+    widgetHostManager: WidgetHostManager?,
+    reorderEngine: GridReorderEngine,
+    reorderMode: ReorderMode
+): ExternalDropResolution {
     val normalizedSpan = normalizeWidgetSpanForHomeGrid(
-        rawSpan = widgetItem.span,
+        rawSpan = item.span,
         gridColumns = gridColumns
+    )
+    val clampedDropPosition = clampWidgetDropPosition(
+        dropPosition = dropPosition,
+        normalizedSpan = normalizedSpan,
+        gridColumns = gridColumns,
+        maxVisibleRows = maxVisibleRows
     )
     val reorderPlan = reorderEngine.compute(
         ReorderInput(
             items = items,
-            preferredCell = clampedWidgetDrop(normalizedSpan),
+            preferredCell = clampedDropPosition,
             draggedSpan = normalizedSpan,
             gridColumns = gridColumns,
             gridRows = maxVisibleRows,
-            mode = ReorderMode.Commit
+            mode = reorderMode
         )
     )
-    val resolvedProviderInfo = resolveWidgetProvider(widgetItem)
-    val decision = when {
-        !reorderPlan.isValid ->
-            DropDecision.Rejected(RejectReason.OCCUPIED_TARGET)
-        resolvedProviderInfo == null ->
-            DropDecision.Rejected(RejectReason.PAYLOAD_UNSUPPORTED)
-        else -> acceptDrop {
+    val resolvedTarget = if (reorderPlan.isValid) reorderPlan.anchorCell else clampedDropPosition
+    val resolvedProvider = item.providerInfo
+        ?: widgetHostManager?.findInstalledProvider(item.providerComponent)
+
+    return when {
+        !reorderPlan.isValid -> rejectedExternalDrop(
+            reason = RejectReason.OCCUPIED_TARGET,
+            targetPosition = resolvedTarget,
+            dragSpan = normalizedSpan
+        )
+        resolvedProvider == null -> rejectedExternalDrop(
+            reason = RejectReason.PAYLOAD_UNSUPPORTED,
+            targetPosition = resolvedTarget,
+            dragSpan = normalizedSpan
+        )
+        else -> acceptedExternalDrop(
+            targetPosition = resolvedTarget,
+            dragSpan = normalizedSpan,
+            highlightKind = ExternalDropHighlightKind.Primary
+        ) { callbacks ->
             callbacks.onWidgetDroppedToHome(
-                resolvedProviderInfo,
+                resolvedProvider,
                 normalizedSpan,
                 reorderPlan.anchorCell
             )
         }
     }
-    return decision
 }
 
-private fun ExternalDropContext.clampedWidgetDrop(normalizedSpan: GridSpan): GridPosition {
+private fun acceptedExternalDrop(
+    targetPosition: GridPosition,
+    dragSpan: GridSpan = GridSpan.SINGLE,
+    highlightKind: ExternalDropHighlightKind,
+    commitAction: (ExternalDropRoutingCallbacks) -> Unit
+): ExternalDropResolution {
+    return ExternalDropResolution(
+        decision = DropDecision.Accepted,
+        previewState = ExternalDropPreviewState(
+            targetPosition = targetPosition,
+            dragSpan = dragSpan,
+            highlightKind = highlightKind
+        ),
+        commitAction = commitAction
+    )
+}
+
+private fun rejectedExternalDrop(
+    reason: RejectReason,
+    targetPosition: GridPosition,
+    dragSpan: GridSpan = GridSpan.SINGLE
+): ExternalDropResolution {
+    return ExternalDropResolution(
+        decision = DropDecision.Rejected(reason),
+        previewState = ExternalDropPreviewState(
+            targetPosition = targetPosition,
+            dragSpan = dragSpan,
+            highlightKind = ExternalDropHighlightKind.Error
+        )
+    )
+}
+
+private fun clampWidgetDropPosition(
+    dropPosition: GridPosition,
+    normalizedSpan: GridSpan,
+    gridColumns: Int,
+    maxVisibleRows: Int
+): GridPosition {
     return GridPosition(
         row = dropPosition.row.coerceIn(
             minimumValue = 0,
@@ -342,11 +362,4 @@ private fun ExternalDropContext.clampedWidgetDrop(normalizedSpan: GridSpan): Gri
             maximumValue = (gridColumns - normalizedSpan.columns).coerceAtLeast(0)
         )
     )
-}
-
-private fun ExternalDropContext.resolveWidgetProvider(
-    widgetItem: ExternalDragItem.Widget
-): AppWidgetProviderInfo? {
-    return widgetItem.providerInfo
-        ?: widgetHostManager?.findInstalledProvider(widgetItem.providerComponent)
 }

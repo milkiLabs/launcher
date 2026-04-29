@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
+import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -50,6 +51,7 @@ internal fun DropHighlightLayer(
     cellWidthPx: Float,
     cellHeightPx: Float,
     maxVisibleRows: Int,
+    widgetHostManager: WidgetHostManager?,
     dragTargetOccupant: HomeItem?,
     resolvedInternalPreviewPosition: GridPosition?,
     externalDragState: HomeSurfaceExternalDragState
@@ -139,43 +141,41 @@ internal fun DropHighlightLayer(
     if (externalDragState.isActive) {
         externalDragState.targetPosition?.let { targetPosition ->
             val currentExternalItem = externalDragState.item
-            val rawDragSpan = (currentExternalItem as? ExternalDragItem.Widget)?.span ?: GridSpan.SINGLE
-            val dragSpan = normalizeWidgetSpanForHomeGrid(rawSpan = rawDragSpan, gridColumns = config.columns)
+            resolveExternalDropPreviewState(
+                item = currentExternalItem,
+                targetPosition = targetPosition,
+                items = items,
+                gridColumns = config.columns,
+                maxVisibleRows = maxVisibleRows,
+                widgetHostManager = widgetHostManager
+            )?.let { previewState ->
+                val highlightColor = when (previewState.highlightKind) {
+                    ExternalDropHighlightKind.Primary -> MaterialTheme.colorScheme.primary
+                    ExternalDropHighlightKind.Secondary -> MaterialTheme.colorScheme.secondary
+                    ExternalDropHighlightKind.Error -> Color(0xFFFF5252)
+                }
+                val highlightScale = if (currentExternalItem is ExternalDragItem.Widget) 1f else config.dropHighlightScale
 
-            val clampedTarget = GridPosition(
-                row = targetPosition.row.coerceIn(0, (maxVisibleRows - dragSpan.rows).coerceAtLeast(0)),
-                column = targetPosition.column.coerceIn(0, (config.columns - dragSpan.columns).coerceAtLeast(0))
-            )
+                DropTargetHighlightBox(
+                    column = previewState.targetPosition.column,
+                    row = previewState.targetPosition.row,
+                    cellWidthPx = cellWidthPx,
+                    cellHeightPx = cellHeightPx,
+                    spanColumns = previewState.dragSpan.columns,
+                    spanRows = previewState.dragSpan.rows,
+                    highlightColor = highlightColor,
+                    highlightScale = highlightScale,
+                    zIndex = config.dragZIndex
+                ) {
+                    val previewItem = currentExternalItem?.toPreviewHomeItem()
+                    val widgetSpan = if (currentExternalItem is ExternalDragItem.Widget) previewState.dragSpan else null
 
-            val spanCells = dragSpan.occupiedPositions(clampedTarget)
-            val hasCollision = items.any { existingItem ->
-                val existingSpan = (existingItem as? HomeItem.WidgetItem)?.span ?: GridSpan.SINGLE
-                val existingCells = existingSpan.occupiedPositions(existingItem.position)
-                existingCells.any { it in spanCells }
-            }
-
-            val highlightColor = if (hasCollision) Color(0xFFFF5252) else MaterialTheme.colorScheme.primary
-            val highlightScale = if (currentExternalItem is ExternalDragItem.Widget) 1f else config.dropHighlightScale
-
-            DropTargetHighlightBox(
-                column = clampedTarget.column,
-                row = clampedTarget.row,
-                cellWidthPx = cellWidthPx,
-                cellHeightPx = cellHeightPx,
-                spanColumns = dragSpan.columns,
-                spanRows = dragSpan.rows,
-                highlightColor = highlightColor,
-                highlightScale = highlightScale,
-                zIndex = config.dragZIndex
-            ) {
-                val previewItem = currentExternalItem?.toPreviewHomeItem()
-                val widgetSpan = if (currentExternalItem is ExternalDragItem.Widget) dragSpan else null
-
-                DropPreviewContent(
-                    item = previewItem,
-                    highlightAlpha = config.dropHighlightAlpha,
-                    widgetSpan = widgetSpan
-                )
+                    DropPreviewContent(
+                        item = previewItem,
+                        highlightAlpha = config.dropHighlightAlpha,
+                        widgetSpan = widgetSpan
+                    )
+                }
             }
         }
     }

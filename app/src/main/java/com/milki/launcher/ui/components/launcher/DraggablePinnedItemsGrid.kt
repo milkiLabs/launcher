@@ -180,6 +180,7 @@ fun DraggablePinnedItemsGrid(
             cellWidthPx = cellWidthPx,
             cellHeightPx = cellHeightPx,
             maxVisibleRows = maxVisibleRows,
+            widgetHostManager = widgetHostManager,
             dragTargetOccupant = dragTargetOccupant,
             resolvedInternalPreviewPosition = resolvedInternalPreviewPosition,
             externalDragState = interactionController.externalDragState
