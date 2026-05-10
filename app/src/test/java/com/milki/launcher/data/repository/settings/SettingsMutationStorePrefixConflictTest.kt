@@ -21,7 +21,7 @@ class SettingsMutationStorePrefixConflictTest {
         val result = store.addProviderPrefix(
             preferences = preferences,
             providerId = ProviderId.CONTACTS,
-            prefix = "g",
+            prefix = "k",
             defaultPrefix = "c"
         )
 
@@ -138,7 +138,7 @@ class SettingsMutationStorePrefixConflictTest {
         val result = store.setProviderPrefixes(
             preferences = preferences,
             providerId = ProviderId.FILES,
-            prefixes = listOf("g")
+            prefixes = listOf("k")
         )
 
         assertEquals(

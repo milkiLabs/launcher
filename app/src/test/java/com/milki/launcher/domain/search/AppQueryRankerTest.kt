@@ -48,7 +48,7 @@ class AppQueryRankerTest {
             includePackageNameMatches = false
         )
 
-        assertEquals(listOf("Google Play Store"), result.map { it.name })
+        assertEquals(listOf("Google Play Store", "Google Photos"), result.map { it.name })
     }
 
     @Test

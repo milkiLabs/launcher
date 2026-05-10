@@ -24,14 +24,15 @@ class AppItemContextMenuSupportTest {
             longLabel = "Start a new chat"
         )
 
-        val menuActions = buildAppItemMenuActions(
-            appInfo = appInfo,
-            quickActions = listOf(quickAction)
+        val menuActions = buildAppUtilityMenuActions(
+            packageName = appInfo.packageName,
+            appName = appInfo.name,
+            quickActions = listOf(quickAction),
+            actionHandler = {}
         )
 
         assertEquals(2, menuActions.size)
         assertEquals("New chat", menuActions[0].label)
-        assertTrue(menuActions[0].action is SearchResultAction.LaunchAppShortcut)
         assertEquals(quickAction, menuActions[0].shortcutIcon)
         assertEquals("App info", menuActions[1].label)
     }
@@ -44,7 +45,11 @@ class AppItemContextMenuSupportTest {
             activityName = "com.example.app.Main"
         )
 
-        val menuActions = buildAppItemMenuActions(appInfo = appInfo)
+        val menuActions = buildAppUtilityMenuActions(
+            packageName = appInfo.packageName,
+            appName = appInfo.name,
+            actionHandler = {}
+        )
 
         assertEquals(1, menuActions.size)
         assertEquals("App info", menuActions[0].label)

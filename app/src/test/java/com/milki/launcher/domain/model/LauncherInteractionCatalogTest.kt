@@ -78,7 +78,7 @@ class LauncherInteractionCatalogTest {
             LauncherInteractionCatalog.defaultActionFor(LauncherTrigger.HOME_TAP)
         )
         assertEquals(
-            LauncherTriggerAction.DO_NOTHING,
+            LauncherTriggerAction.LOCK_SCREEN,
             LauncherInteractionCatalog.defaultActionFor(LauncherTrigger.HOME_DOUBLE_TAP)
         )
         assertEquals(

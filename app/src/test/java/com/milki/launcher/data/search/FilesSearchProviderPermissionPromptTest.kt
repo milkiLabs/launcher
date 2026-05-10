@@ -5,6 +5,8 @@ import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.repository.SearchRequest
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -36,5 +38,11 @@ class FilesSearchProviderPermissionPromptTest {
         override suspend fun searchFiles(query: String, maxItems: Int): List<FileDocument> = emptyList()
 
         override suspend fun getRecentFiles(limit: Int): List<FileDocument> = emptyList()
+
+        override suspend fun saveRecentFile(fileId: Long): Unit {}
+
+        override fun getRecentFileIds(): Flow<List<Long>> = flowOf(emptyList())
+
+        override suspend fun getFilesByIds(ids: List<Long>): Map<Long, FileDocument> = emptyMap()
     }
 }
