@@ -25,6 +25,7 @@ fun openPinnedItem(
         is HomeItem.PinnedFile -> openPinnedFile(item, context)
         is HomeItem.PinnedContact -> openPinnedContact(item, context)
         is HomeItem.AppShortcut -> openAppShortcut(item, context, onUnavailableItem)
+        is HomeItem.ActionShortcut -> openActionShortcut(item, context)
         // Folder taps are handled upstream by opening the folder overlay.
         is HomeItem.FolderItem -> Unit
         // Widgets handle their own clicks through RemoteViews PendingIntents.
@@ -87,5 +88,18 @@ private fun openAppShortcut(
     if (!launchAppShortcut(context, item)) {
         onUnavailableItem(item.id)
         Toast.makeText(context, "App not found: ${item.shortLabel}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openActionShortcut(item: HomeItem.ActionShortcut, context: Context) {
+    val openIntent = Intent(Intent.ACTION_VIEW, Uri.parse(item.destinationUri)).apply {
+        item.packageName?.let(::setPackage)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    try {
+        context.startActivity(openIntent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "Cannot open ${item.label}", Toast.LENGTH_SHORT).show()
     }
 }

@@ -14,6 +14,7 @@ package com.milki.launcher.ui.screens.settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,28 +22,34 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -53,8 +60,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
@@ -71,6 +80,7 @@ import com.milki.launcher.domain.model.targetForTrigger
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.getAppQuickActions
+import com.milki.launcher.ui.components.launcher.PinnedItemView
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.DropdownSettingItem
 import com.milki.launcher.ui.components.settings.PrefixSettingItem
@@ -78,6 +88,9 @@ import com.milki.launcher.ui.components.settings.SettingsCategory
 import com.milki.launcher.ui.components.settings.SourceEditorDialog
 import com.milki.launcher.ui.components.settings.SourceSettingItem
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
+import com.milki.launcher.ui.interaction.dragdrop.startExternalActionShortcutDrag
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -103,6 +116,7 @@ fun SettingsScreen(
     var showAddSourceDialog by remember { mutableStateOf(false) }
     var sourceIdPendingDelete by remember { mutableStateOf<String?>(null) }
     var appPickerTrigger by remember { mutableStateOf<LauncherTrigger?>(null) }
+    var showActionShortcutCreator by remember { mutableStateOf(false) }
 
     appPickerTrigger?.let { trigger ->
         TriggerAppPickerScreen(
@@ -114,6 +128,15 @@ fun SettingsScreen(
                 actions.homeScreen.onSetTriggerOpenAppTarget(trigger, target)
                 appPickerTrigger = null
             }
+        )
+        return
+    }
+
+    if (showActionShortcutCreator) {
+        ActionShortcutCreatorScreen(
+            installedApps = installedApps,
+            onBack = { showActionShortcutCreator = false },
+            onExternalDragStarted = actions.onShortcutExternalDragStarted
         )
         return
     }
@@ -154,9 +177,8 @@ fun SettingsScreen(
             HomeScreenSection(
                 settings = settings,
                 actions = actions.homeScreen,
-                onSelectOpenAppAction = { trigger ->
-                    appPickerTrigger = trigger
-                }
+                onSelectOpenAppAction = { trigger -> appPickerTrigger = trigger },
+                onCreateActionShortcut = { showActionShortcutCreator = true }
             )
 
             CustomSourcesSection(
@@ -342,9 +364,17 @@ private fun SkippedImportCategory.toDisplayTitle(): String {
 private fun HomeScreenSection(
     settings: LauncherSettings,
     actions: SettingsHomeScreenActions,
-    onSelectOpenAppAction: (LauncherTrigger) -> Unit
+    onSelectOpenAppAction: (LauncherTrigger) -> Unit,
+    onCreateActionShortcut: () -> Unit
 ) {
     SettingsCategory(title = "Home Screen")
+
+    ActionSettingItem(
+        title = "Create action shortcut",
+        subtitle = "Build a draggable shortcut for a URL, deep link, chat, profile, or app destination",
+        onClick = onCreateActionShortcut,
+        icon = Icons.Default.Link
+    )
 
     LauncherInteractionCatalog.configurableTriggers.forEach { trigger ->
         val action = settings.actionForTrigger(trigger)
@@ -367,6 +397,437 @@ private fun HomeScreenSection(
                 }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActionShortcutCreatorScreen(
+    installedApps: List<AppInfo>,
+    onBack: () -> Unit,
+    onExternalDragStarted: () -> Unit
+) {
+    BackHandler(onBack = onBack)
+
+    var label by remember { mutableStateOf("") }
+    var destination by remember { mutableStateOf("") }
+    var selectedApp by remember { mutableStateOf<AppInfo?>(null) }
+    var createdShortcut by remember { mutableStateOf<HomeItem.ActionShortcut?>(null) }
+    var choosingApp by remember { mutableStateOf(false) }
+    val validationMessage = remember(destination) { validateActionShortcutDestination(destination) }
+
+    if (choosingApp) {
+        ActionShortcutAppPickerScreen(
+            installedApps = installedApps,
+            selectedPackageName = selectedApp?.packageName,
+            onBack = { choosingApp = false },
+            onAppSelected = { app ->
+                selectedApp = app
+                choosingApp = false
+            },
+            onClearApp = {
+                selectedApp = null
+                choosingApp = false
+            }
+        )
+        return
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Create shortcut",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.mediumLarge),
+            verticalArrangement = Arrangement.spacedBy(Spacing.medium)
+        ) {
+            Spacer(modifier = Modifier.height(Spacing.small))
+
+            TextField(
+                value = label,
+                onValueChange = {
+                    label = it
+                    createdShortcut = null
+                },
+                label = { Text("Shortcut name") },
+                placeholder = { Text("WhatsApp chat, Facebook profile, website") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            TextField(
+                value = destination,
+                onValueChange = {
+                    destination = it
+                    createdShortcut = null
+                },
+                label = { Text("Destination URI") },
+                placeholder = { Text("https://example.com or whatsapp://send?phone=...") },
+                isError = validationMessage != null,
+                supportingText = {
+                    Text(validationMessage ?: "Any Android deep link or web URL can be used.")
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            ActionShortcutPresetRow(
+                onPresetSelected = { preset ->
+                    label = preset.label
+                    destination = preset.destination
+                    createdShortcut = null
+                }
+            )
+
+            ActionShortcutAppSelector(
+                selectedApp = selectedApp,
+                onChooseApp = { choosingApp = true },
+                onClearApp = {
+                    selectedApp = null
+                    createdShortcut = null
+                }
+            )
+
+            Button(
+                onClick = {
+                    val app = selectedApp
+                    createdShortcut = HomeItem.ActionShortcut.create(
+                        label = label,
+                        destinationUri = normalizeActionShortcutDestination(destination),
+                        packageName = app?.packageName,
+                        packageLabel = app?.name
+                    )
+                },
+                enabled = validationMessage == null && destination.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Create preview")
+            }
+
+            createdShortcut?.let { shortcut ->
+                ActionShortcutDragPreview(
+                    shortcut = shortcut,
+                    onExternalDragStarted = onExternalDragStarted
+                )
+            }
+
+            Spacer(modifier = Modifier.height(Spacing.extraLarge))
+        }
+    }
+}
+
+@Composable
+private fun ActionShortcutPresetRow(
+    onPresetSelected: (ActionShortcutPreset) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+        Text(
+            text = "Templates",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+            ActionShortcutPreset.Defaults.forEach { preset ->
+                OutlinedButton(
+                    onClick = { onPresetSelected(preset) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(preset.label)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionShortcutAppSelector(
+    selectedApp: AppInfo?,
+    onChooseApp: () -> Unit,
+    onClearApp: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selectedApp != null) {
+                AppIcon(
+                    packageName = selectedApp.packageName,
+                    size = IconSize.appList
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Apps,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(IconSize.appList)
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = Spacing.medium)
+            ) {
+                Text(
+                    text = selectedApp?.name ?: "Open with any matching app",
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = selectedApp?.packageName
+                        ?: "Choose an app only when the destination should be forced there.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            TextButton(onClick = onChooseApp) {
+                Text("Choose")
+            }
+            if (selectedApp != null) {
+                TextButton(onClick = onClearApp) {
+                    Text("Clear")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionShortcutDragPreview(
+    shortcut: HomeItem.ActionShortcut,
+    onExternalDragStarted: () -> Unit
+) {
+    val hostView = LocalView.current
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+    ) {
+        Row(
+            modifier = Modifier.padding(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .detectDragGesture(
+                        key = shortcut.id,
+                        dragThreshold = GridConfig.Default.dragThresholdPx,
+                        onTap = {},
+                        onLongPress = {},
+                        onLongPressRelease = {},
+                        onDragStart = {
+                            val started = startExternalActionShortcutDrag(
+                                hostView = hostView,
+                                shortcut = shortcut,
+                                dragShadowSize = IconSize.appGrid
+                            )
+                            if (started) {
+                                hostView.post(onExternalDragStarted)
+                            }
+                        },
+                        onDrag = { change, _ -> change.consume() },
+                        onDragEnd = {},
+                        onDragCancel = {}
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                PinnedItemView(item = shortcut, compactLayout = false)
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = Spacing.medium)
+            ) {
+                Text(
+                    text = "Drag the icon to the home screen",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = shortcut.destinationUri,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActionShortcutAppPickerScreen(
+    installedApps: List<AppInfo>,
+    selectedPackageName: String?,
+    onBack: () -> Unit,
+    onAppSelected: (AppInfo) -> Unit,
+    onClearApp: () -> Unit
+) {
+    BackHandler(onBack = onBack)
+
+    var query by remember { mutableStateOf("") }
+    val filteredApps = remember(installedApps, query) {
+        val normalizedQuery = query.trim().lowercase()
+        if (normalizedQuery.isBlank()) {
+            installedApps
+        } else {
+            installedApps.filter { app ->
+                app.nameLower.contains(normalizedQuery) ||
+                    app.packageLower.contains(normalizedQuery)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Choose app", fontWeight = FontWeight.SemiBold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = Spacing.mediumLarge)
+        ) {
+            UnifiedSearchInputField(
+                query = query,
+                onQueryChange = { query = it },
+                placeholderText = "Search apps",
+                onClear = { query = "" },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = Spacing.medium)
+            )
+
+            ActionShortcutAnyAppRow(
+                selected = selectedPackageName == null,
+                onClick = onClearApp
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+            ) {
+                items(
+                    items = filteredApps,
+                    key = { app -> "${app.packageName}/${app.activityName}" }
+                ) { app ->
+                    TriggerTargetRow(
+                        title = app.name,
+                        subtitle = app.packageName,
+                        selected = app.packageName == selectedPackageName,
+                        leadingContent = {
+                            AppIcon(
+                                packageName = app.packageName,
+                                size = IconSize.appList
+                            )
+                        },
+                        onClick = { onAppSelected(app) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionShortcutAnyAppRow(
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    TriggerTargetRow(
+        title = "Any matching app",
+        subtitle = "Let Android choose the right app for this destination",
+        selected = selected,
+        leadingContent = {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(IconSize.appList)
+            )
+        },
+        onClick = onClick
+    )
+}
+
+private data class ActionShortcutPreset(
+    val label: String,
+    val destination: String
+) {
+    companion object {
+        val Defaults = listOf(
+            ActionShortcutPreset("Web URL", "https://example.com"),
+            ActionShortcutPreset("WhatsApp", "whatsapp://send?phone=15551234567"),
+            ActionShortcutPreset("Facebook", "fb://profile/100000000000000")
+        )
+    }
+}
+
+private fun validateActionShortcutDestination(value: String): String? {
+    if (value.isBlank()) return null
+    val normalized = normalizeActionShortcutDestination(value)
+    return when {
+        !normalized.contains(":") -> "Destination must be a URL or Android URI with a scheme."
+        normalized.substringBefore(":").isBlank() -> "Destination scheme cannot be empty."
+        else -> null
+    }
+}
+
+private fun normalizeActionShortcutDestination(value: String): String {
+    val trimmed = value.trim()
+    return if (trimmed.contains("://") || trimmed.startsWith("tel:") || trimmed.startsWith("mailto:")) {
+        trimmed
+    } else if (trimmed.contains(".")) {
+        "https://$trimmed"
+    } else {
+        trimmed
     }
 }
 

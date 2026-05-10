@@ -108,6 +108,7 @@ class SettingsActivity : ComponentActivity() {
             val settingsActions = remember(settingsViewModel) {
                 SettingsActions(
                     onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings,
+                    onShortcutExternalDragStarted = ::finish,
                     homeScreen = SettingsHomeScreenActions(
                         onSetTriggerAction = settingsViewModel::setTriggerAction,
                         onSetTriggerOpenAppTarget = settingsViewModel::setTriggerOpenAppTarget

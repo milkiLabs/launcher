@@ -170,6 +170,7 @@ class LauncherBackupRepositoryImpl(
             is HomeItem.PinnedApp -> sanitizePinnedApp(item, context)
             is HomeItem.PinnedFile -> sanitizePinnedFile(item, context)
             is HomeItem.AppShortcut -> sanitizeAppShortcut(item, context)
+            is HomeItem.ActionShortcut -> sanitizeActionShortcut(item, context)
             is HomeItem.WidgetItem -> sanitizeWidget(
                 item = item,
                 context = context
@@ -192,6 +193,21 @@ class LauncherBackupRepositoryImpl(
             context.skip(
                 category = SkippedImportCategory.APP,
                 message = "Missing app component for ${item.label} (${item.packageName})"
+            )
+            return null
+        }
+        return item
+    }
+
+    private fun sanitizeActionShortcut(
+        item: HomeItem.ActionShortcut,
+        context: ImportContext
+    ): HomeItem.ActionShortcut? {
+        val packageName = item.packageName ?: return item
+        if (packageName !in context.validPackages) {
+            context.skip(
+                category = SkippedImportCategory.SHORTCUT,
+                message = "Missing action shortcut package $packageName"
             )
             return null
         }

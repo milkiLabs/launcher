@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -200,6 +201,7 @@ private fun getItemLabel(item: HomeItem): String {
         is HomeItem.PinnedFile -> item.name
         is HomeItem.PinnedContact -> item.displayName
         is HomeItem.AppShortcut -> item.shortLabel.ifBlank { item.longLabel }
+        is HomeItem.ActionShortcut -> item.label
         // Folder name is set by the user (defaults to "Folder").
         is HomeItem.FolderItem -> item.name
         // Widget label comes from the provider metadata.
@@ -249,6 +251,13 @@ private fun PinnedItemIcon(
                 modifier = modifier
             )
         }
+        is HomeItem.ActionShortcut -> {
+            ActionShortcutIcon(
+                shortcut = item,
+                size = size,
+                modifier = modifier
+            )
+        }
         is HomeItem.FolderItem -> {
             // PinnedItemIcon should never be called for FolderItem because
             // PinnedItemContent short-circuits to FolderIcon before reaching
@@ -265,6 +274,43 @@ private fun PinnedItemIcon(
                 size = size,
                 modifier = modifier
             )
+        }
+    }
+}
+
+@Composable
+private fun ActionShortcutIcon(
+    shortcut: HomeItem.ActionShortcut,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    val packageName = shortcut.packageName
+    if (packageName != null) {
+        AppIcon(
+            packageName = packageName,
+            size = size,
+            modifier = modifier
+        )
+        return
+    }
+
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier.size(size),
+            shape = RoundedCornerShape(CornerRadius.medium),
+            color = MaterialTheme.colorScheme.tertiaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.Link,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(IconSize.appList)
+                )
+            }
         }
     }
 }

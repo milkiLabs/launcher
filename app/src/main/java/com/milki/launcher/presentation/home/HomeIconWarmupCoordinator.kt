@@ -71,6 +71,7 @@ internal class HomeIconWarmupCoordinator(
                     packageNames += item.packageName
                     shortcuts += item
                 }
+                is HomeItem.ActionShortcut -> item.packageName?.let { packageNames += it }
                 is HomeItem.WidgetItem -> packageNames += item.providerPackage
                 is HomeItem.FolderItem -> item.children.forEach(::visit)
                 is HomeItem.PinnedContact,

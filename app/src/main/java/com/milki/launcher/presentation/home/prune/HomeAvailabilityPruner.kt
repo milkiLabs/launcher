@@ -186,6 +186,13 @@ internal class HomeAvailabilityPruner(
                     }
                 }
 
+                is HomeItem.ActionShortcut -> {
+                    val packageName = item.packageName
+                    if (packageName != null && packageName !in validPackages) {
+                        unavailableIds += item.id
+                    }
+                }
+
                 is HomeItem.WidgetItem -> {
                     if (item.providerPackage !in validPackages) {
                         unavailableIds += item.id

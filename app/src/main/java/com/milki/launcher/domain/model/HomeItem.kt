@@ -14,6 +14,7 @@
  * 2. PinnedFile - File (PDF, image, etc.) for quick opening
  * 3. PinnedContact - Contact shortcut for quick dial/open
  * 4. AppShortcut - System shortcut from another app (e.g., WhatsApp chat)
+ * 5. ActionShortcut - User-created deep link/action destination
  *
  * SERIALIZATION:
  * Uses kotlinx.serialization with polymorphic serialization for the sealed class.
@@ -280,6 +281,50 @@ sealed class HomeItem {
                     shortcutId = info.id,
                     shortLabel = info.shortLabel?.toString() ?: "",
                     longLabel = info.longLabel?.toString() ?: info.shortLabel?.toString() ?: "",
+                    position = GridPosition.DEFAULT
+                )
+            }
+        }
+    }
+
+    /**
+     * A user-created universal action shortcut.
+     *
+     * This opens an arbitrary destination URI, optionally scoped to a package.
+     * Examples include app deep links such as whatsapp://send?phone=...,
+     * fb://profile/..., or regular https URLs.
+     */
+    @Serializable
+    @Immutable
+    data class ActionShortcut(
+        override val id: String,
+        val label: String,
+        val destinationUri: String,
+        val packageName: String? = null,
+        val packageLabel: String? = null,
+        override val position: GridPosition = GridPosition.DEFAULT
+    ) : HomeItem() {
+
+        override fun withPosition(newPosition: GridPosition): ActionShortcut {
+            return copy(position = newPosition)
+        }
+
+        companion object {
+            fun create(
+                label: String,
+                destinationUri: String,
+                packageName: String? = null,
+                packageLabel: String? = null
+            ): ActionShortcut {
+                val normalizedLabel = label.trim().ifBlank { "Shortcut" }
+                val normalizedUri = destinationUri.trim()
+                val scopedPackage = packageName?.takeIf { it.isNotBlank() }
+                return ActionShortcut(
+                    id = "action:${UUID.randomUUID()}",
+                    label = normalizedLabel,
+                    destinationUri = normalizedUri,
+                    packageName = scopedPackage,
+                    packageLabel = packageLabel?.takeIf { it.isNotBlank() },
                     position = GridPosition.DEFAULT
                 )
             }

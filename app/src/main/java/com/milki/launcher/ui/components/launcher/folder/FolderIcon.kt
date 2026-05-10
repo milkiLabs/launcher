@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -243,6 +244,9 @@ private fun FolderMiniIconSlot(
                 // Show a small person silhouette on a subtle background.
                 MiniContactIconSlot(miniIconSize = miniIconSize)
             }
+            is HomeItem.ActionShortcut -> {
+                MiniActionShortcutIconSlot(item = item, miniIconSize = miniIconSize)
+            }
             is HomeItem.FolderItem -> {
                 // Nested FolderItems should never appear as children (the nesting
                 // guard in the repository prevents this). But if somehow they do,
@@ -252,6 +256,37 @@ private fun FolderMiniIconSlot(
                 // Widgets cannot be placed inside folders, so this branch should
                 // never be reached. Present only for exhaustiveness.
             }
+        }
+    }
+}
+
+@Composable
+private fun MiniActionShortcutIconSlot(
+    item: HomeItem.ActionShortcut,
+    miniIconSize: Dp
+) {
+    val packageName = item.packageName
+    if (packageName != null) {
+        AppIcon(
+            packageName = packageName,
+            size = miniIconSize,
+            modifier = Modifier.size(miniIconSize)
+        )
+        return
+    }
+
+    Surface(
+        modifier = Modifier.size(miniIconSize),
+        shape = RoundedCornerShape(CornerRadius.extraSmall),
+        color = MaterialTheme.colorScheme.tertiaryContainer
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Default.Link,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(IconSize.extraSmall)
+            )
         }
     }
 }

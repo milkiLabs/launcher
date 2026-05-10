@@ -140,6 +140,7 @@ fun HomeItem.appInfoPackageNameOrNull(): String? {
     return when (this) {
         is HomeItem.PinnedApp -> packageName
         is HomeItem.AppShortcut -> packageName
+        is HomeItem.ActionShortcut -> packageName
         else -> null
     }
 }

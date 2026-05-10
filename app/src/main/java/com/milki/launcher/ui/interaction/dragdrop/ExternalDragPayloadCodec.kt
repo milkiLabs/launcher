@@ -52,6 +52,7 @@ object ExternalDragPayloadCodec {
         data class File(val fileDocument: FileDocument) : ExternalDragItem()
         data class Contact(val contact: com.milki.launcher.domain.model.Contact) : ExternalDragItem()
         data class Shortcut(val shortcut: HomeItem.AppShortcut) : ExternalDragItem()
+        data class ActionShortcut(val shortcut: HomeItem.ActionShortcut) : ExternalDragItem()
 
         /**
          * An item being dragged OUT of a folder popup onto the home screen.
@@ -145,6 +146,16 @@ object ExternalDragPayloadCodec {
         ) : ExternalPayloadDto()
 
         @Serializable
+        data class ActionShortcutPayload(
+            override val type: String = "actionShortcut",
+            val id: String,
+            val label: String,
+            val destinationUri: String,
+            val packageName: String? = null,
+            val packageLabel: String? = null
+        ) : ExternalPayloadDto()
+
+        @Serializable
         data class WidgetPayload(
             override val type: String = "widget",
             val providerPackage: String,
@@ -219,6 +230,7 @@ object ExternalDragPayloadCodec {
                 is ExternalDragItem.File -> encodeFilePayload(item.fileDocument)
                 is ExternalDragItem.Contact -> encodeContactPayload(item.contact)
                 is ExternalDragItem.Shortcut -> encodeShortcutPayload(item.shortcut)
+                is ExternalDragItem.ActionShortcut -> encodeActionShortcutPayload(item.shortcut)
                 is ExternalDragItem.FolderChild -> item.childItem.id
                 is ExternalDragItem.Widget -> encodeWidgetPayload(item)
             }
@@ -230,7 +242,8 @@ object ExternalDragPayloadCodec {
                 is AppInfo,
                 is FileDocument,
                 is Contact,
-                is HomeItem.AppShortcut -> true
+                is HomeItem.AppShortcut,
+                is HomeItem.ActionShortcut -> true
 
                 else -> false
             }
@@ -243,6 +256,7 @@ object ExternalDragPayloadCodec {
                 is FileDocument -> ExternalDragItem.File(localState)
                 is Contact -> ExternalDragItem.Contact(localState)
                 is HomeItem.AppShortcut -> ExternalDragItem.Shortcut(localState)
+                is HomeItem.ActionShortcut -> ExternalDragItem.ActionShortcut(localState)
                 else -> null
             }
         }
@@ -316,6 +330,18 @@ object ExternalDragPayloadCodec {
             )
         }
 
+        private fun encodeActionShortcutPayload(shortcut: HomeItem.ActionShortcut): String {
+            return json.encodeToString(
+                ExternalPayloadDto.ActionShortcutPayload(
+                    id = shortcut.id,
+                    label = shortcut.label,
+                    destinationUri = shortcut.destinationUri,
+                    packageName = shortcut.packageName,
+                    packageLabel = shortcut.packageLabel
+                )
+            )
+        }
+
         private fun encodeWidgetPayload(item: ExternalDragItem.Widget): String {
             return json.encodeToString(
                 ExternalPayloadDto.WidgetPayload(
@@ -363,6 +389,7 @@ object ExternalDragPayloadCodec {
                 "file" -> decodeFilePayload(rawText)
                 "contact" -> decodeContactPayload(rawText)
                 "shortcut" -> decodeShortcutPayload(rawText)
+                "actionShortcut" -> decodeActionShortcutPayload(rawText)
                 "widget" -> decodeWidgetPayload(rawText)
                 else -> null
             }
@@ -423,6 +450,22 @@ object ExternalDragPayloadCodec {
                     shortcutId = payload.shortcutId,
                     shortLabel = payload.shortLabel,
                     longLabel = payload.longLabel
+                )
+            )
+        }
+
+        private fun decodeActionShortcutPayload(rawText: String): ExternalDragItem.ActionShortcut {
+            val payload = json.decodeFromString(
+                ExternalPayloadDto.ActionShortcutPayload.serializer(),
+                rawText
+            )
+            return ExternalDragItem.ActionShortcut(
+                HomeItem.ActionShortcut(
+                    id = payload.id,
+                    label = payload.label,
+                    destinationUri = payload.destinationUri,
+                    packageName = payload.packageName,
+                    packageLabel = payload.packageLabel
                 )
             )
         }

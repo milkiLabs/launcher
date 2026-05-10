@@ -226,6 +226,42 @@ fun startExternalShortcutDrag(
 }
 
 /**
+ * Starts an external drag for a user-created action shortcut.
+ */
+fun startExternalActionShortcutDrag(
+    hostView: View,
+    shortcut: HomeItem.ActionShortcut,
+    dragShadowSize: Dp = IconSize.appList
+): Boolean {
+    val dragItem = ExternalDragItem.ActionShortcut(shortcut)
+    ExternalDragItemCache.currentItem = dragItem
+
+    val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
+    val density = dragHostView.context.resources.displayMetrics.density
+    val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
+    val iconDrawable = shortcut.packageName
+        ?.let { AppIconMemoryCache.get(it) }
+        ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_compass)
+    val clipData = AppExternalDragDropPayload.createClipData(dragItem)
+    val dragShadowBuilder = if (iconDrawable != null) {
+        AppIconDragShadowBuilder(
+            iconDrawable = iconDrawable,
+            shadowSizePx = shadowSizePx
+        )
+    } else {
+        View.DragShadowBuilder(hostView)
+    }
+
+    return startExternalDragWithFallbackHosts(
+        hostView = hostView,
+        clipData = clipData,
+        localState = dragItem,
+        dragShadowBuilder = dragShadowBuilder,
+        failureLogLabel = "action:${shortcut.destinationUri}"
+    )
+}
+
+/**
  * Starts an external drag for an item being pulled OUT of a folder popup.
  *
  * WHY THIS FUNCTION EXISTS:
@@ -302,6 +338,11 @@ fun startExternalFolderItemDrag(
         is com.milki.launcher.domain.model.HomeItem.AppShortcut -> {
             // Generic app icon for shortcuts.
             ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
+        }
+        is com.milki.launcher.domain.model.HomeItem.ActionShortcut -> {
+            item.packageName
+                ?.let { AppIconMemoryCache.get(it) }
+                ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_compass)
         }
         else -> {
             // FolderItem (shouldn't be dragged out of itself) and any future types:

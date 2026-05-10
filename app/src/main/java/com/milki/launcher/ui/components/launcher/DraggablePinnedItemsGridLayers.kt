@@ -293,6 +293,7 @@ internal fun InternalGridDragLayer(
                                 appName = when (item) {
                                     is HomeItem.PinnedApp -> item.label
                                     is HomeItem.AppShortcut -> item.shortLabel.ifBlank { item.longLabel }
+                                    is HomeItem.ActionShortcut -> item.label
                                     else -> null
                                 },
                                 expanded = interactionController.menuShownForItemId == item.id,

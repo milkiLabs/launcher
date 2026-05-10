@@ -54,4 +54,19 @@ class DraggablePinnedItemsGridLookupTest {
 
         assertEquals(shortcut, preview)
     }
+
+    @Test
+    fun toPreviewHomeItem_mapsActionShortcutPayloadToActionShortcut() {
+        val shortcut = HomeItem.ActionShortcut(
+            id = "action:123",
+            label = "Profile",
+            destinationUri = "fb://profile/100000000000000",
+            packageName = "com.facebook.katana",
+            packageLabel = "Facebook"
+        )
+
+        val preview = ExternalDragItem.ActionShortcut(shortcut).toPreviewHomeItem()
+
+        assertEquals(shortcut, preview)
+    }
 }

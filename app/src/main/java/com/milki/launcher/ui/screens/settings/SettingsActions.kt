@@ -77,6 +77,7 @@ data class SettingsAdvancedActions(
  */
 data class SettingsActions(
     val onOpenDefaultLauncherSettings: () -> Unit,
+    val onShortcutExternalDragStarted: () -> Unit,
     val homeScreen: SettingsHomeScreenActions,
     val customSources: SettingsCustomSourceActions,
     val localPrefixes: SettingsLocalPrefixActions,
