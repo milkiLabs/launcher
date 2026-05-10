@@ -124,6 +124,18 @@ class UrlHandlerResolver(
         return handler.takeUnless { isBrowserPackage(it.packageName) }
     }
 
+    fun resolvePreferredUrlHandler(url: String): UrlHandlerApp? {
+        val nonBrowserHandler = resolveNonBrowserUrlHandler(url)
+        if (nonBrowserHandler != null) return nonBrowserHandler
+
+        val scheme = Uri.parse(url).scheme?.lowercase()
+        return if (scheme == "http" || scheme == "https") {
+            resolveDefaultBrowser()
+        } else {
+            resolveUrlHandler(url)
+        }
+    }
+
     /**
      * Gets all apps that can handle a URL (not just the default).
      *

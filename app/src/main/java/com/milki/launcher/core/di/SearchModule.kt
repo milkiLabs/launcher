@@ -47,7 +47,6 @@ import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderRegistry
-import com.milki.launcher.domain.search.UrlHandlerResolver
 import com.milki.launcher.presentation.search.SearchViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -170,20 +169,6 @@ val searchModule = module {
      */
     single {
         FilterAppsUseCase()
-    }
-
-    /**
-     * UrlHandlerResolver - Determines which installed apps can handle a given URL.
-     *
-     * Used to show "Open in Chrome / Open in YouTube" suggestions when the
-     * user types or pastes a URL in the search bar.
-     *
-     * SINGLETON: Yes — uses PackageManager which is always available.
-     *
-     * DEPENDENCY: Android Context (for PackageManager lookups)
-     */
-    single {
-        UrlHandlerResolver(get())
     }
 
     /**

@@ -25,15 +25,19 @@ import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
+import com.milki.launcher.domain.model.UrlHandlerApp
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
+import com.milki.launcher.domain.search.UrlHandlerResolver
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for the settings screen.
@@ -43,7 +47,8 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     appRepository: AppRepository,
-    private val launcherBackupRepository: LauncherBackupRepository
+    private val launcherBackupRepository: LauncherBackupRepository,
+    private val urlHandlerResolver: UrlHandlerResolver
 ) : ViewModel() {
 
     companion object {
@@ -123,6 +128,18 @@ class SettingsViewModel(
     ) {
         viewModelScope.launch {
             settingsRepository.setTriggerOpenAppTarget(trigger, target)
+        }
+    }
+
+    fun resolveUrlHandler(
+        url: String,
+        onResolved: (UrlHandlerApp?) -> Unit
+    ) {
+        viewModelScope.launch {
+            val handler = withContext(Dispatchers.Default) {
+                urlHandlerResolver.resolvePreferredUrlHandler(url)
+            }
+            onResolved(handler)
         }
     }
 

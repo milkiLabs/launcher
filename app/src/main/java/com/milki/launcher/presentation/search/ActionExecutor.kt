@@ -38,6 +38,7 @@ import com.milki.launcher.presentation.home.HomeMutationHandler
 import com.milki.launcher.core.intent.openFile
 import com.milki.launcher.core.intent.launchApp
 import com.milki.launcher.core.intent.launchAppShortcut
+import com.milki.launcher.core.intent.openUrlDestination
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -206,36 +207,24 @@ class ActionExecutor(
     }
 
     private fun openUrl(result: UrlSearchResult) {
-        result.handlerApp?.let { handler ->
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(result.url)).apply {
-                `package` = handler.packageName
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        openUrlDestination(
+            context = context,
+            url = result.url,
+            preferredPackageName = result.handlerApp?.packageName,
+            onFailure = {
+                Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
             }
-            try {
-                context.startActivity(intent)
-            } catch (e: ActivityNotFoundException) {
-                Log.w(TAG, "No matching activity for handler app URL intent", e)
-                openUrlInBrowser(result.url)
-            } catch (e: SecurityException) {
-                Log.w(TAG, "Security exception while opening URL in handler app", e)
-                openUrlInBrowser(result.url)
-            }
-        } ?: openUrlInBrowser(result.url)
+        )
     }
 
     private fun openUrlInBrowser(url: String) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No browser app available for URL", e)
-            Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while opening browser URL", e)
-            Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
-        }
+        openUrlDestination(
+            context = context,
+            url = url,
+            onFailure = {
+                Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 
     private fun openUrlInExternalBrowser(url: String) {

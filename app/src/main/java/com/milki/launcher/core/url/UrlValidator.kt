@@ -51,6 +51,12 @@ data class UrlValidationResult(
     val displayUrl: String
 )
 
+data class UrlDestinationValidationResult(
+    val uri: String,
+    val displayText: String,
+    val isWebUrl: Boolean
+)
+
 /**
  * Utility object for URL validation and normalization.
  *
@@ -179,6 +185,27 @@ object UrlValidator {
         }
     }
 
+    fun validateUrlOrUri(input: String): UrlDestinationValidationResult? {
+        val webUrl = validateUrl(input)
+        if (webUrl != null) {
+            return UrlDestinationValidationResult(
+                uri = webUrl.url,
+                displayText = webUrl.displayUrl,
+                isWebUrl = true
+            )
+        }
+
+        val trimmed = input.trim()
+        if (trimmed.isEmpty() || trimmed.contains(" ")) return null
+        if (!hasExplicitScheme(trimmed)) return null
+
+        return UrlDestinationValidationResult(
+            uri = trimmed,
+            displayText = trimmed,
+            isWebUrl = false
+        )
+    }
+
     /**
      * Check if a string looks like it might be a URL.
      *
@@ -219,6 +246,12 @@ object UrlValidator {
         return input.startsWith(SCHEME_HTTP, ignoreCase = true) ||
                input.startsWith(SCHEME_HTTPS, ignoreCase = true) ||
                input.startsWith(PREFIX_WWW, ignoreCase = true)
+    }
+
+    private fun hasExplicitScheme(input: String): Boolean {
+        val schemeEnd = input.indexOf(':')
+        if (schemeEnd <= 0) return false
+        return input.take(schemeEnd).matches(Regex("^[a-zA-Z][a-zA-Z0-9+.-]*$"))
     }
 
     /**

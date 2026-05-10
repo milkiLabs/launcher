@@ -63,7 +63,8 @@ val settingsModule = module {
         SettingsViewModel(
             settingsRepository = get(),
             appRepository = get(),
-            launcherBackupRepository = get()
+            launcherBackupRepository = get(),
+            urlHandlerResolver = get()
         )
     }
 }

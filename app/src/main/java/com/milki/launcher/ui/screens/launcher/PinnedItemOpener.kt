@@ -8,6 +8,7 @@ import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.core.intent.launchAppShortcut
 import com.milki.launcher.core.intent.launchPinnedApp
 import com.milki.launcher.core.intent.openFile
+import com.milki.launcher.core.intent.openUrlDestination
 
 /**
  * Handles opening a pinned item from the launcher surface.
@@ -92,14 +93,12 @@ private fun openAppShortcut(
 }
 
 private fun openActionShortcut(item: HomeItem.ActionShortcut, context: Context) {
-    val openIntent = Intent(Intent.ACTION_VIEW, Uri.parse(item.destinationUri)).apply {
-        item.packageName?.let(::setPackage)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    try {
-        context.startActivity(openIntent)
-    } catch (_: Exception) {
+    val opened = openUrlDestination(
+        context = context,
+        url = item.destinationUri,
+        preferredPackageName = item.packageName
+    )
+    if (!opened) {
         Toast.makeText(context, "Cannot open ${item.label}", Toast.LENGTH_SHORT).show()
     }
 }

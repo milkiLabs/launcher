@@ -240,7 +240,12 @@ fun startExternalActionShortcutDrag(
     val density = dragHostView.context.resources.displayMetrics.density
     val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
     val iconDrawable = shortcut.packageName
-        ?.let { AppIconMemoryCache.get(it) }
+        ?.let { packageName ->
+            AppIconMemoryCache.getOrLoad(
+                packageName = packageName,
+                packageManager = hostView.context.packageManager
+            )
+        }
         ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_compass)
     val clipData = AppExternalDragDropPayload.createClipData(dragItem)
     val dragShadowBuilder = if (iconDrawable != null) {
@@ -341,7 +346,12 @@ fun startExternalFolderItemDrag(
         }
         is com.milki.launcher.domain.model.HomeItem.ActionShortcut -> {
             item.packageName
-                ?.let { AppIconMemoryCache.get(it) }
+                ?.let { packageName ->
+                    AppIconMemoryCache.getOrLoad(
+                        packageName = packageName,
+                        packageManager = hostView.context.packageManager
+                    )
+                }
                 ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_compass)
         }
         else -> {

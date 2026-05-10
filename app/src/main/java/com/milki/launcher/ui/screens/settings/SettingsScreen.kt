@@ -53,6 +53,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +65,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.milki.launcher.core.url.UrlValidator
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
@@ -73,6 +75,7 @@ import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchSource
+import com.milki.launcher.domain.model.UrlHandlerApp
 import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
 import com.milki.launcher.domain.model.backup.LauncherImportResult
@@ -136,6 +139,7 @@ fun SettingsScreen(
         ActionShortcutCreatorScreen(
             installedApps = installedApps,
             onBack = { showActionShortcutCreator = false },
+            onResolveUrlHandler = actions.onResolveUrlHandler,
             onExternalDragStarted = actions.onShortcutExternalDragStarted
         )
         return
@@ -405,6 +409,7 @@ private fun HomeScreenSection(
 private fun ActionShortcutCreatorScreen(
     installedApps: List<AppInfo>,
     onBack: () -> Unit,
+    onResolveUrlHandler: (String, (UrlHandlerApp?) -> Unit) -> Unit,
     onExternalDragStarted: () -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -414,7 +419,24 @@ private fun ActionShortcutCreatorScreen(
     var selectedApp by remember { mutableStateOf<AppInfo?>(null) }
     var createdShortcut by remember { mutableStateOf<HomeItem.ActionShortcut?>(null) }
     var choosingApp by remember { mutableStateOf(false) }
-    val validationMessage = remember(destination) { validateActionShortcutDestination(destination) }
+    var resolvedHandler by remember { mutableStateOf<UrlHandlerApp?>(null) }
+    val validationResult = remember(destination) { UrlValidator.validateUrlOrUri(destination) }
+    val validationMessage = remember(destination, validationResult) {
+        validateActionShortcutDestination(destination, validationResult)
+    }
+    val targetLabel = selectedApp?.name ?: resolvedHandler?.label
+    val targetPackage = selectedApp?.packageName ?: resolvedHandler?.packageName
+
+    LaunchedEffect(validationResult?.uri, selectedApp?.packageName) {
+        val uri = validationResult?.uri
+        if (uri == null || selectedApp != null) {
+            resolvedHandler = null
+            return@LaunchedEffect
+        }
+        onResolveUrlHandler(uri) { handler ->
+            resolvedHandler = handler
+        }
+    }
 
     if (choosingApp) {
         ActionShortcutAppPickerScreen(
@@ -516,16 +538,21 @@ private fun ActionShortcutCreatorScreen(
                     val app = selectedApp
                     createdShortcut = HomeItem.ActionShortcut.create(
                         label = label,
-                        destinationUri = normalizeActionShortcutDestination(destination),
-                        packageName = app?.packageName,
-                        packageLabel = app?.name
+                        destinationUri = validationResult?.uri.orEmpty(),
+                        packageName = app?.packageName ?: resolvedHandler?.packageName,
+                        packageLabel = app?.name ?: resolvedHandler?.label
                     )
                 },
-                enabled = validationMessage == null && destination.isNotBlank(),
+                enabled = validationMessage == null && validationResult != null,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Create preview")
             }
+
+            ActionShortcutResolvedTargetText(
+                targetLabel = targetLabel,
+                targetPackage = targetPackage
+            )
 
             createdShortcut?.let { shortcut ->
                 ActionShortcutDragPreview(
@@ -622,6 +649,21 @@ private fun ActionShortcutAppSelector(
             }
         }
     }
+}
+
+@Composable
+private fun ActionShortcutResolvedTargetText(
+    targetLabel: String?,
+    targetPackage: String?
+) {
+    if (targetLabel == null || targetPackage == null) return
+
+    Text(
+        text = "Icon and launch target: $targetLabel",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @Composable
@@ -810,25 +852,14 @@ private data class ActionShortcutPreset(
     }
 }
 
-private fun validateActionShortcutDestination(value: String): String? {
+private fun validateActionShortcutDestination(
+    value: String,
+    validationResult: com.milki.launcher.core.url.UrlDestinationValidationResult?
+): String? {
     if (value.isBlank()) return null
-    val normalized = normalizeActionShortcutDestination(value)
-    return when {
-        !normalized.contains(":") -> "Destination must be a URL or Android URI with a scheme."
-        normalized.substringBefore(":").isBlank() -> "Destination scheme cannot be empty."
-        else -> null
-    }
-}
-
-private fun normalizeActionShortcutDestination(value: String): String {
-    val trimmed = value.trim()
-    return if (trimmed.contains("://") || trimmed.startsWith("tel:") || trimmed.startsWith("mailto:")) {
-        trimmed
-    } else if (trimmed.contains(".")) {
-        "https://$trimmed"
-    } else {
-        trimmed
-    }
+    return if (validationResult == null) {
+        "Destination must be a web URL or Android URI with a scheme."
+    } else null
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

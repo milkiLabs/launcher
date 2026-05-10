@@ -46,6 +46,7 @@ import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.search.UrlHandlerResolver
 import org.koin.dsl.module
 
 /**
@@ -107,6 +108,10 @@ val coreModule = module {
      */
     single<SettingsRepository> {
         SettingsRepositoryImpl(get())
+    }
+
+    single {
+        UrlHandlerResolver(get())
     }
 
     /**
