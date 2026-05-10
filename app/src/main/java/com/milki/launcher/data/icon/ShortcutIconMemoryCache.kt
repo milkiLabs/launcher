@@ -30,6 +30,20 @@ object ShortcutIconMemoryCache {
         }
     }
 
+    fun invalidatePackage(packageName: String) {
+        synchronized(cacheLock) {
+            cache.snapshot().keys
+                .filter { key -> key.startsWith("$packageName/") }
+                .forEach(cache::remove)
+        }
+    }
+
+    fun clear() {
+        synchronized(cacheLock) {
+            cache.evictAll()
+        }
+    }
+
     fun getOrLoad(
         key: String,
         loader: () -> Drawable?

@@ -5,6 +5,7 @@ This directory is the source of truth for architecture, contributor workflow, an
 ## Start Here
 
 - [Architecture](Architecture.md): package layout, layer boundaries, and runtime flow.
+- [Caching](Caching.md): cache ownership, shared primitives, and invalidation rules.
 - [Conventions](Conventions.md): package placement rules, naming standards, and coding guardrails.
 - [Contributing](Contributing.md): contributor onboarding, daily workflow, testing expectations, and review checklist.
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.Build
 import android.os.Process
+import com.milki.launcher.data.cache.SnapshotCache
 import com.milki.launcher.domain.model.HomeItem
 
 /**
@@ -32,22 +33,11 @@ import com.milki.launcher.domain.model.HomeItem
 object AppContextDataCache {
 
     /**
-     * Snapshot of shortcuts keyed by package name.
-     * Replaced atomically on refresh; reads see a consistent snapshot.
-     */
-    @Volatile
-    private var shortcutsSnapshot: Map<String, List<HomeItem.AppShortcut>> = emptyMap()
-
-    /**
-     * Set of package names that have at least one widget provider.
-     */
-    @Volatile
-    private var widgetPackagesSnapshot: Set<String> = emptySet()
-
-    /**
      * Maximum number of shortcuts to retain per app.
      */
     private const val MAX_SHORTCUTS_PER_APP = 4
+
+    private val cache = SnapshotCache(AppContextDataSnapshot.Empty)
 
     // ── Synchronous reads ──────────────────────────────────────────────
 
@@ -56,7 +46,7 @@ object AppContextDataCache {
      * This is a synchronous read — no coroutines, no suspension.
      */
     fun getShortcuts(packageName: String): List<HomeItem.AppShortcut> {
-        return shortcutsSnapshot[packageName].orEmpty()
+        return cache.get().shortcutsByPackage[packageName].orEmpty()
     }
 
     /**
@@ -64,7 +54,7 @@ object AppContextDataCache {
      * This is a synchronous read — no coroutines, no suspension.
      */
     fun hasWidgets(packageName: String): Boolean {
-        return packageName in widgetPackagesSnapshot
+        return packageName in cache.get().widgetPackages
     }
 
     // ── Background population ──────────────────────────────────────────
@@ -76,12 +66,16 @@ object AppContextDataCache {
      * Called by AppRepositoryImpl whenever the installed apps list changes.
      */
     fun refreshAll(context: Context) {
-        val newShortcuts = loadAllShortcuts(context)
-        val newWidgetPackages = loadWidgetPackages(context)
+        cache.replace(
+            AppContextDataSnapshot(
+                shortcutsByPackage = loadAllShortcuts(context),
+                widgetPackages = loadWidgetPackages(context)
+            )
+        )
+    }
 
-        // Atomic snapshot replacement — readers see old or new, never partial.
-        shortcutsSnapshot = newShortcuts
-        widgetPackagesSnapshot = newWidgetPackages
+    fun clear() {
+        cache.clear()
     }
 
     // ── Internal loading ───────────────────────────────────────────────
@@ -125,5 +119,17 @@ object AppContextDataCache {
         val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
         return appWidgetManager.installedProviders
             .mapTo(mutableSetOf()) { it.provider.packageName }
+    }
+}
+
+private data class AppContextDataSnapshot(
+    val shortcutsByPackage: Map<String, List<HomeItem.AppShortcut>>,
+    val widgetPackages: Set<String>
+) {
+    companion object {
+        val Empty = AppContextDataSnapshot(
+            shortcutsByPackage = emptyMap(),
+            widgetPackages = emptySet()
+        )
     }
 }

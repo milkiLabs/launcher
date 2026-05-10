@@ -17,13 +17,13 @@ class PackageChangeMonitor(
     private val application: Application
 ) {
 
-    private val signal = MutableSharedFlow<Unit>(
+    private val packageSignal = MutableSharedFlow<PackageChangeEvent>(
         replay = 0,
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
-    val events: SharedFlow<Unit> = signal
+    val events: SharedFlow<PackageChangeEvent> = packageSignal
 
     init {
         registerReceiver()
@@ -32,7 +32,7 @@ class PackageChangeMonitor(
     private fun registerReceiver() {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                signal.tryEmit(Unit)
+                packageSignal.tryEmit(PackageChangeEvent.fromIntent(intent))
             }
         }
 
@@ -48,6 +48,25 @@ class PackageChangeMonitor(
             application.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             application.registerReceiver(receiver, filter)
+        }
+    }
+}
+
+data class PackageChangeEvent(
+    val packageName: String?,
+    val action: String?
+) {
+    val isInitialLoad: Boolean
+        get() = action == null
+
+    companion object {
+        val Initial = PackageChangeEvent(packageName = null, action = null)
+
+        fun fromIntent(intent: Intent): PackageChangeEvent {
+            return PackageChangeEvent(
+                packageName = intent.data?.schemeSpecificPart,
+                action = intent.action
+            )
         }
     }
 }

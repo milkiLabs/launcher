@@ -4,10 +4,13 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
+import com.milki.launcher.data.contextmenu.AppContextDataCache
+import com.milki.launcher.data.icon.AppIconMemoryCache
+import com.milki.launcher.data.icon.ShortcutIconMemoryCache
 import com.milki.launcher.data.repository.apps.InstalledAppsCatalog
+import com.milki.launcher.data.repository.apps.PackageChangeEvent
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.apps.RecentAppsStore
-import com.milki.launcher.data.contextmenu.AppContextDataCache
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
 import kotlinx.coroutines.CoroutineScope
@@ -52,7 +55,7 @@ class AppRepositoryImpl(
     )
 
     private val refreshTriggers = packageChangeMonitor.events
-        .onStart { emit(Unit) }
+        .onStart { emit(PackageChangeEvent.Initial) }
         .shareIn(
             scope = repositoryScope,
             started = SharingStarted.Eagerly,
@@ -65,8 +68,8 @@ class AppRepositoryImpl(
             // during cold start. The app catalog is only needed when the
             // drawer or search first opens — the home screen doesn't need it.
             kotlinx.coroutines.yield()
-            refreshTriggers.collectLatest {
-                refreshInstalledAppsSnapshot()
+            refreshTriggers.collectLatest { event ->
+                refreshInstalledAppsSnapshot(event)
             }
         }
     }
@@ -129,10 +132,26 @@ class AppRepositoryImpl(
         )
     }
 
-    private suspend fun refreshInstalledAppsSnapshot() {
+    private suspend fun refreshInstalledAppsSnapshot(event: PackageChangeEvent) {
+        invalidatePackageScopedCaches(event)
         val latestApps = installedAppsCatalog.loadInstalledApps()
         installedAppsSnapshot.value = latestApps
         recentAppsStore.pruneUnavailable(latestApps)
         AppContextDataCache.refreshAll(application)
+    }
+
+    private fun invalidatePackageScopedCaches(event: PackageChangeEvent) {
+        if (event.isInitialLoad) return
+
+        val packageName = event.packageName
+        if (packageName == null) {
+            AppIconMemoryCache.clear()
+            ShortcutIconMemoryCache.clear()
+            AppContextDataCache.clear()
+            return
+        }
+
+        AppIconMemoryCache.invalidatePackage(packageName)
+        ShortcutIconMemoryCache.invalidatePackage(packageName)
     }
 }

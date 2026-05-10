@@ -165,6 +165,20 @@ object AppIconMemoryCache {
         }
     }
 
+    fun invalidatePackage(packageName: String) {
+        synchronized(cacheLock) {
+            generalIconStateCache.remove(packageName)
+            homePriorityIconStateCache.remove(packageName)
+        }
+    }
+
+    fun clear() {
+        synchronized(cacheLock) {
+            generalIconStateCache.evictAll()
+            homePriorityIconStateCache.evictAll()
+        }
+    }
+
     /**
      * Loads icon from PackageManager and stores it in cache.
      *
