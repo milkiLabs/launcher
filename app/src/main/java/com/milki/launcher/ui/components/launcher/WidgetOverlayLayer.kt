@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -252,36 +253,16 @@ private fun WidgetResizeOverlay(
                     if (isPopupWidget) {
                         Modifier
                     } else {
-                        Modifier.pointerInput(widgetItem.id) {
-                            var accumulatedDragX = 0f
-                            var accumulatedDragY = 0f
-                            var gestureStartFrame = draftFrame
-
-                            detectDragGestures(
-                                onDragStart = {
-                                    accumulatedDragX = 0f
-                                    accumulatedDragY = 0f
-                                    gestureStartFrame = draftFrame
-                                },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    accumulatedDragX += dragAmount.x
-                                    accumulatedDragY += dragAmount.y
-                                    updateDraft(
-                                        applyWidgetTransformHandle(
-                                            startFrame = gestureStartFrame,
-                                            handle = WidgetTransformHandle.Body,
-                                            columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
-                                            rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
-                                            maxColumns = gridColumns,
-                                            maxRows = maxVisibleRows
-                                        )
-                                    )
-                                },
-                                onDragEnd = { settleDraftAfterGesture() },
-                                onDragCancel = { settleDraftAfterGesture() }
-                            )
-                        }
+                        Modifier.widgetTransformDrag(
+                            handle = WidgetTransformHandle.Body,
+                            cellWidthPx = cellWidthPx,
+                            cellHeightPx = cellHeightPx,
+                            gridColumns = gridColumns,
+                            maxVisibleRows = maxVisibleRows,
+                            draftFrame = draftFrame,
+                            updateDraft = ::updateDraft,
+                            settleDraftAfterGesture = ::settleDraftAfterGesture
+                        )
                     }
                 ),
             contentAlignment = Alignment.Center
@@ -336,32 +317,12 @@ private fun BoxScope.WidgetTransformBorderHandleNode(
     updateDraft: (WidgetFrame) -> Unit,
     settleDraftAfterGesture: () -> Unit
 ) {
-    val latestDraftFrame by rememberUpdatedState(draftFrame)
-    val latestUpdateDraft by rememberUpdatedState(updateDraft)
-    val latestSettleDraftAfterGesture by rememberUpdatedState(settleDraftAfterGesture)
-
     Box(
         modifier = Modifier
             .align(alignment)
             .offset(
-                x = when (alignment) {
-                    Alignment.TopStart, Alignment.CenterStart, Alignment.BottomStart ->
-                        -(WidgetResizeBorderHitTarget / 2)
-
-                    Alignment.TopEnd, Alignment.CenterEnd, Alignment.BottomEnd ->
-                        WidgetResizeBorderHitTarget / 2
-
-                    else -> 0.dp
-                },
-                y = when (alignment) {
-                    Alignment.TopStart, Alignment.TopCenter, Alignment.TopEnd ->
-                        -(WidgetResizeBorderHitTarget / 2)
-
-                    Alignment.BottomStart, Alignment.BottomCenter, Alignment.BottomEnd ->
-                        WidgetResizeBorderHitTarget / 2
-
-                    else -> 0.dp
-                }
+                x = alignment.horizontalHandleOffset(WidgetResizeBorderHitTarget / 2),
+                y = alignment.verticalHandleOffset(WidgetResizeBorderHitTarget / 2)
             )
             .then(
                 when (alignment) {
@@ -376,37 +337,17 @@ private fun BoxScope.WidgetTransformBorderHandleNode(
                     else -> Modifier.size(WidgetResizeBorderHitTarget)
                 }
             )
-            .zIndex(52.5f)
-            .pointerInput(handle, cellWidthPx, cellHeightPx, gridColumns, maxVisibleRows) {
-                var accumulatedDragX = 0f
-                var accumulatedDragY = 0f
-                var gestureStartFrame = latestDraftFrame
-
-                detectDragGestures(
-                    onDragStart = {
-                        accumulatedDragX = 0f
-                        accumulatedDragY = 0f
-                        gestureStartFrame = latestDraftFrame
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        accumulatedDragX += dragAmount.x
-                        accumulatedDragY += dragAmount.y
-                        latestUpdateDraft(
-                            applyWidgetTransformHandle(
-                                startFrame = gestureStartFrame,
-                                handle = handle,
-                                columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
-                                rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
-                                maxColumns = gridColumns,
-                                maxRows = maxVisibleRows
-                            )
-                        )
-                    },
-                    onDragEnd = { latestSettleDraftAfterGesture() },
-                    onDragCancel = { latestSettleDraftAfterGesture() }
-                )
-            }
+            .zIndex(if (handle.isCorner) 52.6f else 52.5f)
+            .widgetTransformDrag(
+                handle = handle,
+                cellWidthPx = cellWidthPx,
+                cellHeightPx = cellHeightPx,
+                gridColumns = gridColumns,
+                maxVisibleRows = maxVisibleRows,
+                draftFrame = draftFrame,
+                updateDraft = updateDraft,
+                settleDraftAfterGesture = settleDraftAfterGesture
+            )
     )
 }
 
@@ -423,24 +364,12 @@ private fun BoxScope.WidgetTransformHandleNode(
     updateDraft: (WidgetFrame) -> Unit,
     settleDraftAfterGesture: () -> Unit
 ) {
-    val latestDraftFrame by rememberUpdatedState(draftFrame)
-    val latestUpdateDraft by rememberUpdatedState(updateDraft)
-    val latestSettleDraftAfterGesture by rememberUpdatedState(settleDraftAfterGesture)
-
     Box(
         modifier = Modifier
             .align(alignment)
             .offset(
-                x = when (alignment) {
-                    Alignment.TopStart, Alignment.CenterStart, Alignment.BottomStart -> -Spacing.smallMedium
-                    Alignment.TopEnd, Alignment.CenterEnd, Alignment.BottomEnd -> Spacing.smallMedium
-                    else -> Spacing.none
-                },
-                y = when (alignment) {
-                    Alignment.TopStart, Alignment.TopCenter, Alignment.TopEnd -> -Spacing.smallMedium
-                    Alignment.BottomStart, Alignment.BottomCenter, Alignment.BottomEnd -> Spacing.smallMedium
-                    else -> Spacing.none
-                }
+                x = alignment.horizontalHandleOffset(Spacing.smallMedium),
+                y = alignment.verticalHandleOffset(Spacing.smallMedium)
             )
             .size(IconSize.standard)
             .background(
@@ -453,35 +382,77 @@ private fun BoxScope.WidgetTransformHandleNode(
                 shape = CircleShape
             )
             .zIndex(53f)
-            .pointerInput(handle, cellWidthPx, cellHeightPx, gridColumns, maxVisibleRows) {
-                var accumulatedDragX = 0f
-                var accumulatedDragY = 0f
-                var gestureStartFrame = latestDraftFrame
-
-                detectDragGestures(
-                    onDragStart = {
-                        accumulatedDragX = 0f
-                        accumulatedDragY = 0f
-                        gestureStartFrame = latestDraftFrame
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        accumulatedDragX += dragAmount.x
-                        accumulatedDragY += dragAmount.y
-                        latestUpdateDraft(
-                            applyWidgetTransformHandle(
-                                startFrame = gestureStartFrame,
-                                handle = handle,
-                                columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
-                                rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
-                                maxColumns = gridColumns,
-                                maxRows = maxVisibleRows
-                            )
-                        )
-                    },
-                    onDragEnd = { latestSettleDraftAfterGesture() },
-                    onDragCancel = { latestSettleDraftAfterGesture() }
-                )
-            }
+            .widgetTransformDrag(
+                handle = handle,
+                cellWidthPx = cellWidthPx,
+                cellHeightPx = cellHeightPx,
+                gridColumns = gridColumns,
+                maxVisibleRows = maxVisibleRows,
+                draftFrame = draftFrame,
+                updateDraft = updateDraft,
+                settleDraftAfterGesture = settleDraftAfterGesture
+            )
     )
 }
+
+@Composable
+private fun Modifier.widgetTransformDrag(
+    handle: WidgetTransformHandle,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    gridColumns: Int,
+    maxVisibleRows: Int,
+    draftFrame: WidgetFrame,
+    updateDraft: (WidgetFrame) -> Unit,
+    settleDraftAfterGesture: () -> Unit
+): Modifier {
+    val latestDraftFrame by rememberUpdatedState(draftFrame)
+    val latestUpdateDraft by rememberUpdatedState(updateDraft)
+    val latestSettleDraftAfterGesture by rememberUpdatedState(settleDraftAfterGesture)
+
+    return pointerInput(handle, cellWidthPx, cellHeightPx, gridColumns, maxVisibleRows) {
+        var accumulatedDragX = 0f
+        var accumulatedDragY = 0f
+        var gestureStartFrame = latestDraftFrame
+
+        detectDragGestures(
+            onDragStart = {
+                accumulatedDragX = 0f
+                accumulatedDragY = 0f
+                gestureStartFrame = latestDraftFrame
+            },
+            onDrag = { change, dragAmount ->
+                change.consume()
+                accumulatedDragX += dragAmount.x
+                accumulatedDragY += dragAmount.y
+                latestUpdateDraft(
+                    applyWidgetTransformHandle(
+                        startFrame = gestureStartFrame,
+                        handle = handle,
+                        columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
+                        rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
+                        maxColumns = gridColumns,
+                        maxRows = maxVisibleRows
+                    )
+                )
+            },
+            onDragEnd = { latestSettleDraftAfterGesture() },
+            onDragCancel = { latestSettleDraftAfterGesture() }
+        )
+    }
+}
+
+private fun Alignment.horizontalHandleOffset(distance: Dp): Dp = when (this) {
+    Alignment.TopStart, Alignment.CenterStart, Alignment.BottomStart -> -distance
+    Alignment.TopEnd, Alignment.CenterEnd, Alignment.BottomEnd -> distance
+    else -> 0.dp
+}
+
+private fun Alignment.verticalHandleOffset(distance: Dp): Dp = when (this) {
+    Alignment.TopStart, Alignment.TopCenter, Alignment.TopEnd -> -distance
+    Alignment.BottomStart, Alignment.BottomCenter, Alignment.BottomEnd -> distance
+    else -> 0.dp
+}
+
+private val WidgetTransformHandle.isCorner: Boolean
+    get() = horizontalDirection != 0 && verticalDirection != 0
