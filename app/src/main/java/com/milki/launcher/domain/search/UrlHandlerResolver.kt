@@ -113,6 +113,18 @@ class UrlHandlerResolver(
     }
 
     /**
+     * Resolves the URL handler only when Android would open a non-browser app.
+     *
+     * Generic web URLs often resolve to the user's default browser. The search
+     * UI already exposes an explicit browser action, so returning browsers here
+     * would duplicate that option as "Open in <Default Browser>".
+     */
+    fun resolveNonBrowserUrlHandler(url: String): UrlHandlerApp? {
+        val handler = resolveUrlHandler(url) ?: return null
+        return handler.takeUnless { isBrowserPackage(it.packageName) }
+    }
+
+    /**
      * Gets all apps that can handle a URL (not just the default).
      *
      * This is useful for showing the user all their options,
@@ -173,8 +185,7 @@ class UrlHandlerResolver(
      * @return true if a specific app (not browser) will handle this URL
      */
     fun isDeepLink(url: String): Boolean {
-        val handler = resolveUrlHandler(url) ?: return false
-        return !isBrowserPackage(handler.packageName)
+        return resolveNonBrowserUrlHandler(url) != null
     }
 
     /**

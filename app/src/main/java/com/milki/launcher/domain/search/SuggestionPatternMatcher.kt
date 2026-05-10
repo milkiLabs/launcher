@@ -13,7 +13,7 @@ internal object SuggestionPatternMatcher {
         urlHandlerResolver: UrlHandlerResolver
     ): UrlSearchResult? {
         val validationResult = UrlValidator.validateUrl(rawText) ?: return null
-        val handlerApp = urlHandlerResolver.resolveUrlHandler(validationResult.url)
+        val handlerApp = urlHandlerResolver.resolveNonBrowserUrlHandler(validationResult.url)
 
         return UrlSearchResult(
             url = validationResult.url,

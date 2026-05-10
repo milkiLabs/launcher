@@ -201,7 +201,7 @@ data class UrlHandlerApp(
  *
  * @property url The complete URL to open (normalized with https:// if needed)
  * @property displayUrl The URL as shown to the user (may be truncated for display)
- * @property handlerApp The app that will open the URL (null = browser fallback)
+ * @property handlerApp The non-browser app that will open the URL (null = browser fallback)
  * @property browserFallback Always true - browser is always an option
  */
 data class UrlSearchResult(
