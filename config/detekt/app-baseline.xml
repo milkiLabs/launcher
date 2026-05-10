@@ -1,0 +1,122 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:LauncherSheet.kt:&lt;no name provided&gt;$source == NestedScrollSource.UserInput &amp;&amp; dismissDragSession.value == DismissDragSession.Undecided &amp;&amp; available.y &gt; 0f &amp;&amp; abs(consumed.y) == 0f</ID>
+    <ID>ComplexCondition:LauncherSheet.kt:&lt;no name provided&gt;$source == NestedScrollSource.UserInput &amp;&amp; dismissDragSession.value == DismissDragSession.Undecided &amp;&amp; state.expandedFraction == 1f &amp;&amp; abs(consumed.y) &gt; 0f</ID>
+    <ID>CyclomaticComplexMethod:AppDrawerOverlay.kt:@Composable fun AppDrawerOverlay</ID>
+    <ID>CyclomaticComplexMethod:DraggablePinnedItemsGridLayers.kt:@Composable internal fun InternalGridDragLayer</ID>
+    <ID>CyclomaticComplexMethod:DropHighlightLayer.kt:@Composable internal fun DropHighlightLayer</ID>
+    <ID>CyclomaticComplexMethod:ExternalAppDragDropCoordinator.kt:DefaultExternalAppDragDropCoordinator$override fun createListener: View.OnDragListener</ID>
+    <ID>CyclomaticComplexMethod:FolderPopupDialog.kt:@Composable fun FolderPopupDialog</ID>
+    <ID>CyclomaticComplexMethod:HomeBackgroundGestureDetector.kt:private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome: BackgroundGestureOutcome?</ID>
+    <ID>CyclomaticComplexMethod:SettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen</ID>
+    <ID>LongMethod:AppDrawerOverlay.kt:@Composable fun AppDrawerOverlay</ID>
+    <ID>LongMethod:AppSearchDialog.kt:@Composable private fun SearchDialogBody</ID>
+    <ID>LongMethod:DraggablePinnedItemsGrid.kt:@Composable fun DraggablePinnedItemsGrid</ID>
+    <ID>LongMethod:DraggablePinnedItemsGridLayers.kt:@Composable internal fun InternalGridDragLayer</ID>
+    <ID>LongMethod:DropHighlightLayer.kt:@Composable internal fun DropHighlightLayer</ID>
+    <ID>LongMethod:FolderPopupDialog.kt:@Composable fun FolderPopupDialog</ID>
+    <ID>LongMethod:FolderPopupDialogSupport.kt:@Composable internal fun FolderGridPage</ID>
+    <ID>LongMethod:FolderPopupDialogSupport.kt:@Composable internal fun FolderNameHeader</ID>
+    <ID>LongMethod:FolderPopupDialogSupport.kt:@Composable private fun FolderPopupItem</ID>
+    <ID>LongMethod:FolderPopupDialogSupport.kt:FolderSurfaceMetrics.Companion$fun create: FolderSurfaceMetrics</ID>
+    <ID>LongMethod:ItemActionMenu.kt:@Composable @OptIn(ExperimentalFoundationApi::class) private fun ItemActionMenuBubble</ID>
+    <ID>LongMethod:LauncherRootContent.kt:@Composable internal fun LauncherRootContent</ID>
+    <ID>LongMethod:LauncherScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun LauncherScreen</ID>
+    <ID>LongMethod:SearchResultFileItem.kt:@Composable fun FileDocumentSearchResultItem</ID>
+    <ID>LongMethod:SearchResultsList.kt:@Composable private fun MixedResultsList</ID>
+    <ID>LongMethod:SettingsCardComponents.kt:@Composable fun &lt;T&gt; DropdownSettingItem</ID>
+    <ID>LongMethod:SettingsPrefixEditorComponents.kt:@Composable fun PrefixSettingItem</ID>
+    <ID>LongMethod:SettingsScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen</ID>
+    <ID>LongMethod:SettingsSourceEditorComponents.kt:@Composable fun SourceEditorDialog</ID>
+    <ID>LongMethod:SettingsSourceEditorComponents.kt:@Composable fun SourceSettingItem</ID>
+    <ID>LongMethod:WidgetOverlayLayer.kt:@Composable private fun BoxScope.WidgetTransformHandleNode</ID>
+    <ID>LongMethod:WidgetOverlayLayer.kt:@Composable private fun WidgetResizeOverlay</ID>
+    <ID>LongMethod:WidgetPickerBottomSheet.kt:@Composable fun WidgetPickerBottomSheet</ID>
+    <ID>LongMethod:WidgetPickerBottomSheet.kt:@Composable private fun AppGroupCard</ID>
+    <ID>LongMethod:WidgetPickerBottomSheet.kt:@Composable private fun WidgetCard</ID>
+    <ID>LongMethod:WidgetPickerBottomSheet.kt:@Composable private fun WidgetPreview</ID>
+    <ID>MagicNumber:AppDrawerOverlay.kt:0.75f</ID>
+    <ID>MagicNumber:AppDrawerOverlay.kt:4</ID>
+    <ID>MagicNumber:AppDrawerOverlay.kt:6</ID>
+    <ID>MagicNumber:AppIconMemoryCache.kt:AppIconMemoryCache$100.0</ID>
+    <ID>MagicNumber:ContactsRecentStorage.kt:ContactsRecentStorage$8</ID>
+    <ID>MagicNumber:DrawerListAssembler.kt:DrawerListAssembler$8</ID>
+    <ID>MagicNumber:DropHighlightLayer.kt:0xFFFF5252</ID>
+    <ID>MagicNumber:DropHighlightLayer.kt:1.05f</ID>
+    <ID>MagicNumber:FileDocument.kt:1024</ID>
+    <ID>MagicNumber:FileDocument.kt:1024.0</ID>
+    <ID>MagicNumber:FolderPopupDialog.kt:0.82f</ID>
+    <ID>MagicNumber:FolderPopupDialogSupport.kt:0.45f</ID>
+    <ID>MagicNumber:FolderPopupDialogSupport.kt:0.5f</ID>
+    <ID>MagicNumber:ItemActionMenu.kt:0xFF2F323A</ID>
+    <ID>MagicNumber:ItemActionMenu.kt:0xFFFFB4AB</ID>
+    <ID>MagicNumber:ItemActionMenu.kt:45f</ID>
+    <ID>MagicNumber:LauncherSheet.kt:LauncherSheetState$0.5f</ID>
+    <ID>MagicNumber:LauncherSheet.kt:LauncherSheetState$1000f</ID>
+    <ID>MagicNumber:SearchResultsList.kt:4</ID>
+    <ID>MagicNumber:SettingsCardComponents.kt:180f</ID>
+    <ID>MagicNumber:SettingsSourceEditorComponents.kt:16</ID>
+    <ID>MagicNumber:SettingsSourceEditorComponents.kt:3</ID>
+    <ID>MagicNumber:SettingsSourceEditorComponents.kt:5</ID>
+    <ID>MagicNumber:SettingsSourceEditorComponents.kt:7</ID>
+    <ID>MagicNumber:SettingsViewModel.kt:SettingsViewModel$3</ID>
+    <ID>MagicNumber:ShortcutIcon.kt:0.12f</ID>
+    <ID>MagicNumber:ShortcutIcon.kt:0.34f</ID>
+    <ID>MagicNumber:WidgetOverlayLayer.kt:0xFFFF6B6B</ID>
+    <ID>MagicNumber:WidgetOverlayLayer.kt:50f</ID>
+    <ID>MagicNumber:WidgetOverlayLayer.kt:51f</ID>
+    <ID>MagicNumber:WidgetOverlayLayer.kt:52f</ID>
+    <ID>MagicNumber:WidgetOverlayLayer.kt:53f</ID>
+    <ID>MaxLineLength:AppExternalDragDrop.kt:&lt;no name provided&gt;$override</ID>
+    <ID>MaxLineLength:DraggablePinnedItemsGrid.kt:onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -&gt; Unit = { _, _, _, _ -&gt; }</ID>
+    <ID>MaxLineLength:DraggablePinnedItemsGrid.kt:onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -&gt; Unit = { _, _, _ -&gt; }</ID>
+    <ID>MaxLineLength:DraggablePinnedItemsGridLayers.kt:key = "${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}"</ID>
+    <ID>MaxLineLength:DraggablePinnedItemsGridLayers.kt:key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.widgetTransformSession?.widgetId ?: "none"}-${backgroundGesturePolicy.canSwipeUp}-${backgroundGesturePolicy.canSwipeDown}"</ID>
+    <ID>MaxLineLength:ExternalDropRoutingLayer.kt:onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -&gt; Unit</ID>
+    <ID>MaxLineLength:ExternalDropRoutingLayer.kt:onWidgetDroppedToHome: (providerInfo: android.appwidget.AppWidgetProviderInfo, span: GridSpan, dropPosition: GridPosition) -&gt; Unit</ID>
+    <ID>MaxLineLength:SearchResultContactItem.kt:val</ID>
+    <ID>MaxLineLength:SettingsSourceEditorComponents.kt:!SearchSource.isValidUrlTemplate(normalizedTemplate) -&gt; errorText = "URL template must start with http/https and include {query}"</ID>
+    <ID>ReturnCount:AppExternalDragDrop.kt:private fun startExternalDragWithFallbackHosts: Boolean</ID>
+    <ID>ReturnCount:AppLauncher.kt:fun launchApp: Boolean</ID>
+    <ID>ReturnCount:AppLauncher.kt:fun launchAppShortcut: Boolean</ID>
+    <ID>ReturnCount:AppLauncher.kt:fun queryAppQuickShortcuts: List&lt;HomeItem.AppShortcut&gt;</ID>
+    <ID>ReturnCount:ClipboardSuggestionResolver.kt:ClipboardSuggestionResolver$fun resolveFromClipboard: ClipboardSuggestion?</ID>
+    <ID>ReturnCount:ClipboardSuggestionResolver.kt:ClipboardSuggestionResolver$private fun resolveFromText: ClipboardSuggestion?</ID>
+    <ID>ReturnCount:Contact.kt:fun Contact.matchesQuery: Boolean</ID>
+    <ID>ReturnCount:ContactsMappingLayer.kt:ContactsMappingLayer$fun getOrCreateAggregate: MutableContactAggregate?</ID>
+    <ID>ReturnCount:ContactsSearchProvider.kt:ContactsSearchProvider$override suspend fun search: List&lt;SearchResult&gt;</ID>
+    <ID>ReturnCount:ExternalDragCoordinateMapper.kt:ExternalDragCoordinateMapper$fun toLocalOffset: Offset</ID>
+    <ID>ReturnCount:FileFilterConfig.kt:FileFilterConfig$fun shouldIncludeFile: Boolean</ID>
+    <ID>ReturnCount:FilesSearchProvider.kt:FilesSearchProvider$override suspend fun search: List&lt;SearchResult&gt;</ID>
+    <ID>ReturnCount:HomeBackgroundGestureDetector.kt:private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome: BackgroundGestureOutcome?</ID>
+    <ID>ReturnCount:HomeGridOccupancyPolicy.kt:HomeGridOccupancyPolicy$fun isSpanFree: Boolean</ID>
+    <ID>ReturnCount:HomeItemSerializer.kt:HomeItemSerializer$fun readFrom: List&lt;HomeItem&gt;</ID>
+    <ID>ReturnCount:HomeViewModel.kt:HomeViewModel$private fun resolvePostBindCommand: WidgetPlacementCommand</ID>
+    <ID>ReturnCount:InternalHomeDropDispatcher.kt:AddToFolderNode$override fun evaluate: DropDecision</ID>
+    <ID>ReturnCount:InternalHomeDropDispatcher.kt:CreateFolderNode$override fun evaluate: DropDecision</ID>
+    <ID>ReturnCount:InternalHomeDropDispatcher.kt:FolderMergeNode$override fun evaluate: DropDecision</ID>
+    <ID>ReturnCount:LauncherBackupRepositoryImpl.kt:LauncherBackupRepositoryImpl$private fun sanitizeWidget: HomeItem.WidgetItem?</ID>
+    <ID>ReturnCount:OccupancySnapshot.kt:OccupancySnapshot$fun isSpanFree: Boolean</ID>
+    <ID>ReturnCount:PermissionOrchestrator.kt:PermissionOrchestrationReducer$fun onPermissionRequested: PermissionOrchestrationTransition</ID>
+    <ID>ReturnCount:PermissionOrchestrator.kt:PermissionOrchestrationReducer$fun onPermissionResult: PermissionOrchestrationTransition</ID>
+    <ID>ReturnCount:PinShortcutRequestCoordinator.kt:PinShortcutRequestCoordinator$fun handleIntent: Boolean</ID>
+    <ID>ReturnCount:PinnedFileAvailability.kt:PinnedFileAvailability$fun isAvailable: Boolean</ID>
+    <ID>ReturnCount:QuerySuggestionResolver.kt:QuerySuggestionResolver$private fun resolveFromText: QuerySuggestion</ID>
+    <ID>ReturnCount:SearchSource.kt:SearchSource.Companion$fun isValidUrlTemplate: Boolean</ID>
+    <ID>ReturnCount:SettingsActivity.kt:SettingsActivity$private fun launchHomeRoleRequestIfNeeded: Boolean</ID>
+    <ID>ReturnCount:SettingsSearchSourceStorageCodec.kt:internal fun parseSearchSources: List&lt;SearchSource&gt;</ID>
+    <ID>ReturnCount:SettingsSearchSourceStorageCodec.kt:internal fun serializePrefixConfigurations: String</ID>
+    <ID>ReturnCount:SettingsViewModel.kt:SettingsViewModel$private fun LauncherImportResult.toUiMessage: String</ID>
+    <ID>ReturnCount:ShortcutIconLoader.kt:ShortcutIconLoader$private fun load: Drawable?</ID>
+    <ID>ReturnCount:ShortcutIconMemoryCache.kt:ShortcutIconMemoryCache$fun getOrLoad: Drawable?</ID>
+    <ID>ReturnCount:WidgetPlacementCoordinator.kt:WidgetPlacementCoordinator$fun onActivityResult: Boolean</ID>
+    <ID>SwallowedException:AppIconMemoryCache.kt:AppIconMemoryCache$exception: PackageManager.NameNotFoundException</ID>
+    <ID>TooGenericExceptionCaught:DragGestureDetector.kt:e: Exception</ID>
+    <ID>TooManyFunctions:ActionExecutor.kt:ActionExecutor</ID>
+    <ID>TooManyFunctions:HomeViewModel.kt:HomeViewModel : ViewModelHomeMutationHandler</ID>
+    <ID>TooManyFunctions:SettingsRepository.kt:SettingsRepository</ID>
+    <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
+  </CurrentIssues>
+</SmellBaseline>

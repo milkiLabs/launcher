@@ -1,0 +1,171 @@
+Starting a Gradle Daemon, 1 busy Daemon could not be reused, use --status for details
+Calculating task graph as no cached configuration is available for tasks: :app:importBaselineProfileFromConnectedTest
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preBenchmarkBuild UP-TO-DATE
+> Task :app:checkBenchmarkDuplicateClasses UP-TO-DATE
+> Task :app:generateBenchmarkResources UP-TO-DATE
+> Task :app:packageBenchmarkResources UP-TO-DATE
+> Task :app:processBenchmarkNavigationResources UP-TO-DATE
+> Task :app:parseBenchmarkLocalResources UP-TO-DATE
+> Task :app:generateBenchmarkRFile UP-TO-DATE
+> Task :app:compileBenchmarkKotlin UP-TO-DATE
+> Task :app:javaPreCompileBenchmark UP-TO-DATE
+> Task :app:compileBenchmarkJavaWithJavac NO-SOURCE
+> Task :app:mergeBenchmarkArtProfile UP-TO-DATE
+> Task :app:checkBenchmarkAarMetadata UP-TO-DATE
+> Task :app:compileBenchmarkNavigationResources UP-TO-DATE
+> Task :app:mapBenchmarkSourceSetPaths UP-TO-DATE
+> Task :app:mergeBenchmarkResources UP-TO-DATE
+> Task :app:createBenchmarkCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksBenchmark UP-TO-DATE
+> Task :app:processBenchmarkMainManifest UP-TO-DATE
+> Task :app:processBenchmarkManifest UP-TO-DATE
+> Task :app:processBenchmarkManifestForPackage UP-TO-DATE
+> Task :app:processBenchmarkResources UP-TO-DATE
+> Task :app:expandBenchmarkArtProfileWildcards UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:mergeBenchmarkGeneratedProguardFiles UP-TO-DATE
+> Task :app:processBenchmarkJavaRes UP-TO-DATE
+> Task :app:mergeBenchmarkJavaResource UP-TO-DATE
+> Task :app:mergeBenchmarkStartupProfile UP-TO-DATE
+> Task :app:produceBenchmarkComposeMapping UP-TO-DATE
+> Task :app:reportBenchmarkComposeMappingErrors
+> Task :app:generateBenchmarkAssets UP-TO-DATE
+> Task :app:mergeBenchmarkAssets UP-TO-DATE
+> Task :app:compressBenchmarkAssets UP-TO-DATE
+> Task :app:extractBenchmarkVersionControlInfo UP-TO-DATE
+> Task :app:generateBenchmarkLintVitalReportModel UP-TO-DATE
+> Task :app:lintVitalAnalyzeBenchmark UP-TO-DATE
+> Task :app:lintVitalReportBenchmark UP-TO-DATE
+> Task :app:lintVitalBenchmark
+> Task :app:collectBenchmarkDependencies UP-TO-DATE
+> Task :app:sdkBenchmarkDependencyData UP-TO-DATE
+> Task :app:mergeBenchmarkJniLibFolders UP-TO-DATE
+> Task :app:mergeBenchmarkNativeLibs UP-TO-DATE
+> Task :app:stripBenchmarkDebugSymbols UP-TO-DATE
+> Task :app:validateSigningBenchmark UP-TO-DATE
+> Task :app:writeBenchmarkAppMetadata UP-TO-DATE
+> Task :app:writeBenchmarkSigningConfigVersions UP-TO-DATE
+> Task :baselineprofile:preBuild UP-TO-DATE
+> Task :baselineprofile:preBenchmarkBuild UP-TO-DATE
+> Task :baselineprofile:checkTestedAppObfuscationBenchmark UP-TO-DATE
+> Task :baselineprofile:generateBenchmarkResources UP-TO-DATE
+> Task :baselineprofile:packageBenchmarkResources UP-TO-DATE
+> Task :baselineprofile:processBenchmarkNavigationResources UP-TO-DATE
+> Task :baselineprofile:parseBenchmarkLocalResources UP-TO-DATE
+> Task :baselineprofile:generateBenchmarkRFile UP-TO-DATE
+> Task :baselineprofile:compileBenchmarkKotlin UP-TO-DATE
+> Task :baselineprofile:javaPreCompileBenchmark UP-TO-DATE
+> Task :baselineprofile:compileBenchmarkJavaWithJavac NO-SOURCE
+> Task :baselineprofile:generateBenchmarkAssets UP-TO-DATE
+> Task :baselineprofile:mergeBenchmarkAssets UP-TO-DATE
+> Task :baselineprofile:compressBenchmarkAssets UP-TO-DATE
+> Task :baselineprofile:processBenchmarkJavaRes UP-TO-DATE
+> Task :baselineprofile:mergeBenchmarkJavaResource UP-TO-DATE
+> Task :baselineprofile:checkBenchmarkDuplicateClasses UP-TO-DATE
+> Task :baselineprofile:desugarBenchmarkFileDependencies UP-TO-DATE
+> Task :baselineprofile:mergeExtDexBenchmark UP-TO-DATE
+> Task :baselineprofile:mergeLibDexBenchmark UP-TO-DATE
+> Task :baselineprofile:checkBenchmarkAarMetadata UP-TO-DATE
+> Task :baselineprofile:compileBenchmarkNavigationResources UP-TO-DATE
+> Task :baselineprofile:mapBenchmarkSourceSetPaths UP-TO-DATE
+> Task :baselineprofile:mergeBenchmarkResources UP-TO-DATE
+> Task :baselineprofile:processBenchmarkManifest UP-TO-DATE
+> Task :baselineprofile:processBenchmarkResources UP-TO-DATE
+> Task :baselineprofile:dexBuilderBenchmark UP-TO-DATE
+> Task :baselineprofile:mergeProjectDexBenchmark UP-TO-DATE
+> Task :baselineprofile:mergeBenchmarkJniLibFolders UP-TO-DATE
+> Task :baselineprofile:mergeBenchmarkNativeLibs UP-TO-DATE
+> Task :baselineprofile:stripBenchmarkDebugSymbols UP-TO-DATE
+> Task :baselineprofile:validateSigningBenchmark UP-TO-DATE
+> Task :baselineprofile:writeBenchmarkSigningConfigVersions UP-TO-DATE
+> Task :baselineprofile:packageBenchmark UP-TO-DATE
+> Task :baselineprofile:createBenchmarkApkListingFileRedirect UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:generateDebugRFile UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:dexBuilderDebug UP-TO-DATE
+> Task :app:mergeProjectDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:packageDebug UP-TO-DATE
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :baselineprofile:preDebugBuild UP-TO-DATE
+> Task :baselineprofile:checkTestedAppObfuscationDebug UP-TO-DATE
+> Task :baselineprofile:generateDebugResources UP-TO-DATE
+> Task :baselineprofile:packageDebugResources UP-TO-DATE
+> Task :baselineprofile:processDebugNavigationResources UP-TO-DATE
+> Task :baselineprofile:parseDebugLocalResources UP-TO-DATE
+> Task :baselineprofile:generateDebugRFile UP-TO-DATE
+> Task :baselineprofile:compileDebugKotlin UP-TO-DATE
+> Task :baselineprofile:javaPreCompileDebug UP-TO-DATE
+> Task :baselineprofile:compileDebugJavaWithJavac NO-SOURCE
+> Task :baselineprofile:generateDebugAssets UP-TO-DATE
+> Task :baselineprofile:mergeDebugAssets UP-TO-DATE
+> Task :baselineprofile:compressDebugAssets UP-TO-DATE
+> Task :baselineprofile:processDebugJavaRes UP-TO-DATE
+> Task :baselineprofile:mergeDebugJavaResource UP-TO-DATE
+> Task :baselineprofile:checkDebugDuplicateClasses UP-TO-DATE
+> Task :baselineprofile:desugarDebugFileDependencies UP-TO-DATE
+> Task :baselineprofile:mergeExtDexDebug UP-TO-DATE
+> Task :baselineprofile:mergeLibDexDebug UP-TO-DATE
+> Task :baselineprofile:checkDebugAarMetadata UP-TO-DATE
+> Task :baselineprofile:compileDebugNavigationResources UP-TO-DATE
+> Task :baselineprofile:mapDebugSourceSetPaths UP-TO-DATE
+> Task :baselineprofile:mergeDebugResources UP-TO-DATE
+> Task :baselineprofile:processDebugManifest UP-TO-DATE
+> Task :baselineprofile:processDebugResources UP-TO-DATE
+> Task :baselineprofile:dexBuilderDebug UP-TO-DATE
+> Task :baselineprofile:mergeProjectDexDebug UP-TO-DATE
+> Task :baselineprofile:mergeDebugJniLibFolders UP-TO-DATE
+> Task :baselineprofile:mergeDebugNativeLibs UP-TO-DATE
+> Task :baselineprofile:stripDebugDebugSymbols UP-TO-DATE
+> Task :baselineprofile:validateSigningDebug UP-TO-DATE
+> Task :baselineprofile:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :baselineprofile:packageDebug UP-TO-DATE
+> Task :baselineprofile:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:minifyBenchmarkWithR8
+> Task :baselineprofile:connectedDebugAndroidTest
+
+Starting 1 tests on Redmi Note 9S - 12
+
+com.milki.launcher.benchmark.LauncherBaselineProfile > generate[Redmi Note 9S - 12] [31mFAILED [0m
+	java.lang.IllegalArgumentException: Baseline Profile collection requires API 33+, or a rooted device running API 28 or higher and rooted adb session (via `adb root`).
+	at androidx.benchmark.macro.BaselineProfilesKt.buildMacrobenchmarkScope(BaselineProfiles.kt:160)
+Tests on Redmi Note 9S - 12 failed: There was 1 failure(s).
+Finished 1 tests on Redmi Note 9S - 12
+
+> Task :baselineprofile:connectedDebugAndroidTest FAILED
+
+[Incubating] Problems report is available at: file:///media/Maind/zahrawi/productivity/launcher/build/reports/problems/problems-report.html
+141 actionable tasks: 4 executed, 137 up-to-date
+Configuration cache entry discarded with 1 problem.

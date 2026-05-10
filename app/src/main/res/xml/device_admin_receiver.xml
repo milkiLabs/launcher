@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Device admin policy for screen lock.
+
+  The launcher only needs the "force-lock" policy to lock the screen
+  via DevicePolicyManager.lockNow(). No other admin privileges are
+  requested.
+-->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <force-lock />
+    </uses-policies>
+</device-admin>

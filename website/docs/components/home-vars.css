@@ -1,0 +1,34 @@
+/* ——— Shared Home Page Design Tokens ——— */
+
+:root {
+  --h-green-50: #f0fdf4;
+  --h-green-100: #dcfce7;
+  --h-green-200: #bbf7d0;
+  --h-green-300: #86efac;
+  --h-green-400: #4ade80;
+  --h-green-500: #22c55e;
+  --h-green-600: #16a34a;
+  --h-green-700: #15803d;
+  --h-green-800: #166534;
+
+  --h-primary: #22c55e;
+  --h-primary-light: #4ade80;
+  --h-primary-dark: #16a34a;
+  --h-primary-glow: rgba(34, 197, 94, 0.35);
+  --h-primary-subtle: rgba(34, 197, 94, 0.08);
+
+  --h-card-bg: var(--vp-c-bg-soft);
+  --h-border: var(--vp-c-divider);
+
+  --h-font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --h-font-display: 'Playfair Display', Georgia, serif;
+
+  --h-max-width: 1200px;
+  --h-section-pad: 6rem 2rem;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --h-section-pad: 4rem 1.25rem;
+  }
+}

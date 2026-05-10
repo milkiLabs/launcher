@@ -1,0 +1,76 @@
+
+com.milki.launcher.benchmark.LauncherHomeBenchmark:INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter000_2026-04-15-20-47-20.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter000_2026-04-15-20-47-20.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter002_2026-04-15-20-47-27.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter002_2026-04-15-20-47-27.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter003_2026-04-15-20-47-31.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter003_2026-04-15-20-47-31.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter004_2026-04-15-20-47-34.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter004_2026-04-15-20-47-34.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter005_2026-04-15-20-47-38.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter005_2026-04-15-20-47-38.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter008_2026-04-15-20-47-49.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter008_2026-04-15-20-47-49.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter009_2026-04-15-20-47-52.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter009_2026-04-15-20-47-52.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter010_2026-04-15-20-47-56.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter010_2026-04-15-20-47-56.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter011_2026-04-15-20-47-59.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter011_2026-04-15-20-47-59.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter012_2026-04-15-20-48-04.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter012_2026-04-15-20-48-04.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter013_2026-04-15-20-48-07.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter013_2026-04-15-20-48-07.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter014_2026-04-15-20-48-11.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter014_2026-04-15-20-48-11.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=Delay to await runtime image flush
+
+LauncherHomeBenchmark_returnToHomescreenFromDrawer
+  frameCount           [min 23.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace),   [median 24.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace),   [max 25.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace)
+  frameDurationCpuMs   P50   6.0,   P90   7.5,   P95   8.5,   P99  18.5
+  frameOverrunMs       P50  -8.2,   P90  -6.4,   P95  -5.2,   P99   4.9
+    Traces: Iteration [0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter000_2026-04-15-20-47-20.perfetto-trace) [1](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace) [2](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter002_2026-04-15-20-47-27.perfetto-trace) [3](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter003_2026-04-15-20-47-31.perfetto-trace) [4](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter004_2026-04-15-20-47-34.perfetto-trace) [5](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter005_2026-04-15-20-47-38.perfetto-trace) [6](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace) [7](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace) [8](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter008_2026-04-15-20-47-49.perfetto-trace) [9](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter009_2026-04-15-20-47-52.perfetto-trace) [10](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter010_2026-04-15-20-47-56.perfetto-trace) [11](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter011_2026-04-15-20-47-59.perfetto-trace) [12](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter012_2026-04-15-20-48-04.perfetto-trace) [13](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter013_2026-04-15-20-48-07.perfetto-trace) [14](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter014_2026-04-15-20-48-11.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=Delay to await runtime image flush
+
+LauncherHomeBenchmark_returnToHomescreenFromDrawer
+  frameCount           [min 23.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace),   [median 24.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace),   [max 25.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace)
+  frameDurationCpuMs   P50   6.0,   P90   7.5,   P95   8.5,   P99  18.5
+  frameOverrunMs       P50  -8.2,   P90  -6.4,   P95  -5.2,   P99   4.9
+    Traces: Iteration [0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter000_2026-04-15-20-47-20.perfetto-trace) [1](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace) [2](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter002_2026-04-15-20-47-27.perfetto-trace) [3](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter003_2026-04-15-20-47-31.perfetto-trace) [4](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter004_2026-04-15-20-47-34.perfetto-trace) [5](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter005_2026-04-15-20-47-38.perfetto-trace) [6](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace) [7](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace) [8](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter008_2026-04-15-20-47-49.perfetto-trace) [9](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter009_2026-04-15-20-47-52.perfetto-trace) [10](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter010_2026-04-15-20-47-56.perfetto-trace) [11](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter011_2026-04-15-20-47-59.perfetto-trace) [12](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter012_2026-04-15-20-48-04.perfetto-trace) [13](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter013_2026-04-15-20-48-07.perfetto-trace) [14](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter014_2026-04-15-20-48-11.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=Delay to await runtime image flush
+
+LauncherHomeBenchmark_returnToHomescreenFromDrawer
+  frameCount           [min 23.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace),   [median 24.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace),   [max 25.0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace)
+  frameDurationCpuMs   P50   6.0,   P90   7.5,   P95   8.5,   P99  18.5
+  frameOverrunMs       P50  -8.2,   P90  -6.4,   P95  -5.2,   P99   4.9
+    Traces: Iteration [0](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter000_2026-04-15-20-47-20.perfetto-trace) [1](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter001_2026-04-15-20-47-24.perfetto-trace) [2](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter002_2026-04-15-20-47-27.perfetto-trace) [3](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter003_2026-04-15-20-47-31.perfetto-trace) [4](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter004_2026-04-15-20-47-34.perfetto-trace) [5](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter005_2026-04-15-20-47-38.perfetto-trace) [6](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter006_2026-04-15-20-47-41.perfetto-trace) [7](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter007_2026-04-15-20-47-45.perfetto-trace) [8](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter008_2026-04-15-20-47-49.perfetto-trace) [9](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter009_2026-04-15-20-47-52.perfetto-trace) [10](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter010_2026-04-15-20-47-56.perfetto-trace) [11](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter011_2026-04-15-20-47-59.perfetto-trace) [12](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter012_2026-04-15-20-48-04.perfetto-trace) [13](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter013_2026-04-15-20-48-07.perfetto-trace) [14](file://LauncherHomeBenchmark_returnToHomescreenFromDrawer_iter014_2026-04-15-20-48-11.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile
+INSTRUMENTATION_STATUS: frame_count_median=24.0
+INSTRUMENTATION_STATUS: frame_count_min=23.0
+INSTRUMENTATION_STATUS: frame_count_stddev=0.7988086367179801
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p50=6.03625
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p90=7.492958199999999
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p95=8.5161042
+INSTRUMENTATION_STATUS: frame_duration_cpu_millis_p99=18.522929519999998
+INSTRUMENTATION_STATUS: frame_overrun_millis_p50=-8.156869
+INSTRUMENTATION_STATUS: frame_overrun_millis_p90=-6.4182052
+INSTRUMENTATION_STATUS: frame_overrun_millis_p95=-5.165975600000001
+INSTRUMENTATION_STATUS: frame_overrun_millis_p99=4.858338060000001
+INSTRUMENTATION_STATUS_CODE: 2
+.
+
+Time: 84.136
+
+OK (1 test)
+
+

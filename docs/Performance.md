@@ -1,0 +1,193 @@
+# Performance Benchmarking And Profiling
+
+This project uses `:baselineprofile` for repeatable launcher startup and homescreen smoothness measurements on real devices.
+
+## Design Goals
+
+1. Keep benchmark scenarios deterministic and easy to extend.
+2. Make startup measurements representative of real usage (non-empty homescreen).
+3. Separate environment-specific troubleshooting from benchmark logic.
+4. Keep baseline profile generation and macrobenchmark execution as independent workflows.
+
+## Benchmark Architecture
+
+### App-side benchmark commands
+
+The launcher host responds to one benchmark-only intent action:
+
+1. `com.milki.launcher.action.BENCHMARK`
+
+That intent carries a small request model:
+
+1. `BENCHMARK_TARGET` selects the target surface (`HOME` or `DRAWER`).
+2. `BENCHMARK_SEED_HOME` controls whether the homescreen is reseeded before opening the target surface.
+3. `BENCHMARK_DRAWER_QUERY` optionally applies a query after opening drawer (drawer-target requests only).
+
+Responsibilities:
+
+1. Reset transient UI before every benchmark request.
+2. Optionally seed a deterministic homescreen (16 pinned apps).
+3. Open the requested launcher surface from that clean state.
+
+Key files:
+
+1. `app/src/main/java/com/milki/launcher/core/intent/LauncherActivityIntent.kt`
+2. `app/src/main/java/com/milki/launcher/presentation/launcher/host/LauncherHostRuntime.kt`
+3. `app/src/main/java/com/milki/launcher/presentation/launcher/host/LauncherBenchmarkHomeSeeder.kt`
+
+### Benchmark-side scenarios
+
+`LauncherHomeBenchmark` contains core scenarios across startup and drawer transitions:
+
+1. `coldStartupToHomescreen`
+2. `coldStartupToHomescreenWithoutBaselineProfile`
+3. `coldStartupToDrawer`
+4. `coldStartupToDrawerWithoutBaselineProfile`
+5. `warmStartupToHomescreen`
+6. `hotStartupToHomescreen`
+7. `openDrawerFromHomescreen`
+8. `returnToHomescreenFromDrawer`
+9. `filterDrawerFromHomescreen`
+10. `scrollDrawerFromHomescreen`
+
+Shared setup/navigation now lives in:
+
+1. `baselineprofile/src/main/java/com/milki/launcher/benchmark/LauncherBenchmarkDriver.kt`
+
+## Device Matrix
+
+1. Macrobenchmark execution: API 28+
+2. Baseline profile collection: API 33+ or rooted API 28+ with `adb root`
+
+If you are on API 32 or lower without root, macrobenchmarks still work, but baseline profile collection will fail by design.
+
+## Quick Start
+
+### A. Build artifacts
+
+```bash
+./gradlew :app:assembleBenchmark :baselineprofile:assembleBenchmark
+```
+
+### B. Install APKs directly (most reliable on restrictive ROMs)
+
+```bash
+adb install -r app/build/outputs/apk/benchmark/app-benchmark.apk
+adb install -r baselineprofile/build/outputs/apk/benchmark/baselineprofile-benchmark.apk
+```
+
+### C. Run core scenarios (recommended)
+
+```bash
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreenWithoutBaselineProfile' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToDrawer' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToDrawerWithoutBaselineProfile' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#warmStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#hotStartupToHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#openDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#returnToHomescreenFromDrawer' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#filterDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+adb shell am instrument -w -e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#scrollDrawerFromHomescreen' com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner
+```
+
+### D. Optional: run through Gradle instrumentation task
+
+```bash
+./gradlew :baselineprofile:connectedAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.milki.launcher.benchmark.LauncherHomeBenchmark
+```
+
+## Baseline Profile Workflow
+
+### Generate and import profile
+
+```bash
+./gradlew :app:importBaselineProfileFromConnectedTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.milki.launcher.benchmark.LauncherBaselineProfile
+```
+
+This runs profile instrumentation and copies newest `baseline-prof.txt` into `app/src/main/baseline-prof.txt`.
+
+Then install release-like app artifact:
+
+```bash
+./gradlew :app:installBenchmark
+```
+
+## Profiling Workflow
+
+For manual traces:
+
+1. Install benchmark app (`:app:installBenchmark`)
+2. Open Android Studio profiler on process `com.milki.launcher`
+3. Use `System Trace` first for startup and jank; use CPU/memory only after hotspot isolation
+
+Manual deterministic launches:
+
+```bash
+adb shell am force-stop com.milki.launcher
+adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET HOME --ez com.milki.launcher.extra.BENCHMARK_SEED_HOME true
+adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET HOME
+adb shell am start -W -n com.milki.launcher/.app.activity.MainActivity -a com.milki.launcher.action.BENCHMARK --es com.milki.launcher.extra.BENCHMARK_TARGET DRAWER --es com.milki.launcher.extra.BENCHMARK_DRAWER_QUERY app
+```
+
+## Troubleshooting
+
+### INSTALL_FAILED_USER_RESTRICTED
+
+Symptom:
+
+1. Gradle/UTP test install fails with user-restricted install cancellation.
+
+Resolution:
+
+1. Use manual `adb install -r` commands.
+2. Keep device unlocked and confirm install prompt.
+3. Rerun instrumentation command.
+
+### Method selector not recognized
+
+Symptom:
+
+1. Shell expands `#` and instrumentation fails to parse class filter.
+
+Resolution:
+
+1. Quote class selector string: `'com.example.Class#method'`.
+
+### Baseline profile collection throws API/root error
+
+Symptom:
+
+1. `BaselineProfileRule.collect` fails immediately.
+
+Resolution:
+
+1. Use API 33+ device or rooted API 28+ device.
+2. Keep running macrobenchmarks on current phone if baseline collection is blocked.
+
+## Maintenance Guide
+
+### Add a new benchmark scenario
+
+1. Add/setup helpers in `LauncherBenchmarkDriver.kt` if behavior is reusable.
+2. Add the scenario in `LauncherHomeBenchmark.kt` with explicit setup and metric list.
+3. Keep setup deterministic and use benchmark-only intents where possible.
+4. Update this document with run commands and expected outputs.
+
+### Add a new benchmark command
+
+1. Extend the request model in `LauncherActivityIntent.kt` only if the existing `target + seedHome` shape cannot express the new case.
+2. Update `LauncherBenchmarkDriver.kt` so baseline profile collection and macrobenchmarks keep using the same scenario API.
+3. Handle the new request in `LauncherHostRuntime.handleBenchmarkIntent`.
+4. Keep command side effects isolated and idempotent.
+
+### Data quality rules
+
+1. Compare medians, not single best iterations.
+2. Always run both startup variants when changing startup code.
+3. Include warm and hot startup when tuning first-frame work deferral.
+4. Track both drawer directions (`openDrawerFromHomescreen` and `returnToHomescreenFromDrawer`) with P95/P99 frame metrics.
+5. Use startup trace-section metrics to attribute regressions to startup phases instead of relying on total startup time alone.
+6. Capture device model, API level, and build variant in every report.

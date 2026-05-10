@@ -1,0 +1,793 @@
+package com.milki.launcher.ui.components.launcher.widget
+
+import android.graphics.drawable.Drawable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.milki.launcher.data.widget.WidgetAppGroup
+import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.data.widget.WidgetPickerEntry
+import com.milki.launcher.domain.search.QueryTextMatcher
+import com.milki.launcher.domain.model.WidgetDisplayMode
+import com.milki.launcher.ui.components.search.UnifiedSearchInputField
+import com.milki.launcher.ui.components.common.DrawableIcon
+import com.milki.launcher.ui.components.common.WidgetPopupIcon
+import com.milki.launcher.ui.interaction.dragdrop.startExternalWidgetDrag
+import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
+import com.milki.launcher.ui.theme.CornerRadius
+import com.milki.launcher.ui.theme.IconSize
+import com.milki.launcher.ui.theme.Spacing
+import android.view.View
+
+private data class WidgetPickerCatalogUiState(
+    val isLoading: Boolean,
+    val appGroups: List<WidgetAppGroup>
+)
+
+@Composable
+fun WidgetPickerBottomSheet(
+    catalogStore: WidgetPickerCatalogStore,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    headerDragHandleModifier: Modifier = Modifier,
+    onExternalDragStarted: () -> Unit = {}
+) {
+    val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
+    val initialCatalog = catalogStore.peek()
+    val catalogUiState by produceState(
+        initialValue = WidgetPickerCatalogUiState(
+            isLoading = initialCatalog == null,
+            appGroups = initialCatalog.orEmpty()
+        ),
+        catalogStore
+    ) {
+        val cachedCatalog = catalogStore.peek()
+        if (cachedCatalog != null) {
+            value = WidgetPickerCatalogUiState(
+                isLoading = false,
+                appGroups = cachedCatalog
+            )
+        } else {
+            value = WidgetPickerCatalogUiState(
+                isLoading = true,
+                appGroups = emptyList()
+            )
+            value = WidgetPickerCatalogUiState(
+                isLoading = false,
+                appGroups = catalogStore.await()
+            )
+        }
+    }
+    val appGroups = catalogUiState.appGroups
+
+    val normalizedQuery = QueryTextMatcher.normalize(searchQuery)
+    val isSearching = normalizedQuery.isNotEmpty()
+    val filteredGroups = remember(appGroups, normalizedQuery) {
+        appGroups.mapNotNull { group ->
+            if (normalizedQuery.isBlank()) {
+                group
+            } else {
+                val appMatches = QueryTextMatcher.containsNormalized(
+                    text = group.appLabel,
+                    normalizedQuery = normalizedQuery
+                )
+                val matchingWidgets = if (appMatches) {
+                    group.widgets
+                } else {
+                    group.widgets.filter { entry ->
+                        QueryTextMatcher.containsNormalized(
+                            text = entry.label,
+                            normalizedQuery = normalizedQuery
+                        )
+                    }
+                }
+
+                if (matchingWidgets.isEmpty()) {
+                    null
+                } else {
+                    group.copy(widgets = matchingWidgets)
+                }
+            }
+        }
+    }
+    val totalWidgetCount = appGroups.sumOf { it.widgets.size }
+    val visibleWidgetCount = filteredGroups.sumOf { it.widgets.size }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surfaceContainerHighest,
+                        MaterialTheme.colorScheme.surfaceContainer,
+                        MaterialTheme.colorScheme.surface
+                    )
+                )
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
+            WidgetPickerHeader(
+                totalApps = appGroups.size,
+                totalWidgets = totalWidgetCount,
+                visibleApps = filteredGroups.size,
+                visibleWidgets = visibleWidgetCount,
+                searchQuery = searchQuery,
+                onSearchQueryChange = onSearchQueryChange,
+                onClearSearch = { onSearchQueryChange("") },
+                headerDragHandleModifier = headerDragHandleModifier
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = Spacing.mediumLarge,
+                    end = Spacing.mediumLarge,
+                    bottom = Spacing.extraLarge
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.medium)
+            ) {
+                if (catalogUiState.isLoading) {
+                    item(key = "loading_state") {
+                        LoadingWidgetCatalogState()
+                    }
+                } else if (filteredGroups.isEmpty()) {
+                    item(key = "empty_state") {
+                        EmptyWidgetSearchState(searchQuery = searchQuery)
+                    }
+                } else {
+                    items(
+                        items = filteredGroups,
+                        key = { group -> group.packageName }
+                    ) { group ->
+                            val expanded = expandedGroups[group.packageName] ?: false
+                        AppGroupCard(
+                            group = group,
+                            expanded = expanded,
+                            onToggle = {
+                                expandedGroups[group.packageName] =
+                                    !(expandedGroups[group.packageName] ?: false)
+                            },
+                            onExternalDragStarted = onExternalDragStarted
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WidgetPickerHeader(
+    totalApps: Int,
+    totalWidgets: Int,
+    visibleApps: Int,
+    visibleWidgets: Int,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onClearSearch: () -> Unit,
+    headerDragHandleModifier: Modifier = Modifier
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = Spacing.mediumLarge,
+                end = Spacing.mediumLarge,
+                top = Spacing.mediumLarge,
+                bottom = Spacing.medium
+            ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.medium)
+    ) {
+        Row(
+            modifier = headerDragHandleModifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            WidgetHeaderIcon()
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = Spacing.medium),
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+            ) {
+                Text(
+                    text = "Widgets",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Long-press and drag a widget onto the home screen.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            StatPill(
+                label = if (searchQuery.isBlank()) {
+                    "$totalApps apps • $totalWidgets widgets"
+                } else {
+                    "$visibleApps apps • $visibleWidgets matches"
+                }
+            )
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(CornerRadius.extraLarge),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = Spacing.none
+        ) {
+            UnifiedSearchInputField(
+                query = searchQuery,
+                onQueryChange = onSearchQueryChange,
+                placeholderText = "Search apps or widgets",
+                modifier = Modifier.fillMaxWidth(),
+                onClear = onClearSearch,
+                indicatorColor = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatPill(label: String) {
+    Surface(
+        shape = RoundedCornerShape(CornerRadius.extraLarge),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(
+                horizontal = Spacing.medium,
+                vertical = Spacing.smallMedium
+            )
+        )
+    }
+}
+
+@Composable
+private fun WidgetHeaderIcon() {
+    Surface(
+        shape = RoundedCornerShape(CornerRadius.large),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Widgets,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .padding(Spacing.medium)
+                .size(IconSize.standard)
+        )
+    }
+}
+
+@Composable
+private fun LoadingWidgetCatalogState() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Spacing.smallMedium),
+        shape = RoundedCornerShape(CornerRadius.extraLarge),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = Spacing.large,
+                    vertical = Spacing.extraLarge
+                ),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            WidgetHeaderIcon()
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+            ) {
+                Text(
+                    text = "Loading widgets",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Preparing your installed widget list in the background.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppGroupCard(
+    group: WidgetAppGroup,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onExternalDragStarted: () -> Unit
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(durationMillis = 120, easing = LinearOutSlowInEasing),
+        label = "widget_group_rotation"
+    )
+    val shape = RoundedCornerShape(CornerRadius.extraLarge)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = Spacing.hairline,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                shape = shape
+            ),
+        shape = shape,
+        color = if (expanded) {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        tonalElevation = Spacing.none
+    ) {
+        Column(
+            modifier = Modifier.animateContentSize(
+                animationSpec = tween(durationMillis = 140, easing = LinearOutSlowInEasing)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle)
+                    .padding(Spacing.mediumLarge),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.medium)
+            ) {
+                WidgetAppIcon(
+                    drawable = group.appIcon,
+                    label = group.appLabel,
+                    size = 48.dp
+                )
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+                ) {
+                    Text(
+                        text = group.appLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (expanded) {
+                            "${group.widgets.size} widget${if (group.widgets.size == 1) "" else "s"}"
+                        } else {
+                            "Tap to reveal ${group.widgets.size} widget${if (group.widgets.size == 1) "" else "s"}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                StatPill(
+                    label = group.widgets.size.toString()
+                )
+
+                Icon(
+                    imageVector = Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse ${group.appLabel}" else "Expand ${group.appLabel}",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.graphicsLayer { rotationZ = rotation }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(animationSpec = tween(durationMillis = 120)),
+                exit = fadeOut(animationSpec = tween(durationMillis = 90))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = Spacing.mediumLarge,
+                            end = Spacing.mediumLarge,
+                            bottom = Spacing.mediumLarge
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.smallMedium)
+                ) {
+                    group.widgets.forEach { entry ->
+                        WidgetCard(
+                            entry = entry,
+                            onExternalDragStarted = onExternalDragStarted
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WidgetCard(
+    entry: WidgetPickerEntry,
+    onExternalDragStarted: () -> Unit = {}
+) {
+    val hostView = LocalView.current
+    val shape = RoundedCornerShape(CornerRadius.large)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = Spacing.hairline,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
+                shape = shape
+            ),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(Spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(Spacing.medium)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = entry.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = Spacing.medium)
+                )
+                InfoPill(label = "${entry.span.columns} × ${entry.span.rows}")
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.medium),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                // Left: Inline (Preview)
+                WidgetDragOptionColumn(
+                    label = "Inline",
+                    mode = WidgetDisplayMode.Inline,
+                    entry = entry,
+                    hostView = hostView,
+                    onExternalDragStarted = onExternalDragStarted,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    WidgetPreview(
+                        entry = entry,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Right: Popup (Icon)
+                WidgetDragOptionColumn(
+                    label = "Popup",
+                    mode = WidgetDisplayMode.PopupIcon,
+                    entry = entry,
+                    hostView = hostView,
+                    onExternalDragStarted = onExternalDragStarted,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(92.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        WidgetPopupIcon(
+                            packageName = entry.providerInfo.provider.packageName,
+                            size = IconSize.appGrid,
+                            label = entry.label
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WidgetDragOptionColumn(
+    label: String,
+    mode: WidgetDisplayMode,
+    entry: WidgetPickerEntry,
+    hostView: View,
+    onExternalDragStarted: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = modifier.detectDragGesture(
+            key = "${entry.providerInfo.provider.packageName}/${entry.providerInfo.provider.className}-$mode",
+            dragThreshold = GridConfig.Default.dragThresholdPx,
+            onTap = {},
+            onLongPress = {},
+            onLongPressRelease = {},
+            onDragStart = {
+                val dragStarted = startExternalWidgetDrag(
+                    hostView = hostView,
+                    providerInfo = entry.providerInfo,
+                    span = entry.span,
+                    displayMode = mode,
+                    dragShadowSize = IconSize.appGrid
+                )
+
+                if (dragStarted) {
+                    hostView.post(onExternalDragStarted)
+                }
+            },
+            onDrag = { change, _ -> change.consume() },
+            onDragEnd = {},
+            onDragCancel = {}
+        ),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.small)
+    ) {
+        content()
+        
+        Surface(
+            shape = RoundedCornerShape(CornerRadius.extraLarge),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+        ) {
+            Row(
+                modifier = Modifier.padding(
+                    horizontal = Spacing.smallMedium,
+                    vertical = Spacing.small
+                ),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.extraSmall),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DragIndicator,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.82f),
+                    modifier = Modifier.size(IconSize.small)
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WidgetPreview(
+    entry: WidgetPickerEntry,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val previewWidth = 132.dp
+    val previewHeight = 92.dp
+    val widthPx = with(density) { previewWidth.roundToPx() }
+    val heightPx = with(density) { previewHeight.roundToPx() }
+
+    val previewDrawable = remember(entry.providerInfo) {
+        try {
+            entry.providerInfo.loadPreviewImage(context, 0)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(CornerRadius.large))
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
+                        MaterialTheme.colorScheme.surfaceContainerHighest
+                    )
+                )
+            )
+            .height(previewHeight)
+            .padding(Spacing.smallMedium)
+    ) {
+        if (previewDrawable != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithCache {
+                        onDrawBehind {
+                            previewDrawable.setBounds(0, 0, size.width.toInt(), size.height.toInt())
+                            drawIntoCanvas { canvas ->
+                                previewDrawable.draw(canvas.nativeCanvas)
+                            }
+                        }
+                    }
+            )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                WidgetAppIcon(
+                    drawable = entry.appIcon,
+                    label = entry.label,
+                    size = 40.dp
+                )
+                Spacer(modifier = Modifier.height(Spacing.smallMedium))
+                Text(
+                    text = "Preview unavailable",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WidgetAppIcon(
+    drawable: Drawable?,
+    label: String,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    if (drawable == null) {
+        Box(
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(CornerRadius.medium))
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Widgets,
+                contentDescription = label,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(IconSize.standard)
+            )
+        }
+    } else {
+        DrawableIcon(
+            drawable = drawable,
+            modifier = modifier.clip(RoundedCornerShape(CornerRadius.medium)),
+            size = size
+        )
+    }
+}
+
+@Composable
+private fun InfoPill(label: String) {
+    Surface(
+        shape = RoundedCornerShape(CornerRadius.extraLarge),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(
+                horizontal = Spacing.medium,
+                vertical = Spacing.small
+            )
+        )
+    }
+}
+
+@Composable
+private fun EmptyWidgetSearchState(searchQuery: String) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Spacing.smallMedium),
+        shape = RoundedCornerShape(CornerRadius.extraLarge),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = Spacing.large,
+                    vertical = Spacing.extraLarge
+                ),
+            verticalArrangement = Arrangement.spacedBy(Spacing.smallMedium),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(IconSize.large)
+            )
+            Text(
+                text = "No widgets found",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Try a different app or widget name for \"$searchQuery\".",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}

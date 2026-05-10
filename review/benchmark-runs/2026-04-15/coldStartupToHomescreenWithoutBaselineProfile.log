@@ -1,0 +1,52 @@
+
+com.milki.launcher.benchmark.LauncherHomeBenchmark:INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter001_2026-04-15-11-59-05.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter001_2026-04-15-11-59-05.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter002_2026-04-15-11-59-45.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter002_2026-04-15-11-59-45.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter003_2026-04-15-12-00-13.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter003_2026-04-15-12-00-13.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter004_2026-04-15-12-01-00.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter004_2026-04-15-12-01-00.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter006_2026-04-15-12-02-48.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter006_2026-04-15-12-02-48.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter007_2026-04-15-12-03-52.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter007_2026-04-15-12-03-52.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: additionalTestOutputFile_LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter009_2026-04-15-12-05-51.perfetto-trace=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile/LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter009_2026-04-15-12-05-51.perfetto-trace
+INSTRUMENTATION_STATUS_CODE: 2
+INSTRUMENTATION_STATUS: android.studio.display.benchmark=Delay to await runtime image flush
+
+LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile
+  timeToInitialDisplayMs   [min 520.9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace),   [median 568.2](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace),   [max 652.9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace)
+    Traces: Iteration [0](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace) [1](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter001_2026-04-15-11-59-05.perfetto-trace) [2](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter002_2026-04-15-11-59-45.perfetto-trace) [3](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter003_2026-04-15-12-00-13.perfetto-trace) [4](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter004_2026-04-15-12-01-00.perfetto-trace) [5](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace) [6](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter006_2026-04-15-12-02-48.perfetto-trace) [7](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter007_2026-04-15-12-03-52.perfetto-trace) [8](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace) [9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter009_2026-04-15-12-05-51.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark=Delay to await runtime image flush
+
+LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile
+  timeToInitialDisplayMs   [min 520.9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace),   [median 568.2](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace),   [max 652.9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace)
+    Traces: Iteration [0](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace) [1](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter001_2026-04-15-11-59-05.perfetto-trace) [2](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter002_2026-04-15-11-59-45.perfetto-trace) [3](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter003_2026-04-15-12-00-13.perfetto-trace) [4](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter004_2026-04-15-12-01-00.perfetto-trace) [5](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace) [6](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter006_2026-04-15-12-02-48.perfetto-trace) [7](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter007_2026-04-15-12-03-52.perfetto-trace) [8](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace) [9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter009_2026-04-15-12-05-51.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v2display.benchmark.outputDirPath=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark=Delay to await runtime image flush
+
+LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile
+  timeToInitialDisplayMs   [min 520.9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace),   [median 568.2](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace),   [max 652.9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace)
+    Traces: Iteration [0](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter000_2026-04-15-11-58-40.perfetto-trace) [1](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter001_2026-04-15-11-59-05.perfetto-trace) [2](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter002_2026-04-15-11-59-45.perfetto-trace) [3](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter003_2026-04-15-12-00-13.perfetto-trace) [4](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter004_2026-04-15-12-01-00.perfetto-trace) [5](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter005_2026-04-15-12-01-52.perfetto-trace) [6](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter006_2026-04-15-12-02-48.perfetto-trace) [7](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter007_2026-04-15-12-03-52.perfetto-trace) [8](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter008_2026-04-15-12-04-33.perfetto-trace) [9](file://LauncherHomeBenchmark_coldStartupToHomescreenWithoutBaselineProfile_iter009_2026-04-15-12-05-51.perfetto-trace)
+
+INSTRUMENTATION_STATUS: android.studio.v3display.benchmark.outputDirPath=/storage/emulated/0/Android/media/com.milki.launcher.baselineprofile
+INSTRUMENTATION_STATUS: time_to_initial_display_millis_median=568.240963
+INSTRUMENTATION_STATUS: time_to_initial_display_millis_min=520.877083
+INSTRUMENTATION_STATUS: time_to_initial_display_millis_stddev=43.0727870467485
+INSTRUMENTATION_STATUS_CODE: 2
+.
+
+Time: 688.721
+
+OK (1 test)
+
+
