@@ -28,4 +28,19 @@ class SearchResultActionTest {
 
         assertFalse(shouldClose)
     }
+
+    @Test
+    fun typed_phone_number_call_requires_call_permission() {
+        val permission = SearchResultAction.DialPhoneNumber("123456").requiredPermission()
+
+        assertTrue(permission == android.Manifest.permission.CALL_PHONE)
+    }
+
+    @Test
+    fun save_phone_number_closes_search_without_runtime_permission() {
+        val action = SearchResultAction.SavePhoneNumber("123456")
+
+        assertTrue(action.shouldCloseSearch())
+        assertTrue(action.requiredPermission() == null)
+    }
 }

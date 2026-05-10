@@ -81,6 +81,19 @@ data class ContactSearchResult(
 }
 
 /**
+ * Represents a phone number typed directly in contacts search.
+ *
+ * This is shown when the user enters a phone-like query with the contacts prefix
+ * so they can call the number or hand it to the system contacts app to save it.
+ */
+data class PhoneNumberSearchResult(
+    val phoneNumber: String
+) : SearchResult() {
+    override val title: String = phoneNumber
+    override val id: String = "phone_number_${phoneNumber.hashCode()}"
+}
+
+/**
  * Represents a permission request placeholder in search results.
  *
  * Shown when a search provider requires a permission that hasn't been granted.

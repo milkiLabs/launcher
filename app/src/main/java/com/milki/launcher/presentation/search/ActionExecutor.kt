@@ -21,6 +21,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.ContactsContract
 import android.util.Log
 import android.widget.Toast
 import com.milki.launcher.domain.repository.ContactsRepository
@@ -29,6 +30,7 @@ import com.milki.launcher.domain.model.ContactSearchResult
 import com.milki.launcher.domain.model.FileDocumentSearchResult
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.model.WebSearchResult
 import com.milki.launcher.domain.model.YouTubeSearchResult
@@ -108,6 +110,8 @@ class ActionExecutor(
         when (action) {
             is SearchResultAction.Tap -> handleTap(action)
             is SearchResultAction.DialContact -> handleDialContact(action)
+            is SearchResultAction.DialPhoneNumber -> handleDialPhoneNumber(action)
+            is SearchResultAction.SavePhoneNumber -> handleSavePhoneNumber(action)
             is SearchResultAction.OpenUrlInBrowser -> handleOpenUrlInBrowser(action)
             is SearchResultAction.OpenUrlInExternalBrowser -> handleOpenUrlInExternalBrowser(action)
             is SearchResultAction.ComposeEmail -> handleComposeEmail(action)
@@ -137,6 +141,9 @@ class ActionExecutor(
             is YouTubeSearchResult -> openYouTubeSearch(result)
             is UrlSearchResult -> openUrl(result)
             is ContactSearchResult -> callContact(result)
+            is PhoneNumberSearchResult -> {
+                handleDialPhoneNumber(SearchResultAction.DialPhoneNumber(result.phoneNumber))
+            }
             is FileDocumentSearchResult -> openFile(result)
             is PermissionRequestResult -> {
                 handleRequestPermission(SearchResultAction.RequestPermission(
@@ -276,7 +283,7 @@ class ActionExecutor(
         val phone = result.contact.phoneNumbers.firstOrNull() ?: return
         
         val intent = Intent(Intent.ACTION_DIAL).apply {
-            data = Uri.parse("tel:$phone")
+            data = phoneUri(phone)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         
@@ -305,7 +312,7 @@ class ActionExecutor(
 
     private fun handleDialContact(action: SearchResultAction.DialContact) {
         val intent = Intent(Intent.ACTION_CALL).apply {
-            data = Uri.parse("tel:${action.phoneNumber}")
+            data = phoneUri(action.phoneNumber)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         
@@ -320,6 +327,43 @@ class ActionExecutor(
         }
         
         saveRecentContact(action.phoneNumber)
+    }
+
+    private fun handleDialPhoneNumber(action: SearchResultAction.DialPhoneNumber) {
+        val intent = Intent(Intent.ACTION_CALL).apply {
+            data = phoneUri(action.phoneNumber)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while placing direct call", e)
+            Toast.makeText(context, "Call permission not granted", Toast.LENGTH_SHORT).show()
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No phone app available for direct call", e)
+            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
+        }
+
+        saveRecentContact(action.phoneNumber)
+    }
+
+    private fun handleSavePhoneNumber(action: SearchResultAction.SavePhoneNumber) {
+        val intent = Intent(Intent.ACTION_INSERT).apply {
+            type = ContactsContract.RawContacts.CONTENT_TYPE
+            putExtra(ContactsContract.Intents.Insert.PHONE, action.phoneNumber)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "No contacts app available to save phone number", e)
+            Toast.makeText(context, "No contacts app found", Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Security exception while opening contacts insert", e)
+            Toast.makeText(context, "No contacts app found", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // ========================================================================
@@ -444,4 +488,7 @@ class ActionExecutor(
             filesRepository.saveRecentFile(fileId)
         }
     }
+
+    private fun phoneUri(phoneNumber: String): Uri =
+        Uri.fromParts("tel", phoneNumber, null)
 }

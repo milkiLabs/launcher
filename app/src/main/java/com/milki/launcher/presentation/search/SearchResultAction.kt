@@ -89,6 +89,20 @@ sealed class SearchResultAction {
         val contact: Contact,
         val phoneNumber: String
     ) : SearchResultAction()
+
+    /**
+     * User tapped the call action for a typed phone number.
+     */
+    data class DialPhoneNumber(
+        val phoneNumber: String
+    ) : SearchResultAction()
+
+    /**
+     * User tapped the save-contact action for a typed phone number.
+     */
+    data class SavePhoneNumber(
+        val phoneNumber: String
+    ) : SearchResultAction()
     
     /**
      * User tapped the "Open in Browser" option on a URL result.
@@ -184,6 +198,7 @@ sealed class SearchResultAction {
  */
 fun SearchResultAction.requiredPermission(): String? = when (this) {
     is SearchResultAction.DialContact -> android.Manifest.permission.CALL_PHONE
+    is SearchResultAction.DialPhoneNumber -> android.Manifest.permission.CALL_PHONE
     else -> null
 }
 
@@ -193,6 +208,8 @@ fun SearchResultAction.requiredPermission(): String? = when (this) {
 fun SearchResultAction.shouldCloseSearch(): Boolean = when (this) {
     is SearchResultAction.Tap -> true
     is SearchResultAction.DialContact -> true
+    is SearchResultAction.DialPhoneNumber -> true
+    is SearchResultAction.SavePhoneNumber -> true
     is SearchResultAction.OpenUrlInBrowser -> true
     is SearchResultAction.OpenUrlInExternalBrowser -> true
     is SearchResultAction.ComposeEmail -> true

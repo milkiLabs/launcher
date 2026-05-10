@@ -36,6 +36,7 @@ import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ContactSearchResult
 import com.milki.launcher.domain.model.FileDocumentSearchResult
 import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.UrlSearchResult
@@ -296,6 +297,18 @@ private fun MixedResultsList(
                             if (phone != null) {
                                 actionHandler(SearchResultAction.DialContact(result.contact, phone))
                             }
+                        }
+                    )
+                }
+                is PhoneNumberSearchResult -> {
+                    PhoneNumberSearchResultItem(
+                        result = result,
+                        accentColor = accentColor,
+                        onCallClick = {
+                            actionHandler(SearchResultAction.DialPhoneNumber(result.phoneNumber))
+                        },
+                        onSaveClick = {
+                            actionHandler(SearchResultAction.SavePhoneNumber(result.phoneNumber))
                         }
                     )
                 }

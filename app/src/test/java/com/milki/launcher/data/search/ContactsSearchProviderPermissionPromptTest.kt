@@ -3,6 +3,7 @@ package com.milki.launcher.data.search
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SearchRequest
 import kotlinx.coroutines.flow.Flow
@@ -32,10 +33,59 @@ class ContactsSearchProviderPermissionPromptTest {
         assertTrue(prompt.message.contains("blocked"))
     }
 
-    private class FakeContactsRepository : ContactsRepository {
+    @Test
+    fun phone_number_query_surfaces_call_or_save_result_before_contact_matches() = runBlocking {
+        val provider = ContactsSearchProvider(
+            FakeContactsRepository(
+                searchResults = listOf(
+                    Contact(
+                        id = 1,
+                        displayName = "Ali",
+                        phoneNumbers = listOf("+201234567890"),
+                        emails = emptyList(),
+                        photoUri = null,
+                        lookupKey = "ali"
+                    )
+                )
+            )
+        )
+
+        val results = provider.search(
+            SearchRequest(
+                query = "+20 123 456 7890",
+                maxResults = 8,
+                contactsPermissionState = PermissionAccessState.GRANTED
+            )
+        )
+
+        val phoneNumberResult = results.first() as PhoneNumberSearchResult
+
+        assertEquals("+20 123 456 7890", phoneNumberResult.phoneNumber)
+        assertEquals(2, results.size)
+    }
+
+    @Test
+    fun phone_number_query_is_available_without_contacts_permission() = runBlocking {
+        val provider = ContactsSearchProvider(FakeContactsRepository())
+
+        val results = provider.search(
+            SearchRequest(
+                query = "123456",
+                maxResults = 8,
+                contactsPermissionState = PermissionAccessState.CAN_REQUEST
+            )
+        )
+
+        assertTrue(results[0] is PhoneNumberSearchResult)
+        assertTrue(results[1] is PermissionRequestResult)
+    }
+
+    private class FakeContactsRepository(
+        private val searchResults: List<Contact> = emptyList()
+    ) : ContactsRepository {
         override fun hasContactsPermission(): Boolean = false
 
-        override suspend fun searchContacts(query: String, maxItems: Int): List<Contact> = emptyList()
+        override suspend fun searchContacts(query: String, maxItems: Int): List<Contact> = searchResults
 
         override suspend fun saveRecentContact(phoneNumber: String) = Unit
 

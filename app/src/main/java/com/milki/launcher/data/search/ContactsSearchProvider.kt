@@ -22,6 +22,7 @@ import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.ContactSearchResult
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
+import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
@@ -48,6 +49,8 @@ class ContactsSearchProvider(
 
     private companion object {
         const val MAX_RESULTS = 8
+        const val MIN_PHONE_DIGITS = 3
+        val PHONE_QUERY_PATTERN = Regex("""^\+?[0-9][0-9 .()\-]{2,}$""")
     }
 
     override val config: SearchProviderConfig = SearchProviderConfig(
@@ -78,24 +81,32 @@ class ContactsSearchProvider(
      * @return List of ContactSearchResult or PermissionRequestResult, or empty list
      */
     override suspend fun search(request: SearchRequest): List<SearchResult> {
+        val typedPhoneNumberResult = request.query
+            .trim()
+            .takeIf(::isPhoneNumberQuery)
+            ?.let(::PhoneNumberSearchResult)
+
         if (!request.contactsPermissionState.isGranted) {
             val requiresSettings = request.contactsPermissionState == PermissionAccessState.REQUIRES_SETTINGS
 
-            return listOf(
-                PermissionRequestResult(
-                    permission = android.Manifest.permission.READ_CONTACTS,
-                    providerPrefix = config.prefix,
-                    message = if (requiresSettings) {
-                        "Contacts access is blocked. Open Settings to search contacts"
-                    } else {
-                        "Contacts permission required to search contacts"
-                    },
-                    buttonText = if (requiresSettings) {
-                        "Open Settings"
-                    } else {
-                        "Grant Permission"
-                    }
-                )
+            val permissionPrompt = PermissionRequestResult(
+                permission = android.Manifest.permission.READ_CONTACTS,
+                providerPrefix = config.prefix,
+                message = if (requiresSettings) {
+                    "Contacts access is blocked. Open Settings to search contacts"
+                } else {
+                    "Contacts permission required to search contacts"
+                },
+                buttonText = if (requiresSettings) {
+                    "Open Settings"
+                } else {
+                    "Grant Permission"
+                }
+            )
+
+            return listOfNotNull(
+                typedPhoneNumberResult,
+                permissionPrompt
             )
         }
 
@@ -111,9 +122,17 @@ class ContactsSearchProvider(
             query = request.query,
             maxItems = request.maxResults
         )
-        return contacts.map { contact ->
-            ContactSearchResult(contact = contact)
+        return buildList {
+            typedPhoneNumberResult?.let(::add)
+            contacts.mapTo(this) { contact ->
+                ContactSearchResult(contact = contact)
+            }
         }
+    }
+
+    private fun isPhoneNumberQuery(query: String): Boolean {
+        val digitCount = query.count(Char::isDigit)
+        return digitCount >= MIN_PHONE_DIGITS && PHONE_QUERY_PATTERN.matches(query)
     }
 
     /**
