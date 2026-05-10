@@ -223,6 +223,7 @@ internal fun LauncherRootContent(
                         onRemoveWidget = { widgetId, _ -> homeController.onRemoveWidget(widgetId) },
                         onUpdateWidgetFrame = homeController::onUpdateWidgetFrame,
                         onUpdateWidgetDisplayMode = homeController::onUpdateWidgetDisplayMode,
+                        onExpandPopupWidget = homeController::onExpandPopupWidget,
                         onWidgetDroppedToHome = homeController::onWidgetDroppedToHome
                     )
                 )

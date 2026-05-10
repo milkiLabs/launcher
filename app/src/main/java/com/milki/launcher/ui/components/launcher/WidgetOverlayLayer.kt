@@ -58,7 +58,7 @@ internal fun WidgetOverlayLayer(
 ) {
     widgetTransformSession?.let { session ->
         val widgetItem = items.filterIsInstance<HomeItem.WidgetItem>()
-            .find { it.id == session.widgetId && it.displayMode == WidgetDisplayMode.Inline }
+            .find { it.id == session.widgetId }
 
         if (widgetItem != null) {
             WidgetResizeOverlay(
@@ -70,7 +70,15 @@ internal fun WidgetOverlayLayer(
                 items = items,
                 onConfirmTransform = { frame ->
                     onFinishTransform()
-                    onUpdateWidgetFrame(widgetItem.id, frame.position, frame.span)
+                    onUpdateWidgetFrame(
+                        widgetItem.id,
+                        if (widgetItem.displayMode == WidgetDisplayMode.PopupIcon) {
+                            widgetItem.position
+                        } else {
+                            frame.position
+                        },
+                        frame.span
+                    )
                 },
                 onCancelTransform = onCancelTransform
             )
@@ -93,19 +101,61 @@ private fun WidgetResizeOverlay(
 ) {
     BackHandler(onBack = onCancelTransform)
 
-    val originalFrame = remember(widgetItem.id, widgetItem.position, widgetItem.span) {
-        WidgetFrame(position = widgetItem.position, span = widgetItem.span)
+    val isPopupWidget = widgetItem.displayMode == WidgetDisplayMode.PopupIcon
+    val originalFrame = remember(
+        widgetItem.id,
+        widgetItem.position,
+        widgetItem.span,
+        widgetItem.displayMode,
+        gridColumns,
+        maxVisibleRows
+    ) {
+        val previewPosition = if (isPopupWidget) {
+            widgetItem.position.copy(
+                row = widgetItem.position.row.coerceIn(
+                    0,
+                    (maxVisibleRows - widgetItem.span.rows).coerceAtLeast(0)
+                ),
+                column = widgetItem.position.column.coerceIn(
+                    0,
+                    (gridColumns - widgetItem.span.columns).coerceAtLeast(0)
+                )
+            )
+        } else {
+            widgetItem.position
+        }
+        WidgetFrame(position = previewPosition, span = widgetItem.span)
     }
-    var draftFrame by remember(widgetItem.id, widgetItem.position, widgetItem.span) {
+    var draftFrame by remember(
+        widgetItem.id,
+        widgetItem.position,
+        widgetItem.span,
+        widgetItem.displayMode,
+        gridColumns,
+        maxVisibleRows
+    ) {
         mutableStateOf(originalFrame)
     }
-    var lastValidFrame by remember(widgetItem.id, widgetItem.position, widgetItem.span) {
+    var lastValidFrame by remember(
+        widgetItem.id,
+        widgetItem.position,
+        widgetItem.span,
+        widgetItem.displayMode,
+        gridColumns,
+        maxVisibleRows
+    ) {
         mutableStateOf(originalFrame)
     }
-    var isDraftValid by remember(widgetItem.id, widgetItem.position, widgetItem.span) {
+    var isDraftValid by remember(
+        widgetItem.id,
+        widgetItem.position,
+        widgetItem.span,
+        widgetItem.displayMode,
+        gridColumns,
+        maxVisibleRows
+    ) {
         mutableStateOf(true)
     }
-
     val occupiedCells = remember(items, widgetItem.id) {
         val cells = mutableSetOf<GridPosition>()
         for (item in items) {
@@ -120,6 +170,8 @@ private fun WidgetResizeOverlay(
     }
 
     fun isFrameFree(frame: WidgetFrame): Boolean {
+        if (isPopupWidget) return true
+
         val occupiedByCandidate = frame.span.occupiedPositions(frame.position)
         return occupiedByCandidate.none { it in occupiedCells }
     }
@@ -179,36 +231,42 @@ private fun WidgetResizeOverlay(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(52f)
-                .pointerInput(widgetItem.id) {
-                    var accumulatedDragX = 0f
-                    var accumulatedDragY = 0f
-                    var gestureStartFrame = draftFrame
+                .then(
+                    if (isPopupWidget) {
+                        Modifier
+                    } else {
+                        Modifier.pointerInput(widgetItem.id) {
+                            var accumulatedDragX = 0f
+                            var accumulatedDragY = 0f
+                            var gestureStartFrame = draftFrame
 
-                    detectDragGestures(
-                        onDragStart = {
-                            accumulatedDragX = 0f
-                            accumulatedDragY = 0f
-                            gestureStartFrame = draftFrame
-                        },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            accumulatedDragX += dragAmount.x
-                            accumulatedDragY += dragAmount.y
-                            updateDraft(
-                                applyWidgetTransformHandle(
-                                    startFrame = gestureStartFrame,
-                                    handle = WidgetTransformHandle.Body,
-                                    columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
-                                    rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
-                                    maxColumns = gridColumns,
-                                    maxRows = maxVisibleRows
-                                )
+                            detectDragGestures(
+                                onDragStart = {
+                                    accumulatedDragX = 0f
+                                    accumulatedDragY = 0f
+                                    gestureStartFrame = draftFrame
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    accumulatedDragX += dragAmount.x
+                                    accumulatedDragY += dragAmount.y
+                                    updateDraft(
+                                        applyWidgetTransformHandle(
+                                            startFrame = gestureStartFrame,
+                                            handle = WidgetTransformHandle.Body,
+                                            columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
+                                            rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
+                                            maxColumns = gridColumns,
+                                            maxRows = maxVisibleRows
+                                        )
+                                    )
+                                },
+                                onDragEnd = { settleDraftAfterGesture() },
+                                onDragCancel = { settleDraftAfterGesture() }
                             )
-                        },
-                        onDragEnd = { settleDraftAfterGesture() },
-                        onDragCancel = { settleDraftAfterGesture() }
-                    )
-                },
+                        }
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             Text(

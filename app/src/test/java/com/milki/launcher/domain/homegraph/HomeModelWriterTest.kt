@@ -203,7 +203,7 @@ class HomeModelWriterTest {
     }
 
     @Test
-    fun update_widget_display_mode_to_inline_rejects_when_full_span_collides() {
+    fun expand_popup_widget_shrinks_span_at_icon_when_current_cells_collide() {
         val widget = HomeItem.WidgetItem.create(
             appWidgetId = 10,
             providerPackage = "pkg.widget",
@@ -219,13 +219,106 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(widget, blocker),
-            command = HomeModelWriter.Command.UpdateWidgetDisplayMode(
+            command = HomeModelWriter.Command.ExpandPopupWidget(
                 widgetId = widget.id,
-                displayMode = WidgetDisplayMode.Inline
+                visibleRows = 5
             )
         )
 
-        assertTrue(result is HomeModelWriter.Result.Rejected)
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val updated = (result as HomeModelWriter.Result.Applied).items
+            .first { it.id == widget.id } as HomeItem.WidgetItem
+        assertEquals(WidgetDisplayMode.Inline, updated.displayMode)
+        assertEquals(GridSpan(columns = 2, rows = 1), updated.span)
+        assertEquals(GridPosition(0, 0), updated.position)
+    }
+
+    @Test
+    fun expand_popup_widget_shrinks_span_at_icon_when_icon_is_near_grid_edge() {
+        val widget = HomeItem.WidgetItem.create(
+            appWidgetId = 11,
+            providerPackage = "pkg.widget",
+            providerClass = "WidgetProvider",
+            label = "Widget",
+            position = GridPosition(0, 3),
+            span = GridSpan(columns = 2, rows = 2),
+            displayMode = WidgetDisplayMode.PopupIcon
+        )
+
+        val result = writer.apply(
+            currentItems = listOf(widget),
+            command = HomeModelWriter.Command.ExpandPopupWidget(
+                widgetId = widget.id,
+                visibleRows = 5
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val updated = (result as HomeModelWriter.Result.Applied).items
+            .first { it.id == widget.id } as HomeItem.WidgetItem
+        assertEquals(WidgetDisplayMode.Inline, updated.displayMode)
+        assertEquals(GridSpan(columns = 1, rows = 2), updated.span)
+        assertEquals(GridPosition(0, 3), updated.position)
+    }
+
+    @Test
+    fun expand_popup_widget_shrinks_span_at_icon_when_icon_is_near_visible_bottom() {
+        val widget = HomeItem.WidgetItem.create(
+            appWidgetId = 12,
+            providerPackage = "pkg.widget",
+            providerClass = "WidgetProvider",
+            label = "Widget",
+            position = GridPosition(2, 0),
+            span = GridSpan(columns = 2, rows = 2),
+            displayMode = WidgetDisplayMode.PopupIcon
+        )
+
+        val result = writer.apply(
+            currentItems = listOf(widget),
+            command = HomeModelWriter.Command.ExpandPopupWidget(
+                widgetId = widget.id,
+                visibleRows = 3
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val updated = (result as HomeModelWriter.Result.Applied).items
+            .first { it.id == widget.id } as HomeItem.WidgetItem
+        assertEquals(WidgetDisplayMode.Inline, updated.displayMode)
+        assertEquals(GridSpan(columns = 2, rows = 1), updated.span)
+        assertEquals(GridPosition(2, 0), updated.position)
+    }
+
+    @Test
+    fun update_widget_frame_for_popup_icon_resizes_saved_popup_span_without_requiring_free_area() {
+        val widget = HomeItem.WidgetItem.create(
+            appWidgetId = 13,
+            providerPackage = "pkg.widget",
+            providerClass = "WidgetProvider",
+            label = "Widget",
+            position = GridPosition(0, 0),
+            span = GridSpan(columns = 1, rows = 1),
+            displayMode = WidgetDisplayMode.PopupIcon
+        )
+        val blocker = HomeItem.PinnedApp.fromAppInfo(
+            AppInfo("B", "pkg.b", "Main")
+        ).withPosition(GridPosition(1, 1))
+
+        val result = writer.apply(
+            currentItems = listOf(widget, blocker),
+            command = HomeModelWriter.Command.UpdateWidgetFrame(
+                widgetId = widget.id,
+                newPosition = widget.position,
+                newSpan = GridSpan(columns = 2, rows = 2)
+            )
+        )
+
+        assertTrue(result is HomeModelWriter.Result.Applied)
+        val updated = (result as HomeModelWriter.Result.Applied).items
+            .first { it.id == widget.id } as HomeItem.WidgetItem
+        assertEquals(WidgetDisplayMode.PopupIcon, updated.displayMode)
+        assertEquals(GridSpan(columns = 2, rows = 2), updated.span)
+        assertEquals(GridPosition(0, 0), updated.position)
     }
 
     @Test

@@ -80,6 +80,7 @@ internal fun InternalGridDragLayer(
         widgetId: String,
         displayMode: WidgetDisplayMode
     ) -> Unit,
+    onExpandPopupWidget: (widgetId: String, visibleRows: Int) -> Unit,
     hapticLongPress: () -> Unit,
     hapticDragActivate: () -> Unit,
     hapticConfirm: () -> Unit,
@@ -271,9 +272,9 @@ internal fun InternalGridDragLayer(
                             onEdit = {
                                 interactionController.startWidgetTransform(widgetItem.id)
                             },
-                            onDisplayModeChange = { displayMode ->
+                            onModeAction = {
                                 interactionController.dismissMenu()
-                                onUpdateWidgetDisplayMode(widgetItem.id, displayMode)
+                                onUpdateWidgetDisplayMode(widgetItem.id, WidgetDisplayMode.PopupIcon)
                             },
                             onRemove = {
                                 interactionController.dismissMenu()
@@ -326,11 +327,14 @@ internal fun InternalGridDragLayer(
                                 },
                                 focusable = !interactionController.isMenuGestureActive,
                                 displayMode = widgetItem.displayMode,
-                                onEdit = {},
-                                onDisplayModeChange = { displayMode ->
+                                onEdit = {
+                                    interactionController.dismissWidgetPopup()
+                                    interactionController.startWidgetTransform(widgetItem.id)
+                                },
+                                onModeAction = {
                                     interactionController.dismissMenu()
                                     interactionController.dismissWidgetPopup()
-                                    onUpdateWidgetDisplayMode(widgetItem.id, displayMode)
+                                    onExpandPopupWidget(widgetItem.id, maxVisibleRows)
                                 },
                                 onRemove = {
                                     interactionController.dismissMenu()
@@ -356,32 +360,31 @@ private fun WidgetContextMenu(
     focusable: Boolean,
     displayMode: WidgetDisplayMode,
     onEdit: () -> Unit,
-    onDisplayModeChange: (WidgetDisplayMode) -> Unit,
+    onModeAction: () -> Unit,
     onRemove: () -> Unit
 ) {
     val modeAction = when (displayMode) {
         WidgetDisplayMode.Inline -> MenuAction(
             label = "Show as icon",
             icon = Icons.Filled.Widgets,
-            onClick = { onDisplayModeChange(WidgetDisplayMode.PopupIcon) }
+            onClick = onModeAction
         )
         WidgetDisplayMode.PopupIcon -> MenuAction(
             label = "Show full widget",
             icon = Icons.Filled.AspectRatio,
-            onClick = { onDisplayModeChange(WidgetDisplayMode.Inline) }
+            onClick = onModeAction
         )
     }
-    val resizeAction = if (displayMode == WidgetDisplayMode.Inline) {
-        listOf(
-            MenuAction(
-                label = "Resize",
-                icon = Icons.Filled.AspectRatio,
-                onClick = onEdit
-            )
+    val resizeAction = listOf(
+        MenuAction(
+            label = when (displayMode) {
+                WidgetDisplayMode.Inline -> "Resize"
+                WidgetDisplayMode.PopupIcon -> "Resize popup"
+            },
+            icon = Icons.Filled.AspectRatio,
+            onClick = onEdit
         )
-    } else {
-        emptyList()
-    }
+    )
 
     ItemActionMenu(
         expanded = expanded,

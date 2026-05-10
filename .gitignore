@@ -18,3 +18,13 @@ keystore.properties
 # Benchmark/profile module source should be tracked.
 /baselineprofile/build
 app/build/
+
+# Node
+node_modules/
+
+# VitePress Build
+website/docs/.vitepress/dist/
+website/docs/.vitepress/cache/
+
+# Kotlin cache
+.kotlin/

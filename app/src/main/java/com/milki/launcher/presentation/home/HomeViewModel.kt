@@ -506,6 +506,19 @@ class HomeViewModel(
         )
     }
 
+    fun expandPopupWidget(
+        widgetId: String,
+        visibleRows: Int
+    ) {
+        launchMutation(
+            fallbackErrorMessage = "Cannot show full widget",
+            command = HomeModelWriter.Command.ExpandPopupWidget(
+                widgetId = widgetId,
+                visibleRows = visibleRows
+            )
+        )
+    }
+
     private fun resolvePostBindCommand(
         appWidgetId: Int,
         widgetHostManager: WidgetHostManager

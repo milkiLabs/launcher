@@ -116,6 +116,10 @@ internal class LauncherHomeController(
         homeViewModel.updateWidgetDisplayMode(widgetId, displayMode)
     }
 
+    fun onExpandPopupWidget(widgetId: String, visibleRows: Int) {
+        homeViewModel.expandPopupWidget(widgetId, visibleRows)
+    }
+
     fun onWidgetDroppedToHome(
         providerInfo: android.appwidget.AppWidgetProviderInfo,
         span: GridSpan,

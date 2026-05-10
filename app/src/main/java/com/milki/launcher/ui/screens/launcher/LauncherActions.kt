@@ -87,6 +87,10 @@ data class WidgetActions(
         widgetId: String,
         displayMode: WidgetDisplayMode
     ) -> Unit = { _, _ -> },
+    val onExpandPopupWidget: (
+        widgetId: String,
+        visibleRows: Int
+    ) -> Unit = { _, _ -> },
     val onWidgetDroppedToHome: (
         providerInfo: android.appwidget.AppWidgetProviderInfo,
         span: GridSpan,

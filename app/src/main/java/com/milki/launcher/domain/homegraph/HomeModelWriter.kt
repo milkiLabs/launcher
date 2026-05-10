@@ -5,6 +5,7 @@ import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.domain.model.homeGridSpan
+import com.milki.launcher.domain.widget.fitInlineWidgetSpanAtAnchor
 
 /**
  * Deterministic mutation engine for home layout operations.
@@ -167,6 +168,15 @@ class HomeModelWriter(
         ) : Command {
             override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
                 return writer.updateWidgetDisplayMode(currentItems, this)
+            }
+        }
+
+        data class ExpandPopupWidget(
+            val widgetId: String,
+            val visibleRows: Int
+        ) : Command {
+            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
+                return writer.expandPopupWidget(currentItems, this)
             }
         }
     }
@@ -539,6 +549,34 @@ class HomeModelWriter(
         command: Command.UpdateWidgetDisplayMode
     ): Result = updateTopLevelItem(currentItems, command.widgetId) {
         (it as? HomeItem.WidgetItem)?.withDisplayMode(command.displayMode)
+    }
+
+    private fun expandPopupWidget(
+        currentItems: List<HomeItem>,
+        command: Command.ExpandPopupWidget
+    ): Result {
+        val mutable = currentItems.toMutableList()
+        val index = mutable.indexOfFirst { it.id == command.widgetId }
+        val existing = mutable.getOrNull(index) as? HomeItem.WidgetItem
+            ?: return Result.Rejected(Error.ItemNotFound)
+
+        val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.widgetId)
+        val inlineSpan = fitInlineWidgetSpanAtAnchor(
+            anchor = existing.position,
+            preferredSpan = existing.span,
+            occupiedCells = occupied.keys,
+            gridColumns = gridColumns,
+            visibleRows = command.visibleRows
+        )
+
+        return if (inlineSpan == null) {
+            Result.Rejected(Error.TargetOccupied)
+        } else {
+            mutable[index] = existing
+                .withDisplayMode(WidgetDisplayMode.Inline)
+                .withSpan(inlineSpan)
+            Result.Applied(mutable)
+        }
     }
 
     private fun updateTopLevelItem(

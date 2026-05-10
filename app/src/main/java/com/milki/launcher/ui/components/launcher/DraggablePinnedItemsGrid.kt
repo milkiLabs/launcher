@@ -67,6 +67,10 @@ fun DraggablePinnedItemsGrid(
         widgetId: String,
         displayMode: WidgetDisplayMode
     ) -> Unit = { _, _ -> },
+    onExpandPopupWidget: (
+        widgetId: String,
+        visibleRows: Int
+    ) -> Unit = { _, _ -> },
     onWidgetDroppedToHome: (
         providerInfo: android.appwidget.AppWidgetProviderInfo,
         span: GridSpan,
@@ -172,6 +176,7 @@ fun DraggablePinnedItemsGrid(
             onMergeFolders = onMergeFolders,
             onRemoveWidget = onRemoveWidget,
             onUpdateWidgetDisplayMode = onUpdateWidgetDisplayMode,
+            onExpandPopupWidget = onExpandPopupWidget,
             hapticLongPress = { hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress) },
             hapticDragActivate = { hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) },
             hapticConfirm = { hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm) },

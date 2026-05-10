@@ -243,6 +243,7 @@ private fun HomeSurface(
         onRemoveWidget = actions.onRemoveWidget,
         onUpdateWidgetFrame = actions.onUpdateWidgetFrame,
         onUpdateWidgetDisplayMode = actions.onUpdateWidgetDisplayMode,
+        onExpandPopupWidget = actions.onExpandPopupWidget,
         onWidgetDroppedToHome = actions.onWidgetDroppedToHome,
         onItemBoundsMeasured = onItemBoundsMeasured,
         modifier = modifier.padding(
@@ -422,6 +423,7 @@ private data class HomeSurfaceActions(
         widgetId: String,
         displayMode: WidgetDisplayMode
     ) -> Unit,
+    val onExpandPopupWidget: (widgetId: String, visibleRows: Int) -> Unit,
     val onWidgetDroppedToHome: (
         providerInfo: AppWidgetProviderInfo,
         span: GridSpan,
@@ -448,6 +450,7 @@ private fun LauncherActions.toHomeSurfaceActions(): HomeSurfaceActions {
         onRemoveWidget = widget.onRemoveWidget,
         onUpdateWidgetFrame = widget.onUpdateWidgetFrame,
         onUpdateWidgetDisplayMode = widget.onUpdateWidgetDisplayMode,
+        onExpandPopupWidget = widget.onExpandPopupWidget,
         onWidgetDroppedToHome = widget.onWidgetDroppedToHome,
         onDismissSearch = search.onDismissSearch,
         onHomescreenMenuOpenChange = menu.onHomescreenMenuOpenChange
