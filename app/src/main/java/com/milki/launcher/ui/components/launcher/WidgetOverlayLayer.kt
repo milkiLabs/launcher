@@ -7,9 +7,13 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -39,6 +44,18 @@ import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
+
+private val WidgetResizeBorderHitTarget = 32.dp
+private val WidgetResizeHandles = listOf(
+    Alignment.TopStart to WidgetTransformHandle.TopLeft,
+    Alignment.TopCenter to WidgetTransformHandle.Top,
+    Alignment.TopEnd to WidgetTransformHandle.TopRight,
+    Alignment.CenterStart to WidgetTransformHandle.Left,
+    Alignment.CenterEnd to WidgetTransformHandle.Right,
+    Alignment.BottomStart to WidgetTransformHandle.BottomLeft,
+    Alignment.BottomCenter to WidgetTransformHandle.Bottom,
+    Alignment.BottomEnd to WidgetTransformHandle.BottomRight
+)
 
 /**
  * WidgetOverlayLayer is isolated so widget resize behavior can evolve without
@@ -276,103 +293,121 @@ private fun WidgetResizeOverlay(
             )
         }
 
-        WidgetTransformHandleNode(
-            alignment = Alignment.TopStart,
-            handle = WidgetTransformHandle.TopLeft,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
-        WidgetTransformHandleNode(
-            alignment = Alignment.TopCenter,
-            handle = WidgetTransformHandle.Top,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
-        WidgetTransformHandleNode(
-            alignment = Alignment.TopEnd,
-            handle = WidgetTransformHandle.TopRight,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
-        WidgetTransformHandleNode(
-            alignment = Alignment.CenterStart,
-            handle = WidgetTransformHandle.Left,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
-        WidgetTransformHandleNode(
-            alignment = Alignment.CenterEnd,
-            handle = WidgetTransformHandle.Right,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
-        WidgetTransformHandleNode(
-            alignment = Alignment.BottomStart,
-            handle = WidgetTransformHandle.BottomLeft,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
-        WidgetTransformHandleNode(
-            alignment = Alignment.BottomCenter,
-            handle = WidgetTransformHandle.Bottom,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
-        WidgetTransformHandleNode(
-            alignment = Alignment.BottomEnd,
-            handle = WidgetTransformHandle.BottomRight,
-            frameColor = frameColor,
-            cellWidthPx = cellWidthPx,
-            cellHeightPx = cellHeightPx,
-            gridColumns = gridColumns,
-            maxVisibleRows = maxVisibleRows,
-            draftFrame = draftFrame,
-            updateDraft = ::updateDraft,
-            settleDraftAfterGesture = ::settleDraftAfterGesture
-        )
+        WidgetResizeHandles.forEach { (alignment, handle) ->
+            WidgetTransformBorderHandleNode(
+                alignment = alignment,
+                handle = handle,
+                cellWidthPx = cellWidthPx,
+                cellHeightPx = cellHeightPx,
+                gridColumns = gridColumns,
+                maxVisibleRows = maxVisibleRows,
+                draftFrame = draftFrame,
+                updateDraft = ::updateDraft,
+                settleDraftAfterGesture = ::settleDraftAfterGesture
+            )
+        }
+
+        WidgetResizeHandles.forEach { (alignment, handle) ->
+            WidgetTransformHandleNode(
+                alignment = alignment,
+                handle = handle,
+                frameColor = frameColor,
+                cellWidthPx = cellWidthPx,
+                cellHeightPx = cellHeightPx,
+                gridColumns = gridColumns,
+                maxVisibleRows = maxVisibleRows,
+                draftFrame = draftFrame,
+                updateDraft = ::updateDraft,
+                settleDraftAfterGesture = ::settleDraftAfterGesture
+            )
+        }
     }
+}
+
+@Composable
+private fun BoxScope.WidgetTransformBorderHandleNode(
+    alignment: Alignment,
+    handle: WidgetTransformHandle,
+    cellWidthPx: Float,
+    cellHeightPx: Float,
+    gridColumns: Int,
+    maxVisibleRows: Int,
+    draftFrame: WidgetFrame,
+    updateDraft: (WidgetFrame) -> Unit,
+    settleDraftAfterGesture: () -> Unit
+) {
+    val latestDraftFrame by rememberUpdatedState(draftFrame)
+    val latestUpdateDraft by rememberUpdatedState(updateDraft)
+    val latestSettleDraftAfterGesture by rememberUpdatedState(settleDraftAfterGesture)
+
+    Box(
+        modifier = Modifier
+            .align(alignment)
+            .offset(
+                x = when (alignment) {
+                    Alignment.TopStart, Alignment.CenterStart, Alignment.BottomStart ->
+                        -(WidgetResizeBorderHitTarget / 2)
+
+                    Alignment.TopEnd, Alignment.CenterEnd, Alignment.BottomEnd ->
+                        WidgetResizeBorderHitTarget / 2
+
+                    else -> 0.dp
+                },
+                y = when (alignment) {
+                    Alignment.TopStart, Alignment.TopCenter, Alignment.TopEnd ->
+                        -(WidgetResizeBorderHitTarget / 2)
+
+                    Alignment.BottomStart, Alignment.BottomCenter, Alignment.BottomEnd ->
+                        WidgetResizeBorderHitTarget / 2
+
+                    else -> 0.dp
+                }
+            )
+            .then(
+                when (alignment) {
+                    Alignment.TopCenter, Alignment.BottomCenter -> Modifier
+                        .fillMaxWidth()
+                        .height(WidgetResizeBorderHitTarget)
+
+                    Alignment.CenterStart, Alignment.CenterEnd -> Modifier
+                        .fillMaxHeight()
+                        .width(WidgetResizeBorderHitTarget)
+
+                    else -> Modifier.size(WidgetResizeBorderHitTarget)
+                }
+            )
+            .zIndex(52.5f)
+            .pointerInput(handle, cellWidthPx, cellHeightPx, gridColumns, maxVisibleRows) {
+                var accumulatedDragX = 0f
+                var accumulatedDragY = 0f
+                var gestureStartFrame = latestDraftFrame
+
+                detectDragGestures(
+                    onDragStart = {
+                        accumulatedDragX = 0f
+                        accumulatedDragY = 0f
+                        gestureStartFrame = latestDraftFrame
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        accumulatedDragX += dragAmount.x
+                        accumulatedDragY += dragAmount.y
+                        latestUpdateDraft(
+                            applyWidgetTransformHandle(
+                                startFrame = gestureStartFrame,
+                                handle = handle,
+                                columnDelta = (accumulatedDragX / cellWidthPx).roundToInt(),
+                                rowDelta = (accumulatedDragY / cellHeightPx).roundToInt(),
+                                maxColumns = gridColumns,
+                                maxRows = maxVisibleRows
+                            )
+                        )
+                    },
+                    onDragEnd = { latestSettleDraftAfterGesture() },
+                    onDragCancel = { latestSettleDraftAfterGesture() }
+                )
+            }
+    )
 }
 
 @Composable
