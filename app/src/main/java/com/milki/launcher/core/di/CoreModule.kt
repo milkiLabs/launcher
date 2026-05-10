@@ -111,7 +111,10 @@ val coreModule = module {
     }
 
     single {
-        UrlHandlerResolver(get())
+        UrlHandlerResolver(
+            context = get(),
+            packageChangeMonitor = get()
+        )
     }
 
     /**

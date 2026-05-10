@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -45,9 +45,18 @@ class AppRepositoryImpl(
     private val recentAppsStore = RecentAppsStore(application)
 
     private val installedAppsSnapshot = MutableStateFlow<List<AppInfo>>(emptyList())
+    @Volatile
+    private var latestInstalledApps: List<AppInfo>? = null
 
-    private val recentApps = recentAppsStore.observeRecentComponentNames()
-        .map(::resolveRecentApps)
+    private val recentApps = combine(
+        recentAppsStore.observeRecentComponentNames(),
+        installedAppsSnapshot
+    ) { recentComponentNames, installedApps ->
+        resolveRecentApps(
+            recentComponentNames = recentComponentNames,
+            installedApps = installedApps
+        )
+    }
         .stateIn(
         scope = repositoryScope,
         started = SharingStarted.Eagerly,
@@ -79,7 +88,14 @@ class AppRepositoryImpl(
     }
 
     override suspend fun getInstalledApps(): List<AppInfo> {
-        return installedAppsCatalog.loadInstalledApps()
+        latestInstalledApps?.let { apps ->
+            return apps
+        }
+
+        return installedAppsCatalog.loadInstalledApps().also { apps ->
+            latestInstalledApps = apps
+            installedAppsSnapshot.value = apps
+        }
     }
 
     override fun getRecentApps(): Flow<List<AppInfo>> {
@@ -94,13 +110,23 @@ class AppRepositoryImpl(
      * Resolve recent component names independently from full app-catalog scans.
      * This keeps search-open recents fast even while installed-app refresh is running.
      */
-    private fun resolveRecentApps(recentComponentNames: List<String>): List<AppInfo> {
+    private fun resolveRecentApps(
+        recentComponentNames: List<String>,
+        installedApps: List<AppInfo>
+    ): List<AppInfo> {
         if (recentComponentNames.isEmpty()) return emptyList()
 
         val packageManager = application.packageManager
+        val installedByComponent = installedApps.associateBy { app ->
+            ComponentName(app.packageName, app.activityName)
+        }
+
         return recentComponentNames.mapNotNull { flattenedComponent ->
             val componentName = ComponentName.unflattenFromString(flattenedComponent)
                 ?: return@mapNotNull null
+            installedByComponent[componentName]?.let { appInfo ->
+                return@mapNotNull appInfo
+            }
             resolveComponentAppInfo(componentName, packageManager)
         }
     }
@@ -135,6 +161,7 @@ class AppRepositoryImpl(
     private suspend fun refreshInstalledAppsSnapshot(event: PackageChangeEvent) {
         invalidatePackageScopedCaches(event)
         val latestApps = installedAppsCatalog.loadInstalledApps()
+        latestInstalledApps = latestApps
         installedAppsSnapshot.value = latestApps
         recentAppsStore.pruneUnavailable(latestApps)
         AppContextDataCache.refreshAll(application)

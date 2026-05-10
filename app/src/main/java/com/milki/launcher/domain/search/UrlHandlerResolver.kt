@@ -21,7 +21,14 @@ import android.content.pm.ResolveInfo
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import com.milki.launcher.data.cache.SnapshotCache
+import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.domain.model.UrlHandlerApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 private const val URL_HANDLER_RESOLVER_TAG = "UrlHandlerResolver"
 
@@ -39,7 +46,8 @@ private const val URL_HANDLER_RESOLVER_TAG = "UrlHandlerResolver"
  * @property context The application context for accessing PackageManager
  */
 class UrlHandlerResolver(
-    private val context: Context
+    private val context: Context,
+    packageChangeMonitor: PackageChangeMonitor
 ) {
     /**
      * The PackageManager instance used for querying apps.
@@ -47,20 +55,22 @@ class UrlHandlerResolver(
      */
     private val packageManager: PackageManager = context.packageManager
 
-    /**
-     * Cache for dynamically discovered browser packages.
-     * 
-     * WHY CACHE THIS:
-     * Querying the OS for browser packages is an expensive operation.
-     * We don't want to do this every time isBrowserPackage() is called.
-     * The list of installed browsers rarely changes, so we cache it
-     * after the first query.
-     * 
-     * NULL vs EMPTY SET:
-     * - null means we haven't queried yet
-     * - empty set means we queried but found no browsers
-     */
-    private var cachedBrowserPackages: Set<String>? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val browserPackagesCache = SnapshotCache(BrowserPackagesSnapshot.Empty)
+    private val handlerAppCache = SnapshotCache<Map<String, UrlHandlerApp>>(emptyMap())
+
+    init {
+        scope.launch {
+            packageChangeMonitor.events.collectLatest { event ->
+                if (event.packageName == null) {
+                    browserPackagesCache.clear()
+                    handlerAppCache.clear()
+                } else {
+                    invalidatePackage(event.packageName)
+                }
+            }
+        }
+    }
 
     /**
      * Resolves the app that will handle a URL when the user taps it.
@@ -253,19 +263,17 @@ class UrlHandlerResolver(
      * @return true if this package is likely a browser
      */
     private fun isBrowserPackage(packageName: String): Boolean {
-        /**
-         * Step 1: Check our dynamic cache first.
-         * If we haven't queried the OS yet, do so now.
-         */
-        if (cachedBrowserPackages == null) {
-            cachedBrowserPackages = getDynamicBrowserPackages()
-        }
+        val browserPackages = browserPackagesCache.get().takeIf { it.isLoaded }
+            ?: BrowserPackagesSnapshot(
+                isLoaded = true,
+                packageNames = getDynamicBrowserPackages()
+            ).also(browserPackagesCache::replace)
 
         /**
          * Step 2: Check if the package is in our dynamically discovered list.
          * This catches ANY browser installed on the device.
          */
-        if (cachedBrowserPackages?.contains(packageName) == true) {
+        if (packageName in browserPackages.packageNames) {
             return true
         }
 
@@ -357,14 +365,22 @@ class UrlHandlerResolver(
     private fun createHandlerApp(resolveInfo: ResolveInfo): UrlHandlerApp? {
         return runCatching {
             val activityInfo = resolveInfo.activityInfo
+            val cacheKey = handlerCacheKey(activityInfo.packageName, activityInfo.name)
+            handlerAppCache.get()[cacheKey]?.let { cachedHandler ->
+                return@runCatching cachedHandler
+            }
+
             val label = resolveInfo.loadLabel(packageManager).toString()
 
-            UrlHandlerApp(
+            val handlerApp = UrlHandlerApp(
                 packageName = activityInfo.packageName,
                 activityName = activityInfo.name,
                 label = label,
                 isDefault = false
             )
+
+            handlerAppCache.replace(handlerAppCache.get() + (cacheKey to handlerApp))
+            handlerApp
         }.onFailure { throwable ->
             Log.w(
                 URL_HANDLER_RESOLVER_TAG,
@@ -372,5 +388,30 @@ class UrlHandlerResolver(
                 throwable
             )
         }.getOrNull()
+    }
+
+    private fun invalidatePackage(packageName: String) {
+        browserPackagesCache.clear()
+        handlerAppCache.replace(
+            handlerAppCache.get().filterKeys { key ->
+                !key.startsWith("$packageName/")
+            }
+        )
+    }
+
+    private fun handlerCacheKey(packageName: String, activityName: String): String {
+        return "$packageName/$activityName"
+    }
+}
+
+private data class BrowserPackagesSnapshot(
+    val isLoaded: Boolean,
+    val packageNames: Set<String>
+) {
+    companion object {
+        val Empty = BrowserPackagesSnapshot(
+            isLoaded = false,
+            packageNames = emptySet()
+        )
     }
 }

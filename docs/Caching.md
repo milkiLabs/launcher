@@ -16,12 +16,17 @@ Use these before adding new manual `@Volatile`, `Deferred`, or version fields.
 - App labels: `AppLabelCache`, persisted for cold starts and refreshed by full
   app catalog reloads.
 - App list: `AppRepositoryImpl` owns the installed-app snapshot used by drawer
-  and search.
+  and search. One-shot `getInstalledApps()` calls reuse this snapshot once it
+  is available.
+- Recent apps: `AppRepositoryImpl` resolves recent component names from the
+  installed-app snapshot before falling back to `PackageManager`.
 - Context-menu data: `AppContextDataCache` stores shortcuts and widget
   availability as one atomic snapshot.
 - Widget picker catalog: `WidgetPickerCatalogStore` uses `AsyncSnapshotCache`.
 - App and shortcut icons: memory caches serve UI synchronously and invalidate
   by package on package broadcasts.
+- URL handlers: `UrlHandlerResolver` caches browser package discovery and
+  resolved handler labels, then invalidates by package on package broadcasts.
 
 ## Invalidation
 
