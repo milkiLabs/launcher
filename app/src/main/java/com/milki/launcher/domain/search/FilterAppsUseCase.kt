@@ -19,7 +19,8 @@ class FilterAppsUseCase {
         return AppQueryRanker.rank(
             apps = installedApps,
             query = query,
-            includePackageNameMatches = false
+            includePackageNameMatches = false,
+            recentApps = recentApps
         )
     }
 }
