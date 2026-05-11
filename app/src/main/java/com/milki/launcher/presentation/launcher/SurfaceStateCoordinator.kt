@@ -36,6 +36,9 @@ class SurfaceStateCoordinator(
     var isWidgetPickerOpen by mutableStateOf(false)
         private set
 
+    var isShortcutManagerOpen by mutableStateOf(false)
+        private set
+
     var widgetPickerQuery by mutableStateOf("")
         private set
 
@@ -67,6 +70,13 @@ class SurfaceStateCoordinator(
         if (!isOpen) {
             widgetPickerQuery = ""
         }
+    }
+
+    fun updateShortcutManagerOpen(isOpen: Boolean) {
+        if (isShortcutManagerOpen == isOpen) return
+
+        dismissContextMenus()
+        isShortcutManagerOpen = isOpen
     }
 
     fun updateWidgetPickerQuery(query: String) {
@@ -123,6 +133,7 @@ class SurfaceStateCoordinator(
         when {
             isAppDrawerOpen -> updateAppDrawerOpen(false)
             isWidgetPickerOpen -> updateWidgetPickerOpen(false)
+            isShortcutManagerOpen -> updateShortcutManagerOpen(false)
             isFolderOpen() -> {
                 dismissContextMenus()
                 closeFolder()
@@ -165,6 +176,7 @@ class SurfaceStateCoordinator(
 
             isAppDrawerOpen -> updateAppDrawerOpen(false)
             isWidgetPickerOpen -> updateWidgetPickerOpen(false)
+            isShortcutManagerOpen -> updateShortcutManagerOpen(false)
             isSearchVisible() -> {
                 dismissContextMenus()
                 hideSearch()
@@ -180,6 +192,7 @@ class SurfaceStateCoordinator(
         isHomescreenMenuOpen = false
         applyAppDrawerVisibility(false)
         isWidgetPickerOpen = false
+        isShortcutManagerOpen = false
         widgetPickerQuery = ""
         if (isFolderOpen()) {
             closeFolder()
@@ -190,6 +203,7 @@ class SurfaceStateCoordinator(
         isHomescreenMenuOpen = false
         applyAppDrawerVisibility(false)
         isWidgetPickerOpen = false
+        isShortcutManagerOpen = false
         widgetPickerQuery = ""
         if (isFolderOpen()) {
             closeFolder()

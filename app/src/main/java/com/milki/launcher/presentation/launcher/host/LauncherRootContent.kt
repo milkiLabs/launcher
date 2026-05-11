@@ -11,6 +11,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalContext
@@ -30,6 +31,8 @@ import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.model.targetForTrigger
 import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.ActionShortcutRepository
+import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
@@ -44,9 +47,11 @@ import com.milki.launcher.ui.screens.launcher.LauncherActions
 import com.milki.launcher.ui.screens.launcher.LauncherScreen
 import com.milki.launcher.ui.screens.launcher.MenuActions
 import com.milki.launcher.ui.screens.launcher.SearchActions
+import com.milki.launcher.ui.screens.launcher.ShortcutManagerActions
 import com.milki.launcher.ui.screens.launcher.WidgetActions
 import com.milki.launcher.ui.theme.LauncherTheme
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * Composable root for launcher home.
@@ -70,11 +75,16 @@ internal fun LauncherRootContent(
     homeViewModel: HomeViewModel,
     appDrawerViewModelProvider: () -> AppDrawerViewModel,
     settingsRepository: SettingsRepository,
+    appRepositoryProvider: () -> AppRepository,
+    actionShortcutRepository: ActionShortcutRepository,
     widgetHostManager: WidgetHostManager,
     obtainWidgetPickerCatalogStore: () -> WidgetPickerCatalogStore
 ) {
     val pinnedItems by homeViewModel.pinnedItems.collectAsStateWithLifecycle()
     val openFolderItem by homeViewModel.openFolderItem.collectAsStateWithLifecycle()
+    val actionShortcuts by actionShortcutRepository.shortcuts.collectAsStateWithLifecycle(
+        initialValue = emptyList()
+    )
     val launcherSettings by settingsRepository.settings.collectAsStateWithLifecycle(
         initialValue = LauncherSettings()
     )
@@ -88,6 +98,7 @@ internal fun LauncherRootContent(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val surfaceStateCoordinator = runtime.surfaceStateCoordinator
+    val scope = rememberCoroutineScope()
     val homeController = remember(homeViewModel, runtime.widgetPlacementCoordinator, widgetHostManager) {
         LauncherHomeController(
             homeViewModel = homeViewModel,
@@ -124,10 +135,20 @@ internal fun LauncherRootContent(
         // Before that, use safe defaults (search hidden, drawer empty).
         val resolvedSearchVm = searchViewModel
         val resolvedDrawerVm = appDrawerViewModel
+        val installedAppsFlow = remember(surfaceStateCoordinator.isShortcutManagerOpen) {
+            if (surfaceStateCoordinator.isShortcutManagerOpen) {
+                appRepositoryProvider().observeInstalledApps()
+            } else {
+                kotlinx.coroutines.flow.flowOf(emptyList())
+            }
+        }
 
         val searchUiState by (resolvedSearchVm?.uiState
             ?: remember { MutableStateFlow(SearchUiState()) })
             .collectAsStateWithLifecycle()
+        val installedApps by installedAppsFlow.collectAsStateWithLifecycle(
+            initialValue = emptyList()
+        )
 
         val appDrawerUiState by (resolvedDrawerVm?.uiState
             ?: remember { MutableStateFlow(AppDrawerUiState()) })
@@ -164,7 +185,9 @@ internal fun LauncherRootContent(
                 launcherSettings,
                 onOpenSettings,
                 resolvedSearchVm,
-                resolvedDrawerVm
+                resolvedDrawerVm,
+                actionShortcutRepository,
+                scope
             ) {
                 LauncherActions(
                     search = SearchActions(
@@ -178,7 +201,27 @@ internal fun LauncherRootContent(
                     ),
                     menu = MenuActions(
                         onOpenSettings = onOpenSettings,
-                        onHomescreenMenuOpenChange = surfaceStateCoordinator::updateHomescreenMenuOpen
+                        onHomescreenMenuOpenChange = surfaceStateCoordinator::updateHomescreenMenuOpen,
+                        onOpenShortcutManager = {
+                            surfaceStateCoordinator.updateShortcutManagerOpen(true)
+                        }
+                    ),
+                    shortcuts = ShortcutManagerActions(
+                        onShortcutManagerOpenChange = surfaceStateCoordinator::updateShortcutManagerOpen,
+                        onSaveShortcut = { shortcut ->
+                            scope.launch {
+                                actionShortcutRepository.saveShortcut(shortcut)
+                            }
+                        },
+                        onDeleteShortcut = { shortcut ->
+                            scope.launch {
+                                actionShortcutRepository.deleteShortcut(shortcut.id)
+                                homeViewModel.unpinItem(shortcut.id)
+                            }
+                        },
+                        onShortcutExternalDragStarted = {
+                            surfaceStateCoordinator.updateShortcutManagerOpen(false)
+                        }
                     ),
                     drawer = DrawerActions(
                         onAppDrawerOpenChange = surfaceStateCoordinator::updateAppDrawerOpen,
@@ -240,6 +283,9 @@ internal fun LauncherRootContent(
                 appDrawerUiState = appDrawerUiState,
                 isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
                 widgetPickerQuery = surfaceStateCoordinator.widgetPickerQuery,
+                isShortcutManagerOpen = surfaceStateCoordinator.isShortcutManagerOpen,
+                actionShortcuts = actionShortcuts,
+                installedApps = installedApps,
                 widgetHostManager = widgetHostManager,
                 widgetPickerCatalogStore = widgetPickerCatalogStore
             )

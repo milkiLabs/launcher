@@ -140,6 +140,7 @@ fun SettingsScreen(
             installedApps = installedApps,
             onBack = { showActionShortcutCreator = false },
             onResolveUrlHandler = actions.onResolveUrlHandler,
+            onSaveShortcut = actions.onSaveActionShortcut,
             onExternalDragStarted = actions.onShortcutExternalDragStarted
         )
         return
@@ -410,6 +411,7 @@ private fun ActionShortcutCreatorScreen(
     installedApps: List<AppInfo>,
     onBack: () -> Unit,
     onResolveUrlHandler: (String, (UrlHandlerApp?) -> Unit) -> Unit,
+    onSaveShortcut: (HomeItem.ActionShortcut) -> Unit,
     onExternalDragStarted: () -> Unit
 ) {
     BackHandler(onBack = onBack)
@@ -536,17 +538,19 @@ private fun ActionShortcutCreatorScreen(
             Button(
                 onClick = {
                     val app = selectedApp
-                    createdShortcut = HomeItem.ActionShortcut.create(
+                    val shortcut = HomeItem.ActionShortcut.create(
                         label = label,
                         destinationUri = validationResult?.uri.orEmpty(),
                         packageName = app?.packageName ?: resolvedHandler?.packageName,
                         packageLabel = app?.name ?: resolvedHandler?.label
                     )
+                    createdShortcut = shortcut
+                    onSaveShortcut(shortcut)
                 },
                 enabled = validationMessage == null && validationResult != null,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Create preview")
+                Text("Save shortcut")
             }
 
             ActionShortcutResolvedTargetText(

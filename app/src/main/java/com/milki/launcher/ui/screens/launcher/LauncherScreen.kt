@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -68,11 +70,15 @@ fun LauncherScreen(
     appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
     isWidgetPickerOpen: Boolean = false,
     widgetPickerQuery: String = "",
+    isShortcutManagerOpen: Boolean = false,
+    actionShortcuts: List<HomeItem.ActionShortcut> = emptyList(),
+    installedApps: List<AppInfo> = emptyList(),
     widgetHostManager: WidgetHostManager? = null,
     widgetPickerCatalogStore: WidgetPickerCatalogStore? = null,
 ) {
     val appDrawerSheetState = rememberLauncherSheetState()
     val widgetPickerSheetState = rememberLauncherSheetState()
+    val shortcutManagerSheetState = rememberLauncherSheetState()
     val homeSurfaceActions = actions.toHomeSurfaceActions()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
     val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
@@ -92,6 +98,7 @@ fun LauncherScreen(
         isHomescreenMenuOpen = isHomescreenMenuOpen,
         isAppDrawerOpen = isAppDrawerOpen,
         isWidgetPickerOpen = isWidgetPickerOpen,
+        isShortcutManagerOpen = isShortcutManagerOpen,
         isSearchVisible = searchUiState.isSearchVisible,
         openFolderItem = openFolderItem
     )
@@ -124,6 +131,10 @@ fun LauncherScreen(
                 actions.menu.onHomescreenMenuOpenChange(false)
                 actions.widget.onWidgetPickerOpenChange(true)
             },
+            onOpenShortcuts = {
+                actions.menu.onHomescreenMenuOpenChange(false)
+                actions.menu.onOpenShortcutManager()
+            },
             onOpenSettings = {
                 actions.menu.onHomescreenMenuOpenChange(false)
                 actions.menu.onOpenSettings()
@@ -152,6 +163,14 @@ fun LauncherScreen(
             widgetPickerCatalogStore = widgetPickerCatalogStore,
             widgetActions = actions.widget
         )
+
+        ShortcutManagerHost(
+            shortcutManagerSheetState = shortcutManagerSheetState,
+            isShortcutManagerOpen = isShortcutManagerOpen,
+            shortcuts = actionShortcuts,
+            installedApps = installedApps,
+            shortcutActions = actions.shortcuts
+        )
     }
 
     SearchOverlayHost(
@@ -166,6 +185,7 @@ private fun HomescreenMenu(
     anchorPx: Offset,
     onDismiss: () -> Unit,
     onOpenWidgets: () -> Unit,
+    onOpenShortcuts: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     if (!expanded) return
@@ -178,6 +198,11 @@ private fun HomescreenMenu(
             label = "Widgets",
             icon = Icons.Filled.Widgets,
             onClick = onOpenWidgets
+        ),
+        MenuAction(
+            label = "Shortcuts",
+            icon = Icons.Filled.Link,
+            onClick = onOpenShortcuts
         ),
         MenuAction(
             label = "Settings",
@@ -339,6 +364,30 @@ private fun WidgetPickerHost(
 }
 
 @Composable
+private fun ShortcutManagerHost(
+    shortcutManagerSheetState: LauncherSheetState,
+    isShortcutManagerOpen: Boolean,
+    shortcuts: List<HomeItem.ActionShortcut>,
+    installedApps: List<AppInfo>,
+    shortcutActions: ShortcutManagerActions
+) {
+    LauncherSurfaceSheetHost(
+        isOpen = isShortcutManagerOpen,
+        sheetState = shortcutManagerSheetState,
+        onDismissRequest = { shortcutActions.onShortcutManagerOpenChange(false) }
+    ) { dragHandleModifier ->
+        ActionShortcutManagerSheet(
+            shortcuts = shortcuts,
+            installedApps = installedApps,
+            onSaveShortcut = shortcutActions.onSaveShortcut,
+            onDeleteShortcut = shortcutActions.onDeleteShortcut,
+            onExternalDragStarted = shortcutActions.onShortcutExternalDragStarted,
+            headerDragHandleModifier = dragHandleModifier
+        )
+    }
+}
+
+@Composable
 private fun SearchOverlayHost(
     searchUiState: SearchUiState,
     searchActions: SearchActions
@@ -357,6 +406,7 @@ private fun selectActiveHomeTriggers(
     isHomescreenMenuOpen: Boolean,
     isAppDrawerOpen: Boolean,
     isWidgetPickerOpen: Boolean,
+    isShortcutManagerOpen: Boolean,
     isSearchVisible: Boolean,
     openFolderItem: HomeItem.FolderItem?
 ): Set<LauncherTrigger> {
@@ -364,6 +414,7 @@ private fun selectActiveHomeTriggers(
         isHomescreenMenuOpen ||
                 isAppDrawerOpen ||
                 isWidgetPickerOpen ||
+                isShortcutManagerOpen ||
                 isSearchVisible ||
                 openFolderItem != null
 

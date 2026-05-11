@@ -4,6 +4,7 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.UrlHandlerApp
+import com.milki.launcher.domain.model.HomeItem
 
 /**
  * SettingsActions.kt - Grouped action contracts for Settings UI
@@ -80,6 +81,7 @@ data class SettingsActions(
     val onOpenDefaultLauncherSettings: () -> Unit,
     val onShortcutExternalDragStarted: () -> Unit,
     val onResolveUrlHandler: (String, (UrlHandlerApp?) -> Unit) -> Unit,
+    val onSaveActionShortcut: (HomeItem.ActionShortcut) -> Unit,
     val homeScreen: SettingsHomeScreenActions,
     val customSources: SettingsCustomSourceActions,
     val localPrefixes: SettingsLocalPrefixActions,

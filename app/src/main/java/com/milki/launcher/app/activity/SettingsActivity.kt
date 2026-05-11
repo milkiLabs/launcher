@@ -109,6 +109,7 @@ class SettingsActivity : ComponentActivity() {
                     onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings,
                     onShortcutExternalDragStarted = ::finish,
                     onResolveUrlHandler = settingsViewModel::resolveUrlHandler,
+                    onSaveActionShortcut = settingsViewModel::saveActionShortcut,
                     homeScreen = SettingsHomeScreenActions(
                         onSetTriggerAction = settingsViewModel::setTriggerAction,
                         onSetTriggerOpenAppTarget = settingsViewModel::setTriggerOpenAppTarget

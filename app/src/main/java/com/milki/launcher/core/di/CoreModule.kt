@@ -40,9 +40,11 @@
 package com.milki.launcher.core.di
 
 import com.milki.launcher.data.repository.backup.LauncherBackupRepositoryImpl
+import com.milki.launcher.data.repository.ActionShortcutRepositoryImpl
 import com.milki.launcher.data.repository.AppRepositoryImpl
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
+import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.SettingsRepository
@@ -108,6 +110,10 @@ val coreModule = module {
      */
     single<SettingsRepository> {
         SettingsRepositoryImpl(get())
+    }
+
+    single<ActionShortcutRepository> {
+        ActionShortcutRepositoryImpl(get())
     }
 
     single {

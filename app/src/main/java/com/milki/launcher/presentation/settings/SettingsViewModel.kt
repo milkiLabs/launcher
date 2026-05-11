@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
@@ -27,6 +28,7 @@ import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.UrlHandlerApp
 import com.milki.launcher.domain.repository.LauncherBackupRepository
+import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
@@ -47,6 +49,7 @@ import kotlinx.coroutines.withContext
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     appRepository: AppRepository,
+    private val actionShortcutRepository: ActionShortcutRepository,
     private val launcherBackupRepository: LauncherBackupRepository,
     private val urlHandlerResolver: UrlHandlerResolver
 ) : ViewModel() {
@@ -140,6 +143,12 @@ class SettingsViewModel(
                 urlHandlerResolver.resolvePreferredUrlHandler(url)
             }
             onResolved(handler)
+        }
+    }
+
+    fun saveActionShortcut(shortcut: HomeItem.ActionShortcut) {
+        viewModelScope.launch {
+            actionShortcutRepository.saveShortcut(shortcut)
         }
     }
 

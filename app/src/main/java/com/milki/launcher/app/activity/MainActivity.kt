@@ -15,6 +15,7 @@ import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.HomeRepository
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     private val homeViewModel: HomeViewModel by viewModel()
     private val homeRepository: HomeRepository by inject()
     private val settingsRepository: SettingsRepository by inject()
+    private val actionShortcutRepository: ActionShortcutRepository by inject()
     private val widgetHostManager: WidgetHostManager by inject()
 
     // ── Lazily resolved: not needed for the first frame ───────────────
@@ -104,6 +106,8 @@ class MainActivity : ComponentActivity() {
                         homeViewModel = homeViewModel,
                         appDrawerViewModelProvider = { appDrawerViewModel },
                         settingsRepository = settingsRepository,
+                        appRepositoryProvider = { appRepository },
+                        actionShortcutRepository = actionShortcutRepository,
                         widgetHostManager = widgetHostManager,
                         obtainWidgetPickerCatalogStore = { widgetPickerCatalogStore }
                     )

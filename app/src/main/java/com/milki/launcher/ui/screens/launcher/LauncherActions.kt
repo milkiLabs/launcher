@@ -37,7 +37,8 @@ data class LauncherActions(
     val widget: WidgetActions = WidgetActions(),
     val drawer: DrawerActions = DrawerActions(),
     val search: SearchActions = SearchActions(),
-    val menu: MenuActions = MenuActions()
+    val menu: MenuActions = MenuActions(),
+    val shortcuts: ShortcutManagerActions = ShortcutManagerActions()
 )
 
 /**
@@ -120,5 +121,16 @@ data class SearchActions(
  */
 data class MenuActions(
     val onOpenSettings: () -> Unit = {},
-    val onHomescreenMenuOpenChange: (Boolean) -> Unit = {}
+    val onHomescreenMenuOpenChange: (Boolean) -> Unit = {},
+    val onOpenShortcutManager: () -> Unit = {}
+)
+
+/**
+ * User-created action shortcut library interactions.
+ */
+data class ShortcutManagerActions(
+    val onShortcutManagerOpenChange: (Boolean) -> Unit = {},
+    val onSaveShortcut: (HomeItem.ActionShortcut) -> Unit = {},
+    val onDeleteShortcut: (HomeItem.ActionShortcut) -> Unit = {},
+    val onShortcutExternalDragStarted: () -> Unit = {}
 )
