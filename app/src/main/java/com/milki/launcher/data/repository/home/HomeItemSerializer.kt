@@ -17,7 +17,12 @@ internal class HomeItemSerializer(
 ) {
 
     fun readFrom(preferences: Preferences): List<HomeItem> {
-        val encoded = preferences[HomePreferenceKeys.PINNED_ITEMS] ?: return emptyList()
+        val defaultDocsShortcut = HomeItem.ActionShortcut(
+            id = "action:milki_docs",
+            label = "Milki docs",
+            destinationUri = "https://milkilabs.github.io/launcher/guide/overview.html"
+        )
+        val encoded = preferences[HomePreferenceKeys.PINNED_ITEMS] ?: return listOf(defaultDocsShortcut)
         if (encoded.isEmpty()) return emptyList()
 
         return encoded
