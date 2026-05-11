@@ -141,24 +141,6 @@ class SettingsViewModel(
         }
     }
 
-    fun resolveUrlHandler(
-        url: String,
-        onResolved: (UrlHandlerApp?) -> Unit
-    ) {
-        viewModelScope.launch {
-            val handler = withContext(Dispatchers.Default) {
-                urlHandlerResolver.resolvePreferredUrlHandler(url)
-            }
-            onResolved(handler)
-        }
-    }
-
-    fun saveActionShortcut(shortcut: HomeItem.ActionShortcut) {
-        viewModelScope.launch {
-            actionShortcutRepository.saveShortcut(shortcut)
-        }
-    }
-
     // ========================================================================
     // SEARCH PROVIDERS
     // ========================================================================
