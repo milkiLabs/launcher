@@ -208,9 +208,10 @@ internal fun LauncherRootContent(
                     ),
                     shortcuts = ShortcutManagerActions(
                         onShortcutManagerOpenChange = surfaceStateCoordinator::updateShortcutManagerOpen,
-                        onSaveShortcut = { shortcut ->
+                        onSaveShortcut = { shortcut, onResult ->
                             scope.launch {
-                                actionShortcutRepository.saveShortcut(shortcut)
+                                val success = actionShortcutRepository.saveShortcut(shortcut)
+                                onResult(success)
                             }
                         },
                         onDeleteShortcut = { shortcut ->

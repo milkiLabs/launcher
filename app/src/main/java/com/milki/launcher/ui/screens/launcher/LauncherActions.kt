@@ -131,7 +131,7 @@ data class MenuActions(
  */
 data class ShortcutManagerActions(
     val onShortcutManagerOpenChange: (Boolean) -> Unit = {},
-    val onSaveShortcut: (HomeItem.ActionShortcut) -> Unit = {},
+    val onSaveShortcut: (HomeItem.ActionShortcut, (Boolean) -> Unit) -> Unit = { _, _ -> },
     val onDeleteShortcut: (HomeItem.ActionShortcut) -> Unit = {},
     val onShortcutExternalDragStarted: () -> Unit = {}
 )

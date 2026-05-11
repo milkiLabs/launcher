@@ -46,9 +46,21 @@ class ActionShortcutRepositoryImpl(
         return dataStore.data.map(serializer::readFrom).first()
     }
 
-    override suspend fun saveShortcut(shortcut: HomeItem.ActionShortcut) {
+    override suspend fun saveShortcut(shortcut: HomeItem.ActionShortcut): Boolean {
+        var success = true
         dataStore.edit { preferences ->
             val existing = serializer.readFrom(preferences).toMutableList()
+            
+            val isDuplicate = existing.any { 
+                it.id != shortcut.id && 
+                it.destinationUri == shortcut.destinationUri && 
+                it.packageName == shortcut.packageName 
+            }
+            if (isDuplicate) {
+                success = false
+                return@edit
+            }
+            
             val index = existing.indexOfFirst { it.id == shortcut.id }
             if (index >= 0) {
                 existing[index] = shortcut
@@ -57,6 +69,7 @@ class ActionShortcutRepositoryImpl(
             }
             serializer.writeTo(existing, preferences)
         }
+        return success
     }
 
     override suspend fun replaceAllShortcuts(shortcuts: List<HomeItem.ActionShortcut>) {

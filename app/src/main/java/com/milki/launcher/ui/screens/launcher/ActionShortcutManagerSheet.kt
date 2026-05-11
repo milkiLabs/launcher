@@ -63,7 +63,7 @@ import com.milki.launcher.ui.theme.Spacing
 internal fun ActionShortcutManagerSheet(
     shortcuts: List<HomeItem.ActionShortcut>,
     installedApps: List<AppInfo>,
-    onSaveShortcut: (HomeItem.ActionShortcut) -> Unit,
+    onSaveShortcut: (HomeItem.ActionShortcut, (Boolean) -> Unit) -> Unit,
     onDeleteShortcut: (HomeItem.ActionShortcut) -> Unit,
     onExternalDragStarted: () -> Unit,
     headerDragHandleModifier: Modifier = Modifier
@@ -85,10 +85,14 @@ internal fun ActionShortcutManagerSheet(
                 isCreating = false
                 editingShortcut = null
             },
-            onSave = { shortcut ->
-                onSaveShortcut(shortcut)
-                isCreating = false
-                editingShortcut = null
+            onSave = { shortcut, onResult ->
+                onSaveShortcut(shortcut) { success ->
+                    if (success) {
+                        isCreating = false
+                        editingShortcut = null
+                    }
+                    onResult(success)
+                }
             }
         )
         return
@@ -232,7 +236,7 @@ private fun ActionShortcutEditor(
     installedApps: List<AppInfo>,
     existingShortcut: HomeItem.ActionShortcut?,
     onBack: () -> Unit,
-    onSave: (HomeItem.ActionShortcut) -> Unit
+    onSave: (HomeItem.ActionShortcut, (Boolean) -> Unit) -> Unit
 ) {
     var label by remember(existingShortcut?.id) {
         mutableStateOf(existingShortcut?.label.orEmpty())
@@ -254,8 +258,13 @@ private fun ActionShortcutEditor(
     }
     var choosingApp by remember { mutableStateOf(false) }
     val validationResult = remember(destination) { UrlValidator.validateUrlOrUri(destination) }
+    var showDuplicateError by remember { mutableStateOf(false) }
     val validationMessage = remember(destination, validationResult) {
         validateActionShortcutDestination(destination, validationResult)
+    }
+
+    androidx.compose.runtime.LaunchedEffect(destination, selectedApp?.packageName) {
+        showDuplicateError = false
     }
 
     if (choosingApp) {
@@ -320,9 +329,13 @@ private fun ActionShortcutEditor(
                 onValueChange = { destination = it },
                 label = { Text("Destination URI") },
                 placeholder = { Text("https://example.com or whatsapp://send?phone=...") },
-                isError = validationMessage != null,
+                isError = validationMessage != null || showDuplicateError,
                 supportingText = {
-                    Text(validationMessage ?: "Any Android deep link or web URL can be used.")
+                    if (showDuplicateError) {
+                        Text("A shortcut with this destination and app already exists.")
+                    } else {
+                        Text(validationMessage ?: "Any Android deep link or web URL can be used.")
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -345,7 +358,11 @@ private fun ActionShortcutEditor(
                         packageName = app?.packageName,
                         packageLabel = app?.name
                     )
-                    onSave(shortcut)
+                    onSave(shortcut) { success ->
+                        if (!success) {
+                            showDuplicateError = true
+                        }
+                    }
                 },
                 enabled = validationMessage == null && validationResult != null,
                 modifier = Modifier.fillMaxWidth()
