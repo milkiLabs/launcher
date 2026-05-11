@@ -14,6 +14,7 @@ import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
 import com.milki.launcher.domain.model.backup.SkippedImportReason
 import com.milki.launcher.domain.repository.AppRepository
+import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.SettingsRepository
@@ -28,7 +29,8 @@ class LauncherBackupRepositoryImpl(
     private val settingsRepository: SettingsRepository,
     private val homeRepository: HomeRepository,
     private val appRepository: AppRepository,
-    private val widgetHostManager: WidgetHostManager
+    private val widgetHostManager: WidgetHostManager,
+    private val actionShortcutRepository: ActionShortcutRepository
 ) : LauncherBackupRepository {
 
     private val backupJson = Json {
@@ -41,13 +43,15 @@ class LauncherBackupRepositoryImpl(
         return runCatching {
             val settings = settingsRepository.settings.first()
             val homeItems = homeRepository.readPinnedItems()
+            val actionShortcuts = actionShortcutRepository.readShortcuts()
 
             val snapshot = LauncherBackupSnapshot(
                 schemaVersion = LauncherBackupSnapshot.CURRENT_SCHEMA_VERSION,
                 createdAtEpochMillis = System.currentTimeMillis(),
                 appVersionName = resolveAppVersionName(),
                 settings = settings,
-                homeItems = homeItems
+                homeItems = homeItems,
+                actionShortcuts = actionShortcuts
             )
 
             val payload = backupJson.encodeToString(
@@ -115,9 +119,15 @@ class LauncherBackupRepositoryImpl(
             val existingHomeItems = homeRepository.readPinnedItems()
             collectWidgetIds(existingHomeItems).forEach(widgetHostManager::deallocateWidgetId)
 
+            val sanitizedActionShortcuts = sanitizeActionShortcuts(
+                items = snapshot.actionShortcuts,
+                context = importContext
+            )
+
             // Replace behavior: imported settings/home overwrite all current state.
             settingsRepository.updateSettings { snapshot.settings }
             homeRepository.replacePinnedItems(sanitizedHomeItems)
+            actionShortcutRepository.replaceAllShortcuts(sanitizedActionShortcuts)
 
             LauncherImportResult(
                 success = true,
@@ -154,6 +164,25 @@ class LauncherBackupRepositoryImpl(
                 context.skip(
                     category = SkippedImportCategory.OTHER,
                     message = "Skipped duplicate item id: ${sanitized.id}"
+                )
+                null
+            } else {
+                sanitized
+            }
+        }
+    }
+
+    private fun sanitizeActionShortcuts(
+        items: List<HomeItem.ActionShortcut>,
+        context: ImportContext
+    ): List<HomeItem.ActionShortcut> {
+        val seenIds = mutableSetOf<String>()
+        return items.mapNotNull { item ->
+            val sanitized = sanitizeActionShortcut(item, context) ?: return@mapNotNull null
+            if (!seenIds.add(sanitized.id)) {
+                context.skip(
+                    category = SkippedImportCategory.OTHER,
+                    message = "Skipped duplicate shortcut id: ${sanitized.id}"
                 )
                 null
             } else {

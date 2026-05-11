@@ -16,7 +16,8 @@ data class LauncherBackupSnapshot(
     val createdAtEpochMillis: Long,
     val appVersionName: String,
     val settings: LauncherSettings,
-    val homeItems: List<HomeItem>
+    val homeItems: List<HomeItem>,
+    val actionShortcuts: List<HomeItem.ActionShortcut> = emptyList()
 ) {
     companion object {
         const val CURRENT_SCHEMA_VERSION: Int = 1

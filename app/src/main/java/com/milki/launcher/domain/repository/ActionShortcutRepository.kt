@@ -10,5 +10,7 @@ interface ActionShortcutRepository {
 
     suspend fun saveShortcut(shortcut: HomeItem.ActionShortcut)
 
+    suspend fun replaceAllShortcuts(shortcuts: List<HomeItem.ActionShortcut>)
+
     suspend fun deleteShortcut(shortcutId: String)
 }

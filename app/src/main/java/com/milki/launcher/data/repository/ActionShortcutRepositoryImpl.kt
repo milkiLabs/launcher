@@ -59,6 +59,12 @@ class ActionShortcutRepositoryImpl(
         }
     }
 
+    override suspend fun replaceAllShortcuts(shortcuts: List<HomeItem.ActionShortcut>) {
+        dataStore.edit { preferences ->
+            serializer.writeTo(shortcuts, preferences)
+        }
+    }
+
     override suspend fun deleteShortcut(shortcutId: String) {
         dataStore.edit { preferences ->
             val existing = serializer.readFrom(preferences)

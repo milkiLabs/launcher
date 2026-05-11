@@ -135,7 +135,8 @@ val coreModule = module {
             settingsRepository = get(),
             homeRepository = get(),
             appRepository = get(),
-            widgetHostManager = get()
+            widgetHostManager = get(),
+            actionShortcutRepository = get()
         )
     }
 }
