@@ -220,7 +220,7 @@ internal fun LauncherRootContent(
                             }
                         },
                         onShortcutExternalDragStarted = {
-                            surfaceStateCoordinator.updateShortcutManagerOpen(false)
+                            surfaceStateCoordinator.closeTransientSurfaces()
                         }
                     ),
                     drawer = DrawerActions(
@@ -263,6 +263,9 @@ internal fun LauncherRootContent(
                     widget = WidgetActions(
                         onWidgetPickerOpenChange = surfaceStateCoordinator::updateWidgetPickerOpen,
                         onWidgetPickerQueryChange = surfaceStateCoordinator::updateWidgetPickerQuery,
+                        onWidgetExternalDragStarted = {
+                            surfaceStateCoordinator.closeTransientSurfaces()
+                        },
                         onRemoveWidget = { widgetId, _ -> homeController.onRemoveWidget(widgetId) },
                         onUpdateWidgetFrame = homeController::onUpdateWidgetFrame,
                         onUpdateWidgetDisplayMode = homeController::onUpdateWidgetDisplayMode,

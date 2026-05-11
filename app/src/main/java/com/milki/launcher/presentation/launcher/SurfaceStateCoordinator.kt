@@ -200,7 +200,7 @@ class SurfaceStateCoordinator(
         }
     }
 
-    private fun closeTransientSurfaces(keepSearch: Boolean) {
+    fun closeTransientSurfaces(keepSearch: Boolean = false) {
         isHomescreenMenuOpen = false
         applyAppDrawerVisibility(false)
         isWidgetPickerOpen = false

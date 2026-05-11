@@ -356,9 +356,7 @@ private fun WidgetPickerHost(
             searchQuery = widgetPickerQuery,
             onSearchQueryChange = widgetActions.onWidgetPickerQueryChange,
             headerDragHandleModifier = dragHandleModifier,
-            onExternalDragStarted = {
-                widgetActions.onWidgetPickerOpenChange(false)
-            }
+            onExternalDragStarted = widgetActions.onWidgetExternalDragStarted
         )
     }
 }
