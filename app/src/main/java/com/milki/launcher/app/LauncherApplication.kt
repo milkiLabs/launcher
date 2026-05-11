@@ -9,7 +9,6 @@ package com.milki.launcher.app
 // IMPORTS - Android Framework
 // ============================================================================
 import android.app.Application
-import com.milki.launcher.core.launcher.syncLauncherIconVisibility
 import com.milki.launcher.data.icon.AppIconDiskSnapshotStore
 
 // ============================================================================
@@ -26,7 +25,6 @@ class LauncherApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AppIconDiskSnapshotStore.initialize(this)
-        syncLauncherIconVisibility(this)
         initializeKoin()
     }
 

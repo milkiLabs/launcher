@@ -12,7 +12,6 @@ import androidx.compose.runtime.setValue
 import com.milki.launcher.core.launcher.isAppDefaultLauncher
 import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
 import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
-import com.milki.launcher.core.launcher.syncLauncherIconVisibility
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
@@ -73,7 +72,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        syncLauncherIconVisibility(this)
 
         traceSection("launcher.startup.mainActivity.onCreate") {
             traceSection("launcher.startup.runtime.setup") {
@@ -116,7 +114,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        syncLauncherIconVisibility(this)
         refreshDefaultLauncherPromptState()
         runtime.onResume()
     }

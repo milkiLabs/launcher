@@ -20,7 +20,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.core.launcher.isAppDefaultLauncher
 import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
 import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
-import com.milki.launcher.core.launcher.syncLauncherIconVisibility
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsActions
 import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
@@ -165,7 +164,6 @@ class SettingsActivity : ComponentActivity() {
 
     private fun refreshLauncherDefaultState() {
         isDefaultLauncher = isAppDefaultLauncher(this)
-        syncLauncherIconVisibility(this)
     }
 
     private fun openDefaultLauncherSettings() {
