@@ -202,7 +202,10 @@ private fun ActionShortcutGridItem(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            PinnedItemView(item = shortcut, compactLayout = false)
+            com.milki.launcher.ui.components.launcher.ActionShortcutIcon(
+                shortcut = shortcut,
+                size = IconSize.appGrid
+            )
         }
 
         Text(

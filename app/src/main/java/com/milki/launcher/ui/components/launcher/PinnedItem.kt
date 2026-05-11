@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconLabelCell
@@ -279,18 +280,50 @@ private fun PinnedItemIcon(
 }
 
 @Composable
-private fun ActionShortcutIcon(
+internal fun ActionShortcutIcon(
     shortcut: HomeItem.ActionShortcut,
     size: Dp,
     modifier: Modifier = Modifier
 ) {
-    val packageName = shortcut.packageName
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val packageName = shortcut.packageName ?: androidx.compose.runtime.remember(shortcut.destinationUri) {
+        kotlin.runCatching {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(shortcut.destinationUri))
+            val resolveInfo = context.packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            resolveInfo?.activityInfo?.packageName
+        }.getOrNull()
+    }
+
     if (packageName != null) {
-        AppIcon(
-            packageName = packageName,
-            size = size,
-            modifier = modifier
-        )
+        Box(modifier = modifier.size(size)) {
+            AppIcon(
+                packageName = packageName,
+                size = size,
+                modifier = Modifier.matchParentSize()
+            )
+            
+            val badgeSize = (size * 0.34f).coerceAtLeast(16.dp)
+            val badgePadding = (badgeSize * 0.12f).coerceAtLeast(2.dp)
+            
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(badgeSize),
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                shadowElevation = 3.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.Link,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier
+                            .size(badgeSize - badgePadding)
+                    )
+                }
+            }
+        }
         return
     }
 
