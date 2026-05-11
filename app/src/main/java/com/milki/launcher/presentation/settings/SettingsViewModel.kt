@@ -80,6 +80,13 @@ class SettingsViewModel(
             initialValue = emptyList()
         )
 
+    val actionShortcuts: StateFlow<List<HomeItem.ActionShortcut>> = actionShortcutRepository.shortcuts
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     private val _backupStatusMessage = MutableStateFlow<String?>(null)
     val backupStatusMessage: StateFlow<String?> = _backupStatusMessage
 

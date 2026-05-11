@@ -118,6 +118,7 @@ enum class LauncherTriggerAction(val displayName: String) {
     OPEN_SEARCH("Open search dialog"),
     OPEN_APP_DRAWER("Open app drawer"),
     OPEN_APP("Open an app"),
+    OPEN_ACTION_SHORTCUT("Open shortcut"),
     OPEN_NOTIFICATION_SHADE("Open notification shade"),
     LOCK_SCREEN("Lock screen"),
     DO_NOTHING("Do nothing")
@@ -154,6 +155,28 @@ sealed class LauncherTriggerTarget {
                 shortcutId = shortcutId,
                 shortLabel = shortLabel,
                 longLabel = longLabel
+            )
+        }
+    }
+
+    @Serializable
+    data class ActionShortcut(
+        val id: String,
+        val label: String,
+        val destinationUri: String,
+        val packageName: String? = null,
+        val packageLabel: String? = null
+    ) : LauncherTriggerTarget() {
+        override val displayName: String
+            get() = label
+
+        fun toHomeShortcut(): HomeItem.ActionShortcut {
+            return HomeItem.ActionShortcut(
+                id = id,
+                label = label,
+                destinationUri = destinationUri,
+                packageName = packageName,
+                packageLabel = packageLabel
             )
         }
     }

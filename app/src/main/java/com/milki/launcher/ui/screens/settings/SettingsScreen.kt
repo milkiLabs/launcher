@@ -105,6 +105,7 @@ import com.milki.launcher.ui.theme.Spacing
 fun SettingsScreen(
     settings: LauncherSettings,
     installedApps: List<AppInfo>,
+    actionShortcuts: List<HomeItem.ActionShortcut>,
     showSetDefaultLauncherOption: Boolean,
     backupStatusMessage: String?,
     importReport: LauncherImportResult?,
@@ -118,20 +119,33 @@ fun SettingsScreen(
     var editingSource by remember { mutableStateOf<SearchSource?>(null) }
     var showAddSourceDialog by remember { mutableStateOf(false) }
     var sourceIdPendingDelete by remember { mutableStateOf<String?>(null) }
-    var appPickerTrigger by remember { mutableStateOf<LauncherTrigger?>(null) }
+    var appPickerTrigger by remember { mutableStateOf<Pair<LauncherTrigger, LauncherTriggerAction>?>(null) }
     var showActionShortcutCreator by remember { mutableStateOf(false) }
 
-    appPickerTrigger?.let { trigger ->
-        TriggerAppPickerScreen(
-            trigger = trigger,
-            installedApps = installedApps,
-            currentTarget = settings.targetForTrigger(trigger),
-            onBack = { appPickerTrigger = null },
-            onTargetSelected = { target ->
-                actions.homeScreen.onSetTriggerOpenAppTarget(trigger, target)
-                appPickerTrigger = null
-            }
-        )
+    appPickerTrigger?.let { (trigger, action) ->
+        if (action == LauncherTriggerAction.OPEN_ACTION_SHORTCUT) {
+            TriggerActionShortcutPickerScreen(
+                trigger = trigger,
+                actionShortcuts = actionShortcuts,
+                currentTarget = settings.targetForTrigger(trigger),
+                onBack = { appPickerTrigger = null },
+                onTargetSelected = { target ->
+                    actions.homeScreen.onSetTriggerOpenAppTarget(trigger, target)
+                    appPickerTrigger = null
+                }
+            )
+        } else {
+            TriggerAppPickerScreen(
+                trigger = trigger,
+                installedApps = installedApps,
+                currentTarget = settings.targetForTrigger(trigger),
+                onBack = { appPickerTrigger = null },
+                onTargetSelected = { target ->
+                    actions.homeScreen.onSetTriggerOpenAppTarget(trigger, target)
+                    appPickerTrigger = null
+                }
+            )
+        }
         return
     }
 
@@ -182,7 +196,7 @@ fun SettingsScreen(
             HomeScreenSection(
                 settings = settings,
                 actions = actions.homeScreen,
-                onSelectOpenAppAction = { trigger -> appPickerTrigger = trigger },
+                onSelectOpenAppAction = { trigger, action -> appPickerTrigger = trigger to action },
                 onCreateActionShortcut = { showActionShortcutCreator = true }
             )
 
@@ -369,7 +383,7 @@ private fun SkippedImportCategory.toDisplayTitle(): String {
 private fun HomeScreenSection(
     settings: LauncherSettings,
     actions: SettingsHomeScreenActions,
-    onSelectOpenAppAction: (LauncherTrigger) -> Unit,
+    onSelectOpenAppAction: (LauncherTrigger, LauncherTriggerAction) -> Unit,
     onCreateActionShortcut: () -> Unit
 ) {
     SettingsCategory(title = "Home Screen")
@@ -386,7 +400,7 @@ private fun HomeScreenSection(
         val target = settings.targetForTrigger(trigger)
         DropdownSettingItem(
             title = trigger.displayName,
-            subtitle = if (action == LauncherTriggerAction.OPEN_APP) {
+            subtitle = if (action == LauncherTriggerAction.OPEN_APP || action == LauncherTriggerAction.OPEN_ACTION_SHORTCUT) {
                 target?.displayName ?: "Choose an app or shortcut"
             } else {
                 null
@@ -395,8 +409,8 @@ private fun HomeScreenSection(
             options = LauncherInteractionCatalog.availableActions()
                 .map { action -> action.displayName to action },
             onOptionSelected = { selectedAction ->
-                if (selectedAction == LauncherTriggerAction.OPEN_APP) {
-                    onSelectOpenAppAction(trigger)
+                if (selectedAction == LauncherTriggerAction.OPEN_APP || selectedAction == LauncherTriggerAction.OPEN_ACTION_SHORTCUT) {
+                    onSelectOpenAppAction(trigger, selectedAction)
                 } else {
                     actions.onSetTriggerAction(trigger, selectedAction)
                 }
@@ -868,27 +882,18 @@ private fun validateActionShortcutDestination(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TriggerAppPickerScreen(
-    trigger: LauncherTrigger,
-    installedApps: List<AppInfo>,
-    currentTarget: LauncherTriggerTarget?,
+private fun TriggerTargetPickerScreen(
+    title: String,
+    triggerDisplayName: String,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholderText: String,
     onBack: () -> Unit,
-    onTargetSelected: (LauncherTriggerTarget) -> Unit
+    isEmpty: Boolean,
+    emptyState: @Composable () -> Unit,
+    content: @Composable () -> Unit
 ) {
     BackHandler(onBack = onBack)
-
-    var query by remember { mutableStateOf("") }
-    val filteredApps = remember(installedApps, query) {
-        val normalizedQuery = query.trim().lowercase()
-        if (normalizedQuery.isBlank()) {
-            installedApps
-        } else {
-            installedApps.filter { app ->
-                app.nameLower.contains(normalizedQuery) ||
-                    app.packageLower.contains(normalizedQuery)
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -896,11 +901,11 @@ private fun TriggerAppPickerScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Choose app",
+                            text = title,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = trigger.displayName,
+                            text = triggerDisplayName,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -929,33 +934,134 @@ private fun TriggerAppPickerScreen(
         ) {
             UnifiedSearchInputField(
                 query = query,
-                onQueryChange = { query = it },
-                placeholderText = "Search apps and shortcuts",
-                onClear = { query = "" },
+                onQueryChange = onQueryChange,
+                placeholderText = placeholderText,
+                onClear = { onQueryChange("") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = Spacing.medium)
             )
 
-            if (filteredApps.isEmpty()) {
-                TriggerAppPickerEmptyState()
+            if (isEmpty) {
+                emptyState()
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
-                ) {
-                    items(
-                        items = filteredApps,
-                        key = { app -> "${app.packageName}/${app.activityName}" }
-                    ) { app ->
-                        TriggerAppPickerAppGroup(
-                            app = app,
-                            query = query,
-                            currentTarget = currentTarget,
-                            onTargetSelected = onTargetSelected
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun TriggerActionShortcutPickerScreen(
+    trigger: LauncherTrigger,
+    actionShortcuts: List<HomeItem.ActionShortcut>,
+    currentTarget: LauncherTriggerTarget?,
+    onBack: () -> Unit,
+    onTargetSelected: (LauncherTriggerTarget) -> Unit
+) {
+    var query by remember { mutableStateOf("") }
+    val filteredShortcuts = remember(actionShortcuts, query) {
+        val normalizedQuery = query.trim().lowercase()
+        if (normalizedQuery.isBlank()) {
+            actionShortcuts
+        } else {
+            actionShortcuts.filter { shortcut ->
+                shortcut.label.lowercase().contains(normalizedQuery)
+            }
+        }
+    }
+
+    TriggerTargetPickerScreen(
+        title = "Choose shortcut",
+        triggerDisplayName = trigger.displayName,
+        query = query,
+        onQueryChange = { query = it },
+        placeholderText = "Search shortcuts",
+        onBack = onBack,
+        isEmpty = filteredShortcuts.isEmpty(),
+        emptyState = { TriggerAppPickerEmptyState() }
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+        ) {
+            items(
+                items = filteredShortcuts,
+                key = { it.id }
+            ) { shortcut ->
+                TriggerTargetRow(
+                    title = shortcut.label,
+                    subtitle = shortcut.destinationUri,
+                    selected = currentTarget is LauncherTriggerTarget.ActionShortcut &&
+                        currentTarget.id == shortcut.id,
+                    leadingContent = {
+                        com.milki.launcher.ui.components.launcher.ActionShortcutIcon(
+                            shortcut = shortcut,
+                            size = IconSize.appList
+                        )
+                    },
+                    onClick = {
+                        onTargetSelected(
+                            LauncherTriggerTarget.ActionShortcut(
+                                id = shortcut.id,
+                                label = shortcut.label,
+                                destinationUri = shortcut.destinationUri,
+                                packageName = shortcut.packageName,
+                                packageLabel = shortcut.packageLabel
+                            )
                         )
                     }
-                }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TriggerAppPickerScreen(
+    trigger: LauncherTrigger,
+    installedApps: List<AppInfo>,
+    currentTarget: LauncherTriggerTarget?,
+    onBack: () -> Unit,
+    onTargetSelected: (LauncherTriggerTarget) -> Unit
+) {
+    var query by remember { mutableStateOf("") }
+    val filteredApps = remember(installedApps, query) {
+        val normalizedQuery = query.trim().lowercase()
+        if (normalizedQuery.isBlank()) {
+            installedApps
+        } else {
+            installedApps.filter { app ->
+                app.nameLower.contains(normalizedQuery) ||
+                    app.packageLower.contains(normalizedQuery)
+            }
+        }
+    }
+
+    TriggerTargetPickerScreen(
+        title = "Choose app",
+        triggerDisplayName = trigger.displayName,
+        query = query,
+        onQueryChange = { query = it },
+        placeholderText = "Search apps and shortcuts",
+        onBack = onBack,
+        isEmpty = filteredApps.isEmpty(),
+        emptyState = { TriggerAppPickerEmptyState() }
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
+        ) {
+            items(
+                items = filteredApps,
+                key = { app -> "${app.packageName}/${app.activityName}" }
+            ) { app ->
+                TriggerAppPickerAppGroup(
+                    app = app,
+                    query = query,
+                    currentTarget = currentTarget,
+                    onTargetSelected = onTargetSelected
+                )
             }
         }
     }

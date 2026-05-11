@@ -102,6 +102,7 @@ class SettingsActivity : ComponentActivity() {
         setContent {
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
             val installedApps by settingsViewModel.installedApps.collectAsStateWithLifecycle()
+            val actionShortcuts by settingsViewModel.actionShortcuts.collectAsStateWithLifecycle()
             val backupStatusMessage by settingsViewModel.backupStatusMessage.collectAsStateWithLifecycle()
             val importReport by settingsViewModel.lastImportReport.collectAsStateWithLifecycle()
             val settingsActions = remember(settingsViewModel) {
@@ -145,10 +146,11 @@ class SettingsActivity : ComponentActivity() {
             }
 
             LauncherTheme {
-                SettingsScreen(
-                    settings = settings,
-                    installedApps = installedApps,
-                    showSetDefaultLauncherOption = !isDefaultLauncher,
+            SettingsScreen(
+                settings = settings,
+                installedApps = installedApps,
+                actionShortcuts = actionShortcuts,
+                showSetDefaultLauncherOption = !isDefaultLauncher,
                     backupStatusMessage = backupStatusMessage,
                     importReport = importReport,
                     onDismissImportReport = settingsViewModel::clearLastImportReport,

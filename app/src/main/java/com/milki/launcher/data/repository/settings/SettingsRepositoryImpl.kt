@@ -102,7 +102,7 @@ class SettingsRepositoryImpl(
             }
             val updatedActions = currentActions + (trigger to action)
             writeTriggerActions(updatedActions, preferences)
-            if (action != LauncherTriggerAction.OPEN_APP) {
+            if (action != LauncherTriggerAction.OPEN_APP && action != LauncherTriggerAction.OPEN_ACTION_SHORTCUT) {
                 val updatedTargets = parseTriggerTargets(preferences) - trigger
                 writeTriggerTargets(updatedTargets, preferences)
             }
@@ -114,8 +114,12 @@ class SettingsRepositoryImpl(
         target: LauncherTriggerTarget
     ) {
         context.settingsDataStore.edit { preferences ->
-            val updatedActions = parseTriggerActions(preferences) +
-                (trigger to LauncherTriggerAction.OPEN_APP)
+            val newAction = if (target is LauncherTriggerTarget.ActionShortcut) {
+                LauncherTriggerAction.OPEN_ACTION_SHORTCUT
+            } else {
+                LauncherTriggerAction.OPEN_APP
+            }
+            val updatedActions = parseTriggerActions(preferences) + (trigger to newAction)
             val updatedTargets = parseTriggerTargets(preferences) + (trigger to target)
             writeTriggerActions(updatedActions, preferences)
             writeTriggerTargets(updatedTargets, preferences)

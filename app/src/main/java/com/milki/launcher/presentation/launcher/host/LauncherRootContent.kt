@@ -342,6 +342,26 @@ private fun openTriggerLaunchTarget(
             )
         }
 
+        is LauncherTriggerTarget.ActionShortcut -> {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                data = android.net.Uri.parse(target.destinationUri)
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER
+                target.packageName?.let { setPackage(it) }
+            }
+            kotlin.runCatching {
+                context.startActivity(intent)
+            }.onFailure {
+                val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                    data = android.net.Uri.parse(target.destinationUri)
+                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                    target.packageName?.let { setPackage(it) }
+                }
+                kotlin.runCatching {
+                    context.startActivity(fallbackIntent)
+                }
+            }
+        }
+
         null -> Unit
     }
 }

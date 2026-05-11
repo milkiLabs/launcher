@@ -119,7 +119,8 @@ class SurfaceStateCoordinator(
                 lockScreen()
             }
 
-            LauncherTriggerAction.OPEN_APP -> {
+            LauncherTriggerAction.OPEN_APP,
+            LauncherTriggerAction.OPEN_ACTION_SHORTCUT -> {
                 dismissContextMenus()
                 closeTransientSurfaces(keepSearch = false)
                 onOpenAppTarget?.invoke()
