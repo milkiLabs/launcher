@@ -13,8 +13,10 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "sharp": "^0.34.5",
+    "svgo": "^4.0.1",
+    "vite-plugin-image-optimizer": "^2.0.3",
     "vitepress": "2.0.0-alpha.17"
   },
   "packageManager": "pnpm@10.6.3"
 }
-
