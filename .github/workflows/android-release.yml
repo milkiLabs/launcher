@@ -94,7 +94,7 @@ jobs:
             echo "Release APK not found."
             exit 1
           fi
-          cp "$RELEASE_APK" "dist/launcher-${TAG_NAME}-release.apk"
+          cp "$RELEASE_APK" "dist/app-release.apk"
 
           ls -lh dist
 
