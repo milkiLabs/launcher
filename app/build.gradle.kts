@@ -18,6 +18,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.milki.launcher"
     compileSdk = 36
+    ndkVersion = "27.1.12297006"
 
     packaging {
           jniLibs {
