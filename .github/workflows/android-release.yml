@@ -22,11 +22,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
           cache: gradle
 
       - name: Set up Gradle cache
@@ -38,7 +38,11 @@ jobs:
       - name: Install Android SDK packages
         run: |
           yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platform-tools" "platforms;android-36"
+          # sdkmanager "platform-tools" "platforms;android-36"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
 
       - name: Prepare signing config
         env:

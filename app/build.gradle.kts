@@ -18,6 +18,13 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.milki.launcher"
     compileSdk = 36
+
+    packaging {
+          jniLibs {
+              useLegacyPackaging = false
+          }
+      }
+
     defaultConfig {
         applicationId = "com.milki.launcher"
         minSdk = 24
@@ -43,6 +50,10 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+
+            ndk {
+                  debugSymbolLevel = "NONE"
+              }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
