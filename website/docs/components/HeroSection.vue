@@ -89,7 +89,7 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
     <div class="hero-visual animate-in">
       <div class="mockup-glow"></div>
       <PhoneFrame>
-        <img :src="withBase('/images/home-screen.jpg')" alt="Milki Launcher Home Screen" class="hero-image" />
+        <img :src="withBase('/images/home-screen.webp')" alt="Milki Launcher Home Screen" class="hero-image" />
       </PhoneFrame>
     </div>
   </section>

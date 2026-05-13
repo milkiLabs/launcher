@@ -3,10 +3,10 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import PhoneFrame from './PhoneFrame.vue';
 
 const images = [
-  { src: '/images/search-dialog.jpg', title: 'Smart Search', desc: 'Tap home → find anything instantly', icon: '🔍' },
-  { src: '/images/file search.jpg', title: 'File Search', desc: 'Type "f" to deep-search files', icon: '📁' },
-  { src: '/images/contact search.jpg', title: 'Contacts', desc: 'Type "c" to find contacts', icon: '👤' },
-  { src: '/images/widgets selection.jpg', title: 'Widgets', desc: 'Customize your homescreen', icon: '🧩' }
+  { src: '/images/search-dialog.webp', title: 'Smart Search', desc: 'Tap home → find anything instantly', icon: '🔍' },
+  { src: '/images/file search.webp', title: 'File Search', desc: 'Type "f" to deep-search files', icon: '📁' },
+  { src: '/images/contact search.webp', title: 'Contacts', desc: 'Type "c" to find contacts', icon: '👤' },
+  { src: '/images/widgets selection.webp', title: 'Widgets', desc: 'Customize your homescreen', icon: '🧩' }
 ]
 
 const currentImage = ref(0);
@@ -148,7 +148,7 @@ onUnmounted(() => {
       <div class="hero-image-wrapper animate-in">
         <div class="mockup-glow"></div>
         <PhoneFrame>
-          <img src="/images/home screen.jpg" alt="Milki Launcher Home Screen" class="hero-image" />
+          <img src="/images/home screen.webp" alt="Milki Launcher Home Screen" class="hero-image" />
         </PhoneFrame>
       </div>
     </div>
