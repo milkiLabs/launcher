@@ -18,7 +18,6 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.milki.launcher"
     compileSdk = 36
-    ndkVersion = "27.1.12297006"
     defaultConfig {
         applicationId = "com.milki.launcher"
         minSdk = 24

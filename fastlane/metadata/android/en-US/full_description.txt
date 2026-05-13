@@ -1,0 +1,25 @@
+Milki Launcher is a custom Android home screen replacement built from scratch with Kotlin and Jetpack Compose. It focuses on speed, a clean interface, and powerful search capabilities.
+
+Features:
+
+Multi-Mode Search: Search apps, contacts, files, the web, and YouTube from a single search bar. Use prefixes to filter results: no prefix for apps, "s " for web search, "c " for contacts.
+
+Smart Home Screen: Place apps, shortcuts, folders, and widgets anywhere on a customizable grid. Drag and drop to rearrange items. Pin your most-used apps for instant access.
+
+App Drawer: Scroll through all installed apps in an organized grid.
+
+File Search: Find documents on your device directly from the launcher.
+
+Widget Support: Add and manage home screen widgets with a built-in widget picker.
+
+Folder Support: Group apps into folders on your home screen for better organization.
+
+Backup and Restore: Export your home screen layout and settings for safekeeping.
+
+Permissions:
+
+- Read Contacts: Used for contact search (optional)
+- Manage External Storage: Used for file search features
+- Device Admin: Used only for the screen lock feature
+
+Source code is available on GitHub under the GPL-3.0 license.

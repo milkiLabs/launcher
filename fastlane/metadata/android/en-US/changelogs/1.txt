@@ -1,0 +1,6 @@
+Initial release of Milki Launcher.
+
+- Multi-mode search (apps, contacts, web, YouTube, files)
+- Customizable home screen
+- App drawer with recent apps
+- Widget and folder support
