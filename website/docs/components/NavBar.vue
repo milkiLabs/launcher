@@ -50,7 +50,7 @@ const closeMenu = () => {
   <header class="milki-nav" :class="{ 'is-scrolled': isScrolled }">
     <div class="nav-container">
         <a href="/launcher/" class="nav-brand" @click="closeMenu">
-        <img src="/icon-transparent.svg" alt="Milki Logo" class="nav-logo" />
+        <img src="/icon.svg" alt="Milki Logo" class="nav-logo" />
         <span class="nav-title">Milki Launcher</span>
       </a>
 

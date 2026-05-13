@@ -45,7 +45,7 @@ export default defineConfig({
   title: "Milki Launcher",
   description:
     "An open-source, privacy-respecting Android launcher focused on search-driven usage.",
-  head: [["link", { rel: "icon", type: "image/svg+xml", href: "/icon.svg" }]],
+  head: [["link", { rel: "icon", type: "image/svg+xml", href: "/launcher/icon.svg" }]],
   
   // This automatically runs after the Vite build completes
   async buildEnd(siteConfig) {
