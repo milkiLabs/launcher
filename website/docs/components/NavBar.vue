@@ -50,7 +50,7 @@ const closeMenu = () => {
   <header class="milki-nav" :class="{ 'is-scrolled': isScrolled }">
     <div class="nav-container">
         <a href="/launcher/" class="nav-brand" @click="closeMenu">
-        <img src="/icon.svg" alt="Milki Logo" class="nav-logo" />
+        <img src="/icon.svg" alt="Milki Logo" class="nav-logo" width="38" height="38" />
         <span class="nav-title">Milki Launcher</span>
       </a>
 
@@ -109,8 +109,6 @@ const closeMenu = () => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@600;700;800&display=swap');
-
 .milki-nav {
   position: fixed;
   top: 0;

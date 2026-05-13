@@ -68,7 +68,7 @@ const features = [
         <div class="feature-visual">
           <div class="phone-glow"></div>
           <PhoneFrame v-if="feat.hasImage">
-            <img :src="feat.image" :alt="feat.imageAlt" class="feature-img" />
+            <img :src="feat.image" :alt="feat.imageAlt" class="feature-img" width="260" height="520" />
           </PhoneFrame>
           <ScreenPlaceholder
             v-else

@@ -28,7 +28,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="milki-home">
+  <main class="milki-home">
     <!-- Organic background layers -->
     <div class="bg-layer">
       <div class="bg-noise"></div>
@@ -50,11 +50,10 @@ onMounted(() => {
     <FeatureShowcase />
     <FeatureGrid />
     <CtaSection />
-  </div>
+  </main>
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@600;700;800&display=swap');
 @import './home-vars.css';
 
 .milki-home {
