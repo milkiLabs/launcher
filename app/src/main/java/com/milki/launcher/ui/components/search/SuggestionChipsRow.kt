@@ -36,6 +36,15 @@ import com.milki.launcher.ui.theme.Spacing
 import com.milki.launcher.domain.search.ActionSuggestion
 import com.milki.launcher.presentation.search.SearchResultAction
 
+private const val HEX_COLOR_LENGTH = 7
+private const val HEX_RED_START = 1
+private const val HEX_RED_END = 3
+private const val HEX_GREEN_START = 3
+private const val HEX_GREEN_END = 5
+private const val HEX_BLUE_START = 5
+private const val HEX_BLUE_END = 7
+private val hexColorPattern = Regex("^#[0-9A-F]{6}$")
+
 @Composable
 fun SuggestionChipsRow(
     title: String,
@@ -63,109 +72,232 @@ fun SuggestionChipsRow(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(Spacing.small)
         ) {
-            when (suggestion) {
-                is ActionSuggestion.OpenUrl -> {
-                    val url = suggestion.urlResult
-                    if (url.handlerApp != null) {
-                        AssistChip(
-                            onClick = { actionHandler(SearchResultAction.Tap(url)) },
-                            label = { Text(url.handlerApp.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingIcon = {
-                                Icon(Icons.Filled.Language, null, Modifier.size(IconSize.small))
-                            }
-                        )
-                        AssistChip(
-                            onClick = { actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url.url)) },
-                            label = { Text("Open in browser", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingIcon = {
-                                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(IconSize.small))
-                            }
-                        )
-                    } else {
-                        AssistChip(
-                            onClick = { actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url.url)) },
-                            label = { Text("Open in browser", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingIcon = {
-                                Icon(Icons.Filled.Language, null, Modifier.size(IconSize.small))
-                            }
-                        )
-                    }
-                }
-                is ActionSuggestion.ComposeEmail -> {
-                    AssistChip(
-                        onClick = { actionHandler(SearchResultAction.ComposeEmail(suggestion.emailAddress)) },
-                        label = { Text("Email ${suggestion.emailAddress}", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        leadingIcon = {
-                            Icon(Icons.Filled.Email, null, Modifier.size(IconSize.small))
-                        }
-                    )
-                }
-                is ActionSuggestion.SearchText -> {
-                    sources.forEach { source ->
-                        val isDefault = source.id == defaultSourceId
-                        val accentColor = remember(source.accentColorHex) {
-                            parseColor(source.accentColorHex)
-                        }
-                        val encodedText = remember(suggestion.queryText) { Uri.encode(suggestion.queryText) }
-                        val searchUrl = source.buildUrl(encodedText)
+            SuggestionActionChips(
+                suggestion = suggestion,
+                sources = sources,
+                defaultSourceId = defaultSourceId,
+                actionHandler = actionHandler
+            )
+        }
 
-                        if (isDefault) {
-                            ElevatedFilterChip(
-                                selected = true,
-                                onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
-                                label = { Text(source.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                leadingIcon = {
-                                    Icon(Icons.Filled.Search, null, Modifier.size(IconSize.small))
-                                },
-                                colors = FilterChipDefaults.elevatedFilterChipColors(
-                                    selectedContainerColor = accentColor ?: MaterialTheme.colorScheme.primaryContainer,
-                                    selectedLabelColor = if (accentColor != null) MaterialTheme.colorScheme.surface
-                                    else MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedLeadingIconColor = if (accentColor != null) MaterialTheme.colorScheme.surface
-                                    else MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            )
-                        } else {
-                            AssistChip(
-                                onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
-                                label = { Text(source.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                leadingIcon = {
-                                    Icon(Icons.Filled.Search, null, Modifier.size(IconSize.small))
-                                },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    leadingIconContentColor = accentColor ?: MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                border = BorderStroke(1.dp, accentColor?.copy(alpha = 0.5f) ?: MaterialTheme.colorScheme.outline)
-                            )
-                        }
-                    }
-                }
+        SuggestionFooter(suggestion)
+    }
+}
+
+@Composable
+private fun SuggestionActionChips(
+    suggestion: ActionSuggestion,
+    sources: List<SearchSource>,
+    defaultSourceId: String?,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    when (suggestion) {
+        is ActionSuggestion.OpenUrl -> OpenUrlSuggestionChips(
+            url = suggestion.urlResult,
+            actionHandler = actionHandler
+        )
+        is ActionSuggestion.ComposeEmail -> ComposeEmailSuggestionChip(
+            emailAddress = suggestion.emailAddress,
+            actionHandler = actionHandler
+        )
+        is ActionSuggestion.SearchText -> SearchTextSuggestionChips(
+            queryText = suggestion.queryText,
+            sources = sources,
+            defaultSourceId = defaultSourceId,
+            actionHandler = actionHandler
+        )
+    }
+}
+
+@Composable
+private fun OpenUrlSuggestionChips(
+    url: UrlSearchResult,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    if (url.handlerApp != null) {
+        AssistChip(
+            onClick = { actionHandler(SearchResultAction.Tap(url)) },
+            label = {
+                ChipLabel(url.handlerApp.label)
+            },
+            leadingIcon = {
+                ChipIcon(Icons.Filled.Language)
             }
-        }
+        )
+    }
 
-        val footerText = when (suggestion) {
-            is ActionSuggestion.OpenUrl -> suggestion.urlResult.displayUrl
-            is ActionSuggestion.ComposeEmail -> "" // Handled in chip
-            is ActionSuggestion.SearchText -> suggestion.queryText
+    AssistChip(
+        onClick = { actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url.url)) },
+        label = {
+            ChipLabel("Open in browser")
+        },
+        leadingIcon = {
+            val icon = if (url.handlerApp != null) {
+                Icons.AutoMirrored.Filled.OpenInNew
+            } else {
+                Icons.Filled.Language
+            }
+            ChipIcon(icon)
         }
+    )
+}
 
-        if (footerText.isNotBlank()) {
-            Text(
-                text = footerText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = Spacing.small)
+@Composable
+private fun ComposeEmailSuggestionChip(
+    emailAddress: String,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    AssistChip(
+        onClick = { actionHandler(SearchResultAction.ComposeEmail(emailAddress)) },
+        label = {
+            ChipLabel("Email $emailAddress")
+        },
+        leadingIcon = {
+            ChipIcon(Icons.Filled.Email)
+        }
+    )
+}
+
+@Composable
+private fun SearchTextSuggestionChips(
+    queryText: String,
+    sources: List<SearchSource>,
+    defaultSourceId: String?,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    val encodedText = remember(queryText) { Uri.encode(queryText) }
+
+    sources.forEach { source ->
+        val accentColor = remember(source.accentColorHex) {
+            parseColor(source.accentColorHex)
+        }
+        val searchUrl = source.buildUrl(encodedText)
+
+        if (source.id == defaultSourceId) {
+            DefaultSearchSourceChip(
+                source = source,
+                accentColor = accentColor,
+                searchUrl = searchUrl,
+                actionHandler = actionHandler
+            )
+        } else {
+            SecondarySearchSourceChip(
+                source = source,
+                accentColor = accentColor,
+                searchUrl = searchUrl,
+                actionHandler = actionHandler
             )
         }
     }
 }
 
+@Composable
+private fun DefaultSearchSourceChip(
+    source: SearchSource,
+    accentColor: Color?,
+    searchUrl: String,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    ElevatedFilterChip(
+        selected = true,
+        onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
+        label = {
+            ChipLabel(source.name)
+        },
+        leadingIcon = {
+            ChipIcon(Icons.Filled.Search)
+        },
+        colors = FilterChipDefaults.elevatedFilterChipColors(
+            selectedContainerColor = accentColor ?: MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = selectedSearchChipContentColor(accentColor),
+            selectedLeadingIconColor = selectedSearchChipContentColor(accentColor)
+        )
+    )
+}
+
+@Composable
+private fun SecondarySearchSourceChip(
+    source: SearchSource,
+    accentColor: Color?,
+    searchUrl: String,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    AssistChip(
+        onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
+        label = {
+            ChipLabel(source.name)
+        },
+        leadingIcon = {
+            ChipIcon(Icons.Filled.Search)
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            leadingIconContentColor = accentColor ?: MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = accentColor?.copy(alpha = 0.5f) ?: MaterialTheme.colorScheme.outline
+        )
+    )
+}
+
+@Composable
+private fun selectedSearchChipContentColor(accentColor: Color?): Color {
+    return if (accentColor != null) {
+        MaterialTheme.colorScheme.surface
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+}
+
+@Composable
+private fun SuggestionFooter(suggestion: ActionSuggestion) {
+    val footerText = when (suggestion) {
+        is ActionSuggestion.OpenUrl -> suggestion.urlResult.displayUrl
+        is ActionSuggestion.ComposeEmail -> ""
+        is ActionSuggestion.SearchText -> suggestion.queryText
+    }
+
+    if (footerText.isBlank()) return
+
+    Text(
+        text = footerText,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(top = Spacing.small)
+    )
+}
+
+@Composable
+private fun ChipLabel(text: String) {
+    Text(
+        text = text,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
+@Composable
+private fun ChipIcon(imageVector: androidx.compose.ui.graphics.vector.ImageVector) {
+    Icon(
+        imageVector = imageVector,
+        contentDescription = null,
+        modifier = Modifier.size(IconSize.small)
+    )
+}
+
 private fun parseColor(hex: String): Color? {
     return runCatching {
         val n = hex.trim().uppercase().let { if (it.startsWith("#")) it else "#$it" }
-        if (!n.matches(Regex("^#[0-9A-F]{6}$"))) null
-        else Color(red = n.substring(1, 3).toInt(16), green = n.substring(3, 5).toInt(16), blue = n.substring(5, 7).toInt(16))
+        if (n.length != HEX_COLOR_LENGTH || !n.matches(hexColorPattern)) {
+            null
+        } else {
+            Color(
+                red = n.substring(HEX_RED_START, HEX_RED_END).toInt(radix = 16),
+                green = n.substring(HEX_GREEN_START, HEX_GREEN_END).toInt(radix = 16),
+                blue = n.substring(HEX_BLUE_START, HEX_BLUE_END).toInt(radix = 16)
+            )
+        }
     }.getOrNull()
 }
