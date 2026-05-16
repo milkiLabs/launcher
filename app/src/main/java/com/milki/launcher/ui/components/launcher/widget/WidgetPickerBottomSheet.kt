@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -278,7 +279,7 @@ private fun WidgetPickerHeader(
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(CornerRadius.extraLarge),
+            shape = RectangleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = Spacing.none
         ) {
