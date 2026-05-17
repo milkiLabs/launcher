@@ -23,59 +23,30 @@ class PermissionHandler(
 ) {
     private val accessStateStore = SharedPreferencesPermissionAccessStateStore(activity)
 
-        private lateinit var contactsPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var contactsPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var callPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var filesPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var manageStorageLauncher: ActivityResultLauncher<Intent>
 
-        private lateinit var callPermissionLauncher: ActivityResultLauncher<String>
+    var onPermissionResult: ((permission: String, granted: Boolean) -> Unit)? = null
 
-        private lateinit var filesPermissionLauncher: ActivityResultLauncher<String>
-
-        private lateinit var manageStorageLauncher: ActivityResultLauncher<Intent>
-    
-        var onPermissionResult: ((permission: String, granted: Boolean) -> Unit)? = null
-
-        fun setup() {
-        registerContactsLauncher()
-        registerCallLauncher()
-        registerFilesLauncher()
+    fun setup() {
+        contactsPermissionLauncher = registerPermissionLauncher(Manifest.permission.READ_CONTACTS, permissionStateSink::updateContactsPermission)
+        callPermissionLauncher = registerPermissionLauncher(Manifest.permission.CALL_PHONE)
+        filesPermissionLauncher = registerPermissionLauncher(Manifest.permission.READ_EXTERNAL_STORAGE, permissionStateSink::updateFilesPermission)
         registerManageStorageLauncher()
     }
 
-        private fun registerContactsLauncher() {
-        contactsPermissionLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            handleRuntimePermissionResult(
-                permission = Manifest.permission.READ_CONTACTS,
-                isGranted = isGranted,
-                updateState = permissionStateSink::updateContactsPermission
-            )
-        }
+    private fun registerPermissionLauncher(
+        permission: String,
+        updateState: ((PermissionAccessState) -> Unit)? = null
+    ): ActivityResultLauncher<String> = activity.registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        handleRuntimePermissionResult(permission, isGranted, updateState)
     }
 
-        private fun registerCallLauncher() {
-        callPermissionLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            handleRuntimePermissionResult(
-                permission = Manifest.permission.CALL_PHONE,
-                isGranted = isGranted
-            )
-        }
-    }
-
-        private fun registerFilesLauncher() {
-        filesPermissionLauncher = activity.registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            handleRuntimePermissionResult(
-                permission = Manifest.permission.READ_EXTERNAL_STORAGE,
-                isGranted = isGranted,
-                updateState = permissionStateSink::updateFilesPermission
-            )
-        }
-    }
-
-        private fun registerManageStorageLauncher() {
+    private fun registerManageStorageLauncher() {
         manageStorageLauncher = activity.registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) {
@@ -84,28 +55,28 @@ class PermissionHandler(
         }
     }
 
-        fun updateStates() {
+    fun updateStates() {
         updateContactsPermissionState()
         updateFilesPermissionState()
     }
 
-        private fun updateContactsPermissionState() {
+    private fun updateContactsPermissionState() {
         permissionStateSink.updateContactsPermission(
-            accessStateForRuntimePermission(Manifest.permission.READ_CONTACTS)
+            accessStateForPermission(Manifest.permission.READ_CONTACTS) { hasPermission(Manifest.permission.READ_CONTACTS) }
         )
     }
 
     private fun updateFilesPermissionState() {
         val state = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            accessStateForSpecialPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
+            accessStateForPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE) { PermissionUtil.hasFilesPermission(activity) }
         } else {
-            accessStateForRuntimePermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+            accessStateForPermission(Manifest.permission.READ_EXTERNAL_STORAGE) { hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE) }
         }
 
         permissionStateSink.updateFilesPermission(state)
     }
 
-        fun requestContactsPermission() {
+    fun requestContactsPermission() {
         requestRuntimePermission(
             permission = Manifest.permission.READ_CONTACTS,
             launcher = contactsPermissionLauncher,
@@ -113,7 +84,7 @@ class PermissionHandler(
         )
     }
 
-        fun requestCallPermission() {
+    fun requestCallPermission() {
         requestRuntimePermission(
             permission = Manifest.permission.CALL_PHONE,
             launcher = callPermissionLauncher
@@ -127,7 +98,7 @@ class PermissionHandler(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
-        fun requestFilesPermission() {
+    fun requestFilesPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             requestManageStoragePermission()
         } else {
@@ -135,7 +106,7 @@ class PermissionHandler(
         }
     }
 
-        private fun requestManageStoragePermission() {
+    private fun requestManageStoragePermission() {
         if (PermissionUtil.hasFilesPermission(activity)) {
             accessStateStore.clearRequiresSettings(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
             permissionStateSink.updateFilesPermission(PermissionAccessState.GRANTED)
@@ -156,7 +127,7 @@ class PermissionHandler(
         }
     }
 
-        private fun requestReadStoragePermission() {
+    private fun requestReadStoragePermission() {
         requestRuntimePermission(
             permission = Manifest.permission.READ_EXTERNAL_STORAGE,
             launcher = filesPermissionLauncher,
@@ -247,21 +218,11 @@ class PermissionHandler(
         onPermissionResult?.invoke(Manifest.permission.MANAGE_EXTERNAL_STORAGE, hasPermission)
     }
 
-    private fun accessStateForRuntimePermission(permission: String): PermissionAccessState {
-        if (hasPermission(permission)) {
-            accessStateStore.clearRequiresSettings(permission)
-            return PermissionAccessState.GRANTED
-        }
-
-        return if (accessStateStore.requiresSettings(permission)) {
-            PermissionAccessState.REQUIRES_SETTINGS
-        } else {
-            PermissionAccessState.CAN_REQUEST
-        }
-    }
-
-    private fun accessStateForSpecialPermission(permission: String): PermissionAccessState {
-        if (PermissionUtil.hasFilesPermission(activity)) {
+    private fun accessStateForPermission(
+        permission: String,
+        checkGranted: () -> Boolean
+    ): PermissionAccessState {
+        if (checkGranted()) {
             accessStateStore.clearRequiresSettings(permission)
             return PermissionAccessState.GRANTED
         }
