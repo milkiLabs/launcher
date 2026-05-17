@@ -26,13 +26,14 @@ val coreModule = module {
         )
     }
 
-    single<SettingsReader> {
+    single {
         SettingsRepositoryImpl(get())
     }
-    single<SearchSourceRepository> { get<SettingsReader>() as SettingsRepositoryImpl }
-    single<PrefixConfigurationRepository> { get<SettingsReader>() as SettingsRepositoryImpl }
-    single<HomeTriggerRepository> { get<SettingsReader>() as SettingsRepositoryImpl }
-    single<HiddenAppsRepository> { get<SettingsReader>() as SettingsRepositoryImpl }
+    single<SettingsReader> { get<SettingsRepositoryImpl>() }
+    single<SearchSourceRepository> { get<SettingsRepositoryImpl>() }
+    single<PrefixConfigurationRepository> { get<SettingsRepositoryImpl>() }
+    single<HomeTriggerRepository> { get<SettingsRepositoryImpl>() }
+    single<HiddenAppsRepository> { get<SettingsRepositoryImpl>() }
 
     single<ActionShortcutRepository> {
         ActionShortcutRepositoryImpl(get())

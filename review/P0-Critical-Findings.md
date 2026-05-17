@@ -147,23 +147,3 @@ val wasApplied = try {
     false
 }
 ```
-
----
-
-## 12. Duplicate Release Workflows
-
-**Severity:** MEDIUM
-**Files:** `.github/workflows/android-release.yml`, `.github/workflows/release-android.yml`
-**Category:** CI/CD
-
-Both workflows are nearly identical — same name, same triggers, same steps.
-
-### Impact
-
-- Confusing for contributors
-- Wasteful CI resources if both trigger
-- Maintenance burden (changes must be applied twice)
-
-### Fix
-
-Delete one of the workflows.
