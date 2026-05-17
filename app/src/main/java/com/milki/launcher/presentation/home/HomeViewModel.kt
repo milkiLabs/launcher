@@ -19,6 +19,7 @@ import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.presentation.home.prune.HomeAvailabilityPruner
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Home screen ViewModel.
@@ -553,27 +555,49 @@ class HomeViewModel(
             displayMode = pending.displayMode
         )
 
-        pendingWidgets.remove(appWidgetId)
-
-        viewModelScope.launch {
-            pendingMutationCount.update { it + 1 }
-            _lastMoveErrorMessage.value = null
-
-            val wasApplied = runCatching {
-                applyWriterCommand(
-                    command = HomeModelWriter.Command.PinOrMoveToPosition(
-                        item = widgetItem,
-                        targetPosition = pending.targetPosition
-                    )
-                )
-            }.getOrElse { false }
-
-            if (!wasApplied) {
+        val shouldDeallocateOnCancellation = AtomicBoolean(true)
+        fun deallocateIfPlacementNotPersisted() {
+            if (shouldDeallocateOnCancellation.getAndSet(false)) {
                 widgetHostManager.deallocateWidgetId(pending.appWidgetId)
-                _lastMoveErrorMessage.value = "Could not place widget"
             }
+        }
 
-            pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
+        val placementJob = viewModelScope.launch {
+            pendingMutationCount.update { it + 1 }
+
+            try {
+                _lastMoveErrorMessage.value = null
+
+                val wasApplied = try {
+                    applyWriterCommand(
+                        command = HomeModelWriter.Command.PinOrMoveToPosition(
+                            item = widgetItem,
+                            targetPosition = pending.targetPosition
+                        )
+                    )
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (_: Exception) {
+                    false
+                }
+
+                if (wasApplied) {
+                    shouldDeallocateOnCancellation.set(false)
+                } else {
+                    deallocateIfPlacementNotPersisted()
+                    _lastMoveErrorMessage.value = "Could not place widget"
+                }
+            } finally {
+                pendingWidgets.remove(appWidgetId)
+                pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
+            }
+        }
+
+        placementJob.invokeOnCompletion { cause ->
+            if (cause != null) {
+                deallocateIfPlacementNotPersisted()
+                pendingWidgets.remove(appWidgetId)
+            }
         }
     }
 

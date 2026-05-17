@@ -18,11 +18,13 @@ keyPassword=eEHP5%&a8uXJJy
 The release keystore password is stored in plaintext. Even though `.gitignore` lists `keystore.properties`, if this file was committed before the ignore rule, it remains in git history and is accessible to anyone with repo access.
 
 ### Impact
+
 - Anyone with repo access can sign APKs as the app
 - Malicious releases could be distributed
 - Google Play signing could be compromised
 
 ### Required Actions
+
 1. **Rotate the keystore immediately** — generate a new key
 2. Run `git filter-repo` or BFG Repo-Cleaner to purge from history
 3. Use GitHub Secrets only (the release workflows already do this correctly)
@@ -37,16 +39,19 @@ The release keystore password is stored in plaintext. Even though `.gitignore` l
 **Category:** Build Configuration
 
 The file contains only default comments — zero actual keep rules. The app uses:
+
 - `kotlinx.serialization` (extensive `@Serializable` annotations across 15+ files)
 - Koin (reflection-based DI)
 - Compose (custom composables)
 - Device Admin receiver
 
 ### Impact
+
 - **Release builds will crash** — R8 will strip serialization serializers, Koin modules, and reflected classes
 - `isMinifyEnabled = true` in release build type means this affects all production APKs
 
 ### Required Rules (minimum)
+
 ```proguard
 # kotlinx.serialization
 -keepattributes *Annotation*, InnerClasses
@@ -71,35 +76,6 @@ The file contains only default comments — zero actual keep rules. The app uses
 
 ---
 
-## 3. Memory Leak: Uncancelled CoroutineScope in HomeRepositoryImpl
-
-**Severity:** CRITICAL
-**File:** `HomeRepositoryImpl.kt:28`
-**Category:** Memory Leak / Lifecycle
-
-```kotlin
-private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-```
-
-This scope is **never cancelled**. The `SupervisorJob()` is not a child of any lifecycle. The `collectLatest` at line 37 runs forever, holding references to the DataStore Flow chain and `latestPinnedItems` variable.
-
-### Impact
-- Memory leak — the coroutine and its captured references are never freed
-- DataStore Flow continues collecting even after the app should clean up
-
-### Fix
-Either make the repository implement `Closeable` and cancel the scope, or use the application's `ProcessLifecycleOwner` scope:
-
-```kotlin
-class HomeRepositoryImpl(
-    context: Context,
-    applicationScope: CoroutineScope
-) : HomeRepository {
-    private val repositoryScope = CoroutineScope(applicationScope.coroutineContext + SupervisorJob())
-```
-
----
-
 ## 4. Thread Safety: `pendingWidgets` Accessed from Multiple Threads
 
 **Severity:** HIGH
@@ -111,16 +87,19 @@ private val pendingWidgets = linkedMapOf<Int, PendingWidget>()
 ```
 
 `LinkedHashMap` is accessed from:
+
 - `startWidgetPlacement()` — UI thread
 - `handleWidgetBindResult()` — ActivityResultLauncher callback (UI thread)
 - `persistPendingWidget()` — `viewModelScope.launch` (background thread at line 558)
 - `cancelPendingWidget()` — both UI thread and background coroutine
 
 ### Impact
+
 - `ConcurrentModificationException` possible
 - Data corruption in widget placement state
 
 ### Fix
+
 Use `Mutex` to guard access or convert to `MutableStateFlow<Map<Int, PendingWidget>>`:
 
 ```kotlin
@@ -151,11 +130,13 @@ val wasApplied = runCatching {
 `runCatching` catches ALL `Throwable` including `CancellationException`. If the coroutine is cancelled, the cancellation is swallowed and treated as a regular error.
 
 ### Impact
+
 - Coroutines cannot be properly cancelled
 - ViewModel cleanup may hang
 - Structured concurrency is violated
 
 ### Fix
+
 ```kotlin
 val wasApplied = try {
     applyWriterCommand(command, onApplied)
@@ -176,15 +157,18 @@ val wasApplied = try {
 **Category:** Resource Leak
 
 In `persistPendingWidget()`:
+
 1. Line 556: `pendingWidgets.remove(appWidgetId)` — widget removed from pending
 2. Line 558: `viewModelScope.launch { ... }` — mutation launched in new coroutine
 3. If this coroutine is cancelled, neither the success branch (line 567) nor the failure branch (line 572 `deallocateWidgetId`) executes
 
 ### Impact
+
 - Widget ID is allocated but never deallocated
 - Over time, widget IDs are exhausted (AppWidgetHost has a finite ID space)
 
 ### Fix
+
 Use `invokeOnCancellation` or ensure deallocation happens regardless:
 
 ```kotlin
@@ -207,6 +191,7 @@ job.invokeOnCompletion { cause ->
 **Category:** Architecture Violation
 
 `HomeItem.kt` imports `android.content.pm.ShortcutInfo`:
+
 ```kotlin
 import android.content.pm.ShortcutInfo
 // ...
@@ -214,16 +199,19 @@ fun fromShortcutInfo(info: ShortcutInfo): AppShortcut
 ```
 
 `LauncherBackupRepository.kt` uses Android `Intent` in a domain interface:
+
 ```kotlin
 typealias WidgetBindPermissionRequester = suspend (Intent) -> Boolean
 ```
 
 ### Impact
+
 - Domain layer cannot be tested without Android framework
 - Violates clean architecture layer boundaries
 - Makes the codebase harder to port or reuse
 
 ### Fix
+
 Move `ShortcutInfo` mapping to the data layer. Replace `Intent` callback with a domain-level abstraction.
 
 ---
@@ -247,11 +235,13 @@ single<LauncherBackupRepository> {
 ```
 
 ### Impact
+
 - Dependency graph is inverted
 - Makes modularization impossible
 - Violates documented architecture rules
 
 ### Fix
+
 Create a dedicated `backupModule` listed after all feature modules, or move `LauncherBackupRepository` to a feature-agnostic location.
 
 ---
@@ -265,13 +255,16 @@ Create a dedicated `backupModule` listed after all feature modules, or move `Lau
 The interface has 27 methods covering: general settings, individual setters, search sources, prefix mutations, hidden apps, and backup operations.
 
 ### Impact
+
 - Violates Interface Segregation Principle
 - Every implementation must provide all 27 methods
 - Hard to test, hard to mock
 - Any change affects all consumers
 
 ### Fix
+
 Split into focused interfaces:
+
 - `SettingsRepository` (core settings read/write)
 - `SearchSourceRepository` (CRUD for search sources)
 - `PrefixConfigurationRepository` (prefix mutations)
@@ -295,12 +288,15 @@ class HomeViewModel(
 ViewModels should not hold `Context` references — this risks memory leaks if the Context is an Activity context, and violates the presentation layer's independence from Android.
 
 ### Impact
+
 - Potential memory leak if Activity context is passed
 - Violates ViewModel best practices
 - Makes unit testing harder
 
 ### Fix
+
 Inject specific interfaces instead of raw `Context`:
+
 ```kotlin
 class HomeViewModel(
     private val packageManager: PackageManager,
@@ -324,11 +320,13 @@ import com.milki.launcher.data.search.ConfigurableUrlSearchProvider
 A presentation-layer class directly imports a data-layer implementation.
 
 ### Impact
+
 - Tight coupling between presentation and data layers
 - Changing `ConfigurableUrlSearchProvider` constructor breaks presentation code
 - Violates dependency inversion principle
 
 ### Fix
+
 Define a `SearchProviderFactory` interface in the domain layer.
 
 ---
@@ -342,28 +340,30 @@ Define a `SearchProviderFactory` interface in the domain layer.
 Both workflows are nearly identical — same name, same triggers, same steps.
 
 ### Impact
+
 - Confusing for contributors
 - Wasteful CI resources if both trigger
 - Maintenance burden (changes must be applied twice)
 
 ### Fix
+
 Delete one of the workflows.
 
 ---
 
 ## Summary
 
-| # | Severity | Category | File |
-|---|----------|----------|------|
-| 1 | CRITICAL | Security | `keystore.properties:2-4` |
-| 2 | CRITICAL | Build | `app/proguard-rules.pro` |
-| 3 | CRITICAL | Memory Leak | `HomeRepositoryImpl.kt:28` |
-| 4 | HIGH | Concurrency | `HomeViewModel.kt:73` |
-| 5 | HIGH | Concurrency | `HomeViewModel.kt:158` |
-| 6 | HIGH | Resource Leak | `HomeViewModel.kt:556-577` |
-| 7 | HIGH | Architecture | `HomeItem.kt:42` |
-| 8 | HIGH | Architecture | `CoreModule.kt:132-141` |
-| 9 | HIGH | Design | `SettingsRepository.kt:29-236` |
-| 10 | HIGH | Memory Leak | `HomeViewModel.kt:46` |
-| 11 | HIGH | Architecture | `SearchViewModelSettingsAdapter.kt:3` |
-| 12 | MEDIUM | CI/CD | `.github/workflows/` |
+| #   | Severity | Category      | File                                  |
+| --- | -------- | ------------- | ------------------------------------- |
+| 1   | CRITICAL | Security      | `keystore.properties:2-4`             |
+| 2   | CRITICAL | Build         | `app/proguard-rules.pro`              |
+| 3   | CRITICAL | Memory Leak   | `HomeRepositoryImpl.kt:28`            |
+| 4   | HIGH     | Concurrency   | `HomeViewModel.kt:73`                 |
+| 5   | HIGH     | Concurrency   | `HomeViewModel.kt:158`                |
+| 6   | HIGH     | Resource Leak | `HomeViewModel.kt:556-577`            |
+| 7   | HIGH     | Architecture  | `HomeItem.kt:42`                      |
+| 8   | HIGH     | Architecture  | `CoreModule.kt:132-141`               |
+| 9   | HIGH     | Design        | `SettingsRepository.kt:29-236`        |
+| 10  | HIGH     | Memory Leak   | `HomeViewModel.kt:46`                 |
+| 11  | HIGH     | Architecture  | `SearchViewModelSettingsAdapter.kt:3` |
+| 12  | MEDIUM   | CI/CD         | `.github/workflows/`                  |
