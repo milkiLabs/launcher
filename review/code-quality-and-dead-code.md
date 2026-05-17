@@ -10,19 +10,6 @@
 
 ## 3. Unnecessary Complexity
 
-### 3.1 Large Files
-
-| File                              | Lines | Issue                                                | Severity |
-| --------------------------------- | ----- | ---------------------------------------------------- | -------- |
-| `HomeModelWriter.kt`              | 724   | 17 nested Command classes + 15 methods; violates SRP | HIGH     |
-| `SettingsRepositoryImpl.kt`       | 619   | 20+ methods; diff writing is 68 lines                | MEDIUM   |
-| `FileFilterConfig.kt`             | 561   | Excessive educational comments                       | MEDIUM   |
-| `FilesRepositoryImpl.kt`          | 524   | Cursor handling + filtering + logging                | MEDIUM   |
-| `PermissionHandler.kt`            | 545   | 4 permission types + settings navigation             | MEDIUM   |
-| `HomeItem.kt`                     | 609   | 6 sealed subclasses with factories                   | MEDIUM   |
-| `UrlHandlerResolver.kt`           | 417   | URL resolution + browser detection + caching         | MEDIUM   |
-| `LauncherBackupRepositoryImpl.kt` | 433   | Import sanitization for 7 item types                 | LOW      |
-
 ### 3.2 Over-Engineered Areas
 
 | File                        | Issue                                                    | Severity |

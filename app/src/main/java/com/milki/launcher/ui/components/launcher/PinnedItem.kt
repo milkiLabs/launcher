@@ -327,24 +327,18 @@ internal fun ActionShortcutIcon(
         return
     }
 
-    Box(
+    Surface(
         modifier = modifier.size(size),
+        shape = RoundedCornerShape(CornerRadius.medium),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(size),
-            shape = RoundedCornerShape(CornerRadius.medium),
-            color = MaterialTheme.colorScheme.tertiaryContainer
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Link,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                    modifier = Modifier.size(IconSize.appList)
-                )
-            }
-        }
+        Icon(
+            imageVector = Icons.Default.Link,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            modifier = Modifier.size(IconSize.appList)
+        )
     }
 }
 
@@ -356,25 +350,18 @@ private fun ContactIcon(
     size: Dp,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .size(size),
+    Surface(
+        modifier = modifier.size(size),
+        shape = RoundedCornerShape(CornerRadius.medium),
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(size),
-            shape = RoundedCornerShape(CornerRadius.medium),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(IconSize.appList)
-                )
-            }
-        }
+        Icon(
+            imageVector = Icons.Default.Person,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(IconSize.appList)
+        )
     }
 }
 
@@ -397,27 +384,17 @@ private fun FileIcon(
 ) {
     val fileTypeVisual = resolveFileTypeVisual(mimeType, fileName)
 
-    Box(
-        modifier = modifier
-            .size(size),
+    Surface(
+        modifier = modifier.size(size),
+        shape = RectangleShape,
+        color = fileTypeVisual.backgroundColor.copy(alpha = 0.2f),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(size),
-            shape = RectangleShape,
-            color = fileTypeVisual.backgroundColor.copy(alpha = 0.2f)
-        ) {
-            Box(
-                modifier = Modifier.size(size),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = fileTypeVisual.icon,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(size * FILE_ICON_FOREGROUND_SCALE)
-                )
-            }
-        }
+        Icon(
+            imageVector = fileTypeVisual.icon,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(size * FILE_ICON_FOREGROUND_SCALE)
+        )
     }
 }
