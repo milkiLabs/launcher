@@ -2,7 +2,6 @@ package com.milki.launcher.core.launcher
 
 import android.app.role.RoleManager
 import android.content.Intent
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
@@ -43,13 +42,6 @@ fun ComponentActivity.openDefaultLauncherSettingsFallback(): Boolean {
     return tryStartActivity(
         Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
     )
-}
-
-private fun ComponentActivity.homeRoleManagerOrNull(): RoleManager? {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-        return null
-    }
-    return getSystemService(RoleManager::class.java)
 }
 
 private fun ComponentActivity.tryStartActivity(intent: Intent): Boolean {

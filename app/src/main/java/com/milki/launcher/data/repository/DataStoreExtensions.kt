@@ -12,9 +12,9 @@ import java.io.IOException
  * This follows the official Android recommendation: when the DataStore file
  * is corrupted or unreadable, fall back to defaults instead of crashing.
  */
-fun <T : Preferences> Flow<T>.catchIoException(): Flow<T> = catch { exception ->
+fun Flow<Preferences>.catchIoException(): Flow<Preferences> = catch { exception ->
     if (exception is IOException) {
-        emit(emptyPreferences() as T)
+        emit(emptyPreferences())
     } else {
         throw exception
     }
