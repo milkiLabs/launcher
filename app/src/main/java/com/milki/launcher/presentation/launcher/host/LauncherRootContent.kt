@@ -99,11 +99,10 @@ internal fun LauncherRootContent(
     val keyboardController = LocalSoftwareKeyboardController.current
     val surfaceStateCoordinator = runtime.surfaceStateCoordinator
     val scope = rememberCoroutineScope()
-    val homeController = remember(homeViewModel, runtime.widgetPlacementCoordinator, widgetHostManager) {
+    val homeController = remember(homeViewModel, runtime.widgetPlacementCoordinator) {
         LauncherHomeController(
             homeViewModel = homeViewModel,
-            widgetPlacementCoordinator = runtime.widgetPlacementCoordinator,
-            widgetHostManager = widgetHostManager
+            widgetPlacementCoordinator = runtime.widgetPlacementCoordinator
         )
     }
     var widgetPickerCatalogStore by remember { mutableStateOf<WidgetPickerCatalogStore?>(null) }

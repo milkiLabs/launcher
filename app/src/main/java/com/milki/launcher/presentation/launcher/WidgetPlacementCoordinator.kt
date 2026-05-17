@@ -35,7 +35,6 @@ class WidgetPlacementCoordinator(
             execute(
                 homeViewModel.handleWidgetBindResult(
                     resultCode = result.resultCode,
-                    widgetHostManager = widgetHostManager,
                     appWidgetId = appWidgetId
                 )
             )
@@ -60,7 +59,6 @@ class WidgetPlacementCoordinator(
         execute(
             homeViewModel.handleWidgetConfigureResult(
                 resultCode = resultCode,
-                widgetHostManager = widgetHostManager,
                 appWidgetId = appWidgetId
             )
         )
@@ -76,7 +74,6 @@ class WidgetPlacementCoordinator(
             execute(
                 homeViewModel.handleWidgetBindResult(
                     resultCode = Activity.RESULT_CANCELED,
-                    widgetHostManager = widgetHostManager,
                     appWidgetId = command.appWidgetId
                 )
             )
@@ -96,7 +93,6 @@ class WidgetPlacementCoordinator(
             execute(
                 homeViewModel.handleWidgetConfigureResult(
                     resultCode = Activity.RESULT_CANCELED,
-                    widgetHostManager = widgetHostManager,
                     appWidgetId = command.appWidgetId
                 )
             )

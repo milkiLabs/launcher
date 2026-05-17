@@ -23,6 +23,7 @@
  * │  │ WidgetHost   │  │ SettingsVM   │  │ DrawerVM     │             │
  * │  │   Manager    │  │              │  │              │             │
  * │  └──────────────┘  └──────────────┘  └──────────────┘             │
+ * │                     backupModule                                  │
  * └─────────────────────────────────────────────────────────────────────┘
  *
  * WHY SPLIT INTO MULTIPLE MODULES?
@@ -34,6 +35,7 @@
  *
  * DEPENDENCY DIRECTION RULES:
  * - Feature modules (search, home, settings, drawer, widget) → coreModule (allowed)
+ * - App-level workflow modules (backup) may compose feature repositories
  * - coreModule → any feature module (NEVER — would create circular dependency)
  * - Feature module → another feature module (NEVER — use coreModule as intermediary)
  * - All modules follow: presentation → domain → data
@@ -45,6 +47,7 @@
  * - WidgetModule.kt   → Widget infrastructure (WidgetHostManager)
  * - SettingsModule.kt → Settings feature (SettingsViewModel)
  * - DrawerModule.kt   → App drawer feature (AppDrawerViewModel)
+ * - BackupModule.kt   → Backup/restore app workflow
  *
  * USAGE:
  * ```kotlin
@@ -72,16 +75,18 @@ package com.milki.launcher.core.di
  * LOADING ORDER (for readability, not dependency resolution):
  * 1. coreModule     — shared repositories (foundation layer)
  * 2. searchModule   — search feature (depends on coreModule)
- * 3. homeModule     — home screen feature (standalone)
- * 4. widgetModule   — widget infrastructure (standalone)
+ * 3. widgetModule   — widget infrastructure (shared by home + host)
+ * 4. homeModule     — home screen feature (uses widget infrastructure)
  * 5. settingsModule — settings feature (depends on coreModule)
  * 6. drawerModule   — app drawer feature (depends on coreModule)
+ * 7. backupModule   — app-level backup workflow (composes feature state)
  */
 val allModules = listOf(
     coreModule,
     searchModule,
-    homeModule,
     widgetModule,
+    homeModule,
     settingsModule,
-    drawerModule
+    drawerModule,
+    backupModule
 )

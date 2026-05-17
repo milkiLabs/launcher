@@ -1,11 +1,11 @@
 package com.milki.launcher.presentation.search
 
-import com.milki.launcher.data.search.ConfigurableUrlSearchProvider
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +21,8 @@ import kotlinx.coroutines.launch
  */
 internal class SearchViewModelSettingsAdapter(
     private val settingsRepository: SettingsRepository,
-    private val providerRegistry: SearchProviderRegistry
+    private val providerRegistry: SearchProviderRegistry,
+    private val searchProviderFactory: SearchProviderFactory
 ) {
 
     /**
@@ -57,7 +58,7 @@ internal class SearchViewModelSettingsAdapter(
                         .forEach(providerRegistry::unregister)
 
                     enabledSources.forEach { source ->
-                        providerRegistry.register(ConfigurableUrlSearchProvider(source))
+                        providerRegistry.register(searchProviderFactory.create(source))
                     }
 
                     val sourcePrefixConfigurations = enabledSources.associate { source ->

@@ -150,40 +150,6 @@ val wasApplied = try {
 
 ---
 
-## 6. Widget ID Leak on Coroutine Cancellation
-
-**Severity:** HIGH
-**File:** `HomeViewModel.kt:556-577`
-**Category:** Resource Leak
-
-In `persistPendingWidget()`:
-
-1. Line 556: `pendingWidgets.remove(appWidgetId)` — widget removed from pending
-2. Line 558: `viewModelScope.launch { ... }` — mutation launched in new coroutine
-3. If this coroutine is cancelled, neither the success branch (line 567) nor the failure branch (line 572 `deallocateWidgetId`) executes
-
-### Impact
-
-- Widget ID is allocated but never deallocated
-- Over time, widget IDs are exhausted (AppWidgetHost has a finite ID space)
-
-### Fix
-
-Use `invokeOnCancellation` or ensure deallocation happens regardless:
-
-```kotlin
-val job = viewModelScope.launch {
-    // ...
-}
-job.invokeOnCompletion { cause ->
-    if (cause != null && !wasApplied) {
-        widgetHostManager.deallocateWidgetId(appWidgetId)
-    }
-}
-```
-
----
-
 ## 7. Domain Layer Leaks Android Framework Types
 
 **Severity:** HIGH
@@ -272,41 +238,6 @@ Split into focused interfaces:
 
 ---
 
-## 10. HomeViewModel Holds Context Reference
-
-**Severity:** HIGH
-**File:** `HomeViewModel.kt:46`
-**Category:** Memory Leak Risk
-
-```kotlin
-class HomeViewModel(
-    private val appContext: Context,
-    ...
-)
-```
-
-ViewModels should not hold `Context` references — this risks memory leaks if the Context is an Activity context, and violates the presentation layer's independence from Android.
-
-### Impact
-
-- Potential memory leak if Activity context is passed
-- Violates ViewModel best practices
-- Makes unit testing harder
-
-### Fix
-
-Inject specific interfaces instead of raw `Context`:
-
-```kotlin
-class HomeViewModel(
-    private val packageManager: PackageManager,
-    private val availabilityPrunerFactory: AvailabilityPrunerFactory,
-    ...
-)
-```
-
----
-
 ## 11. Presentation Layer Imports Data-Layer Implementation
 
 **Severity:** HIGH
@@ -348,22 +279,3 @@ Both workflows are nearly identical — same name, same triggers, same steps.
 ### Fix
 
 Delete one of the workflows.
-
----
-
-## Summary
-
-| #   | Severity | Category      | File                                  |
-| --- | -------- | ------------- | ------------------------------------- |
-| 1   | CRITICAL | Security      | `keystore.properties:2-4`             |
-| 2   | CRITICAL | Build         | `app/proguard-rules.pro`              |
-| 3   | CRITICAL | Memory Leak   | `HomeRepositoryImpl.kt:28`            |
-| 4   | HIGH     | Concurrency   | `HomeViewModel.kt:73`                 |
-| 5   | HIGH     | Concurrency   | `HomeViewModel.kt:158`                |
-| 6   | HIGH     | Resource Leak | `HomeViewModel.kt:556-577`            |
-| 7   | HIGH     | Architecture  | `HomeItem.kt:42`                      |
-| 8   | HIGH     | Architecture  | `CoreModule.kt:132-141`               |
-| 9   | HIGH     | Design        | `SettingsRepository.kt:29-236`        |
-| 10  | HIGH     | Memory Leak   | `HomeViewModel.kt:46`                 |
-| 11  | HIGH     | Architecture  | `SearchViewModelSettingsAdapter.kt:3` |
-| 12  | MEDIUM   | CI/CD         | `.github/workflows/`                  |

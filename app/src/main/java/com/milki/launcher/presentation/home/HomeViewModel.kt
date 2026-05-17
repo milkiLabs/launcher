@@ -43,7 +43,8 @@ import kotlinx.coroutines.sync.withLock
 class HomeViewModel(
     private val homeRepository: HomeRepository,
     private val availabilityPruner: HomeAvailabilityPruner,
-    private val iconWarmupCoordinator: HomeIconWarmupCoordinator
+    private val iconWarmupCoordinator: HomeIconWarmupCoordinator,
+    private val widgetHostManager: WidgetHostManager
 ) : ViewModel(), HomeMutationHandler {
 
     private companion object {
@@ -408,8 +409,7 @@ class HomeViewModel(
         providerInfo: AppWidgetProviderInfo,
         targetPosition: GridPosition,
         span: GridSpan,
-        displayMode: WidgetDisplayMode = WidgetDisplayMode.Inline,
-        widgetHostManager: WidgetHostManager
+        displayMode: WidgetDisplayMode = WidgetDisplayMode.Inline
     ): WidgetPlacementCommand {
         val existingWidget = pinnedItems.value.filterIsInstance<HomeItem.WidgetItem>().firstOrNull {
             it.providerPackage == providerInfo.provider.packageName &&
@@ -440,7 +440,7 @@ class HomeViewModel(
         )
 
         return if (boundImmediately) {
-            resolvePostBindCommand(appWidgetId, widgetHostManager)
+            resolvePostBindCommand(appWidgetId)
         } else {
             WidgetPlacementCommand.LaunchBindPermission(
                 appWidgetId = appWidgetId,
@@ -455,37 +455,32 @@ class HomeViewModel(
 
     fun handleWidgetBindResult(
         resultCode: Int,
-        widgetHostManager: WidgetHostManager,
         appWidgetId: Int
     ): WidgetPlacementCommand {
         val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
         return if (resultCode == Activity.RESULT_OK) {
-            resolvePostBindCommand(appWidgetId, widgetHostManager)
+            resolvePostBindCommand(appWidgetId)
         } else {
-            cancelPendingWidget(widgetHostManager, pending)
+            cancelPendingWidget(pending)
             WidgetPlacementCommand.NoOp
         }
     }
 
     fun handleWidgetConfigureResult(
         resultCode: Int,
-        widgetHostManager: WidgetHostManager,
         appWidgetId: Int
     ): WidgetPlacementCommand {
         val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
         return if (resultCode == Activity.RESULT_OK) {
-            persistPendingWidget(appWidgetId, pending, widgetHostManager)
+            persistPendingWidget(appWidgetId, pending)
             WidgetPlacementCommand.NoOp
         } else {
-            cancelPendingWidget(widgetHostManager, pending)
+            cancelPendingWidget(pending)
             WidgetPlacementCommand.NoOp
         }
     }
 
-    fun removeWidget(
-        widgetId: String,
-        widgetHostManager: WidgetHostManager
-    ) {
+    fun removeWidget(widgetId: String) {
         launchMutation(
             fallbackErrorMessage = "Could not remove widget",
             command = HomeModelWriter.Command.RemoveItemById(itemId = widgetId),
@@ -536,29 +531,25 @@ class HomeViewModel(
         )
     }
 
-    private fun resolvePostBindCommand(
-        appWidgetId: Int,
-        widgetHostManager: WidgetHostManager
-    ): WidgetPlacementCommand {
+    private fun resolvePostBindCommand(appWidgetId: Int): WidgetPlacementCommand {
         val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
         val boundProviderInfo = widgetHostManager.getProviderInfo(appWidgetId)
         if (boundProviderInfo == null) {
-            cancelPendingWidget(widgetHostManager, pending)
+            cancelPendingWidget(pending)
             return WidgetPlacementCommand.NoOp
         }
 
         return if (widgetHostManager.needsConfigure(appWidgetId)) {
             WidgetPlacementCommand.LaunchConfigure(appWidgetId = appWidgetId)
         } else {
-            persistPendingWidget(appWidgetId, pending, widgetHostManager)
+            persistPendingWidget(appWidgetId, pending)
             WidgetPlacementCommand.NoOp
         }
     }
 
     private fun persistPendingWidget(
         appWidgetId: Int,
-        pending: PendingWidget,
-        widgetHostManager: WidgetHostManager
+        pending: PendingWidget
     ) {
         val widgetItem = HomeItem.WidgetItem.create(
             appWidgetId = pending.appWidgetId,
@@ -600,7 +591,7 @@ class HomeViewModel(
         }
     }
 
-    private fun cancelPendingWidget(widgetHostManager: WidgetHostManager, pending: PendingWidget) {
+    private fun cancelPendingWidget(pending: PendingWidget) {
         widgetHostManager.deallocateWidgetId(pending.appWidgetId)
         pendingWidgets.remove(pending.appWidgetId)
     }

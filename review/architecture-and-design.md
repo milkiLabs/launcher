@@ -16,12 +16,12 @@
 
 ### 1.2 Violations
 
-| # | Issue | File:Line | Severity |
-|---|-------|-----------|----------|
-| F1 | `HomeItem` sealed class leaks `android.content.pm.ShortcutInfo` into domain | `HomeItem.kt:42` | HIGH |
-| F2 | `LauncherBackupRepository` uses Android `Intent` in domain type alias | `LauncherBackupRepository.kt:8` | HIGH |
-| F3 | `SearchViewModelSettingsAdapter` imports `ConfigurableUrlSearchProvider` from data layer | `SearchViewModelSettingsAdapter.kt:3` | HIGH |
-| F4 | `HomeViewModel` takes `Context` as constructor parameter | `HomeViewModel.kt:46` | HIGH |
+| #   | Issue                                                                                    | File:Line                             | Severity |
+| --- | ---------------------------------------------------------------------------------------- | ------------------------------------- | -------- |
+| F1  | `HomeItem` sealed class leaks `android.content.pm.ShortcutInfo` into domain              | `HomeItem.kt:42`                      | HIGH     |
+| F2  | `LauncherBackupRepository` uses Android `Intent` in domain type alias                    | `LauncherBackupRepository.kt:8`       | HIGH     |
+| F3  | `SearchViewModelSettingsAdapter` imports `ConfigurableUrlSearchProvider` from data layer | `SearchViewModelSettingsAdapter.kt:3` | HIGH     |
+| F4  | `HomeViewModel` takes `Context` as constructor parameter                                 | `HomeViewModel.kt:46`                 | HIGH     |
 
 **F1 Detail:** `HomeItem.AppShortcut.fromShortcutInfo()` at line 277 takes a framework type as parameter. The mapping from `ShortcutInfo` should happen in the data or presentation layer.
 
@@ -43,11 +43,11 @@
 
 ### 2.2 Issues
 
-| # | Issue | File:Line | Severity |
-|---|-------|-----------|----------|
-| F5 | `coreModule` has cross-feature leakage via `LauncherBackupRepository` | `CoreModule.kt:132-141` | HIGH |
-| F6 | `UrlHandlerResolver` registered in `coreModule` but is search-specific | `CoreModule.kt:119` | LOW |
-| F7 | No Koin qualifiers or named bindings used anywhere | All DI modules | LOW |
+| #   | Issue                                                                  | File:Line               | Severity |
+| --- | ---------------------------------------------------------------------- | ----------------------- | -------- |
+| F5  | `coreModule` has cross-feature leakage via `LauncherBackupRepository`  | `CoreModule.kt:132-141` | HIGH     |
+| F6  | `UrlHandlerResolver` registered in `coreModule` but is search-specific | `CoreModule.kt:119`     | LOW      |
+| F7  | No Koin qualifiers or named bindings used anywhere                     | All DI modules          | LOW      |
 
 **F5 Detail:** `coreModule` depends on `homeRepository` (defined in `homeModule`) and `widgetHostManager` (defined in `widgetModule`). This **inverts the documented dependency direction** — the docs say "coreModule must NEVER depend on any feature module."
 
@@ -67,11 +67,11 @@
 
 ### 3.2 Issues
 
-| # | Issue | File | Severity |
-|---|-------|------|----------|
-| F8 | `SettingsRepository` is a god interface with 27 methods | `SettingsRepository.kt:29-236` | HIGH |
-| F9 | `HomeRepository.findAvailablePosition` leaks placement policy | `HomeRepository.kt:44` | LOW |
-| F10 | `FilesRepositoryImpl` is 524 lines of cursor manipulation | `FilesRepositoryImpl.kt:62` | MEDIUM |
+| #   | Issue                                                         | File                           | Severity |
+| --- | ------------------------------------------------------------- | ------------------------------ | -------- |
+| F8  | `SettingsRepository` is a god interface with 27 methods       | `SettingsRepository.kt:29-236` | HIGH     |
+| F9  | `HomeRepository.findAvailablePosition` leaks placement policy | `HomeRepository.kt:44`         | LOW      |
+| F10 | `FilesRepositoryImpl` is 524 lines of cursor manipulation     | `FilesRepositoryImpl.kt:62`    | MEDIUM   |
 
 **F8 Detail:** Violates Interface Segregation Principle. Should be split into `SettingsRepository`, `SearchSourceRepository`, `PrefixConfigurationRepository`, `HiddenAppsRepository`.
 
@@ -81,12 +81,12 @@
 
 ## 4. Over-Engineering
 
-| # | Issue | Files | Severity |
-|---|-------|-------|----------|
-| F11 | SearchViewModel split across 5 files (~750 lines total) | `presentation/search/*` | MEDIUM |
-| F12 | `HomeModelWriter.Command` has 17 command types; ViewModel is thin pass-through | `HomeModelWriter.kt`, `HomeViewModel.kt` | LOW |
-| F13 | `FileFilterConfig` is 561 lines of static configuration with excessive docs | `FileFilterConfig.kt` | LOW |
-| F14 | `SearchProviderRegistry` is 352 lines with extensive ASCII diagrams | `SearchProviderRegistry.kt` | LOW |
+| #   | Issue                                                                          | Files                                    | Severity |
+| --- | ------------------------------------------------------------------------------ | ---------------------------------------- | -------- |
+| F11 | SearchViewModel split across 5 files (~750 lines total)                        | `presentation/search/*`                  | MEDIUM   |
+| F12 | `HomeModelWriter.Command` has 17 command types; ViewModel is thin pass-through | `HomeModelWriter.kt`, `HomeViewModel.kt` | LOW      |
+| F13 | `FileFilterConfig` is 561 lines of static configuration with excessive docs    | `FileFilterConfig.kt`                    | LOW      |
+| F14 | `SearchProviderRegistry` is 352 lines with extensive ASCII diagrams            | `SearchProviderRegistry.kt`              | LOW      |
 
 **F11 Detail:** `SearchViewModel.kt` (313 lines), `SearchViewModelStateHolder.kt` (87), `SearchViewModelPipelineCoordinator.kt` (179), `SearchViewModelSettingsAdapter.kt` (133), `SearchViewModelModels.kt` (36). The `PipelineCoordinator` has only 2 public methods (`bind` and `executeSearch`) and could reasonably be inlined.
 
@@ -96,13 +96,14 @@
 
 ## 5. Under-Engineered Areas
 
-| # | Issue | Files | Severity |
-|---|-------|-------|----------|
-| F15 | No unified error handling abstraction | Multiple | HIGH |
-| F16 | No loading/error state types for repository flows | `HomeRepository.kt` | MEDIUM |
-| F17 | `MainActivity` directly injects 10 dependencies | `MainActivity.kt:43` | LOW |
+| #   | Issue                                             | Files                | Severity |
+| --- | ------------------------------------------------- | -------------------- | -------- |
+| F15 | No unified error handling abstraction             | Multiple             | HIGH     |
+| F16 | No loading/error state types for repository flows | `HomeRepository.kt`  | MEDIUM   |
+| F17 | `MainActivity` directly injects 10 dependencies   | `MainActivity.kt:43` | LOW      |
 
 **F15 Detail:** Errors are handled inconsistently:
+
 - `HomeViewModel` uses string fallback error messages
 - `HomeModelWriter` has a proper `Error` sealed interface
 - `FilesRepositoryImpl` catches exceptions and logs them
@@ -116,11 +117,11 @@ There should be a unified `sealed interface AppError` in the domain layer.
 
 ## 6. Circular Dependencies and Tight Coupling
 
-| # | Issue | File:Line | Severity |
-|---|-------|-----------|----------|
-| F18 | `coreModule` -> `homeRepository` -> `homeModule` circular dependency | `CoreModule.kt:136` | HIGH |
-| F19 | `SearchViewModelSettingsAdapter` creates `ConfigurableUrlSearchProvider` directly | `SearchViewModelSettingsAdapter.kt:59` | HIGH |
-| F20 | `HomeViewModel` receives `widgetHostManager` per-call, not as constructor dep | `HomeViewModel.kt:390-396` | MEDIUM |
+| #   | Issue                                                                             | File:Line                              | Severity |
+| --- | --------------------------------------------------------------------------------- | -------------------------------------- | -------- |
+| F18 | `coreModule` -> `homeRepository` -> `homeModule` circular dependency              | `CoreModule.kt:136`                    | HIGH     |
+| F19 | `SearchViewModelSettingsAdapter` creates `ConfigurableUrlSearchProvider` directly | `SearchViewModelSettingsAdapter.kt:59` | HIGH     |
+| F20 | `HomeViewModel` receives `widgetHostManager` per-call, not as constructor dep     | `HomeViewModel.kt:390-396`             | MEDIUM   |
 
 **F19 Detail:** This tightly couples the settings adapter to a specific data-layer implementation. If `ConfigurableUrlSearchProvider` needs new constructor parameters, this file must change.
 
@@ -138,11 +139,11 @@ There should be a unified `sealed interface AppError` in the domain layer.
 
 ### 7.2 Issues
 
-| # | Issue | File:Line | Severity |
-|---|-------|-----------|----------|
-| F21 | `SettingsRepository` method signatures are inconsistent | `SettingsRepository.kt:52-119` | MEDIUM |
-| F22 | `LauncherBackupRepository.importFromUri` takes callback parameter | `LauncherBackupRepository.kt:12` | MEDIUM |
-| F23 | `HomeItem` factory method naming inconsistent (`fromX` vs `create`) | `HomeItem.kt:133,179,226,277,313,448` | LOW |
+| #   | Issue                                                               | File:Line                             | Severity |
+| --- | ------------------------------------------------------------------- | ------------------------------------- | -------- |
+| F21 | `SettingsRepository` method signatures are inconsistent             | `SettingsRepository.kt:52-119`        | MEDIUM   |
+| F22 | `LauncherBackupRepository.importFromUri` takes callback parameter   | `LauncherBackupRepository.kt:12`      | MEDIUM   |
+| F23 | `HomeItem` factory method naming inconsistent (`fromX` vs `create`) | `HomeItem.kt:133,179,226,277,313,448` | LOW      |
 
 **F21 Detail:** Compare `setMaxSearchResults(value: Int)` (1 param, returns Unit) vs `updateSearchSource(sourceId, name, urlTemplate, prefixes, accentColorHex)` (5 params, returns result). Consider using a `SettingsUpdate` sealed interface.
 
@@ -152,12 +153,12 @@ There should be a unified `sealed interface AppError` in the domain layer.
 
 ## 8. Separation of Concerns
 
-| # | Issue | File:Line | Severity |
-|---|-------|-----------|----------|
-| F24 | `HomeViewModel` implements `HomeMutationHandler` interface | `HomeViewModel.kt:47` | MEDIUM |
-| F25 | `MainActivity` constructs `LauncherHostRuntime` with 8 provider lambdas | `MainActivity.kt:78-91` | MEDIUM |
-| F26 | `SettingsActivity` constructs `SettingsActions` with 15+ method references | `SettingsActivity.kt:108-142` | LOW |
-| F27 | `FileFilterConfig` is an `object` in domain but contains filtering logic | `FileFilterConfig.kt:83` | LOW |
+| #   | Issue                                                                      | File:Line                     | Severity |
+| --- | -------------------------------------------------------------------------- | ----------------------------- | -------- |
+| F24 | `HomeViewModel` implements `HomeMutationHandler` interface                 | `HomeViewModel.kt:47`         | MEDIUM   |
+| F25 | `MainActivity` constructs `LauncherHostRuntime` with 8 provider lambdas    | `MainActivity.kt:78-91`       | MEDIUM   |
+| F26 | `SettingsActivity` constructs `SettingsActions` with 15+ method references | `SettingsActivity.kt:108-142` | LOW      |
+| F27 | `FileFilterConfig` is an `object` in domain but contains filtering logic   | `FileFilterConfig.kt:83`      | LOW      |
 
 ---
 
@@ -171,11 +172,11 @@ There should be a unified `sealed interface AppError` in the domain layer.
 
 ### 9.2 Anemic Models (Needs Improvement)
 
-| # | Issue | File | Severity |
-|---|-------|------|----------|
-| F28 | `GridPosition` lacks bounds checking, neighbor computation, distance calculation | `GridPosition.kt:61` | MEDIUM |
-| F29 | `Contact` has no behavior beyond free-floating extension functions | `Contact.kt:34` | LOW |
-| F30 | `AppInfo.matchesQuery` is a free-floating extension, not a member | `AppInfo.kt:33` | LOW |
+| #   | Issue                                                                            | File                 | Severity |
+| --- | -------------------------------------------------------------------------------- | -------------------- | -------- |
+| F28 | `GridPosition` lacks bounds checking, neighbor computation, distance calculation | `GridPosition.kt:61` | MEDIUM   |
+| F29 | `Contact` has no behavior beyond free-floating extension functions               | `Contact.kt:34`      | LOW      |
+| F30 | `AppInfo.matchesQuery` is a free-floating extension, not a member                | `AppInfo.kt:33`      | LOW      |
 
 **F28 Detail:** Grid math is scattered across `HomeModelWriter`, `HomeGridOccupancyPolicy`, and `GridSpan`. `GridPosition` should own its geometry.
 
@@ -191,26 +192,11 @@ There should be a unified `sealed interface AppError` in the domain layer.
 
 ### 10.2 Issues
 
-| # | Issue | Severity |
-|---|-------|----------|
-| F31 | Missing `backupModule` — `LauncherBackupRepository` in wrong module | HIGH |
-| F32 | `domain/search` contains both interfaces and concrete implementations | MEDIUM |
-| F33 | No dedicated `domain/usecase` package | LOW |
-| F34 | `presentation/home` mixes ViewModel with coordinators | LOW |
+| #   | Issue                                                                 | Severity |
+| --- | --------------------------------------------------------------------- | -------- |
+| F31 | Missing `backupModule` — `LauncherBackupRepository` in wrong module   | HIGH     |
+| F32 | `domain/search` contains both interfaces and concrete implementations | MEDIUM   |
+| F33 | No dedicated `domain/usecase` package                                 | LOW      |
+| F34 | `presentation/home` mixes ViewModel with coordinators                 | LOW      |
 
 ---
-
-## 11. Priority Summary
-
-| Priority | Finding | File | Impact |
-|----------|---------|------|--------|
-| P0 | `coreModule` depends on feature modules | `CoreModule.kt:132-141` | Architecture integrity |
-| P0 | Domain layer imports Android framework types | `HomeItem.kt:42` | Testability, layer purity |
-| P1 | `SettingsRepository` is a god interface (27 methods) | `SettingsRepository.kt:29-236` | Maintainability |
-| P1 | Presentation imports data-layer implementation | `SearchViewModelSettingsAdapter.kt:3` | Layer coupling |
-| P1 | `HomeViewModel` holds `Context` reference | `HomeViewModel.kt:46` | Memory leak risk |
-| P2 | Inconsistent error handling across layers | Multiple | User experience |
-| P2 | `HomeItem` factory method naming inconsistency | `HomeItem.kt` | API consistency |
-| P2 | Anemic `GridPosition` with scattered grid math | `GridPosition.kt:61` | Code duplication |
-| P3 | Search ViewModel split across 5 files | `presentation/search/*` | Cognitive overhead |
-| P3 | `FileFilterConfig` is 561 lines | `FileFilterConfig.kt:1` | File bloat |

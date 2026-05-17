@@ -1,7 +1,6 @@
 package com.milki.launcher.presentation.launcher.host
 
 import android.content.Context
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -18,8 +17,7 @@ import com.milki.launcher.ui.screens.launcher.openPinnedItem
  */
 internal class LauncherHomeController(
     private val homeViewModel: HomeViewModel,
-    private val widgetPlacementCoordinator: WidgetPlacementCoordinator,
-    private val widgetHostManager: WidgetHostManager
+    private val widgetPlacementCoordinator: WidgetPlacementCoordinator
 ) {
 
     fun onPinnedItemClick(item: HomeItem, context: Context) {
@@ -102,10 +100,7 @@ internal class LauncherHomeController(
     }
 
     fun onRemoveWidget(widgetId: String) {
-        homeViewModel.removeWidget(
-            widgetId = widgetId,
-            widgetHostManager = widgetHostManager
-        )
+        homeViewModel.removeWidget(widgetId)
     }
 
     fun onUpdateWidgetFrame(widgetId: String, newPosition: GridPosition, newSpan: GridSpan) {
@@ -130,8 +125,7 @@ internal class LauncherHomeController(
             providerInfo = providerInfo,
             targetPosition = dropPosition,
             span = span,
-            displayMode = displayMode,
-            widgetHostManager = widgetHostManager
+            displayMode = displayMode
         )
         widgetPlacementCoordinator.execute(command)
     }

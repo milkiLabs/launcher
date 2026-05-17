@@ -50,6 +50,7 @@ import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SettingsRepository
 import com.milki.launcher.domain.search.FilterAppsUseCase
+import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.UrlHandlerResolver
@@ -92,6 +93,7 @@ class SearchViewModel(
     private val appRepository: AppRepository,
     private val settingsRepository: SettingsRepository,
     private val providerRegistry: SearchProviderRegistry,
+    private val searchProviderFactory: SearchProviderFactory,
     private val filterAppsUseCase: FilterAppsUseCase,
     private val suggestionResolver: SuggestionResolver,
     private val urlHandlerResolver: UrlHandlerResolver
@@ -115,7 +117,8 @@ class SearchViewModel(
 
     private val settingsAdapter = SearchViewModelSettingsAdapter(
         settingsRepository = settingsRepository,
-        providerRegistry = providerRegistry
+        providerRegistry = providerRegistry,
+        searchProviderFactory = searchProviderFactory
     )
 
     private val pipelineCoordinator = SearchViewModelPipelineCoordinator(
