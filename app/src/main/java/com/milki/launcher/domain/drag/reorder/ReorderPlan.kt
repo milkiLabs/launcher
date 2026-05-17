@@ -3,8 +3,6 @@ package com.milki.launcher.domain.drag.reorder
 import com.milki.launcher.domain.model.GridPosition
 
 enum class ReorderRejectReason {
-    OCCUPIED_TARGET,
-    OUT_OF_BOUNDS,
     NO_SPACE
 }
 

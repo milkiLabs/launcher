@@ -2,7 +2,6 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.PermissionAccessState
-import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.search.ActionSuggestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +32,6 @@ internal class SearchViewModelStateHolder(
 
     val searchOutput = MutableStateFlow(SearchPipelineOutput())
     val runtimeSettings = MutableStateFlow(SearchRuntimeSettings())
-    val prefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
     val clipboardSuggestion = MutableStateFlow<ActionSuggestion?>(null)
     val querySuggestion = MutableStateFlow<ActionSuggestion?>(null)
     val providerAccentColorById = MutableStateFlow<Map<String, String>>(emptyMap())
@@ -52,21 +50,13 @@ internal class SearchViewModelStateHolder(
         )
     }.stateIn(scope, SharingStarted.Eagerly, SearchBackgroundState())
 
-    private val presentationState = combine(
-        searchOutput,
-        runtimeSettings
-    ) { output, runtimeSettings ->
-        output to runtimeSettings
-    }
-
     val uiState: StateFlow<SearchUiState> = combine(
         query,
         isSearchVisible,
-        presentationState,
-        clipboardSuggestion,
-        querySuggestion
-    ) { currentQuery, visible, presentationState, clipSuggestion, qSuggestion ->
-        val (output, runtimeSettings) = presentationState
+        searchOutput,
+        runtimeSettings,
+        clipboardSuggestion
+    ) { currentQuery, visible, output, runtimeSettings, clipSuggestion ->
         SearchUiState(
             query = currentQuery,
             isSearchVisible = visible,
@@ -75,11 +65,15 @@ internal class SearchViewModelStateHolder(
             isLoading = visible && output.isLoading,
             autoFocusKeyboard = runtimeSettings.autoFocusKeyboard,
             clipboardSuggestion = if (visible) clipSuggestion else null,
-            querySuggestion = if (visible) qSuggestion else null,
             suggestedActionSources = if (visible) runtimeSettings.searchSources else emptyList(),
             defaultSearchSourceId = runtimeSettings.defaultSearchSourceId
         )
     }
+        .combine(querySuggestion) { partialState, qSuggestion ->
+            partialState.copy(
+                querySuggestion = if (partialState.isSearchVisible) qSuggestion else null
+            )
+        }
         .combine(providerAccentColorById) { partialState, colorMap ->
             partialState.copy(providerAccentColorById = colorMap)
         }

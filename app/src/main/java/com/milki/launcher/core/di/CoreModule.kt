@@ -1,17 +1,3 @@
-/**
- * CoreModule.kt - Core Koin Dependency Injection Module
- *
- * Provides shared, cross-feature dependencies used by multiple features.
- *
- * WHAT BELONGS HERE:
- * - Repositories used by 2+ features
- * - Cross-cutting services and utilities
- * - Shared domain interfaces and their implementations
- *
- * DEPENDENCY DIRECTION RULE:
- * Feature modules → coreModule (never the reverse)
- */
-
 package com.milki.launcher.core.di
 
 import com.milki.launcher.data.repository.ActionShortcutRepositoryImpl
@@ -28,15 +14,7 @@ import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import org.koin.dsl.module
 
-/**
- * Core module — shared, cross-feature dependencies.
- */
 val coreModule = module {
-
-    // ========================================================================
-    // SHARED REPOSITORIES
-    // ========================================================================
-
     single {
         PackageChangeMonitor(get())
     }
@@ -48,10 +26,6 @@ val coreModule = module {
         )
     }
 
-    /**
-     * Settings implementation — provided under all focused interfaces.
-     * Single instance shared across the app.
-     */
     single<SettingsReader> {
         SettingsRepositoryImpl(get())
     }

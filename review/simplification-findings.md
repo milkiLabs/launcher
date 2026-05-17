@@ -65,104 +65,6 @@ The dead production files above have corresponding test files that should also b
 
 **Action:** Delete all 3 test files.
 
-### 1.5 Unused Sealed Class Variants (~10 lines)
-
-These enum/sealed variants are **never instantiated** in production code:
-
-| File                                     | Unused Variant                                         | Lines |
-| ---------------------------------------- | ------------------------------------------------------ | ----- |
-| `domain/drag/reorder/ReorderPlan.kt:6-7` | `ReorderRejectReason.OCCUPIED_TARGET`, `OUT_OF_BOUNDS` | ~4    |
-| `domain/drag/drop/DropDecision.kt:14-15` | `RejectReason.OUT_OF_BOUNDS`, `INTERNAL_ERROR`         | ~4    |
-| `domain/drag/drop/DropDecision.kt:5`     | `DropDecision.Accepted`                                | ~2    |
-
-**Action:** Remove unused variants. Keep only the ones actually produced:
-
-- `ReorderRejectReason` → only `NO_SPACE`
-- `RejectReason` → `OCCUPIED_TARGET`, `INVALID_FOLDER_ROUTE`, `INVALID_WIDGET_ROUTE`, `PAYLOAD_UNSUPPORTED`
-- `DropDecision` → `Pass`, `Rejected`
-
----
-
-## 2. Documentation Bloat — Trim (270 lines)
-
-The DI modules have an extreme documentation-to-code ratio. The KDoc explains Koin basics and Android framework behavior that any Android developer already knows.
-
-### 2.1 SearchModule.kt — 241 lines for ~20 lines of code
-
-| Section          | Lines | Content                                           | Can Remove? |
-| ---------------- | ----- | ------------------------------------------------- | ----------- |
-| File-level KDoc  | ~120  | Explains what each `single {}` does (Koin basics) | YES         |
-| Per-binding KDoc | ~80   | "This provides X which is used by Y"              | YES         |
-| Actual code      | ~20   | `single {}` bindings                              | NO          |
-
-**Before:**
-
-```kotlin
-/**
- * Search module provides all search-related dependencies.
- *
- * SEARCH PROVIDER REGISTRY:
- * The SearchProviderRegistry is the central registry that...
- * [30 more lines of explanation]
- */
-val searchModule = module {
-    /**
-     * Provides the SearchProviderRegistry which...
-     * [10 more lines]
-     */
-    single<SearchProviderRegistry> { SearchProviderRegistry() }
-}
-```
-
-**After:**
-
-```kotlin
-val searchModule = module {
-    single<SearchProviderRegistry> { SearchProviderRegistry() }
-    // ... other bindings
-}
-```
-
-**Savings:** ~150 lines
-
-### 2.2 WidgetModule.kt — 80 lines for 2 bindings
-
-| Section          | Lines | Content                                        | Can Remove? |
-| ---------------- | ----- | ---------------------------------------------- | ----------- |
-| File-level KDoc  | ~40   | Explains why AppWidgetHost should be singleton | YES         |
-| Per-binding KDoc | ~20   | Framework behavior explanation                 | YES         |
-| Actual code      | ~20   | 2 bindings                                     | NO          |
-
-**Savings:** ~40 lines
-
-### 2.3 DrawerModule.kt — 74 lines for 1 binding
-
-| Section         | Lines | Content                                   | Can Remove? |
-| --------------- | ----- | ----------------------------------------- | ----------- |
-| File-level KDoc | ~28   | "Why a separate module for one ViewModel" | YES         |
-| Actual code     | ~5    | 1 binding                                 | NO          |
-
-**Savings:** ~25 lines
-
-### 2.4 AppModule.kt — 92 lines, ASCII art diagram
-
-| Section                      | Lines | Content                   | Can Remove?         |
-| ---------------------------- | ----- | ------------------------- | ------------------- |
-| ASCII art + module list KDoc | ~55   | Visual dependency diagram | YES (move to docs/) |
-| Actual code                  | ~7    | `listOf()`                | NO                  |
-
-**Savings:** ~55 lines
-
-### 2.5 Other DI Modules
-
-| File                | Total | Code | Bloat | Savings |
-| ------------------- | ----- | ---- | ----- | ------- |
-| `CoreModule.kt`     | 73    | ~40  | ~33   | ~20     |
-| `HomeModule.kt`     | 39    | ~20  | ~19   | ~10     |
-| `SettingsModule.kt` | 36    | ~20  | ~16   | ~10     |
-
-**Total documentation bloat savings: ~270 lines**
-
 ---
 
 ## 3. Over-Engineered Abstractions — Flatten (200 lines)
@@ -215,14 +117,6 @@ Each of the 17 Command data classes has an `execute()` method that just calls `w
 **Risk:** HIGH — this is a core domain abstraction. Do this last, with good test coverage.
 
 **Savings:** ~80 lines
-
-### 3.5 PermissionHandler — Unify Launcher Registrations (15 lines)
-
-Four nearly identical `registerForActivityResult` blocks (contacts, call, files, storage). Each is 5-8 lines of boilerplate.
-
-**Action:** Create a single `registerPermissionLauncher(permission, contract, updateState)` helper.
-
-**Savings:** ~15 lines
 
 ---
 

@@ -45,17 +45,32 @@ package com.milki.launcher.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.PermissionAccessState
-import com.milki.launcher.domain.model.UrlSearchResult
+import com.milki.launcher.domain.model.ProviderId
+import com.milki.launcher.domain.model.ProviderPrefixConfiguration
+import com.milki.launcher.domain.model.PrefixConfig
+import com.milki.launcher.domain.model.SearchProviderConfig
+import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.AppRepository
+import com.milki.launcher.domain.repository.SearchProvider
+import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.search.FilterAppsUseCase
+import com.milki.launcher.domain.search.ParsedQuery
 import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.SuggestionResolver
-import com.milki.launcher.domain.search.UrlHandlerResolver
-import com.milki.launcher.core.url.UrlValidator
+import com.milki.launcher.domain.search.parseSearchQuery
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -83,11 +98,10 @@ import kotlinx.coroutines.withContext
  * prefixes without restarting the app.
  *
  * @property appRepository Repository for app data
- * @property contactsRepository Repository for contacts data (for recent contacts)
  * @property settingsRepository Repository for settings (including prefix configs)
  * @property providerRegistry Registry of search providers
  * @property filterAppsUseCase Use case for filtering apps
- * @property clipboardSuggestionResolver Resolver that classifies clipboard text into one smart action suggestion
+ * @property suggestionResolver Resolver that classifies text into one smart action suggestion
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
@@ -95,10 +109,10 @@ class SearchViewModel(
     private val providerRegistry: SearchProviderRegistry,
     private val searchProviderFactory: SearchProviderFactory,
     private val filterAppsUseCase: FilterAppsUseCase,
-    private val suggestionResolver: SuggestionResolver,
-    private val urlHandlerResolver: UrlHandlerResolver
+    private val suggestionResolver: SuggestionResolver
 ) : ViewModel() {
     private val stateHolder = SearchViewModelStateHolder(viewModelScope)
+    private val searchPrefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
 
     /**
      * Shared installed-app stream scoped to this ViewModel.
@@ -115,17 +129,6 @@ class SearchViewModel(
         initialValue = emptyList()
     )
 
-    private val settingsAdapter = SearchViewModelSettingsAdapter(
-        settingsRepository = settingsRepository,
-        providerRegistry = providerRegistry,
-        searchProviderFactory = searchProviderFactory
-    )
-
-    private val pipelineCoordinator = SearchViewModelPipelineCoordinator(
-        providerRegistry = providerRegistry,
-        filterAppsUseCase = filterAppsUseCase
-    )
-
     val uiState = stateHolder.uiState
 
     // ========================================================================
@@ -133,23 +136,11 @@ class SearchViewModel(
     // ========================================================================
 
     init {
-        pipelineCoordinator.bind(
-            scope = viewModelScope,
-            query = stateHolder.query,
-            isSearchVisible = stateHolder.isSearchVisible,
-            backgroundState = stateHolder.backgroundState,
-            runtimeSettings = stateHolder.runtimeSettings,
-            prefixConfigurations = stateHolder.prefixConfigurations,
-            existingOutput = stateHolder.searchOutput
-        )
+        bindSearchPipeline()
         observeInstalledApps()
         observeRecentApps()
-        settingsAdapter.bind(
-            scope = viewModelScope,
-            runtimeSettings = stateHolder.runtimeSettings,
-            prefixConfigurations = stateHolder.prefixConfigurations,
-            providerAccentColorById = stateHolder.providerAccentColorById
-        )
+        observeSearchSettings()
+        observeQuerySuggestions()
     }
 
     // ========================================================================
@@ -190,6 +181,192 @@ class SearchViewModel(
                 .collect { updatedRecentApps ->
                     stateHolder.recentApps.value = updatedRecentApps
                 }
+        }
+    }
+
+    private fun observeSearchSettings() {
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { settings ->
+                    SearchRuntimeSettingsSnapshot(
+                        searchSources = settings.searchSources,
+                        contactsSearchEnabled = settings.contactsSearchEnabled,
+                        filesSearchEnabled = settings.filesSearchEnabled,
+                        prefixConfigurations = settings.prefixConfigurations,
+                        maxSearchResults = settings.maxSearchResults,
+                        showRecentApps = settings.showRecentApps,
+                        autoFocusKeyboard = settings.autoFocusKeyboard,
+                        defaultSearchSourceId = settings.defaultSearchSourceId
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { settings ->
+                    applySearchSettings(settings)
+                }
+        }
+    }
+
+    private fun applySearchSettings(settings: SearchRuntimeSettingsSnapshot) {
+        val enabledSources = settings.searchSources.filter { it.isEnabled }
+
+        val dynamicProviderIds = providerRegistry
+            .getAllConfigs()
+            .map { it.providerId }
+            .filter { it.startsWith("source_") }
+            .toSet()
+
+        val nextDynamicProviderIds = enabledSources.map { it.id }.toSet()
+
+        dynamicProviderIds
+            .filter { it !in nextDynamicProviderIds }
+            .forEach(providerRegistry::unregister)
+
+        enabledSources.forEach { source ->
+            providerRegistry.register(searchProviderFactory.create(source))
+        }
+
+        val sourcePrefixConfigurations = enabledSources.associate { source ->
+            source.id to PrefixConfig(source.prefixes)
+        }
+
+        val fixedProviderConfigurations = buildMap {
+            if (settings.contactsSearchEnabled) {
+                put(
+                    ProviderId.CONTACTS,
+                    settings.prefixConfigurations[ProviderId.CONTACTS] ?: PrefixConfig.single("c")
+                )
+            }
+            if (settings.filesSearchEnabled) {
+                put(
+                    ProviderId.FILES,
+                    settings.prefixConfigurations[ProviderId.FILES] ?: PrefixConfig.single("f")
+                )
+            }
+        }
+
+        val mergedConfigurations: ProviderPrefixConfiguration =
+            fixedProviderConfigurations + sourcePrefixConfigurations
+
+        providerRegistry.updatePrefixConfigurations(mergedConfigurations)
+        stateHolder.runtimeSettings.value = SearchRuntimeSettings(
+            maxSearchResults = settings.maxSearchResults.coerceAtLeast(1),
+            showRecentApps = settings.showRecentApps,
+            autoFocusKeyboard = settings.autoFocusKeyboard,
+            searchSources = settings.searchSources.filter { it.showAsSuggestedAction },
+            defaultSearchSourceId = settings.defaultSearchSourceId
+        )
+        searchPrefixConfigurations.value = mergedConfigurations
+        stateHolder.providerAccentColorById.value = settings.searchSources.associate { it.id to it.accentColorHex }
+    }
+
+    private fun bindSearchPipeline() {
+        viewModelScope.launch {
+            combine(
+                stateHolder.query,
+                stateHolder.isSearchVisible,
+                stateHolder.backgroundState,
+                stateHolder.runtimeSettings,
+                searchPrefixConfigurations
+            ) { currentQuery, visible, background, runtimeSettings, _ ->
+                SearchPipelineInput(
+                    query = currentQuery,
+                    visible = visible,
+                    background = background,
+                    runtimeSettings = runtimeSettings
+                )
+            }
+                .collectLatest { input ->
+                    if (!input.visible) {
+                        stateHolder.searchOutput.value = SearchPipelineOutput()
+                        return@collectLatest
+                    }
+
+                    val parsed = parseSearchQuery(input.query, providerRegistry)
+
+                    stateHolder.searchOutput.update { current ->
+                        current.copy(
+                            isLoading = true,
+                            activeProviderConfig = parsed.config
+                        )
+                    }
+
+                    val results = executeSearch(
+                        parsed = parsed,
+                        installedApps = input.background.installedApps,
+                        recentApps = input.background.recentApps,
+                        contactsPermissionState = input.background.contactsPermissionState,
+                        filesPermissionState = input.background.filesPermissionState,
+                        settings = input.runtimeSettings
+                    )
+
+                    stateHolder.searchOutput.value = SearchPipelineOutput(
+                        results = results,
+                        activeProviderConfig = parsed.config,
+                        isLoading = false
+                    )
+                }
+        }
+    }
+
+    private fun observeQuerySuggestions() {
+        viewModelScope.launch {
+            stateHolder.query.collectLatest { currentQuery ->
+                stateHolder.querySuggestion.value = if (currentQuery.isNotBlank()) {
+                    withContext(Dispatchers.IO) {
+                        suggestionResolver.resolveFromText(currentQuery)
+                    }
+                } else {
+                    null
+                }
+            }
+        }
+    }
+
+    private suspend fun executeSearch(
+        parsed: ParsedQuery,
+        installedApps: List<AppInfo>,
+        recentApps: List<AppInfo>,
+        contactsPermissionState: PermissionAccessState,
+        filesPermissionState: PermissionAccessState,
+        settings: SearchRuntimeSettings
+    ): List<SearchResult> {
+        if (parsed.provider != null) {
+            return runProviderSearch(
+                provider = parsed.provider,
+                request = SearchRequest(
+                    query = parsed.query,
+                    maxResults = settings.maxSearchResults,
+                    contactsPermissionState = contactsPermissionState,
+                    filesPermissionState = filesPermissionState
+                )
+            )
+        }
+
+        val recentAppsToUse = if (settings.showRecentApps) recentApps else emptyList()
+
+        val filteredApps = filterAppsUseCase(
+            query = parsed.query,
+            installedApps = installedApps,
+            recentApps = recentAppsToUse
+        )
+
+        return filteredApps
+            .take(settings.maxSearchResults)
+            .map { app -> AppSearchResult(appInfo = app) }
+    }
+
+    private suspend fun runProviderSearch(
+        provider: SearchProvider,
+        request: SearchRequest
+    ): List<SearchResult> {
+        return try {
+            withContext(Dispatchers.IO) {
+                provider.search(request)
+            }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
@@ -252,15 +429,6 @@ class SearchViewModel(
      */
     fun onQueryChange(newQuery: String) {
         stateHolder.query.value = newQuery
-
-        viewModelScope.launch(Dispatchers.IO) {
-            val suggestion = if (newQuery.isNotBlank()) {
-                suggestionResolver.resolveFromText(newQuery)
-            } else {
-                null
-            }
-            stateHolder.querySuggestion.value = suggestion
-        }
     }
 
     /**
@@ -314,3 +482,42 @@ class SearchViewModel(
         stateHolder.query.value = ""
     }
 }
+
+private data class SearchPipelineInput(
+    val query: String,
+    val visible: Boolean,
+    val background: SearchBackgroundState,
+    val runtimeSettings: SearchRuntimeSettings
+)
+
+private data class SearchRuntimeSettingsSnapshot(
+    val searchSources: List<SearchSource>,
+    val contactsSearchEnabled: Boolean,
+    val filesSearchEnabled: Boolean,
+    val prefixConfigurations: ProviderPrefixConfiguration,
+    val maxSearchResults: Int,
+    val showRecentApps: Boolean,
+    val autoFocusKeyboard: Boolean,
+    val defaultSearchSourceId: String?
+)
+
+internal data class SearchBackgroundState(
+    val installedApps: List<AppInfo> = emptyList(),
+    val recentApps: List<AppInfo> = emptyList(),
+    val contactsPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST,
+    val filesPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST
+)
+
+internal data class SearchPipelineOutput(
+    val results: List<SearchResult> = emptyList(),
+    val activeProviderConfig: SearchProviderConfig? = null,
+    val isLoading: Boolean = false
+)
+
+internal data class SearchRuntimeSettings(
+    val maxSearchResults: Int = 8,
+    val showRecentApps: Boolean = true,
+    val autoFocusKeyboard: Boolean = true,
+    val searchSources: List<SearchSource> = emptyList(),
+    val defaultSearchSourceId: String? = null
+)

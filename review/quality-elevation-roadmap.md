@@ -2,8 +2,6 @@
 
 ## Tier 1: Production Readiness (Must Have)
 
-These are non-negotiable for any app distributed to real users.
-
 ### 1. Crash Reporting
 
 **Impact:** Cannot diagnose production crashes without it.
