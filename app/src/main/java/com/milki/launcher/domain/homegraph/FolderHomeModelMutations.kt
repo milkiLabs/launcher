@@ -7,7 +7,7 @@ import com.milki.launcher.domain.model.homeGridSpan
 
 internal fun HomeModelWriter.createFolder(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.CreateFolder
+    command: HomeModelWriter.CreateFolder
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val liveTarget = findLiveNonFolderTarget(
@@ -44,7 +44,7 @@ internal fun HomeModelWriter.createFolder(
 
 internal fun HomeModelWriter.addItemToFolder(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.AddItemToFolder
+    command: HomeModelWriter.AddItemToFolder
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val folderLookup = findFolderLookup(mutable, command.folderId)
@@ -77,7 +77,7 @@ internal fun HomeModelWriter.addItemToFolder(
 
 internal fun HomeModelWriter.removeItemFromFolder(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.RemoveItemFromFolder
+    command: HomeModelWriter.RemoveItemFromFolder
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val removed = removeChildFromFolderWithCleanup(
@@ -95,7 +95,7 @@ internal fun HomeModelWriter.removeItemFromFolder(
 
 internal fun HomeModelWriter.reorderFolderItems(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.ReorderFolderItems
+    command: HomeModelWriter.ReorderFolderItems
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val folderLookup = findFolderLookup(mutable, command.folderId)
@@ -111,7 +111,7 @@ internal fun HomeModelWriter.reorderFolderItems(
 
 internal fun HomeModelWriter.moveItemBetweenFolders(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.MoveItemBetweenFolders
+    command: HomeModelWriter.MoveItemBetweenFolders
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val source = findFolderLookup(mutable, command.sourceFolderId)?.folder
@@ -146,7 +146,7 @@ internal fun HomeModelWriter.moveItemBetweenFolders(
 
 internal fun HomeModelWriter.extractFolderChildOntoItem(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.ExtractFolderChildOntoItem
+    command: HomeModelWriter.ExtractFolderChildOntoItem
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val source = findFolderLookup(mutable, command.sourceFolderId)?.folder
@@ -183,7 +183,7 @@ internal fun HomeModelWriter.extractFolderChildOntoItem(
 
 internal fun HomeModelWriter.mergeFolders(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.MergeFolders
+    command: HomeModelWriter.MergeFolders
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val sourceLookup = findFolderLookup(mutable, command.sourceFolderId)
@@ -217,7 +217,7 @@ internal fun HomeModelWriter.mergeFolders(
 
 internal fun HomeModelWriter.renameFolder(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.RenameFolder
+    command: HomeModelWriter.RenameFolder
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val folderLookup = findFolderLookup(mutable, command.folderId)
@@ -229,7 +229,7 @@ internal fun HomeModelWriter.renameFolder(
 
 internal fun HomeModelWriter.extractItemFromFolder(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.ExtractItemFromFolder
+    command: HomeModelWriter.ExtractItemFromFolder
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.folderId)

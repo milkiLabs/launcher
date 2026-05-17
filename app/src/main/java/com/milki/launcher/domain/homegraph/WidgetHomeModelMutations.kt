@@ -8,7 +8,7 @@ import com.milki.launcher.domain.widget.fitInlineWidgetSpanAtAnchor
 
 internal fun HomeModelWriter.updateWidgetFrame(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.UpdateWidgetFrame
+    command: HomeModelWriter.UpdateWidgetFrame
 ): HomeModelWriter.Result = updateTopLevelItem(currentItems, command.widgetId) {
     if (command.newSpan.columns < 1 || command.newSpan.rows < 1) null
     else (it as? HomeItem.WidgetItem)?.withPosition(command.newPosition)?.withSpan(command.newSpan)
@@ -16,14 +16,14 @@ internal fun HomeModelWriter.updateWidgetFrame(
 
 internal fun HomeModelWriter.updateWidgetDisplayMode(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.UpdateWidgetDisplayMode
+    command: HomeModelWriter.UpdateWidgetDisplayMode
 ): HomeModelWriter.Result = updateTopLevelItem(currentItems, command.widgetId) {
     (it as? HomeItem.WidgetItem)?.withDisplayMode(command.displayMode)
 }
 
 internal fun HomeModelWriter.expandPopupWidget(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.ExpandPopupWidget
+    command: HomeModelWriter.ExpandPopupWidget
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val index = mutable.indexOfFirst { it.id == command.widgetId }

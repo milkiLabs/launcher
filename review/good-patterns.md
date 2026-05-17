@@ -103,3 +103,18 @@ Most of the codebase correctly uses string templates (`"$packageName/$activityNa
 ### 3.1 SDK Configuration
 
 | `minSdk` | 24 | Android 7.0; covers ~95%+ of devices | GOOD |
+
+---
+
+## 9. What NOT to Simplify
+
+These areas are complex but **correctly so** — simplifying them would introduce bugs:
+
+| Area                                    | Why Keep Complex                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| `HomeModelWriter` Command pattern       | Provides atomic, testable mutations. Flattening would couple mutation logic.   |
+| `AsyncSnapshotCache`                    | Load deduplication and cancellation are non-trivial and correctly implemented. |
+| `GridReorderEngine`                     | Deterministic reorder is hard; the complexity is justified.                    |
+| `SearchProviderRegistry` prefix routing | Multi-provider prefix matching is inherently complex.                          |
+| `WidgetHostManager` lifecycle           | AppWidgetHost lifecycle is fragile; the careful state management is necessary. |
+| `HomeAvailabilityPruner`                | ContentObserver + DataStore sync is correctly complex.                         |

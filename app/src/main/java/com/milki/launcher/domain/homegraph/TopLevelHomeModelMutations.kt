@@ -7,7 +7,7 @@ import com.milki.launcher.domain.model.homeGridSpan
 
 internal fun HomeModelWriter.addPinnedItem(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.AddPinnedItem
+    command: HomeModelWriter.AddPinnedItem
 ): HomeModelWriter.Result {
     if (containsItemIdAnywhere(currentItems, command.item.id)) {
         return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.DuplicateItem)
@@ -21,14 +21,14 @@ internal fun HomeModelWriter.addPinnedItem(
 
 internal fun HomeModelWriter.moveTopLevelItem(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.MoveTopLevelItem
+    command: HomeModelWriter.MoveTopLevelItem
 ): HomeModelWriter.Result = updateTopLevelItem(currentItems, command.itemId) {
     it.withPosition(command.newPosition)
 }
 
 internal fun HomeModelWriter.pinOrMove(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.PinOrMoveToPosition
+    command: HomeModelWriter.PinOrMoveToPosition
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
     val existingIndex = mutable.indexOfFirst { it.id == command.item.id }
@@ -66,7 +66,7 @@ internal fun HomeModelWriter.pinOrMove(
 
 internal fun HomeModelWriter.removeItemsById(
     currentItems: List<HomeItem>,
-    command: HomeModelWriter.Command.RemoveItemsById
+    command: HomeModelWriter.RemoveItemsById
 ): HomeModelWriter.Result {
     val existingIds = command.itemIds.filterTo(mutableSetOf()) { itemId ->
         containsItemIdAnywhere(currentItems, itemId)

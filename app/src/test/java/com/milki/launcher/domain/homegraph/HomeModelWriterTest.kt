@@ -21,7 +21,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(item),
-            command = HomeModelWriter.Command.MoveTopLevelItem(
+            command = HomeModelWriter.MoveTopLevelItem(
                 itemId = item.id,
                 newPosition = GridPosition(1, 1)
             )
@@ -43,7 +43,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(a, b),
-            command = HomeModelWriter.Command.MoveTopLevelItem(
+            command = HomeModelWriter.MoveTopLevelItem(
                 itemId = a.id,
                 newPosition = GridPosition(1, 1)
             )
@@ -68,7 +68,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(folder),
-            command = HomeModelWriter.Command.PinOrMoveToPosition(
+            command = HomeModelWriter.PinOrMoveToPosition(
                 item = child,
                 targetPosition = GridPosition(2, 2)
             )
@@ -99,7 +99,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(folder),
-            command = HomeModelWriter.Command.RemoveItemsById(itemIds = setOf(staleChild.id))
+            command = HomeModelWriter.RemoveItemsById(itemIds = setOf(staleChild.id))
         )
 
         assertTrue(result is HomeModelWriter.Result.Applied)
@@ -124,7 +124,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(widget),
-            command = HomeModelWriter.Command.UpdateWidgetFrame(
+            command = HomeModelWriter.UpdateWidgetFrame(
                 widgetId = widget.id,
                 newPosition = GridPosition(1, 1),
                 newSpan = GridSpan(columns = 3, rows = 1)
@@ -153,7 +153,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(widget, blocker),
-            command = HomeModelWriter.Command.UpdateWidgetFrame(
+            command = HomeModelWriter.UpdateWidgetFrame(
                 widgetId = widget.id,
                 newPosition = GridPosition(0, 1),
                 newSpan = GridSpan(columns = 3, rows = 2)
@@ -179,7 +179,7 @@ class HomeModelWriterTest {
 
         val modeResult = writer.apply(
             currentItems = listOf(widget),
-            command = HomeModelWriter.Command.UpdateWidgetDisplayMode(
+            command = HomeModelWriter.UpdateWidgetDisplayMode(
                 widgetId = widget.id,
                 displayMode = WidgetDisplayMode.PopupIcon
             )
@@ -193,7 +193,7 @@ class HomeModelWriterTest {
 
         val placeResult = writer.apply(
             currentItems = modeResult.items,
-            command = HomeModelWriter.Command.PinOrMoveToPosition(
+            command = HomeModelWriter.PinOrMoveToPosition(
                 item = blocker,
                 targetPosition = blocker.position
             )
@@ -219,7 +219,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(widget, blocker),
-            command = HomeModelWriter.Command.ExpandPopupWidget(
+            command = HomeModelWriter.ExpandPopupWidget(
                 widgetId = widget.id,
                 visibleRows = 5
             )
@@ -247,7 +247,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(widget),
-            command = HomeModelWriter.Command.ExpandPopupWidget(
+            command = HomeModelWriter.ExpandPopupWidget(
                 widgetId = widget.id,
                 visibleRows = 5
             )
@@ -275,7 +275,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(widget),
-            command = HomeModelWriter.Command.ExpandPopupWidget(
+            command = HomeModelWriter.ExpandPopupWidget(
                 widgetId = widget.id,
                 visibleRows = 3
             )
@@ -306,7 +306,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(widget, blocker),
-            command = HomeModelWriter.Command.UpdateWidgetFrame(
+            command = HomeModelWriter.UpdateWidgetFrame(
                 widgetId = widget.id,
                 newPosition = widget.position,
                 newSpan = GridSpan(columns = 2, rows = 2)
@@ -343,7 +343,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(staleTopLevel, folder),
-            command = HomeModelWriter.Command.RemoveItemsById(
+            command = HomeModelWriter.RemoveItemsById(
                 itemIds = setOf(staleTopLevel.id, staleChild.id)
             )
         )
@@ -366,7 +366,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(healthy),
-            command = HomeModelWriter.Command.RemoveItemsById(
+            command = HomeModelWriter.RemoveItemsById(
                 itemIds = setOf("app:pkg.missing/Main")
             )
         )
@@ -396,7 +396,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(healthyTopLevel, folder),
-            command = HomeModelWriter.Command.RemoveItemsById(
+            command = HomeModelWriter.RemoveItemsById(
                 itemIds = setOf(staleChildA.id, staleChildB.id)
             )
         )
@@ -420,7 +420,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(dragged),
-            command = HomeModelWriter.Command.CreateFolder(
+            command = HomeModelWriter.CreateFolder(
                 draggedItem = dragged,
                 targetItemId = staleRemovedOccupant.id,
                 atPosition = staleRemovedOccupant.position
@@ -444,7 +444,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(occupant),
-            command = HomeModelWriter.Command.CreateFolder(
+            command = HomeModelWriter.CreateFolder(
                 draggedItem = externalItem,
                 targetItemId = occupant.id,
                 atPosition = occupant.position
@@ -482,7 +482,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(sourceFolder),
-            command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
+            command = HomeModelWriter.ExtractFolderChildOntoItem(
                 sourceFolderId = sourceFolder.id,
                 childItemId = child.id,
                 targetItemId = staleTarget.id,
@@ -516,7 +516,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(sourceFolder, target),
-            command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
+            command = HomeModelWriter.ExtractFolderChildOntoItem(
                 sourceFolderId = sourceFolder.id,
                 childItemId = child.id,
                 targetItemId = target.id,

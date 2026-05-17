@@ -45,7 +45,7 @@ class HomeViewModel(
     private val availabilityPruner: HomeAvailabilityPruner,
     private val iconWarmupCoordinator: HomeIconWarmupCoordinator,
     private val widgetHostManager: WidgetHostManager
-) : ViewModel(), HomeMutationHandler {
+) : ViewModel() {
 
     private companion object {
         private const val AVAILABILITY_PRUNE_START_DELAY_MS = 1_500L
@@ -134,6 +134,21 @@ class HomeViewModel(
 
     val lastMoveErrorMessage: StateFlow<String?> = _lastMoveErrorMessage
 
+    private suspend fun tryApplyCommand(
+        command: HomeModelWriter.Command,
+        fallbackErrorMessage: String,
+        onApplied: suspend (items: List<HomeItem>) -> Unit = {}
+    ): Boolean {
+        return try {
+            applyWriterCommand(command, onApplied)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _lastMoveErrorMessage.value = e.message ?: fallbackErrorMessage
+            false
+        }
+    }
+
     private fun launchMutation(
         fallbackErrorMessage: String,
         command: HomeModelWriter.Command,
@@ -145,11 +160,7 @@ class HomeViewModel(
             try {
                 _lastMoveErrorMessage.value = null
 
-                val wasApplied = applyWriterCommandOrShowError(
-                    command = command,
-                    fallbackErrorMessage = fallbackErrorMessage,
-                    onApplied = onApplied
-                )
+                val wasApplied = tryApplyCommand(command, fallbackErrorMessage, onApplied)
 
                 if (!wasApplied && _lastMoveErrorMessage.value == null) {
                     _lastMoveErrorMessage.value = fallbackErrorMessage
@@ -157,21 +168,6 @@ class HomeViewModel(
             } finally {
                 pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
             }
-        }
-    }
-
-    private suspend fun applyWriterCommandOrShowError(
-        command: HomeModelWriter.Command,
-        fallbackErrorMessage: String,
-        onApplied: suspend (items: List<HomeItem>) -> Unit = {}
-    ): Boolean {
-        return try {
-            applyWriterCommand(command, onApplied)
-        } catch (exception: CancellationException) {
-            throw exception
-        } catch (exception: Exception) {
-            _lastMoveErrorMessage.value = exception.message ?: fallbackErrorMessage
-            false
         }
     }
 
@@ -217,7 +213,7 @@ class HomeViewModel(
     fun moveItemToPosition(itemId: String, newPosition: GridPosition) {
         launchMutation(
             fallbackErrorMessage = "Target position is occupied or item no longer exists",
-            command = HomeModelWriter.Command.MoveTopLevelItem(
+            command = HomeModelWriter.MoveTopLevelItem(
                 itemId = itemId,
                 newPosition = newPosition
             )
@@ -234,26 +230,26 @@ class HomeViewModel(
     fun pinOrMoveHomeItemToPosition(item: HomeItem, dropPosition: GridPosition) {
         launchMutation(
             fallbackErrorMessage = "Target position is occupied",
-            command = HomeModelWriter.Command.PinOrMoveToPosition(
+            command = HomeModelWriter.PinOrMoveToPosition(
                 item = item,
                 targetPosition = dropPosition
             )
         )
     }
 
-    override fun pinFile(file: FileDocument) {
+    internal fun pinFile(file: FileDocument) {
         launchMutation(
             fallbackErrorMessage = "Failed to pin file",
-            command = HomeModelWriter.Command.AddPinnedItem(
+            command = HomeModelWriter.AddPinnedItem(
                 item = HomeItem.PinnedFile.fromFileDocument(file)
             )
         )
     }
 
-    override fun pinContact(contact: Contact) {
+    internal fun pinContact(contact: Contact) {
         launchMutation(
             fallbackErrorMessage = "Failed to pin contact",
-            command = HomeModelWriter.Command.AddPinnedItem(
+            command = HomeModelWriter.AddPinnedItem(
                 item = HomeItem.PinnedContact.fromContact(contact)
             )
         )
@@ -262,11 +258,11 @@ class HomeViewModel(
     fun pinAppShortcut(shortcut: HomeItem.AppShortcut) {
         launchMutation(
             fallbackErrorMessage = "Failed to pin shortcut",
-            command = HomeModelWriter.Command.AddPinnedItem(item = shortcut)
+            command = HomeModelWriter.AddPinnedItem(item = shortcut)
         )
     }
 
-    override fun unpinItem(itemId: String) {
+    internal fun unpinItem(itemId: String) {
         launchRemoveItemsById(setOf(itemId), fallbackErrorMessage = "Failed to remove item")
     }
 
@@ -276,13 +272,13 @@ class HomeViewModel(
     ) {
         launchMutation(
             fallbackErrorMessage = fallbackErrorMessage,
-            command = HomeModelWriter.Command.RemoveItemsById(itemIds = itemIds)
+            command = HomeModelWriter.RemoveItemsById(itemIds = itemIds)
         )
     }
 
     private suspend fun removeUnavailableItemsById(itemIds: Set<String>) {
         applyWriterCommand(
-            command = HomeModelWriter.Command.RemoveItemsById(itemIds = itemIds)
+            command = HomeModelWriter.RemoveItemsById(itemIds = itemIds)
         )
     }
 
@@ -301,7 +297,7 @@ class HomeViewModel(
     fun createFolder(item1: HomeItem, item2: HomeItem, atPosition: GridPosition) {
         launchMutation(
             fallbackErrorMessage = "Could not create folder",
-            command = HomeModelWriter.Command.CreateFolder(
+            command = HomeModelWriter.CreateFolder(
                 draggedItem = item1,
                 targetItemId = item2.id,
                 atPosition = atPosition
@@ -312,7 +308,7 @@ class HomeViewModel(
     fun addItemToFolder(folderId: String, item: HomeItem) {
         launchMutation(
             fallbackErrorMessage = "Could not add item to folder",
-            command = HomeModelWriter.Command.AddItemToFolder(
+            command = HomeModelWriter.AddItemToFolder(
                 folderId = folderId,
                 item = item
             )
@@ -322,7 +318,7 @@ class HomeViewModel(
     fun removeItemFromFolder(folderId: String, itemId: String) {
         launchMutation(
             fallbackErrorMessage = "Could not remove item from folder",
-            command = HomeModelWriter.Command.RemoveItemFromFolder(
+            command = HomeModelWriter.RemoveItemFromFolder(
                 folderId = folderId,
                 itemId = itemId
             )
@@ -332,7 +328,7 @@ class HomeViewModel(
     fun reorderFolderItems(folderId: String, newChildren: List<HomeItem>) {
         launchMutation(
             fallbackErrorMessage = "Could not reorder folder items",
-            command = HomeModelWriter.Command.ReorderFolderItems(
+            command = HomeModelWriter.ReorderFolderItems(
                 folderId = folderId,
                 newChildren = newChildren
             )
@@ -346,7 +342,7 @@ class HomeViewModel(
     ) {
         launchMutation(
             fallbackErrorMessage = "Could not move item between folders",
-            command = HomeModelWriter.Command.MoveItemBetweenFolders(
+            command = HomeModelWriter.MoveItemBetweenFolders(
                 sourceFolderId = sourceFolderId,
                 targetFolderId = targetFolderId,
                 itemId = itemId
@@ -362,7 +358,7 @@ class HomeViewModel(
     ) {
         launchMutation(
             fallbackErrorMessage = "Could not create folder from drag",
-            command = HomeModelWriter.Command.ExtractFolderChildOntoItem(
+            command = HomeModelWriter.ExtractFolderChildOntoItem(
                 sourceFolderId = sourceFolderId,
                 childItemId = childItem.id,
                 targetItemId = occupantItem.id,
@@ -374,7 +370,7 @@ class HomeViewModel(
     fun mergeFolders(sourceFolderId: String, targetFolderId: String) {
         launchMutation(
             fallbackErrorMessage = "Could not merge folders",
-            command = HomeModelWriter.Command.MergeFolders(
+            command = HomeModelWriter.MergeFolders(
                 sourceFolderId = sourceFolderId,
                 targetFolderId = targetFolderId
             )
@@ -384,7 +380,7 @@ class HomeViewModel(
     fun renameFolder(folderId: String, newName: String) {
         launchMutation(
             fallbackErrorMessage = "Could not rename folder",
-            command = HomeModelWriter.Command.RenameFolder(
+            command = HomeModelWriter.RenameFolder(
                 folderId = folderId,
                 newName = newName
             )
@@ -394,7 +390,7 @@ class HomeViewModel(
     fun extractItemFromFolder(folderId: String, itemId: String, targetPosition: GridPosition) {
         launchMutation(
             fallbackErrorMessage = "Target position is occupied",
-            command = HomeModelWriter.Command.ExtractItemFromFolder(
+            command = HomeModelWriter.ExtractItemFromFolder(
                 folderId = folderId,
                 itemId = itemId,
                 targetPosition = targetPosition
@@ -483,7 +479,7 @@ class HomeViewModel(
     fun removeWidget(widgetId: String) {
         launchMutation(
             fallbackErrorMessage = "Could not remove widget",
-            command = HomeModelWriter.Command.RemoveItemsById(itemIds = setOf(widgetId)),
+            command = HomeModelWriter.RemoveItemsById(itemIds = setOf(widgetId)),
             onApplied = {
                 widgetId.substringAfter("widget:", "").toIntOrNull()?.let(widgetHostManager::deallocateWidgetId)
             }
@@ -497,7 +493,7 @@ class HomeViewModel(
     ) {
         launchMutation(
             fallbackErrorMessage = "Cannot update widget - cells are occupied",
-            command = HomeModelWriter.Command.UpdateWidgetFrame(
+            command = HomeModelWriter.UpdateWidgetFrame(
                 widgetId = widgetId,
                 newPosition = newPosition,
                 newSpan = newSpan
@@ -511,7 +507,7 @@ class HomeViewModel(
     ) {
         launchMutation(
             fallbackErrorMessage = "Cannot update widget display mode",
-            command = HomeModelWriter.Command.UpdateWidgetDisplayMode(
+            command = HomeModelWriter.UpdateWidgetDisplayMode(
                 widgetId = widgetId,
                 displayMode = displayMode
             )
@@ -524,7 +520,7 @@ class HomeViewModel(
     ) {
         launchMutation(
             fallbackErrorMessage = "Cannot show full widget",
-            command = HomeModelWriter.Command.ExpandPopupWidget(
+            command = HomeModelWriter.ExpandPopupWidget(
                 widgetId = widgetId,
                 visibleRows = visibleRows
             )
@@ -570,8 +566,8 @@ class HomeViewModel(
             try {
                 _lastMoveErrorMessage.value = null
 
-                val wasApplied = applyWriterCommandOrShowError(
-                    command = HomeModelWriter.Command.PinOrMoveToPosition(
+                val wasApplied = tryApplyCommand(
+                    command = HomeModelWriter.PinOrMoveToPosition(
                         item = widgetItem,
                         targetPosition = pending.targetPosition
                     ),

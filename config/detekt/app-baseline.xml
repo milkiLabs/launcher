@@ -114,7 +114,7 @@
     <ID>SwallowedException:AppIconMemoryCache.kt:AppIconMemoryCache$exception: PackageManager.NameNotFoundException</ID>
     <ID>TooGenericExceptionCaught:DragGestureDetector.kt:e: Exception</ID>
     <ID>TooManyFunctions:ActionExecutor.kt:ActionExecutor</ID>
-    <ID>TooManyFunctions:HomeViewModel.kt:HomeViewModel : ViewModelHomeMutationHandler</ID>
+    <ID>TooManyFunctions:HomeViewModel.kt:HomeViewModel : ViewModel</ID>
     <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
   </CurrentIssues>
 </SmellBaseline>
