@@ -1,28 +1,3 @@
-/**
- * SearchProviderRegistry.kt - Central registry for all search providers
- *
- * This file implements the Registry Pattern to manage all available search providers.
- * The registry is responsible for:
- * 1. Holding references to all registered providers
- * 2. Finding providers by prefix (supporting multiple prefixes per provider)
- * 3. Finding providers by provider ID
- * 4. Providing the list of all providers for UI display
- * 5. Supporting dynamic prefix configuration updates
- *
- *
- * HOW TO ADD A NEW PROVIDER:
- * 1. Create a class implementing SearchProvider interface
- * 2. Register it in the registry (via constructor)
- * 3. The provider will automatically be available for searches
- * 4. Optionally configure custom prefixes via updatePrefixConfigurations()
- *
- * MULTIPLE PREFIXES PER PROVIDER:
- * A single provider can have multiple prefixes. This is useful for:
- * - Multilingual support: "f" and "م" both trigger files search
- * - Shortcuts: "y" and "yt" both trigger YouTube search
- * - Custom preferences: User can change "s" to "g" for Google
- */
-
 package com.milki.launcher.domain.search
 
 import com.milki.launcher.domain.model.PrefixConfig
@@ -34,65 +9,8 @@ import com.milki.launcher.domain.model.SearchProviderConfig
 /**
  * Registry for all available search providers.
  *
- * This class is the single source of truth for which providers are available
- * and what prefixes activate them. It supports:
- *
- * 1. MULTIPLE PREFIXES PER PROVIDER:
- *    A provider can be activated by any of its configured prefixes.
- *    Example: FilesSearchProvider with prefixes ["f", "م", "find"]
- *
- * 2. DYNAMIC PREFIX UPDATES:
- *    Prefixes can be changed at runtime via updatePrefixConfigurations().
- *    This allows users to customize their prefixes in settings.
- *
- * 3. EFFICIENT LOOKUP:
- *    - By prefix: O(1) using a Map<String, providerId>
- *    - By provider ID: O(1) using a Map<String, Provider>
- *
- * USAGE:
- * ```kotlin
- * // Create registry with providers
- * val registry = SearchProviderRegistry(
- *     initialProviders = listOf(
- *         contactsSearchProvider,
- *         filesSearchProvider
- *     )
- * )
- *
- * // Find provider by prefix (uses configured or default prefix)
- * val provider = registry.findByPrefix("c") // Returns contacts provider
- *
- * // Find provider by ID
- * val filesProvider = registry.findByProviderId(ProviderId.FILES)
- *
- * // Get all providers for UI
- * val allProviders = registry.getAllProviders()
- *
- * // Update prefix configurations (e.g., from settings)
- * registry.updatePrefixConfigurations(mapOf(
- *     ProviderId.FILES to PrefixConfig(listOf("f", "م")),
- *     ProviderId.CONTACTS to PrefixConfig(listOf("c", "ct"))
- * ))
- * ```
- *
- * ARCHITECTURE:
- * ┌─────────────────────────────────────────────────────────────┐
- * │                  SearchProviderRegistry                      │
- * │                                                              │
- * │  providersById: Map<providerId, SearchProvider>             │
- * │  ┌─────────────────────────────────────────────────────┐    │
- * │  │ "contacts" → ContactsSearchProvider                  │    │
- * │  │ "files" → FilesSearchProvider                        │    │
- * │  │ "source_youtube" → ConfigurableUrlSearchProvider      │    │
- * │  └─────────────────────────────────────────────────────┘    │
- * │                                                              │
- * │  prefixToProviderId: Map<prefix, providerId>                │
- * │  ┌─────────────────────────────────────────────────────┐    │
- * │  │ "c" → "contacts"                                     │    │
- * │  │ "f" → "files", "م" → "files"                         │    │
- * │  │ "yt" → "source_youtube"                               │    │
- * │  └─────────────────────────────────────────────────────┘    │
- * └─────────────────────────────────────────────────────────────┘
+ * Supports multiple prefixes per provider, dynamic prefix updates at runtime,
+ * and efficient O(1) lookup by prefix or provider ID.
  */
 class SearchProviderRegistry(
     /**

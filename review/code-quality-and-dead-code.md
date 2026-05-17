@@ -12,7 +12,6 @@
 | --------------------------- | -------------------------------------------------------- | -------- |
 | `AppQueryRanker.kt`         | 283 lines of scoring constants with no tests for weights | MEDIUM   |
 | `SearchProviderRegistry.kt` | 352 lines with excessive ASCII diagrams and tutorials    | LOW      |
-| `WidgetHostManager.kt`      | 475 lines; file ends with orphaned KDoc comment          | LOW      |
 
 ### 3.3 SRP Violations
 
