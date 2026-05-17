@@ -9,6 +9,7 @@ import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
 import com.milki.launcher.domain.model.backup.SkippedImportReason
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
+import com.milki.launcher.domain.repository.WidgetBindRequest
 
 internal class LauncherBackupImportSanitizer(
     private val appContext: Context,
@@ -232,9 +233,10 @@ internal class LauncherBackupImportSanitizer(
         }
 
         return context.requestWidgetBindPermission(
-            widgetHostManager.createBindPermissionIntent(
+            WidgetBindRequest(
                 appWidgetId = appWidgetId,
-                providerInfo = providerInfo
+                providerPackage = providerInfo.provider.packageName,
+                providerClass = providerInfo.provider.className
             )
         )
     }

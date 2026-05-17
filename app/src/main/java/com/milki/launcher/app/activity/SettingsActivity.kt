@@ -5,8 +5,11 @@
 package com.milki.launcher.app.activity
 
 import android.app.Activity.RESULT_OK
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
+import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -20,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.core.launcher.isAppDefaultLauncher
 import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
 import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
+import com.milki.launcher.domain.repository.WidgetBindRequest
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsActions
 import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
@@ -75,7 +79,18 @@ class SettingsActivity : ComponentActivity() {
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-                settingsViewModel.importBackup(uri) { bindIntent ->
+                settingsViewModel.importBackup(uri) { bindRequest ->
+                    val bindIntent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, bindRequest.appWidgetId)
+                        putExtra(
+                            AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
+                            ComponentName(bindRequest.providerPackage, bindRequest.providerClass)
+                        )
+                        putExtra(
+                            AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE,
+                            Process.myUserHandle()
+                        )
+                    }
                     awaitActivityResult(
                         launcher = requestWidgetBindPermissionLauncher,
                         intent = bindIntent

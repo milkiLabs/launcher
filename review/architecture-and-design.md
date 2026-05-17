@@ -4,27 +4,6 @@
 
 ---
 
-## 1. Clean Architecture Adherence
-
-### 1.2 Violations
-
-| #   | Issue                                                                                    | File:Line                             | Severity |
-| --- | ---------------------------------------------------------------------------------------- | ------------------------------------- | -------- |
-| F1  | `HomeItem` sealed class leaks `android.content.pm.ShortcutInfo` into domain              | `HomeItem.kt:42`                      | HIGH     |
-| F2  | `LauncherBackupRepository` uses Android `Intent` in domain type alias                    | `LauncherBackupRepository.kt:8`       | HIGH     |
-| F3  | `SearchViewModelSettingsAdapter` imports `ConfigurableUrlSearchProvider` from data layer | `SearchViewModelSettingsAdapter.kt:3` | HIGH     |
-| F4  | `HomeViewModel` takes `Context` as constructor parameter                                 | `HomeViewModel.kt:46`                 | HIGH     |
-
-**F1 Detail:** `HomeItem.AppShortcut.fromShortcutInfo()` at line 277 takes a framework type as parameter. The mapping from `ShortcutInfo` should happen in the data or presentation layer.
-
-**F2 Detail:** The `WidgetBindPermissionRequester` type alias should accept a domain-level abstraction (e.g., `WidgetBindRequest`) that the presentation layer translates to an `Intent`.
-
-**F3 Detail:** This is a presentation-layer class directly importing a data-layer implementation. It should depend on a factory interface defined in domain instead.
-
-**F4 Detail:** The `Context` is used for `packageManager` (line 90) and `appContext` passed to `HomeAvailabilityPruner` (line 79). These should be abstracted into domain services or injected as specific interfaces.
-
----
-
 ## 2. Dependency Injection (Koin)
 
 ### 2.2 Issues
@@ -45,13 +24,10 @@
 
 ### 3.2 Issues
 
-| #   | Issue                                                         | File                           | Severity |
-| --- | ------------------------------------------------------------- | ------------------------------ | -------- |
-| F8  | `SettingsRepository` is a god interface with 27 methods       | `SettingsRepository.kt:29-236` | HIGH     |
-| F9  | `HomeRepository.findAvailablePosition` leaks placement policy | `HomeRepository.kt:44`         | LOW      |
-| F10 | `FilesRepositoryImpl` is 524 lines of cursor manipulation     | `FilesRepositoryImpl.kt:62`    | MEDIUM   |
-
-**F8 Detail:** Violates Interface Segregation Principle. Should be split into `SettingsRepository`, `SearchSourceRepository`, `PrefixConfigurationRepository`, `HiddenAppsRepository`.
+| #   | Issue                                                         | File                        | Severity |
+| --- | ------------------------------------------------------------- | --------------------------- | -------- |
+| F9  | `HomeRepository.findAvailablePosition` leaks placement policy | `HomeRepository.kt:44`      | LOW      |
+| F10 | `FilesRepositoryImpl` is 524 lines of cursor manipulation     | `FilesRepositoryImpl.kt:62` | MEDIUM   |
 
 **F10 Detail:** The `CursorRowOutcome` sealed interface is nice, but this class should be decomposed further. Cursor parsing (`readCursorRow`, `resolveMediaStoreColumns`) should be in a separate `FileCursorMapper` class.
 

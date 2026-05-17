@@ -135,27 +135,6 @@ Consider grouping into sub-objects: `SearchSettings`, `AppearanceSettings`, `Hom
 
 ---
 
-## 9. String Handling
-
-### 9.1 String Concatenation in Logs
-
-| File:Line                        | Issue                                                                     | Severity |
-| -------------------------------- | ------------------------------------------------------------------------- | -------- |
-| `FilesRepositoryImpl.kt:416-419` | `"Found file: ${...}, " + "mimeType: ${...}"` — should be single template | LOW      |
-
----
-
-## 10. Unnecessary Nullability
-
-| File:Line                       | Issue                                                             | Severity |
-| ------------------------------- | ----------------------------------------------------------------- | -------- |
-| `ShortcutIconMemoryCache.kt:17` | `LruCache<String, Drawable.ConstantState?>` — nullable value type | LOW      |
-| `AppIconMemoryCache.kt:67-68`   | Same pattern                                                      | LOW      |
-
-The nullability in the cache type is unnecessary since `preload` returns early if `constantState` is null.
-
----
-
 ## 11. Test Coverage Gaps
 
 ### 11.1 Untested Critical Paths (40+ files)

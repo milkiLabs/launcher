@@ -213,7 +213,14 @@ fun queryAppQuickShortcuts(
         .asSequence()
         .filter { it.isEnabled }
         .sortedWith(ShortcutInfoComparator)
-        .map(HomeItem.AppShortcut::fromShortcutInfo)
+        .map { shortcut ->
+            HomeItem.AppShortcut.fromShortcutInfo(
+                packageName = shortcut.`package`,
+                shortcutId = shortcut.id,
+                shortLabel = shortcut.shortLabel?.toString().orEmpty(),
+                longLabel = shortcut.longLabel?.toString() ?: shortcut.shortLabel?.toString().orEmpty()
+            )
+        }
         .distinctBy { it.shortcutId }
         .take(maxCount)
         .toList()

@@ -38,7 +38,12 @@ internal class PinShortcutRequestCoordinator(
         }
 
         val shortcutInfo = request.shortcutInfo ?: return false
-        val homeShortcut = HomeItem.AppShortcut.fromShortcutInfo(shortcutInfo)
+        val homeShortcut = HomeItem.AppShortcut.fromShortcutInfo(
+            packageName = shortcutInfo.`package`,
+            shortcutId = shortcutInfo.id,
+            shortLabel = shortcutInfo.shortLabel?.toString().orEmpty(),
+            longLabel = shortcutInfo.longLabel?.toString() ?: shortcutInfo.shortLabel?.toString().orEmpty()
+        )
         
         scope.launch {
             val alreadyPinned = homeRepository.isPinned(homeShortcut.id)

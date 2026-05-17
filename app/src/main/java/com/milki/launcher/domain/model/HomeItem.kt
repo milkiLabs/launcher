@@ -1,7 +1,6 @@
 
 package com.milki.launcher.domain.model
 
-import android.content.pm.ShortcutInfo
 import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -129,13 +128,18 @@ sealed class HomeItem {
         }
 
         companion object {
-                        fun fromShortcutInfo(info: ShortcutInfo): AppShortcut {
+            fun fromShortcutInfo(
+                packageName: String,
+                shortcutId: String,
+                shortLabel: String,
+                longLabel: String
+            ): AppShortcut {
                 return AppShortcut(
-                    id = "shortcut:${info.`package`}/${info.id}",
-                    packageName = info.`package`,
-                    shortcutId = info.id,
-                    shortLabel = info.shortLabel?.toString() ?: "",
-                    longLabel = info.longLabel?.toString() ?: info.shortLabel?.toString() ?: "",
+                    id = "shortcut:$packageName/$shortcutId",
+                    packageName = packageName,
+                    shortcutId = shortcutId,
+                    shortLabel = shortLabel,
+                    longLabel = longLabel,
                     position = GridPosition.DEFAULT
                 )
             }

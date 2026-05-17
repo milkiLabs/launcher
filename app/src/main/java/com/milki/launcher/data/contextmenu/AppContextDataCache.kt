@@ -108,7 +108,14 @@ object AppContextDataCache {
             .mapValues { (_, shortcuts) ->
                 shortcuts
                     .sortedWith(ShortcutInfoComparator)
-                    .map(HomeItem.AppShortcut::fromShortcutInfo)
+                    .map { shortcut ->
+                    HomeItem.AppShortcut.fromShortcutInfo(
+                        packageName = shortcut.`package`,
+                        shortcutId = shortcut.id,
+                        shortLabel = shortcut.shortLabel?.toString().orEmpty(),
+                        longLabel = shortcut.longLabel?.toString() ?: shortcut.shortLabel?.toString().orEmpty()
+                    )
+                }
                     .distinctBy { it.shortcutId }
                     .take(MAX_SHORTCUTS_PER_APP)
             }
