@@ -3,7 +3,6 @@ package com.milki.launcher.presentation.home
 import android.app.Activity
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,7 +15,6 @@ import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
-import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.presentation.home.prune.HomeAvailabilityPruner
 import kotlinx.coroutines.CancellationException
@@ -44,8 +42,8 @@ import kotlinx.coroutines.sync.withLock
  */
 class HomeViewModel(
     private val homeRepository: HomeRepository,
-    appRepository: AppRepository,
-    private val appContext: Context
+    private val availabilityPruner: HomeAvailabilityPruner,
+    private val iconWarmupCoordinator: HomeIconWarmupCoordinator
 ) : ViewModel(), HomeMutationHandler {
 
     private companion object {
@@ -75,27 +73,10 @@ class HomeViewModel(
     private val pendingWidgets = linkedMapOf<Int, PendingWidget>()
     private var deferredStartupJob: Job? = null
 
-    private val availabilityPruner = HomeAvailabilityPruner(
-        appRepository = appRepository,
-        appContext = appContext,
-        homeRepository = homeRepository,
-        modelWriter = modelWriter,
-        mutationMutex = mutationMutex,
-        persistUpdatedItems = ::persistUpdatedItems,
-        scope = viewModelScope
-    )
-
-    private val iconWarmupCoordinator = HomeIconWarmupCoordinator(
-        homeRepository = homeRepository,
-        appContext = appContext,
-        packageManager = appContext.packageManager,
-        scope = viewModelScope
-    )
-
     init {
         // Start icon warmup immediately so home screen icons begin loading
         // as soon as DataStore emits pinned items — not after an artificial delay.
-        iconWarmupCoordinator.start()
+        iconWarmupCoordinator.start(viewModelScope)
     }
 
     override fun onCleared() {
@@ -113,7 +94,11 @@ class HomeViewModel(
             // App availability pruning can trigger full installed-app scans.
             // Delay it to avoid contending with first-draw startup work.
             delay(AVAILABILITY_PRUNE_START_DELAY_MS)
-            availabilityPruner.start()
+            availabilityPruner.start(
+                scope = viewModelScope,
+                readItems = homeRepository::readPinnedItems,
+                removeItemsById = ::removeUnavailableItemsById
+            )
         }
     }
 
@@ -281,9 +266,22 @@ class HomeViewModel(
     }
 
     override fun unpinItem(itemId: String) {
+        launchRemoveItemsById(setOf(itemId), fallbackErrorMessage = "Failed to remove item")
+    }
+
+    private fun launchRemoveItemsById(
+        itemIds: Set<String>,
+        fallbackErrorMessage: String = "Failed to remove unavailable items"
+    ) {
         launchMutation(
-            fallbackErrorMessage = "Failed to remove item",
-            command = HomeModelWriter.Command.RemoveItemById(itemId = itemId)
+            fallbackErrorMessage = fallbackErrorMessage,
+            command = HomeModelWriter.Command.RemoveItemsById(itemIds = itemIds)
+        )
+    }
+
+    private suspend fun removeUnavailableItemsById(itemIds: Set<String>) {
+        applyWriterCommand(
+            command = HomeModelWriter.Command.RemoveItemsById(itemIds = itemIds)
         )
     }
 
@@ -464,7 +462,7 @@ class HomeViewModel(
         return if (resultCode == Activity.RESULT_OK) {
             resolvePostBindCommand(appWidgetId, widgetHostManager)
         } else {
-            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
+            cancelPendingWidget(widgetHostManager, pending)
             WidgetPlacementCommand.NoOp
         }
     }
@@ -479,7 +477,7 @@ class HomeViewModel(
             persistPendingWidget(appWidgetId, pending, widgetHostManager)
             WidgetPlacementCommand.NoOp
         } else {
-            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
+            cancelPendingWidget(widgetHostManager, pending)
             WidgetPlacementCommand.NoOp
         }
     }
@@ -545,7 +543,7 @@ class HomeViewModel(
         val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
         val boundProviderInfo = widgetHostManager.getProviderInfo(appWidgetId)
         if (boundProviderInfo == null) {
-            cancelPendingWidget(appWidgetId, widgetHostManager, pending)
+            cancelPendingWidget(widgetHostManager, pending)
             return WidgetPlacementCommand.NoOp
         }
 
@@ -602,12 +600,8 @@ class HomeViewModel(
         }
     }
 
-    private fun cancelPendingWidget(
-        appWidgetId: Int,
-        widgetHostManager: WidgetHostManager,
-        pending: PendingWidget
-    ) {
+    private fun cancelPendingWidget(widgetHostManager: WidgetHostManager, pending: PendingWidget) {
         widgetHostManager.deallocateWidgetId(pending.appWidgetId)
-        pendingWidgets.remove(appWidgetId)
+        pendingWidgets.remove(pending.appWidgetId)
     }
 }

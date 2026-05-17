@@ -1,7 +1,6 @@
 package com.milki.launcher.presentation.home
 
 import android.content.Context
-import android.content.pm.PackageManager
 import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.data.icon.ShortcutIconLoader
 import com.milki.launcher.domain.model.HomeItem
@@ -16,11 +15,9 @@ import kotlinx.coroutines.launch
 /**
  * Keeps icon cache warm for packages visible on the home surface.
  */
-internal class HomeIconWarmupCoordinator(
+class HomeIconWarmupCoordinator(
     private val homeRepository: HomeRepository,
-    private val appContext: Context,
-    private val packageManager: PackageManager,
-    private val scope: CoroutineScope
+    private val appContext: Context
 ) {
     @Volatile
     private var started = false
@@ -30,7 +27,7 @@ internal class HomeIconWarmupCoordinator(
         val shortcuts: List<HomeItem.AppShortcut>
     )
 
-    fun start() {
+    fun start(scope: CoroutineScope) {
         if (started) {
             return
         }
@@ -46,7 +43,7 @@ internal class HomeIconWarmupCoordinator(
                     if (visibleIcons.packageNames.isNotEmpty()) {
                         AppIconMemoryCache.preloadMissing(
                             packageNames = visibleIcons.packageNames,
-                            packageManager = packageManager
+                            packageManager = appContext.packageManager
                         )
                     }
 

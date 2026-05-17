@@ -1,18 +1,16 @@
 package com.milki.launcher.presentation.home.prune
 
 import android.content.ComponentName
-import android.content.Context
+import android.content.ContentResolver
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import com.milki.launcher.core.file.ContentUriFailurePolicy
 import com.milki.launcher.core.file.PinnedFileAvailability
-import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.AppRepository
-import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
@@ -23,20 +21,13 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 /**
  * Keeps persisted home items aligned with app/file availability changes.
  */
-internal class HomeAvailabilityPruner(
+class HomeAvailabilityPruner(
     private val appRepository: AppRepository,
-    private val appContext: Context,
-    private val homeRepository: HomeRepository,
-    private val modelWriter: HomeModelWriter,
-    private val mutationMutex: Mutex,
-    private val persistUpdatedItems: suspend (currentItems: List<HomeItem>, updatedItems: List<HomeItem>) -> Unit,
-    private val scope: CoroutineScope
+    private val contentResolver: ContentResolver
 ) {
     @Volatile
     private var started = false
@@ -64,24 +55,32 @@ internal class HomeAvailabilityPruner(
         }
     }
 
-    fun start() {
+    fun start(
+        scope: CoroutineScope,
+        readItems: suspend () -> List<HomeItem>,
+        removeItemsById: suspend (Set<String>) -> Unit
+    ) {
         if (started) {
             return
         }
         started = true
 
-        observePruneRequests()
-        observeInstalledAvailability()
+        observePruneRequests(
+            scope = scope,
+            readItems = readItems,
+            removeItemsById = removeItemsById
+        )
+        observeInstalledAvailability(scope)
         registerFileStorageObservers()
     }
 
     fun stop() {
         runCatching {
-            appContext.contentResolver.unregisterContentObserver(mediaStoreObserver)
+            contentResolver.unregisterContentObserver(mediaStoreObserver)
         }
     }
 
-    private fun observeInstalledAvailability() {
+    private fun observeInstalledAvailability(scope: CoroutineScope) {
         val installedAvailability = appRepository.observeInstalledApps()
             .filter { installedApps -> installedApps.isNotEmpty() }
             .map(::buildInstalledAppAvailability)
@@ -94,11 +93,19 @@ internal class HomeAvailabilityPruner(
         }
     }
 
-    private fun observePruneRequests() {
+    private fun observePruneRequests(
+        scope: CoroutineScope,
+        readItems: suspend () -> List<HomeItem>,
+        removeItemsById: suspend (Set<String>) -> Unit
+    ) {
         scope.launch {
             pruneRequests.collectLatest {
                 val availability = latestInstalledAvailability.value ?: return@collectLatest
-                pruneUnavailableItems(availability = availability)
+                pruneUnavailableItems(
+                    availability = availability,
+                    readItems = readItems,
+                    removeItemsById = removeItemsById
+                )
             }
         }
     }
@@ -116,7 +123,7 @@ internal class HomeAvailabilityPruner(
 
     private fun registerStorageObserver(uri: Uri) {
         runCatching {
-            appContext.contentResolver.registerContentObserver(uri, true, mediaStoreObserver)
+            contentResolver.registerContentObserver(uri, true, mediaStoreObserver)
         }
     }
 
@@ -129,38 +136,26 @@ internal class HomeAvailabilityPruner(
         )
     }
 
-    private suspend fun pruneUnavailableItems(availability: InstalledAppAvailability) {
-        mutationMutex.withLock {
-            val currentItems = homeRepository.readPinnedItems()
-            if (currentItems.isEmpty()) {
-                return
-            }
+    private suspend fun pruneUnavailableItems(
+        availability: InstalledAppAvailability,
+        readItems: suspend () -> List<HomeItem>,
+        removeItemsById: suspend (Set<String>) -> Unit
+    ) {
+        val currentItems = readItems()
+        if (currentItems.isEmpty()) {
+            return
+        }
 
-            val unavailableItemIds = withContext(Dispatchers.IO) {
-                collectUnavailableItemIds(
-                    items = currentItems,
-                    validPackages = availability.validPackages,
-                    validPinnedAppComponents = availability.validPinnedAppComponents
-                )
-            }
+        val unavailableItemIds = withContext(Dispatchers.IO) {
+            collectUnavailableItemIds(
+                items = currentItems,
+                validPackages = availability.validPackages,
+                validPinnedAppComponents = availability.validPinnedAppComponents
+            )
+        }
 
-            if (unavailableItemIds.isEmpty()) {
-                return
-            }
-
-            when (
-                val result = modelWriter.apply(
-                    currentItems = currentItems,
-                    command = HomeModelWriter.Command.RemoveItemsById(itemIds = unavailableItemIds.toSet())
-                )
-            ) {
-                is HomeModelWriter.Result.Applied -> persistUpdatedItems(
-                    currentItems,
-                    result.items
-                )
-
-                is HomeModelWriter.Result.Rejected -> Unit
-            }
+        if (unavailableItemIds.isNotEmpty()) {
+            removeItemsById(unavailableItemIds.toSet())
         }
     }
 
@@ -201,7 +196,7 @@ internal class HomeAvailabilityPruner(
 
                 is HomeItem.PinnedFile -> {
                     if (!PinnedFileAvailability.isAvailable(
-                            contentResolver = appContext.contentResolver,
+                            contentResolver = contentResolver,
                             uriString = item.uri,
                             contentUriFailurePolicy = ContentUriFailurePolicy.TREAT_AS_AVAILABLE
                         )
