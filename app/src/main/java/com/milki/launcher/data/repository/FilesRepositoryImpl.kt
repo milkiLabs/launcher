@@ -24,7 +24,6 @@ class FilesRepositoryImpl(
 
     companion object {
         private const val TAG = "FilesRepositoryImpl"
-        private const val MILLISECONDS_PER_SECOND = 1_000L
     }
 
         private val contentResolver = context.contentResolver

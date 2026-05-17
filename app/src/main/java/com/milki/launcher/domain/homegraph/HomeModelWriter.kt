@@ -43,17 +43,6 @@ class HomeModelWriter(
             }
         }
 
-        data class RemoveItemById(
-            val itemId: String
-        ) : Command {
-            override fun execute(writer: HomeModelWriter, currentItems: List<HomeItem>): Result {
-                return writer.removeItemsById(
-                    currentItems = currentItems,
-                    command = RemoveItemsById(itemIds = setOf(itemId))
-                )
-            }
-        }
-
         data class RemoveItemsById(
             val itemIds: Set<String>
         ) : Command {

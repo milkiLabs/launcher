@@ -483,7 +483,7 @@ class HomeViewModel(
     fun removeWidget(widgetId: String) {
         launchMutation(
             fallbackErrorMessage = "Could not remove widget",
-            command = HomeModelWriter.Command.RemoveItemById(itemId = widgetId),
+            command = HomeModelWriter.Command.RemoveItemsById(itemIds = setOf(widgetId)),
             onApplied = {
                 widgetId.substringAfter("widget:", "").toIntOrNull()?.let(widgetHostManager::deallocateWidgetId)
             }

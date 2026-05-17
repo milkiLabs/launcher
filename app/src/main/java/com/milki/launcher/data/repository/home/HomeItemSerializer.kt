@@ -1,10 +1,7 @@
 package com.milki.launcher.data.repository.home
 
-import androidx.datastore.preferences.core.MutablePreferences
-import androidx.datastore.preferences.core.Preferences
+import com.milki.launcher.data.repository.NewlineJsonListSerializer
 import com.milki.launcher.domain.model.HomeItem
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 /**
  * Converts between DataStore Preferences payloads and HomeItem lists.
@@ -12,27 +9,20 @@ import kotlinx.serialization.json.Json
  * Storage format is newline-separated JSON: one HomeItem per line.
  * Corrupted rows are skipped so one bad line does not invalidate the full model.
  */
-internal class HomeItemSerializer(
-    private val json: Json = homeStorageJson
-) {
+internal class HomeItemSerializer {
 
-    fun readFrom(preferences: Preferences): List<HomeItem> {
-        val encoded = preferences[HomePreferenceKeys.PINNED_ITEMS] ?: return listOf(HomeItem.ActionShortcut.DefaultDocsShortcut)
-        if (encoded.isEmpty()) return listOf(HomeItem.ActionShortcut.DefaultDocsShortcut)
+    private val delegate = NewlineJsonListSerializer(
+        key = HomePreferenceKeys.PINNED_ITEMS,
+        json = homeStorageJson,
+        serializer = HomeItem.serializer(),
+        default = { listOf(HomeItem.ActionShortcut.DefaultDocsShortcut) }
+    )
 
-        return encoded
-            .split("\n")
-            .filter { it.isNotBlank() }
-            .mapNotNull { row ->
-                runCatching { json.decodeFromString<HomeItem>(row) }
-                    .getOrNull()
-            }
-    }
+    fun readFrom(preferences: androidx.datastore.preferences.core.Preferences): List<HomeItem> =
+        delegate.readFrom(preferences)
 
-    fun writeTo(items: List<HomeItem>, preferences: MutablePreferences) {
-        preferences[HomePreferenceKeys.PINNED_ITEMS] = items
-            .joinToString(separator = "\n") { item ->
-                json.encodeToString(item)
-            }
-    }
+    fun writeTo(
+        items: List<HomeItem>,
+        preferences: androidx.datastore.preferences.core.MutablePreferences
+    ) = delegate.writeTo(items, preferences)
 }

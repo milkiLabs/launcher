@@ -99,7 +99,7 @@ class HomeModelWriterTest {
 
         val result = writer.apply(
             currentItems = listOf(folder),
-            command = HomeModelWriter.Command.RemoveItemById(itemId = staleChild.id)
+            command = HomeModelWriter.Command.RemoveItemsById(itemIds = setOf(staleChild.id))
         )
 
         assertTrue(result is HomeModelWriter.Result.Applied)
