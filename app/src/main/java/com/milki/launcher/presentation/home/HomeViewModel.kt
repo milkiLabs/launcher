@@ -555,6 +555,8 @@ class HomeViewModel(
             displayMode = pending.displayMode
         )
 
+        pendingWidgets.remove(appWidgetId)
+
         val shouldDeallocateOnCancellation = AtomicBoolean(true)
         fun deallocateIfPlacementNotPersisted() {
             if (shouldDeallocateOnCancellation.getAndSet(false)) {
