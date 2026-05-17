@@ -4,10 +4,6 @@
 
 ---
 
-## 1. Dead Code
-
-## 2. Duplicated Logic
-
 ## 3. Unnecessary Complexity
 
 ### 3.2 Over-Engineered Areas

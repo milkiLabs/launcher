@@ -117,7 +117,6 @@ The package structure is well-organized by layer and feature:
 | -------------------------------------------------------- | --------------------------------- |
 | `runCatching` overuse                                    | Hides errors, breaks cancellation |
 | `lateinit var` proliferation                             | Unclear initialization order      |
-| God interfaces (`SettingsRepository` with 27 methods)    | Hard to implement and test        |
 | Inline documentation in source files                     | Hard to scan code                 |
 | Magic numbers without documentation                      | Hard to understand intent         |
 | Inconsistent factory method naming (`fromX` vs `create`) | Confusing API                     |

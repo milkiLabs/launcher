@@ -62,3 +62,32 @@
 | `HomeViewModel.kt:70-72`              | Private mutable, public immutable flows                       | CORRECT    |
 | `HomeViewModel.kt:119-122`            | `SharingStarted.WhileSubscribed(5_000)` with 5s timeout       | CORRECT    |
 | `AppDrawerViewModel.kt:63-71`         | `mapLatest` with `withContext(Dispatchers.Default)`           | CORRECT    |
+
+## 2. Coroutine Scope Management
+
+### 2.2 Correct Patterns
+
+| File                                  | Pattern                                                     | Assessment |
+| ------------------------------------- | ----------------------------------------------------------- | ---------- |
+| `HomeViewModel.kt:99-103`             | `onCleared()` cancels `deferredStartupJob` and stops pruner | CORRECT    |
+| `PinShortcutRequestCoordinator.kt:22` | Uses `activity.lifecycleScope` — lifecycle-aware            | CORRECT    |
+| `HomeIconWarmupCoordinator.kt`        | Passed `viewModelScope` — cancelled on ViewModel clear      | CORRECT    |
+
+## 5. Lifecycle Awareness
+
+### 5.2 Correct Patterns
+
+| File                                  | Pattern                                                             | Assessment |
+| ------------------------------------- | ------------------------------------------------------------------- | ---------- |
+| `WidgetPlacementCoordinator.kt:27-43` | `initialize()` must be called before operations — correctly ordered | CORRECT    |
+| `LauncherHostRuntime.kt:101-107`      | `initialize()` registers callbacks once                             | CORRECT    |
+
+## 10. Snapshot State vs Flow State
+
+### 10.1 Correct Usage
+
+| File                               | State Type                                                   | Assessment |
+| ---------------------------------- | ------------------------------------------------------------ | ---------- |
+| `SurfaceStateCoordinator.kt:30-43` | Compose `mutableStateOf` for non-ViewModel class             | CORRECT    |
+| `SearchViewModel.kt:16-42`         | 4-layer state architecture (input, background, pipeline, UI) | CORRECT    |
+| `HomeViewModel.kt`                 | StateFlow for repository data, MutableStateFlow for UI state | CORRECT    |

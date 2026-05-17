@@ -458,18 +458,4 @@ class WidgetHostManager(
 
         return GridSpan(columns = targetColumns, rows = targetRows)
     }
-
-    /**
-     * Converts a dp dimension to a cell count using the AOSP launcher formula.
-     *
-     * The standard formula is: cells = floor((dp - 30) / 70) + 1
-     * This ensures that:
-     * - 40dp  → 1 cell
-     * - 110dp → 2 cells
-     * - 180dp → 3 cells
-     * - 250dp → 4 cells
-     *
-     * @param dp The dimension in dp.
-     * @return The number of cells, minimum 1.
-     */
 }

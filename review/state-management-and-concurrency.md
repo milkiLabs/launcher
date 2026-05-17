@@ -22,28 +22,6 @@
 
 ## 2. Coroutine Scope Management
 
-### 2.1 Critical: Uncancelled Scope
-
-| File:Line                  | Issue                                                              | Severity |
-| -------------------------- | ------------------------------------------------------------------ | -------- |
-| `HomeRepositoryImpl.kt:28` | `CoroutineScope(SupervisorJob() + Dispatchers.IO)` never cancelled | CRITICAL |
-
-```kotlin
-private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-```
-
-The `collectLatest` at line 37 runs forever, holding references to the DataStore Flow chain. This is a **memory leak**.
-
-**Fix:** Make the repository implement `Closeable` or use application lifecycle scope.
-
-### 2.2 Correct Patterns
-
-| File                                  | Pattern                                                     | Assessment |
-| ------------------------------------- | ----------------------------------------------------------- | ---------- |
-| `HomeViewModel.kt:99-103`             | `onCleared()` cancels `deferredStartupJob` and stops pruner | CORRECT    |
-| `PinShortcutRequestCoordinator.kt:22` | Uses `activity.lifecycleScope` — lifecycle-aware            | CORRECT    |
-| `HomeIconWarmupCoordinator.kt`        | Passed `viewModelScope` — cancelled on ViewModel clear      | CORRECT    |
-
 ### 2.3 Inconsistencies
 
 | File                           | Issue                                                 | Severity |
@@ -120,13 +98,6 @@ If `persistPendingWidget` coroutine is cancelled after `pendingWidgets.remove(ap
 **L2 Detail:** `onResume` checks `::actionExecutor.isInitialized` but not `::permissionHandler.isInitialized` before calling `permissionHandler.updateStates()`. This will crash with `UninitializedPropertyAccessException` if `onResume` is called before `initialize()`.
 
 **L3 Detail:** `MainActivity.onActivityResult()` for widget configuration should migrate to `registerForActivityResult()` with `ActivityResultContracts.StartActivityForResult()`.
-
-### 5.2 Correct Patterns
-
-| File                                  | Pattern                                                             | Assessment |
-| ------------------------------------- | ------------------------------------------------------------------- | ---------- |
-| `WidgetPlacementCoordinator.kt:27-43` | `initialize()` must be called before operations — correctly ordered | CORRECT    |
-| `LauncherHostRuntime.kt:101-107`      | `initialize()` registers callbacks once                             | CORRECT    |
 
 ---
 
@@ -212,30 +183,3 @@ val wasApplied = try {
 | SC3 | `HomeRepositoryImpl` cache written twice (direct + via Flow)   | `HomeRepositoryImpl.kt:52-55`    | LOW (redundant) |
 
 **SC3 Detail:** `replacePinnedItems()` writes to cache directly AND the DataStore emits a new value through the Flow which updates the cache again. Redundant but not incorrect.
-
----
-
-## 10. Snapshot State vs Flow State
-
-### 10.1 Correct Usage
-
-| File                               | State Type                                                   | Assessment |
-| ---------------------------------- | ------------------------------------------------------------ | ---------- |
-| `SurfaceStateCoordinator.kt:30-43` | Compose `mutableStateOf` for non-ViewModel class             | CORRECT    |
-| `SearchViewModel.kt:16-42`         | 4-layer state architecture (input, background, pipeline, UI) | CORRECT    |
-| `HomeViewModel.kt`                 | StateFlow for repository data, MutableStateFlow for UI state | CORRECT    |
-
----
-
-## 11. Priority Summary
-
-| Priority | Finding                                               | File                                          | Impact                  |
-| -------- | ----------------------------------------------------- | --------------------------------------------- | ----------------------- |
-| P0       | `repositoryScope` never cancelled — memory leak       | `HomeRepositoryImpl.kt:28`                    | Memory leak             |
-| P0       | `runCatching` swallows `CancellationException`        | `HomeViewModel.kt:158`                        | Broken cancellation     |
-| P1       | `pendingWidgets` thread-unsafe LinkedHashMap          | `HomeViewModel.kt:73`                         | Concurrent modification |
-| P1       | Widget ID leak on coroutine cancellation              | `HomeViewModel.kt:556-577`                    | Resource exhaustion     |
-| P2       | `permissionHandler` not checked for initialization    | `LauncherHostRuntime.kt:152`                  | Crash risk              |
-| P2       | `wasResumed` flag incorrect during config change      | `SurfaceStateCoordinator.kt:143`              | UX bug                  |
-| P3       | `prefixConfigurations` discarded but triggers re-runs | `SearchViewModelPipelineCoordinator.kt:58-70` | Fragile                 |
-| P3       | Redundant cache write in `HomeRepositoryImpl`         | `HomeRepositoryImpl.kt:52-55`                 | Minor performance       |
