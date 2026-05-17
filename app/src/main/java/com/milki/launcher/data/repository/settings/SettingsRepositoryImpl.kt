@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.milki.launcher.data.repository.catchIoException
-import com.milki.launcher.data.repository.catchIoException
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
@@ -17,19 +16,10 @@ import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 
 /**
- * DataStore-backed implementation of [SettingsRepository].
- *
- * This repository now delegates mutation-heavy search-source and prefix update
- * logic to [SettingsMutationStore], while keeping repository responsibilities
- * focused on:
- * - exposing the settings flow
- * - generic snapshot transforms
- * - simple single-key writes
- * - mapping preferences to domain settings
+ * DataStore-backed implementation of [SettingsRepository]. Persistence mapping,
+ * diff writing, and search-source mutation rules live in focused collaborators.
  */
 class SettingsRepositoryImpl(
     private val context: Context
@@ -39,14 +29,14 @@ class SettingsRepositoryImpl(
 
     override val settings: Flow<LauncherSettings> = context.settingsDataStore.data
         .catchIoException()
-        .map(::mapPreferencesToSettings)
+        .map(SettingsPreferenceReader::mapPreferencesToSettings)
 
     override suspend fun updateSettings(transform: (LauncherSettings) -> LauncherSettings) {
         context.settingsDataStore.edit { preferences ->
-            val currentSettings = mapPreferencesToSettings(preferences)
+            val currentSettings = SettingsPreferenceReader.mapPreferencesToSettings(preferences)
             val newSettings = transform(currentSettings)
 
-            writeSettingsDiffToPreferences(
+            SettingsPreferenceWriter.writeSettingsDiffToPreferences(
                 currentSettings = currentSettings,
                 newSettings = newSettings,
                 preferences = preferences
@@ -87,17 +77,17 @@ class SettingsRepositoryImpl(
         action: LauncherTriggerAction
     ) {
         context.settingsDataStore.edit { preferences ->
-            val currentActions = parseTriggerActions(preferences)
+            val currentActions = SettingsPreferenceReader.parseTriggerActions(preferences)
             val currentAction =
                 currentActions[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
             if (currentAction == action) {
                 return@edit
             }
             val updatedActions = currentActions + (trigger to action)
-            writeTriggerActions(updatedActions, preferences)
+            SettingsPreferenceWriter.writeTriggerActions(updatedActions, preferences)
             if (action != LauncherTriggerAction.OPEN_APP && action != LauncherTriggerAction.OPEN_ACTION_SHORTCUT) {
-                val updatedTargets = parseTriggerTargets(preferences) - trigger
-                writeTriggerTargets(updatedTargets, preferences)
+                val updatedTargets = SettingsPreferenceReader.parseTriggerTargets(preferences) - trigger
+                SettingsPreferenceWriter.writeTriggerTargets(updatedTargets, preferences)
             }
         }
     }
@@ -112,10 +102,10 @@ class SettingsRepositoryImpl(
             } else {
                 LauncherTriggerAction.OPEN_APP
             }
-            val updatedActions = parseTriggerActions(preferences) + (trigger to newAction)
-            val updatedTargets = parseTriggerTargets(preferences) + (trigger to target)
-            writeTriggerActions(updatedActions, preferences)
-            writeTriggerTargets(updatedTargets, preferences)
+            val updatedActions = SettingsPreferenceReader.parseTriggerActions(preferences) + (trigger to newAction)
+            val updatedTargets = SettingsPreferenceReader.parseTriggerTargets(preferences) + (trigger to target)
+            SettingsPreferenceWriter.writeTriggerActions(updatedActions, preferences)
+            SettingsPreferenceWriter.writeTriggerTargets(updatedTargets, preferences)
         }
     }
 
@@ -321,134 +311,6 @@ class SettingsRepositoryImpl(
         return result
     }
 
-    /**
-     * Maps DataStore [Preferences] into the domain-level [LauncherSettings].
-     *
-     * Parsing/normalization for source and prefix persistence now lives in the
-     * dedicated settings mutation/store layer. The repository keeps only the
-     * read-side mapping needed to expose the settings flow.
-     */
-    private fun mapPreferencesToSettings(preferences: Preferences): LauncherSettings {
-        val defaults = LauncherSettings()
-        val parsedPrefixConfigurations =
-            parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
-        val parsedSearchSources = parseSearchSources(preferences)
-
-        return LauncherSettings(
-            maxSearchResults =
-                preferences[SettingsPreferenceKeys.MAX_SEARCH_RESULTS] ?: defaults.maxSearchResults,
-            autoFocusKeyboard =
-                preferences[SettingsPreferenceKeys.AUTO_FOCUS_KEYBOARD] ?: defaults.autoFocusKeyboard,
-            showRecentApps =
-                preferences[SettingsPreferenceKeys.SHOW_RECENT_APPS] ?: defaults.showRecentApps,
-            closeSearchOnLaunch =
-                preferences[SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH]
-                    ?: defaults.closeSearchOnLaunch,
-
-            searchResultLayout =
-                preferences[SettingsPreferenceKeys.SEARCH_RESULT_LAYOUT]?.let {
-                    runCatching { SearchResultLayout.valueOf(it) }
-                        .getOrDefault(defaults.searchResultLayout)
-                } ?: defaults.searchResultLayout,
-            showHomescreenHint =
-                preferences[SettingsPreferenceKeys.SHOW_HOMESCREEN_HINT]
-                    ?: defaults.showHomescreenHint,
-            showAppIcons =
-                preferences[SettingsPreferenceKeys.SHOW_APP_ICONS] ?: defaults.showAppIcons,
-
-            triggerActions = parseTriggerActions(preferences),
-            triggerTargets = parseTriggerTargets(preferences),
-
-            contactsSearchEnabled =
-                preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED]
-                    ?: defaults.contactsSearchEnabled,
-            filesSearchEnabled =
-                preferences[SettingsPreferenceKeys.FILES_SEARCH_ENABLED]
-                    ?: defaults.filesSearchEnabled,
-
-            searchSources = parsedSearchSources,
-            prefixConfigurations = parsedPrefixConfigurations,
-            hiddenApps = preferences[SettingsPreferenceKeys.HIDDEN_APPS] ?: defaults.hiddenApps,
-            defaultSearchSourceId = preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID]
-        )
-    }
-
-    /**
-     * Writes only changed setting keys.
-     *
-     * This preserves the generic `updateSettings` API while avoiding needless
-     * full-snapshot rewrites when only a small subset of settings changed.
-     */
-    private fun writeSettingsDiffToPreferences(
-        currentSettings: LauncherSettings,
-        newSettings: LauncherSettings,
-        preferences: androidx.datastore.preferences.core.MutablePreferences
-    ) {
-        if (currentSettings.maxSearchResults != newSettings.maxSearchResults) {
-            preferences[SettingsPreferenceKeys.MAX_SEARCH_RESULTS] = newSettings.maxSearchResults
-        }
-        if (currentSettings.autoFocusKeyboard != newSettings.autoFocusKeyboard) {
-            preferences[SettingsPreferenceKeys.AUTO_FOCUS_KEYBOARD] = newSettings.autoFocusKeyboard
-        }
-        if (currentSettings.showRecentApps != newSettings.showRecentApps) {
-            preferences[SettingsPreferenceKeys.SHOW_RECENT_APPS] = newSettings.showRecentApps
-        }
-        if (currentSettings.closeSearchOnLaunch != newSettings.closeSearchOnLaunch) {
-            preferences[SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH] =
-                newSettings.closeSearchOnLaunch
-        }
-
-        if (currentSettings.searchResultLayout != newSettings.searchResultLayout) {
-            preferences[SettingsPreferenceKeys.SEARCH_RESULT_LAYOUT] =
-                newSettings.searchResultLayout.name
-        }
-        if (currentSettings.showHomescreenHint != newSettings.showHomescreenHint) {
-            preferences[SettingsPreferenceKeys.SHOW_HOMESCREEN_HINT] =
-                newSettings.showHomescreenHint
-        }
-        if (currentSettings.showAppIcons != newSettings.showAppIcons) {
-            preferences[SettingsPreferenceKeys.SHOW_APP_ICONS] = newSettings.showAppIcons
-        }
-
-        if (currentSettings.triggerActions != newSettings.triggerActions) {
-            writeTriggerActions(newSettings.triggerActions, preferences)
-        }
-
-        if (currentSettings.triggerTargets != newSettings.triggerTargets) {
-            writeTriggerTargets(newSettings.triggerTargets, preferences)
-        }
-
-        if (currentSettings.contactsSearchEnabled != newSettings.contactsSearchEnabled) {
-            preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED] =
-                newSettings.contactsSearchEnabled
-        }
-        if (currentSettings.filesSearchEnabled != newSettings.filesSearchEnabled) {
-            preferences[SettingsPreferenceKeys.FILES_SEARCH_ENABLED] =
-                newSettings.filesSearchEnabled
-        }
-
-        if (currentSettings.searchSources != newSettings.searchSources) {
-            writeSearchSources(newSettings.searchSources, preferences)
-        }
-
-        if (currentSettings.prefixConfigurations != newSettings.prefixConfigurations) {
-            writePrefixConfigurations(newSettings.prefixConfigurations, preferences)
-        }
-
-        if (currentSettings.hiddenApps != newSettings.hiddenApps) {
-            preferences[SettingsPreferenceKeys.HIDDEN_APPS] = newSettings.hiddenApps
-        }
-
-        if (currentSettings.defaultSearchSourceId != newSettings.defaultSearchSourceId) {
-            val newId = newSettings.defaultSearchSourceId
-            if (newId == null) {
-                preferences.remove(SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID)
-            } else {
-                preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID] = newId
-            }
-        }
-    }
-
     private suspend fun writeBooleanSetting(
         key: Preferences.Key<Boolean>,
         value: Boolean
@@ -475,138 +337,4 @@ class SettingsRepositoryImpl(
             preferences[key] = value
         }
     }
-
-    private fun writePrefixConfigurations(
-        configurations: ProviderPrefixConfiguration,
-        preferences: androidx.datastore.preferences.core.MutablePreferences
-    ) {
-        if (configurations.isEmpty()) {
-            preferences.remove(SettingsPreferenceKeys.PREFIX_CONFIGURATIONS)
-            return
-        }
-
-        preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS] =
-            serializePrefixConfigurations(configurations)
-    }
-
-    private fun writeSearchSources(
-        sources: List<SearchSource>,
-        preferences: androidx.datastore.preferences.core.MutablePreferences
-    ) {
-        preferences[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] =
-            SearchSourcesStorageState.INITIALIZED
-        preferences[SettingsPreferenceKeys.SEARCH_SOURCES] =
-            serializeSearchSources(sources)
-    }
-
-    private fun writeTriggerActions(
-        triggerActions: Map<LauncherTrigger, LauncherTriggerAction>,
-        preferences: androidx.datastore.preferences.core.MutablePreferences
-    ) {
-        val normalized = mergeWithDefaultTriggerActions(triggerActions)
-        val serialized: SerializedTriggerActions = normalized
-            .mapKeys { (trigger, _) -> trigger.name }
-            .mapValues { (_, action) -> action.name }
-
-        preferences[SettingsPreferenceKeys.TRIGGER_ACTIONS] =
-            settingsStorageJson.encodeToString(serialized)
-    }
-
-    private fun writeTriggerTargets(
-        triggerTargets: Map<LauncherTrigger, LauncherTriggerTarget>,
-        preferences: androidx.datastore.preferences.core.MutablePreferences
-    ) {
-        if (triggerTargets.isEmpty()) {
-            preferences.remove(SettingsPreferenceKeys.TRIGGER_TARGETS)
-            return
-        }
-
-        val serialized: SerializedTriggerTargets = triggerTargets
-            .mapKeys { (trigger, _) -> trigger.name }
-
-        preferences[SettingsPreferenceKeys.TRIGGER_TARGETS] =
-            settingsStorageJson.encodeToString(serialized)
-    }
-
-    private fun parseSearchSources(preferences: Preferences): List<SearchSource> {
-        val json = preferences[SettingsPreferenceKeys.SEARCH_SOURCES]
-        val isInitialized =
-            preferences[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] ==
-                SearchSourcesStorageState.INITIALIZED
-
-        return parseSearchSources(
-            json = json,
-            isInitialized = isInitialized
-        )
-    }
-
-    private fun parseTriggerActions(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerAction> {
-        val storedJson = preferences[SettingsPreferenceKeys.TRIGGER_ACTIONS]
-        if (!storedJson.isNullOrBlank()) {
-            val parsed = runCatching {
-                val decoded: SerializedTriggerActions = settingsStorageJson.decodeFromString(storedJson)
-                decoded.mapNotNull { (triggerName, actionName) ->
-                    val trigger = runCatching { LauncherTrigger.valueOf(triggerName) }.getOrNull()
-                    val action = runCatching { LauncherTriggerAction.valueOf(actionName) }.getOrNull()
-                    if (trigger == null || action == null) {
-                        null
-                    } else {
-                        trigger to action
-                    }
-                }.toMap()
-            }.getOrDefault(emptyMap())
-
-            return mergeWithDefaultTriggerActions(parsed)
-        }
-
-        return mergeWithDefaultTriggerActions(parseLegacyTriggerActions(preferences))
-    }
-
-    private fun parseTriggerTargets(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerTarget> {
-        val storedJson = preferences[SettingsPreferenceKeys.TRIGGER_TARGETS]
-        if (storedJson.isNullOrBlank()) {
-            return emptyMap()
-        }
-
-        return runCatching {
-            val decoded: SerializedTriggerTargets = settingsStorageJson.decodeFromString(storedJson)
-            decoded.mapNotNull { (triggerName, target) ->
-                val trigger = runCatching { LauncherTrigger.valueOf(triggerName) }.getOrNull()
-                if (trigger == null) {
-                    null
-                } else {
-                    trigger to target
-                }
-            }.toMap()
-        }.getOrDefault(emptyMap())
-    }
-
-    private fun parseLegacyTriggerActions(preferences: Preferences): Map<LauncherTrigger, LauncherTriggerAction> {
-        val legacyMappings = mutableMapOf<LauncherTrigger, LauncherTriggerAction>()
-
-        preferences[SettingsPreferenceKeys.HOME_TAP_ACTION]?.let { storedActionName ->
-            val action = runCatching { LauncherTriggerAction.valueOf(storedActionName) }.getOrNull()
-            if (action != null) {
-                legacyMappings[LauncherTrigger.HOME_TAP] = action
-            }
-        }
-
-        preferences[SettingsPreferenceKeys.SWIPE_UP_ACTION]?.let { storedActionName ->
-            val action = runCatching { LauncherTriggerAction.valueOf(storedActionName) }.getOrNull()
-            if (action != null) {
-                legacyMappings[LauncherTrigger.HOME_SWIPE_UP] = action
-            }
-        }
-
-        return legacyMappings
-    }
-
-    private fun mergeWithDefaultTriggerActions(
-        overrides: Map<LauncherTrigger, LauncherTriggerAction>
-    ): Map<LauncherTrigger, LauncherTriggerAction> {
-        return LauncherInteractionCatalog.configurableTriggers.associateWith { trigger ->
-            overrides[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
-        }
-    }
-
 }
