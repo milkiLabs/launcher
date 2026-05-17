@@ -40,9 +40,7 @@ internal class HomeSnapshotStore(
     }
 
     suspend fun readSnapshot(): List<HomeItem> {
-        return dataStore.data
-            .map(serializer::readFrom)
-            .first()
+        return pinnedItems.first()
     }
 
     suspend fun clearAll() {

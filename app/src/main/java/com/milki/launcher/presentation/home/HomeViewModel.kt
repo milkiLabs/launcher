@@ -20,6 +20,7 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.presentation.home.prune.HomeAvailabilityPruner
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Home screen ViewModel.
@@ -155,20 +155,37 @@ class HomeViewModel(
     ) {
         viewModelScope.launch {
             pendingMutationCount.update { it + 1 }
-            _lastMoveErrorMessage.value = null
 
-            val wasApplied = runCatching {
-                applyWriterCommand(command, onApplied)
-            }.getOrElse { exception ->
-                _lastMoveErrorMessage.value = exception.message ?: fallbackErrorMessage
-                false
+            try {
+                _lastMoveErrorMessage.value = null
+
+                val wasApplied = applyWriterCommandOrShowError(
+                    command = command,
+                    fallbackErrorMessage = fallbackErrorMessage,
+                    onApplied = onApplied
+                )
+
+                if (!wasApplied && _lastMoveErrorMessage.value == null) {
+                    _lastMoveErrorMessage.value = fallbackErrorMessage
+                }
+            } finally {
+                pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
             }
+        }
+    }
 
-            if (!wasApplied && _lastMoveErrorMessage.value == null) {
-                _lastMoveErrorMessage.value = fallbackErrorMessage
-            }
-
-            pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
+    private suspend fun applyWriterCommandOrShowError(
+        command: HomeModelWriter.Command,
+        fallbackErrorMessage: String,
+        onApplied: suspend (items: List<HomeItem>) -> Unit = {}
+    ): Boolean {
+        return try {
+            applyWriterCommand(command, onApplied)
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            _lastMoveErrorMessage.value = exception.message ?: fallbackErrorMessage
+            false
         }
     }
 
@@ -557,48 +574,30 @@ class HomeViewModel(
 
         pendingWidgets.remove(appWidgetId)
 
-        val shouldDeallocateOnCancellation = AtomicBoolean(true)
-        fun deallocateIfPlacementNotPersisted() {
-            if (shouldDeallocateOnCancellation.getAndSet(false)) {
-                widgetHostManager.deallocateWidgetId(pending.appWidgetId)
-            }
-        }
-
-        val placementJob = viewModelScope.launch {
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
             pendingMutationCount.update { it + 1 }
+            var shouldDeallocate = true
 
             try {
                 _lastMoveErrorMessage.value = null
 
-                val wasApplied = try {
-                    applyWriterCommand(
-                        command = HomeModelWriter.Command.PinOrMoveToPosition(
-                            item = widgetItem,
-                            targetPosition = pending.targetPosition
-                        )
-                    )
-                } catch (exception: CancellationException) {
-                    throw exception
-                } catch (_: Exception) {
-                    false
-                }
+                val wasApplied = applyWriterCommandOrShowError(
+                    command = HomeModelWriter.Command.PinOrMoveToPosition(
+                        item = widgetItem,
+                        targetPosition = pending.targetPosition
+                    ),
+                    fallbackErrorMessage = "Could not place widget"
+                )
 
-                if (wasApplied) {
-                    shouldDeallocateOnCancellation.set(false)
-                } else {
-                    deallocateIfPlacementNotPersisted()
+                shouldDeallocate = !wasApplied
+                if (!wasApplied) {
                     _lastMoveErrorMessage.value = "Could not place widget"
                 }
             } finally {
-                pendingWidgets.remove(appWidgetId)
+                if (shouldDeallocate) {
+                    widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+                }
                 pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
-            }
-        }
-
-        placementJob.invokeOnCompletion { cause ->
-            if (cause != null) {
-                deallocateIfPlacementNotPersisted()
-                pendingWidgets.remove(appWidgetId)
             }
         }
     }

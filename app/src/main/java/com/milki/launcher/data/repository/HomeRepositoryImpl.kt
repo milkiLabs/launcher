@@ -6,11 +6,6 @@ import com.milki.launcher.data.repository.home.HomeSnapshotStore
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 /**
  * DataStore-backed implementation of HomeRepository.
@@ -21,37 +16,18 @@ import kotlinx.coroutines.launch
  */
 class HomeRepositoryImpl(
     context: Context
-) : HomeRepository, AutoCloseable {
+) : HomeRepository {
 
     private val snapshotStore = HomeSnapshotStore(context)
     private val occupancyPolicy = HomeGridOccupancyPolicy()
-    private val repositoryJob = SupervisorJob()
-    private val repositoryScope = CoroutineScope(repositoryJob + Dispatchers.IO)
-
-    @Volatile
-    private var latestPinnedItems: List<HomeItem>? = null
 
     override val pinnedItems = snapshotStore.pinnedItems
 
-    init {
-        repositoryScope.launch {
-            snapshotStore.pinnedItems.collectLatest { items ->
-                latestPinnedItems = items
-            }
-        }
-    }
-
     override suspend fun readPinnedItems(): List<HomeItem> {
-        val cached = latestPinnedItems
-        if (cached != null) return cached
-
-        return snapshotStore.readSnapshot().also { items ->
-            latestPinnedItems = items
-        }
+        return snapshotStore.readSnapshot()
     }
 
     override suspend fun replacePinnedItems(items: List<HomeItem>) {
-        latestPinnedItems = items
         snapshotStore.replaceAll(items)
     }
 
@@ -69,11 +45,6 @@ class HomeRepositoryImpl(
     }
 
     override suspend fun clearAll() {
-        latestPinnedItems = emptyList()
         snapshotStore.clearAll()
-    }
-
-    override fun close() {
-        repositoryJob.cancel()
     }
 }

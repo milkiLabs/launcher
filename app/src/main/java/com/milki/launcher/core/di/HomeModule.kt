@@ -15,8 +15,6 @@ package com.milki.launcher.core.di
 import com.milki.launcher.data.repository.HomeRepositoryImpl
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.presentation.home.HomeViewModel
-import org.koin.core.module.dsl.onClose
-import org.koin.core.module.dsl.withOptions
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -48,10 +46,6 @@ val homeModule = module {
      */
     single<HomeRepository> {
         HomeRepositoryImpl(get())
-    }.withOptions {
-        onClose { repository ->
-            (repository as HomeRepositoryImpl).close()
-        }
     }
 
     // ========================================================================
