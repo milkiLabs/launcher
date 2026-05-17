@@ -13,7 +13,7 @@ object ShortcutIconMemoryCache {
 
     private const val MAX_ENTRIES = 160
 
-    private val cache = LruCache<String, Drawable.ConstantState?>(MAX_ENTRIES)
+    private val cache = LruCache<String, Drawable.ConstantState>(MAX_ENTRIES)
     private val cacheLock = Any()
 
     fun get(key: String): Drawable? {

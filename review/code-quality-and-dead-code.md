@@ -143,10 +143,6 @@ Consider grouping into sub-objects: `SearchSettings`, `AppearanceSettings`, `Hom
 | -------------------------------- | ------------------------------------------------------------------------- | -------- |
 | `FilesRepositoryImpl.kt:416-419` | `"Found file: ${...}, " + "mimeType: ${...}"` — should be single template | LOW      |
 
-### 9.2 Good Patterns
-
-Most of the codebase correctly uses string templates (`"$packageName/$activityName"`) rather than concatenation.
-
 ---
 
 ## 10. Unnecessary Nullability

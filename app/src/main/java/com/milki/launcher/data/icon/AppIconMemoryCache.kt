@@ -61,14 +61,14 @@ object AppIconMemoryCache {
     /**
      * Internal LRU cache keyed by package name.
      *
-     * Value is Drawable.ConstantState? because some Drawables might not expose
-     * a constant state. In those cases we simply skip caching for that icon.
+     * Value is Drawable.ConstantState. The preload method returns early if
+     * constantState is null, so we never store null values.
      */
     private val generalIconStateCache =
-        LruCache<String, Drawable.ConstantState?>(MAX_GENERAL_ENTRIES)
+        LruCache<String, Drawable.ConstantState>(MAX_GENERAL_ENTRIES)
 
     private val homePriorityIconStateCache =
-        LruCache<String, Drawable.ConstantState?>(MAX_HOME_PRIORITY_ENTRIES)
+        LruCache<String, Drawable.ConstantState>(MAX_HOME_PRIORITY_ENTRIES)
 
     /**
      * Package names that should live in the home-priority cache tier.
