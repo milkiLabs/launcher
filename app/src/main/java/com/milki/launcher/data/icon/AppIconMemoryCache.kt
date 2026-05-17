@@ -24,7 +24,6 @@ import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.graphics.drawable.Drawable
 import android.util.Log
-import android.util.LruCache
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 
@@ -41,47 +40,17 @@ object AppIconMemoryCache {
 
     private const val TAG = "AppIconMemoryCache"
 
-    /**
-     * Maximum number of normal (non-home-priority) package entries.
-     */
     private const val MAX_GENERAL_ENTRIES = 300
-
-    /**
-     * Maximum number of home-priority package entries.
-     */
     private const val MAX_HOME_PRIORITY_ENTRIES = 120
 
-    /**
-     * Slow-operation thresholds for lightweight performance telemetry.
-     */
     private const val SLOW_SINGLE_LOAD_MS = 24L
     private const val SLOW_PRELOAD_BATCH_MS = 120L
     private const val HIT_RATE_LOG_INTERVAL = 200L
 
-    /**
-     * Internal LRU cache keyed by package name.
-     *
-     * Value is Drawable.ConstantState. The preload method returns early if
-     * constantState is null, so we never store null values.
-     */
-    private val generalIconStateCache =
-        LruCache<String, Drawable.ConstantState>(MAX_GENERAL_ENTRIES)
+    private val generalIconCache = DrawableConstantStateCache(MAX_GENERAL_ENTRIES)
+    private val homePriorityIconCache = DrawableConstantStateCache(MAX_HOME_PRIORITY_ENTRIES)
 
-    private val homePriorityIconStateCache =
-        LruCache<String, Drawable.ConstantState>(MAX_HOME_PRIORITY_ENTRIES)
-
-    /**
-     * Package names that should live in the home-priority cache tier.
-     */
     private val homePriorityPackages = linkedSetOf<String>()
-
-    /**
-     * Lock object used to synchronize all cache access.
-     *
-     * LruCache itself is not documented as thread-safe for concurrent read/write,
-     * so we enforce synchronization at this wrapper boundary.
-     */
-    private val cacheLock = Any()
 
     private val requestCount = AtomicLong(0)
     private val hitCount = AtomicLong(0)
@@ -98,21 +67,13 @@ object AppIconMemoryCache {
      * @return New drawable instance from cached ConstantState, or null on cache miss.
      */
     fun get(packageName: String): Drawable? {
-        val constantState = synchronized(cacheLock) {
-            homePriorityIconStateCache.get(packageName)
-                ?: generalIconStateCache.get(packageName)
-        }
-        return constantState?.newDrawable()?.mutate()
+        return homePriorityIconCache.get(packageName)
+            ?: generalIconCache.get(packageName)
     }
 
-    /**
-     * Returns true when an icon ConstantState already exists in the cache.
-     */
     fun contains(packageName: String): Boolean {
-        return synchronized(cacheLock) {
-            homePriorityIconStateCache.get(packageName) != null ||
-                generalIconStateCache.get(packageName) != null
-        }
+        return homePriorityIconCache.contains(packageName) ||
+            generalIconCache.contains(packageName)
     }
 
     /**
@@ -121,28 +82,26 @@ object AppIconMemoryCache {
      * Existing cached icons are promoted/demoted between tiers immediately.
      */
     fun updateHomePriorityPackages(packageNames: Set<String>) {
-        synchronized(cacheLock) {
-            if (homePriorityPackages == packageNames) return
+        if (homePriorityPackages == packageNames) return
 
-            val removed = homePriorityPackages - packageNames
-            removed.forEach { packageName ->
-                val constantState = homePriorityIconStateCache.remove(packageName)
-                if (constantState != null) {
-                    generalIconStateCache.put(packageName, constantState)
-                }
+        val removed = homePriorityPackages - packageNames
+        removed.forEach { packageName ->
+            homePriorityIconCache.get(packageName)?.let { drawable ->
+                homePriorityIconCache.remove(packageName)
+                generalIconCache.put(packageName, drawable)
             }
-
-            val added = packageNames - homePriorityPackages
-            added.forEach { packageName ->
-                val constantState = generalIconStateCache.remove(packageName)
-                if (constantState != null) {
-                    homePriorityIconStateCache.put(packageName, constantState)
-                }
-            }
-
-            homePriorityPackages.clear()
-            homePriorityPackages.addAll(packageNames)
         }
+
+        val added = packageNames - homePriorityPackages
+        added.forEach { packageName ->
+            generalIconCache.get(packageName)?.let { drawable ->
+                generalIconCache.remove(packageName)
+                homePriorityIconCache.put(packageName, drawable)
+            }
+        }
+
+        homePriorityPackages.clear()
+        homePriorityPackages.addAll(packageNames)
     }
 
     /**
@@ -154,29 +113,22 @@ object AppIconMemoryCache {
      * @param icon Drawable to cache.
      */
     fun preload(packageName: String, icon: Drawable) {
-        val constantState = icon.constantState ?: return
-        synchronized(cacheLock) {
-            if (packageName in homePriorityPackages) {
-                homePriorityIconStateCache.put(packageName, constantState)
-                generalIconStateCache.remove(packageName)
-            } else {
-                generalIconStateCache.put(packageName, constantState)
-            }
+        if (packageName in homePriorityPackages) {
+            homePriorityIconCache.put(packageName, icon)
+            generalIconCache.remove(packageName)
+        } else {
+            generalIconCache.put(packageName, icon)
         }
     }
 
     fun invalidatePackage(packageName: String) {
-        synchronized(cacheLock) {
-            generalIconStateCache.remove(packageName)
-            homePriorityIconStateCache.remove(packageName)
-        }
+        generalIconCache.remove(packageName)
+        homePriorityIconCache.remove(packageName)
     }
 
     fun clear() {
-        synchronized(cacheLock) {
-            generalIconStateCache.evictAll()
-            homePriorityIconStateCache.evictAll()
-        }
+        generalIconCache.evictAll()
+        homePriorityIconCache.evictAll()
     }
 
     /**

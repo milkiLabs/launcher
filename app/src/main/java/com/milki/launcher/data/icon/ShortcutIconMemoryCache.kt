@@ -1,7 +1,6 @@
 package com.milki.launcher.data.icon
 
 import android.graphics.drawable.Drawable
-import android.util.LruCache
 
 /**
  * Small in-memory cache for shortcut artwork resolved through LauncherApps.
@@ -13,36 +12,17 @@ object ShortcutIconMemoryCache {
 
     private const val MAX_ENTRIES = 160
 
-    private val cache = LruCache<String, Drawable.ConstantState>(MAX_ENTRIES)
-    private val cacheLock = Any()
+    private val cache = DrawableConstantStateCache(MAX_ENTRIES)
 
-    fun get(key: String): Drawable? {
-        val constantState = synchronized(cacheLock) {
-            cache.get(key)
-        }
-        return constantState?.newDrawable()?.mutate()
-    }
+    fun get(key: String): Drawable? = cache.get(key)
 
-    fun preload(key: String, drawable: Drawable) {
-        val constantState = drawable.constantState ?: return
-        synchronized(cacheLock) {
-            cache.put(key, constantState)
-        }
-    }
+    fun preload(key: String, drawable: Drawable) = cache.put(key, drawable)
 
     fun invalidatePackage(packageName: String) {
-        synchronized(cacheLock) {
-            cache.snapshot().keys
-                .filter { key -> key.startsWith("$packageName/") }
-                .forEach(cache::remove)
-        }
+        cache.removeWhere { it.startsWith("$packageName/") }
     }
 
-    fun clear() {
-        synchronized(cacheLock) {
-            cache.evictAll()
-        }
-    }
+    fun clear() = cache.evictAll()
 
     fun getOrLoad(
         key: String,

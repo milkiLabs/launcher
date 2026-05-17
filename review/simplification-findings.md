@@ -254,44 +254,6 @@ All three have identical `saveRecent()` (remove old, add front, `take(max)`) and
 **After:** 40 + 15 + 15 + 15 = 85 lines
 **Savings:** ~152 lines
 
-### 4.2 Icon Memory Caches → Shared LRU Base (30 lines)
-
-`AppIconMemoryCache` and `ShortcutIconMemoryCache` share identical `LruCache<String, Drawable.ConstantState>` patterns:
-
-- `get()` → `synchronized` → `newDrawable().mutate()`
-- `preload()` → `synchronized` → null check → `cache.put()`
-- `clear()` → `evictAll()`
-
-**Action:** Create a `DrawableConstantStateLruCache` base class. Each subclass adds its specific logic (telemetry, disk triggers, etc.).
-
-**Savings:** ~30 lines
-
-### 4.3 HomeItemSerializer + ActionShortcutSerializer → Generic (15 lines)
-
-Both serialize newline-separated JSON lists with identical parsing:
-
-```kotlin
-split("\n").filter { it.isNotBlank() }.mapNotNull { runCatching { json.decodeFromString(it) }.getOrNull() }
-```
-
-**Action:** Create a `NewlineJsonListSerializer<T>` generic class.
-
-**Savings:** ~15 lines
-
-### 4.4 RemoveItemById → Use RemoveItemsById (9 lines)
-
-`HomeModelWriter.RemoveItemById` wraps a single ID and delegates to `RemoveItemsById(setOf(itemId))`. This is unnecessary indirection.
-
-**Action:** Delete `RemoveItemById`. Callers use `RemoveItemsById(setOf(id))` directly.
-
-**Savings:** 9 lines
-
-### 4.5 FilesRepositoryImpl — Remove Unused Constant (1 line)
-
-`MILLISECONDS_PER_SECOND = 1_000L` at line 27 is never referenced anywhere in the file.
-
-**Savings:** 1 line
-
 ---
 
 ## 6. Comment/Doc Bloat in Source Files
