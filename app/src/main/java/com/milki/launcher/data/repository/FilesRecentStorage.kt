@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.core.util.parseCsv
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -49,8 +50,7 @@ internal class FilesRecentStorage(
         val fileIdStr = fileId.toString()
         context.recentFilesDataStore.edit { preferences ->
             val current = preferences[recentFilesKey] ?: ""
-            val recentFiles = current.split(",")
-                .filter { it.isNotEmpty() }
+            val recentFiles = parseCsv(current)
                 .toMutableList()
 
             recentFiles.remove(fileIdStr)
@@ -66,8 +66,7 @@ internal class FilesRecentStorage(
     fun getRecentFileIds(): Flow<List<Long>> {
         return context.recentFilesDataStore.data.map { preferences ->
             preferences[recentFilesKey]
-                ?.split(",")
-                ?.filter { it.isNotEmpty() }
+                ?.let { parseCsv(it) }
                 ?.mapNotNull { it.toLongOrNull() }
                 ?: emptyList()
         }

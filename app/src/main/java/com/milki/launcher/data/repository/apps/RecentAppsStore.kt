@@ -3,6 +3,7 @@ package com.milki.launcher.data.repository.apps
 import android.app.Application
 import android.content.ComponentName
 import androidx.datastore.preferences.core.edit
+import com.milki.launcher.core.util.parseCsv
 import com.milki.launcher.domain.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -22,9 +23,7 @@ internal class RecentAppsStore(
         return dataStore.data
             .map { preferences ->
                 val raw = preferences[AppPreferenceKeys.RECENT_APPS] ?: return@map emptyList()
-                raw
-                    .split(",")
-                    .filter { value -> value.isNotEmpty() }
+                parseCsv(raw)
             }
             .flowOn(Dispatchers.IO)
     }
@@ -32,9 +31,7 @@ internal class RecentAppsStore(
     suspend fun saveRecentApp(componentName: String) {
         dataStore.edit { preferences ->
             val currentRaw = preferences[AppPreferenceKeys.RECENT_APPS] ?: ""
-            val components = currentRaw
-                .split(",")
-                .filter { value -> value.isNotEmpty() }
+            val components = parseCsv(currentRaw)
                 .toMutableList()
 
             components.remove(componentName)
@@ -54,9 +51,7 @@ internal class RecentAppsStore(
 
         dataStore.edit { preferences ->
             val currentRaw = preferences[AppPreferenceKeys.RECENT_APPS] ?: return@edit
-            val currentComponents = currentRaw
-                .split(",")
-                .filter { value -> value.isNotEmpty() }
+            val currentComponents = parseCsv(currentRaw)
 
             if (currentComponents.isEmpty()) {
                 preferences.remove(AppPreferenceKeys.RECENT_APPS)

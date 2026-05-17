@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.core.util.parseCsv
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -56,8 +57,7 @@ internal class ContactsRecentStorage(
     suspend fun saveRecentContact(phoneNumber: String) {
         context.recentContactsDataStore.edit { preferences ->
             val current = preferences[recentContactsKey] ?: ""
-            val recentPhones = current.split(",")
-                .filter { it.isNotEmpty() }
+            val recentPhones = parseCsv(current)
                 .toMutableList()
 
             recentPhones.remove(phoneNumber)
@@ -73,8 +73,7 @@ internal class ContactsRecentStorage(
     fun getRecentContacts(): Flow<List<String>> {
         return context.recentContactsDataStore.data.map { preferences ->
             preferences[recentContactsKey]
-                ?.split(",")
-                ?.filter { it.isNotEmpty() }
+                ?.let { parseCsv(it) }
                 ?: emptyList()
         }
     }
