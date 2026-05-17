@@ -100,6 +100,10 @@ object UrlValidator {
      * Compiled once as a val to avoid recompilation on every call.
      */
     private val SCHEME_PATTERN = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*$")
+
+    /**
+     * Fallback regex pattern for URL detection when Android's pattern fails.
+     *
      * Pattern explanation:
      * - ^                    Start of string
      * - [a-zA-Z0-9]          First character must be alphanumeric
