@@ -161,30 +161,6 @@ Several composables don't accept a `Modifier` parameter:
 
 ---
 
-## 6. Unnecessary Nested Layouts
-
-| File:Line               | Issue                                             | Severity |
-| ----------------------- | ------------------------------------------------- | -------- |
-| `PinnedItem.kt:398-422` | `FileIcon` has 4 nested `Box`/`Surface` levels    | MEDIUM   |
-| `PinnedItem.kt:354-378` | `ContactIcon` has 3 nested levels                 | LOW      |
-| `PinnedItem.kt:330-348` | Fallback action shortcut icon has 3 nested levels | LOW      |
-
-**`FileIcon` Detail:**
-
-```kotlin
-Box {                    // Level 1
-    Surface {            // Level 2
-        Box {            // Level 3
-            Icon         // Level 4
-        }
-    }
-}
-```
-
-This could be simplified by using `Surface`'s content parameter and reducing nesting.
-
----
-
 ## 7. Memory Leaks in Compose
 
 ### 7.2 Side Effects

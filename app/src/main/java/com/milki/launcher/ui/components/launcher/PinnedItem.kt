@@ -327,12 +327,16 @@ internal fun ActionShortcutIcon(
         return
     }
 
-    Surface(
+    Box(
         modifier = modifier.size(size),
-        shape = RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.tertiaryContainer,
         contentAlignment = Alignment.Center
     ) {
+        Surface(
+            modifier = Modifier.matchParentSize(),
+            shape = RoundedCornerShape(CornerRadius.medium),
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            content = {}
+        )
         Icon(
             imageVector = Icons.Default.Link,
             contentDescription = null,
@@ -350,12 +354,16 @@ private fun ContactIcon(
     size: Dp,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Box(
         modifier = modifier.size(size),
-        shape = RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
         contentAlignment = Alignment.Center
     ) {
+        Surface(
+            modifier = Modifier.matchParentSize(),
+            shape = RoundedCornerShape(CornerRadius.medium),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+            content = {}
+        )
         Icon(
             imageVector = Icons.Default.Person,
             contentDescription = null,
@@ -384,12 +392,16 @@ private fun FileIcon(
 ) {
     val fileTypeVisual = resolveFileTypeVisual(mimeType, fileName)
 
-    Surface(
+    Box(
         modifier = modifier.size(size),
-        shape = RectangleShape,
-        color = fileTypeVisual.backgroundColor.copy(alpha = 0.2f),
         contentAlignment = Alignment.Center
     ) {
+        Surface(
+            modifier = Modifier.matchParentSize(),
+            shape = RectangleShape,
+            color = fileTypeVisual.backgroundColor.copy(alpha = 0.2f),
+            content = {}
+        )
         Icon(
             imageVector = fileTypeVisual.icon,
             contentDescription = null,
