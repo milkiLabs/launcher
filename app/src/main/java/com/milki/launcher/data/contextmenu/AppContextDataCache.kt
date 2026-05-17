@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.os.Build
 import android.os.Process
+import com.milki.launcher.core.shortcut.ShortcutInfoComparator
 import com.milki.launcher.data.cache.SnapshotCache
 import com.milki.launcher.domain.model.HomeItem
 
@@ -106,9 +107,7 @@ object AppContextDataCache {
             .groupBy { it.`package` }
             .mapValues { (_, shortcuts) ->
                 shortcuts
-                    .sortedWith(
-                        compareBy({ !it.isDynamic }, { !it.isDeclaredInManifest }, { it.rank })
-                    )
+                    .sortedWith(ShortcutInfoComparator)
                     .map(HomeItem.AppShortcut::fromShortcutInfo)
                     .distinctBy { it.shortcutId }
                     .take(MAX_SHORTCUTS_PER_APP)
