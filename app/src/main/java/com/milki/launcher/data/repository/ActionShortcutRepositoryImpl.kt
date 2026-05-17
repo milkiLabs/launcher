@@ -5,17 +5,15 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.data.repository.catchIoException
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
-import java.io.IOException
 
 private val Context.actionShortcutDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "action_shortcuts"
@@ -33,13 +31,7 @@ class ActionShortcutRepositoryImpl(
     private val serializer = ActionShortcutSerializer()
 
     override val shortcuts: Flow<List<HomeItem.ActionShortcut>> = dataStore.data
-        .catch { exception ->
-            if (exception is IOException) {
-                emit(emptyPreferences())
-            } else {
-                throw exception
-            }
-        }
+        .catchIoException()
         .map(serializer::readFrom)
 
     override suspend fun readShortcuts(): List<HomeItem.ActionShortcut> {

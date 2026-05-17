@@ -2,13 +2,11 @@ package com.milki.launcher.data.repository.home
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
+import com.milki.launcher.data.repository.catchIoException
 import com.milki.launcher.domain.model.HomeItem
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import java.io.IOException
 
 /**
  * Transaction helper around home DataStore snapshots.
@@ -24,13 +22,7 @@ internal class HomeSnapshotStore(
     private val dataStore = context.homeDataStore
 
     val pinnedItems: Flow<List<HomeItem>> = dataStore.data
-        .catch { exception ->
-            if (exception is IOException) {
-                emit(emptyPreferences())
-            } else {
-                throw exception
-            }
-        }
+        .catchIoException()
         .map(serializer::readFrom)
 
     suspend fun replaceAll(items: List<HomeItem>) {
