@@ -8,10 +8,9 @@
 
 ### 3.2 Over-Engineered Areas
 
-| File                        | Issue                                                    | Severity |
-| --------------------------- | -------------------------------------------------------- | -------- |
-| `AppQueryRanker.kt`         | 283 lines of scoring constants with no tests for weights | MEDIUM   |
-| `SearchProviderRegistry.kt` | 352 lines with excessive ASCII diagrams and tutorials    | LOW      |
+| File                | Issue                                                    | Severity |
+| ------------------- | -------------------------------------------------------- | -------- |
+| `AppQueryRanker.kt` | 283 lines of scoring constants with no tests for weights | MEDIUM   |
 
 ### 3.3 SRP Violations
 
@@ -110,12 +109,6 @@ Consider grouping into sub-objects: `SearchSettings`, `AppearanceSettings`, `Hom
 | DI modules                  | 60%+ comments in `SearchModule.kt`                                       | LOW      |
 
 **Recommendation:** Move educational content and detailed documentation to `docs/` directory.
-
-### 7.2 Orphaned Comments
-
-| File:Line                      | Issue                                                                         | Severity |
-| ------------------------------ | ----------------------------------------------------------------------------- | -------- |
-| `WidgetHostManager.kt:462-474` | KDoc for `dpToCells` describes function moved to `WidgetHostSizingSupport.kt` | LOW      |
 
 ### 7.3 Missing KDoc
 

@@ -9,7 +9,6 @@ import android.util.Log
 import com.milki.launcher.core.permission.PermissionUtil
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.repository.FilesRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.currentCoroutineContext
@@ -70,8 +69,6 @@ class FilesRepositoryImpl(
 
                     Log.d(TAG, "Returning ${files.size} files")
                     files
-                } catch (e: CancellationException) {
-                    throw e
                 } catch (e: IllegalArgumentException) {
                     Log.e(TAG, "Error searching files", e)
                     emptyList()
@@ -126,8 +123,6 @@ class FilesRepositoryImpl(
                     )
                 }
             }
-        } catch (e: CancellationException) {
-            throw e
         } catch (e: IllegalArgumentException) {
             Log.e(TAG, "Error querying URI: $uri", e)
         } catch (e: SecurityException) {
@@ -170,8 +165,6 @@ class FilesRepositoryImpl(
                 }
                 
                 files
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: IllegalArgumentException) {
                 Log.e(TAG, "Error getting recent files", e)
                 emptyList()
@@ -235,8 +228,6 @@ class FilesRepositoryImpl(
                     }
                 }
                 filesMap
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting files by ids", e)
                 emptyMap()

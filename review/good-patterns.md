@@ -91,3 +91,9 @@
 | `SurfaceStateCoordinator.kt:30-43` | Compose `mutableStateOf` for non-ViewModel class             | CORRECT    |
 | `SearchViewModel.kt:16-42`         | 4-layer state architecture (input, background, pipeline, UI) | CORRECT    |
 | `HomeViewModel.kt`                 | StateFlow for repository data, MutableStateFlow for UI state | CORRECT    |
+
+## 9. String Handling
+
+### 9.2 Good Patterns
+
+Most of the codebase correctly uses string templates (`"$packageName/$activityName"`) rather than concatenation.
