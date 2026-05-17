@@ -97,3 +97,9 @@
 ### 9.2 Good Patterns
 
 Most of the codebase correctly uses string templates (`"$packageName/$activityName"`) rather than concatenation.
+
+## 3. Build Configuration Issues
+
+### 3.1 SDK Configuration
+
+| `minSdk` | 24 | Android 7.0; covers ~95%+ of devices | GOOD |

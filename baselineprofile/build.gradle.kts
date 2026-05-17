@@ -52,6 +52,6 @@ detekt {
 dependencies {
     implementation(libs.androidx.benchmark.macro.junit4)
     implementation(libs.androidx.junit)
-    implementation("androidx.test:runner:1.7.0")
+    implementation(libs.androidx.test.runner)
     implementation(libs.androidx.test.uiautomator)
 }
