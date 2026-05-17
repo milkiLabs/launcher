@@ -85,12 +85,7 @@ private class ActionShortcutSerializer {
     private val json = HomeItem.json
 
     fun readFrom(preferences: Preferences): List<HomeItem.ActionShortcut> {
-        val defaultDocsShortcut = HomeItem.ActionShortcut(
-            id = "action:milki_docs",
-            label = "Milki docs",
-            destinationUri = "https://milkilabs.github.io/launcher/guide/overview.html"
-        )
-        val encoded = preferences[ActionShortcutPreferenceKeys.SHORTCUTS] ?: return listOf(defaultDocsShortcut)
+        val encoded = preferences[ActionShortcutPreferenceKeys.SHORTCUTS] ?: return listOf(HomeItem.ActionShortcut.DefaultDocsShortcut)
         if (encoded.isEmpty()) return emptyList()
 
         return encoded

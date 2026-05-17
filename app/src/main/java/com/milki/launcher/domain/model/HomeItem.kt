@@ -310,6 +310,12 @@ sealed class HomeItem {
         }
 
         companion object {
+            val DefaultDocsShortcut = ActionShortcut(
+                id = "action:milki_docs",
+                label = "Milki docs",
+                destinationUri = "https://milkilabs.github.io/launcher/guide/overview.html"
+            )
+
             fun create(
                 label: String,
                 destinationUri: String,
