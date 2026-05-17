@@ -85,17 +85,6 @@ data class FileDocument(
 )
 
 /**
- * Extension function to check if a file matches a search query.
- * Searches in the file name (case-insensitive).
- *
- * @param query The search query
- * @return True if the file name contains the query
- */
-fun FileDocument.matchesQuery(query: String): Boolean {
-    return name.lowercase().contains(query.lowercase())
-}
-
-/**
  * Extension property to get a human-readable file size.
  * Uses lazy initialization to avoid recalculating the formatted string on every access.
  * Converts bytes to KB, MB, or GB as appropriate.

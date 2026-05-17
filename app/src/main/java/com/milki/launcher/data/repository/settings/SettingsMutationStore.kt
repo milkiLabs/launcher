@@ -96,7 +96,6 @@ internal class SettingsMutationStore {
         )
 
         return when {
-            currentSources.none { it.id == sourceId } -> PrefixMutationResult.TargetNotFound
             conflictingOwner != null -> duplicatePrefixResult(conflictingOwner)
             else -> {
                 val updatedSources = currentSources.map { existing ->

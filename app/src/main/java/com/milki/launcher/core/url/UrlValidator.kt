@@ -97,6 +97,9 @@ object UrlValidator {
      * - Regional TLDs in non-latin scripts
      * - Less common TLDs
      *
+     * Compiled once as a val to avoid recompilation on every call.
+     */
+    private val SCHEME_PATTERN = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*$")
      * Pattern explanation:
      * - ^                    Start of string
      * - [a-zA-Z0-9]          First character must be alphanumeric
@@ -251,7 +254,7 @@ object UrlValidator {
     private fun hasExplicitScheme(input: String): Boolean {
         val schemeEnd = input.indexOf(':')
         if (schemeEnd <= 0) return false
-        return input.take(schemeEnd).matches(Regex("^[a-zA-Z][a-zA-Z0-9+.-]*$"))
+        return input.take(schemeEnd).matches(SCHEME_PATTERN)
     }
 
     /**

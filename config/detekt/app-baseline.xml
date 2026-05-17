@@ -84,7 +84,6 @@
     <ID>ReturnCount:AppLauncher.kt:fun queryAppQuickShortcuts: List&lt;HomeItem.AppShortcut&gt;</ID>
     <ID>ReturnCount:ClipboardSuggestionResolver.kt:ClipboardSuggestionResolver$fun resolveFromClipboard: ClipboardSuggestion?</ID>
     <ID>ReturnCount:ClipboardSuggestionResolver.kt:ClipboardSuggestionResolver$private fun resolveFromText: ClipboardSuggestion?</ID>
-    <ID>ReturnCount:Contact.kt:fun Contact.matchesQuery: Boolean</ID>
     <ID>ReturnCount:ContactsMappingLayer.kt:ContactsMappingLayer$fun getOrCreateAggregate: MutableContactAggregate?</ID>
     <ID>ReturnCount:ContactsSearchProvider.kt:ContactsSearchProvider$override suspend fun search: List&lt;SearchResult&gt;</ID>
     <ID>ReturnCount:ExternalDragCoordinateMapper.kt:ExternalDragCoordinateMapper$fun toLocalOffset: Offset</ID>

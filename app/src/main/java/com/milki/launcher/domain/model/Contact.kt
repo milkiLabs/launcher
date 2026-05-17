@@ -73,42 +73,4 @@ data class Contact(
     val lookupKey: String
 )
 
-/**
- * Extension function to check if a contact matches a search query.
- * Searches in both display name and phone numbers.
- * 
- * @param query The search query
- * @return True if the contact matches the query
- */
-fun Contact.matchesQuery(query: String): Boolean {
-    val queryLower = query.lowercase()
-    
-    // Check display name
-    if (displayName.lowercase().contains(queryLower)) {
-        return true
-    }
-    
-    // Check phone numbers
-    if (phoneNumbers.any { it.contains(queryLower) }) {
-        return true
-    }
-    
-    // Check emails
-    if (emails.any { it.lowercase().contains(queryLower) }) {
-        return true
-    }
-    
-    return false
-}
 
-/**
- * Extension function to get the primary phone number.
- * Returns the first phone number, or null if none exist.
- */
-fun Contact.primaryPhoneNumber(): String? = phoneNumbers.firstOrNull()
-
-/**
- * Extension function to get the primary email.
- * Returns the first email, or null if none exist.
- */
-fun Contact.primaryEmail(): String? = emails.firstOrNull()

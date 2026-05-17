@@ -26,11 +26,3 @@ data class AppInfo(
     val packageLower: String = packageName.lowercase()
 }
 
-/**
- * Extension function to check if an AppInfo matches a search query.
- * @param query The search query
- */
-fun AppInfo.matchesQuery(query: String): Boolean {
-    val queryLower = query.lowercase()
-    return nameLower.contains(queryLower) || packageLower.contains(queryLower)
-}

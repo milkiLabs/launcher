@@ -23,7 +23,7 @@ internal class HomeItemSerializer(
             destinationUri = "https://milkilabs.github.io/launcher/guide/overview.html"
         )
         val encoded = preferences[HomePreferenceKeys.PINNED_ITEMS] ?: return listOf(defaultDocsShortcut)
-        if (encoded.isEmpty()) return emptyList()
+        if (encoded.isEmpty()) return listOf(defaultDocsShortcut)
 
         return encoded
             .split("\n")

@@ -391,7 +391,7 @@ class LauncherBackupRepositoryImpl(
 
         fun visit(item: HomeItem) {
             when (item) {
-                is HomeItem.WidgetItem -> ids += item.appWidgetId
+                is HomeItem.WidgetItem -> ids.add(item.appWidgetId)
                 is HomeItem.FolderItem -> item.children.forEach(::visit)
                 else -> Unit
             }
