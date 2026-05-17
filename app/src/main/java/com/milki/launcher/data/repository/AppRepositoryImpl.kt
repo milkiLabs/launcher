@@ -49,7 +49,7 @@ class AppRepositoryImpl(
     private var latestInstalledApps: List<AppInfo>? = null
 
     private val recentApps = combine(
-        recentAppsStore.observeRecentComponentNames(),
+        recentAppsStore.observeRecent(),
         installedAppsSnapshot
     ) { recentComponentNames, installedApps ->
         resolveRecentApps(
@@ -103,7 +103,7 @@ class AppRepositoryImpl(
     }
 
     override suspend fun saveRecentApp(componentName: String) {
-        recentAppsStore.saveRecentApp(componentName)
+        recentAppsStore.saveRecent(componentName)
     }
 
     /**

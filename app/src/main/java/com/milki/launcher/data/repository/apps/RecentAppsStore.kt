@@ -4,44 +4,17 @@ import android.app.Application
 import android.content.ComponentName
 import androidx.datastore.preferences.core.edit
 import com.milki.launcher.core.util.parseCsv
+import com.milki.launcher.core.util.toCsv
+import com.milki.launcher.data.repository.RecentListStorage
 import com.milki.launcher.domain.model.AppInfo
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 
-/**
- * Encapsulates recent-app persistence.
- */
-internal class RecentAppsStore(
-    private val application: Application
+internal class RecentAppsStore(application: Application) : RecentListStorage<String>(
+    dataStore = application.launcherDataStore,
+    key = AppPreferenceKeys.RECENT_APPS,
+    maxSize = AppPreferenceKeys.MAX_RECENT_APPS,
 ) {
-
-    private val dataStore = application.launcherDataStore
-
-    fun observeRecentComponentNames(): Flow<List<String>> {
-        return dataStore.data
-            .map { preferences ->
-                val raw = preferences[AppPreferenceKeys.RECENT_APPS] ?: return@map emptyList()
-                parseCsv(raw)
-            }
-            .flowOn(Dispatchers.IO)
-    }
-
-    suspend fun saveRecentApp(componentName: String) {
-        dataStore.edit { preferences ->
-            val currentRaw = preferences[AppPreferenceKeys.RECENT_APPS] ?: ""
-            val components = parseCsv(currentRaw)
-                .toMutableList()
-
-            components.remove(componentName)
-            components.add(0, componentName)
-
-            preferences[AppPreferenceKeys.RECENT_APPS] = components
-                .take(AppPreferenceKeys.MAX_RECENT_APPS)
-                .joinToString(separator = ",")
-        }
-    }
+    override fun encode(item: String): String = item
+    override fun decode(raw: String): String? = raw
 
     suspend fun pruneUnavailable(installedApps: List<AppInfo>) {
         val validComponents = installedApps
@@ -50,11 +23,11 @@ internal class RecentAppsStore(
             }
 
         dataStore.edit { preferences ->
-            val currentRaw = preferences[AppPreferenceKeys.RECENT_APPS] ?: return@edit
+            val currentRaw = preferences[key] ?: return@edit
             val currentComponents = parseCsv(currentRaw)
 
             if (currentComponents.isEmpty()) {
-                preferences.remove(AppPreferenceKeys.RECENT_APPS)
+                preferences.remove(key)
                 return@edit
             }
 
@@ -66,17 +39,17 @@ internal class RecentAppsStore(
             }
 
             val normalizedRaw = filtered
-                .take(AppPreferenceKeys.MAX_RECENT_APPS)
-                .joinToString(separator = ",")
+                .take(maxSize)
+                .toCsv()
 
             if (normalizedRaw == currentRaw) {
                 return@edit
             }
 
             if (normalizedRaw.isEmpty()) {
-                preferences.remove(AppPreferenceKeys.RECENT_APPS)
+                preferences.remove(key)
             } else {
-                preferences[AppPreferenceKeys.RECENT_APPS] = normalizedRaw
+                preferences[key] = normalizedRaw
             }
         }
     }

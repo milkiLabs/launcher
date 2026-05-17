@@ -175,11 +175,11 @@ class FilesRepositoryImpl(
     }
 
     override suspend fun saveRecentFile(fileId: Long) {
-        recentStorage.saveRecentFile(fileId)
+        recentStorage.saveRecent(fileId)
     }
 
     override fun getRecentFileIds(): kotlinx.coroutines.flow.Flow<List<Long>> {
-        return recentStorage.getRecentFileIds().flowOn(Dispatchers.IO)
+        return recentStorage.observeRecent().flowOn(Dispatchers.IO)
     }
 
     override suspend fun getFilesByIds(ids: List<Long>): Map<Long, FileDocument> {

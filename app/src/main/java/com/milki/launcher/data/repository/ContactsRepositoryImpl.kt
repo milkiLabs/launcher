@@ -80,14 +80,14 @@ class ContactsRepositoryImpl(
      * Stores one phone number in recent-contact history.
      */
     override suspend fun saveRecentContact(phoneNumber: String) {
-        recentStorage.saveRecentContact(phoneNumber)
+        recentStorage.saveRecent(phoneNumber)
     }
 
     /**
      * Exposes recent-contact phone numbers as a Flow.
      */
     override fun getRecentContacts(): Flow<List<String>> {
-        return recentStorage.getRecentContacts().flowOn(Dispatchers.IO)
+        return recentStorage.observeRecent().flowOn(Dispatchers.IO)
     }
 
     /**
