@@ -102,26 +102,14 @@ The package structure is well-organized by layer and feature:
 
 ### 4.3 IDE Support
 
-| Aspect           | Status                                               |
-| ---------------- | ---------------------------------------------------- |
-| Compose previews | Very few `@Preview` annotations                      |
-| KDoc             | Missing on many public APIs                          |
-| Code style       | Inconsistent (some files well-formatted, others not) |
+| Aspect     | Status                                               |
+| ---------- | ---------------------------------------------------- |
+| KDoc       | Missing on many public APIs                          |
+| Code style | Inconsistent (some files well-formatted, others not) |
 
 ---
 
 ## 5. Patterns That Affect Productivity
-
-### 5.1 Positive Patterns
-
-| Pattern                                        | Impact                       |
-| ---------------------------------------------- | ---------------------------- |
-| Consistent interface/implementation separation | Easy to find implementations |
-| Koin DI with feature modules                   | Clear dependency graph       |
-| Sealed classes for commands/results            | Exhaustive when expressions  |
-| `@Immutable` on domain models (where used)     | Compose performance          |
-| Generation counter for search cancellation     | Correct async pattern        |
-| TraceSection for startup profiling             | Performance visibility       |
 
 ### 5.2 Negative Patterns
 
@@ -206,19 +194,3 @@ The package structure is well-organized by layer and feature:
 3. **Add instrumentation tests** for key user flows
 4. **Establish coding standards** with ktlint + detekt enforced in CI
 5. **Create contributor guide** with troubleshooting section
-
----
-
-## 8. Priority Summary
-
-| Priority | Finding                                   | Impact                       |
-| -------- | ----------------------------------------- | ---------------------------- |
-| P1       | No `keystore.properties.example` template | Onboarding friction          |
-| P1       | Detekt not enforced in CI                 | Inconsistent quality         |
-| P1       | No test coverage for 40+ files            | Fear of making changes       |
-| P2       | Excessive inline comments in source       | Hard to scan code            |
-| P2       | Missing ADRs for key decisions            | Hard to understand rationale |
-| P2       | No ktlint formatting                      | Style debates                |
-| P3       | No dedicated docs for complex subsystems  | Learning curve               |
-| P3       | Very few `@Preview` annotations           | Visual testing friction      |
-| P3       | No changelog or release notes             | Release process              |

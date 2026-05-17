@@ -17,7 +17,7 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
-import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.decodeFromString
@@ -26,7 +26,7 @@ import kotlinx.serialization.json.Json
 
 class LauncherBackupRepositoryImpl(
     private val appContext: Context,
-    private val settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsReader,
     private val homeRepository: HomeRepository,
     private val appRepository: AppRepository,
     private val widgetHostManager: WidgetHostManager,

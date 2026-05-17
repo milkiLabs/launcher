@@ -13,19 +13,33 @@ import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.HiddenAppsRepository
+import com.milki.launcher.domain.repository.HomeTriggerRepository
+import com.milki.launcher.domain.repository.PrefixConfigurationRepository
+import com.milki.launcher.domain.repository.SearchSourceRepository
+import com.milki.launcher.domain.repository.SettingsReader
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * DataStore-backed implementation of [SettingsRepository]. Persistence mapping,
- * diff writing, and search-source mutation rules live in focused collaborators.
+ * DataStore-backed implementation of all focused settings interfaces.
+ *
+ * Persistence mapping, diff writing, and search-source mutation rules
+ * live in focused collaborators.
  */
 class SettingsRepositoryImpl(
     private val context: Context
-) : SettingsRepository {
+) : SettingsReader,
+    SearchSourceRepository,
+    PrefixConfigurationRepository,
+    HomeTriggerRepository,
+    HiddenAppsRepository {
 
     private val mutationStore = SettingsMutationStore()
+
+    // ========================================================================
+    // SettingsReader
+    // ========================================================================
 
     override val settings: Flow<LauncherSettings> = context.settingsDataStore.data
         .catchIoException()
@@ -44,33 +58,49 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun setMaxSearchResults(value: Int) {
+    // ========================================================================
+    // Targeted single-key setters
+    // ========================================================================
+
+    suspend fun setMaxSearchResults(value: Int) {
         writeIntSetting(SettingsPreferenceKeys.MAX_SEARCH_RESULTS, value)
     }
 
-    override suspend fun setAutoFocusKeyboard(value: Boolean) {
+    suspend fun setAutoFocusKeyboard(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.AUTO_FOCUS_KEYBOARD, value)
     }
 
-    override suspend fun setShowRecentApps(value: Boolean) {
+    suspend fun setShowRecentApps(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.SHOW_RECENT_APPS, value)
     }
 
-    override suspend fun setCloseSearchOnLaunch(value: Boolean) {
+    suspend fun setCloseSearchOnLaunch(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH, value)
     }
 
-    override suspend fun setSearchResultLayout(layout: SearchResultLayout) {
+    suspend fun setSearchResultLayout(layout: SearchResultLayout) {
         writeStringSetting(SettingsPreferenceKeys.SEARCH_RESULT_LAYOUT, layout.name)
     }
 
-    override suspend fun setShowHomescreenHint(value: Boolean) {
+    suspend fun setShowHomescreenHint(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.SHOW_HOMESCREEN_HINT, value)
     }
 
-    override suspend fun setShowAppIcons(value: Boolean) {
+    suspend fun setShowAppIcons(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.SHOW_APP_ICONS, value)
     }
+
+    suspend fun setContactsSearchEnabled(value: Boolean) {
+        writeBooleanSetting(SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED, value)
+    }
+
+    suspend fun setFilesSearchEnabled(value: Boolean) {
+        writeBooleanSetting(SettingsPreferenceKeys.FILES_SEARCH_ENABLED, value)
+    }
+
+    // ========================================================================
+    // HomeTriggerRepository
+    // ========================================================================
 
     override suspend fun setTriggerAction(
         trigger: LauncherTrigger,
@@ -109,13 +139,9 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun setContactsSearchEnabled(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED, value)
-    }
-
-    override suspend fun setFilesSearchEnabled(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.FILES_SEARCH_ENABLED, value)
-    }
+    // ========================================================================
+    // SearchSourceRepository
+    // ========================================================================
 
     override suspend fun addSearchSource(source: SearchSource): PrefixMutationResult {
         var result: PrefixMutationResult = PrefixMutationResult.Success
@@ -192,6 +218,44 @@ class SettingsRepositoryImpl(
         }
     }
 
+    override suspend fun addPrefixToSource(
+        sourceId: String,
+        prefix: String
+    ): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
+
+        context.settingsDataStore.edit { preferences ->
+            result = mutationStore.addPrefixToSource(
+                preferences = preferences,
+                sourceId = sourceId,
+                prefix = prefix
+            )
+        }
+
+        return result
+    }
+
+    override suspend fun removePrefixFromSource(
+        sourceId: String,
+        prefix: String
+    ): PrefixMutationResult {
+        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
+
+        context.settingsDataStore.edit { preferences ->
+            result = mutationStore.removePrefixFromSource(
+                preferences = preferences,
+                sourceId = sourceId,
+                prefix = prefix
+            )
+        }
+
+        return result
+    }
+
+    // ========================================================================
+    // PrefixConfigurationRepository
+    // ========================================================================
+
     override suspend fun setProviderPrefixes(
         providerId: String,
         prefixes: List<String>
@@ -253,6 +317,19 @@ class SettingsRepositoryImpl(
         }
     }
 
+    override suspend fun setAllPrefixConfigurations(configurations: ProviderPrefixConfiguration) {
+        context.settingsDataStore.edit { preferences ->
+            mutationStore.setAllPrefixConfigurations(
+                preferences = preferences,
+                configurations = configurations
+            )
+        }
+    }
+
+    // ========================================================================
+    // HiddenAppsRepository
+    // ========================================================================
+
     override suspend fun toggleHiddenApp(packageName: String) {
         context.settingsDataStore.edit { preferences ->
             val currentHiddenApps =
@@ -268,48 +345,9 @@ class SettingsRepositoryImpl(
         }
     }
 
-    override suspend fun setAllPrefixConfigurations(configurations: ProviderPrefixConfiguration) {
-        context.settingsDataStore.edit { preferences ->
-            mutationStore.setAllPrefixConfigurations(
-                preferences = preferences,
-                configurations = configurations
-            )
-        }
-    }
-
-    override suspend fun addPrefixToSource(
-        sourceId: String,
-        prefix: String
-    ): PrefixMutationResult {
-        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
-
-        context.settingsDataStore.edit { preferences ->
-            result = mutationStore.addPrefixToSource(
-                preferences = preferences,
-                sourceId = sourceId,
-                prefix = prefix
-            )
-        }
-
-        return result
-    }
-
-    override suspend fun removePrefixFromSource(
-        sourceId: String,
-        prefix: String
-    ): PrefixMutationResult {
-        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
-
-        context.settingsDataStore.edit { preferences ->
-            result = mutationStore.removePrefixFromSource(
-                preferences = preferences,
-                sourceId = sourceId,
-                prefix = prefix
-            )
-        }
-
-        return result
-    }
+    // ========================================================================
+    // Private helpers
+    // ========================================================================
 
     private suspend fun writeBooleanSetting(
         key: Preferences.Key<Boolean>,

@@ -48,7 +48,7 @@ import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.repository.AppRepository
-import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
@@ -91,7 +91,7 @@ import kotlinx.coroutines.withContext
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
-    private val settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsReader,
     private val providerRegistry: SearchProviderRegistry,
     private val searchProviderFactory: SearchProviderFactory,
     private val filterAppsUseCase: FilterAppsUseCase,

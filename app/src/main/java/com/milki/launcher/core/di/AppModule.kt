@@ -12,7 +12,7 @@
  * │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐             │
  * │  │ coreModule   │  │ searchModule │  │ homeModule   │             │
  * │  │ AppRepository│  │ ContactsRepo │  │ HomeRepo     │             │
- * │  │ SettingsRepo │  │ FilesRepo    │  │ HomeViewModel│             │
+ * │  │ SettingsReader│  │ FilesRepo    │  │ HomeViewModel│             │
  * │  │              │  │ Providers    │  │              │             │
  * │  │              │  │ UseCases     │  │              │             │
  * │  │              │  │ SearchVM     │  │              │             │
@@ -41,7 +41,7 @@
  * - All modules follow: presentation → domain → data
  *
  * MODULE FILES:
- * - CoreModule.kt     → Shared repositories (AppRepository, SettingsRepository)
+ * - CoreModule.kt     → Shared repositories (AppRepository, SettingsReader + focused interfaces)
  * - SearchModule.kt   → Search feature (ContactsRepo, FilesRepo, providers, use cases, SearchVM)
  * - HomeModule.kt     → Home screen feature (HomeRepository, HomeViewModel)
  * - WidgetModule.kt   → Widget infrastructure (WidgetHostManager)

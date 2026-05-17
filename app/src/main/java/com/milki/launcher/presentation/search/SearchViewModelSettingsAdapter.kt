@@ -4,7 +4,7 @@ import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import kotlinx.coroutines.CoroutineScope
@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
  * stay focused on lifecycle + public API behavior.
  */
 internal class SearchViewModelSettingsAdapter(
-    private val settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsReader,
     private val providerRegistry: SearchProviderRegistry,
     private val searchProviderFactory: SearchProviderFactory
 ) {

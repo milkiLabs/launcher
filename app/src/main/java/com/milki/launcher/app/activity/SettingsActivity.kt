@@ -36,7 +36,7 @@ class SettingsActivity : ComponentActivity() {
      * SettingsViewModel instance provided by Koin.
      *
      * Koin's viewModel() delegate handles:
-     * - Creating the ViewModel with all its dependencies (SettingsRepository)
+     * - Creating the ViewModel with all its focused repository dependencies
      * - Scoping the ViewModel to this Activity's lifecycle
      * - Surviving configuration changes (screen rotation)
      * - Clearing when the Activity is destroyed

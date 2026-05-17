@@ -1,12 +1,9 @@
 /**
  * SettingsViewModel.kt - ViewModel for the settings screen
  *
- * Manages the settings UI state and handles user interactions.
- * Follows the same UDF pattern as SearchViewModel.
- *
  * RESPONSIBILITIES:
- * - Observe settings from SettingsRepository
- * - Apply user-requested setting changes
+ * - Observe settings from SettingsReader
+ * - Apply user-requested setting changes via focused repositories
  * - NOT responsible for rendering UI (that's the Composables)
  */
 
@@ -27,10 +24,14 @@ import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.UrlHandlerApp
+import com.milki.launcher.domain.repository.HiddenAppsRepository
+import com.milki.launcher.domain.repository.HomeTriggerRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
-import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.PrefixConfigurationRepository
+import com.milki.launcher.domain.repository.SearchSourceRepository
+import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import com.milki.launcher.domain.search.UrlHandlerResolver
 import kotlinx.coroutines.Dispatchers
@@ -43,11 +44,13 @@ import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for the settings screen.
- *
- * @param settingsRepository Repository for reading/writing settings
  */
 class SettingsViewModel(
-    private val settingsRepository: SettingsRepository,
+    private val settingsReader: SettingsReader,
+    private val searchSourceRepository: SearchSourceRepository,
+    private val prefixConfigRepository: PrefixConfigurationRepository,
+    private val homeTriggerRepository: HomeTriggerRepository,
+    private val hiddenAppsRepository: HiddenAppsRepository,
     appRepository: AppRepository,
     private val actionShortcutRepository: ActionShortcutRepository,
     private val launcherBackupRepository: LauncherBackupRepository,
@@ -64,9 +67,8 @@ class SettingsViewModel(
 
     /**
      * Current settings state, observed from the repository.
-     * Starts with default settings until DataStore emits.
      */
-    val settings: StateFlow<LauncherSettings> = settingsRepository.settings
+    val settings: StateFlow<LauncherSettings> = settingsReader.settings
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -94,28 +96,24 @@ class SettingsViewModel(
     val lastImportReport: StateFlow<LauncherImportResult?> = _lastImportReport
 
     // ========================================================================
-    // SEARCH BEHAVIOR
-    // ========================================================================
-
-    // ========================================================================
     // APPEARANCE
     // ========================================================================
 
     fun setSearchResultLayout(layout: SearchResultLayout) {
         viewModelScope.launch {
-            settingsRepository.setSearchResultLayout(layout)
+            settingsReader.updateSettings { it.copy(searchResultLayout = layout) }
         }
     }
 
     fun setShowHomescreenHint(value: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setShowHomescreenHint(value)
+            settingsReader.updateSettings { it.copy(showHomescreenHint = value) }
         }
     }
 
     fun setShowAppIcons(value: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setShowAppIcons(value)
+            settingsReader.updateSettings { it.copy(showAppIcons = value) }
         }
     }
 
@@ -128,7 +126,7 @@ class SettingsViewModel(
         action: LauncherTriggerAction
     ) {
         viewModelScope.launch {
-            settingsRepository.setTriggerAction(trigger, action)
+            homeTriggerRepository.setTriggerAction(trigger, action)
         }
     }
 
@@ -137,7 +135,7 @@ class SettingsViewModel(
         target: LauncherTriggerTarget
     ) {
         viewModelScope.launch {
-            settingsRepository.setTriggerOpenAppTarget(trigger, target)
+            homeTriggerRepository.setTriggerOpenAppTarget(trigger, target)
         }
     }
 
@@ -147,13 +145,13 @@ class SettingsViewModel(
 
     fun setContactsSearchEnabled(value: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setContactsSearchEnabled(value)
+            settingsReader.updateSettings { it.copy(contactsSearchEnabled = value) }
         }
     }
 
     fun setFilesSearchEnabled(value: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setFilesSearchEnabled(value)
+            settingsReader.updateSettings { it.copy(filesSearchEnabled = value) }
         }
     }
 
@@ -181,7 +179,7 @@ class SettingsViewModel(
                 accentColorHex = accentColorHex
             )
 
-            val mutationResult = settingsRepository.addSearchSource(newSource)
+            val mutationResult = searchSourceRepository.addSearchSource(newSource)
             onValidationResult(mutationResult.toPrefixUserMessage())
         }
     }
@@ -200,7 +198,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             val normalizedPrefixes = SearchSource.normalizePrefixes(prefixes)
 
-            val mutationResult = settingsRepository.updateSearchSource(
+            val mutationResult = searchSourceRepository.updateSearchSource(
                 sourceId = sourceId,
                 name = name.trim(),
                 urlTemplate = urlTemplate.trim(),
@@ -216,7 +214,7 @@ class SettingsViewModel(
      */
     fun deleteSearchSource(sourceId: String) {
         viewModelScope.launch {
-            settingsRepository.deleteSearchSource(sourceId)
+            searchSourceRepository.deleteSearchSource(sourceId)
         }
     }
 
@@ -225,7 +223,7 @@ class SettingsViewModel(
      */
     fun setSearchSourceEnabled(sourceId: String, enabled: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setSearchSourceEnabled(sourceId, enabled)
+            searchSourceRepository.setSearchSourceEnabled(sourceId, enabled)
         }
     }
 
@@ -234,30 +232,21 @@ class SettingsViewModel(
      */
     fun setSearchSourceSuggestedAction(sourceId: String, showAsSuggestedAction: Boolean) {
         viewModelScope.launch {
-            settingsRepository.setSearchSourceSuggestedAction(sourceId, showAsSuggestedAction)
+            searchSourceRepository.setSearchSourceSuggestedAction(sourceId, showAsSuggestedAction)
         }
     }
 
     /**
      * Sets the preferred default search engine source.
-     *
-     * Passing null clears the preference, falling back to the first enabled source.
      */
     fun setDefaultSearchSource(sourceId: String?) {
         viewModelScope.launch {
-            settingsRepository.setDefaultSearchSourceId(sourceId)
+            searchSourceRepository.setDefaultSearchSourceId(sourceId)
         }
     }
 
     /**
      * Adds a prefix to a source.
-     *
-     * INPUT VALIDATION STRATEGY:
-     * 1) Keep immediate client-side checks for empty/spacing so dialog UX stays snappy.
-     * 2) Delegate uniqueness and source-existence validation to repository transaction.
-     *
-     * This split gives quick feedback without relying on potentially stale snapshots
-     * for correctness-critical uniqueness rules.
      */
     fun addPrefixToSource(sourceId: String, prefix: String, onValidationResult: (String) -> Unit) {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
@@ -275,7 +264,7 @@ class SettingsViewModel(
         }
 
         viewModelScope.launch {
-            val mutationResult = settingsRepository.addPrefixToSource(
+            val mutationResult = searchSourceRepository.addPrefixToSource(
                 sourceId = sourceId,
                 prefix = normalizedPrefix
             )
@@ -285,15 +274,12 @@ class SettingsViewModel(
 
     /**
      * Removes one prefix from a source.
-     *
-     * The operation is executed in repository-level transaction to keep behavior
-     * deterministic when source data changes concurrently.
      */
     fun removePrefixFromSource(sourceId: String, prefix: String) {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
 
         viewModelScope.launch {
-            settingsRepository.removePrefixFromSource(
+            searchSourceRepository.removePrefixFromSource(
                 sourceId = sourceId,
                 prefix = normalizedPrefix
             )
@@ -321,12 +307,6 @@ class SettingsViewModel(
 
     /**
      * Set the prefixes for a specific provider.
-     *
-     * This replaces all existing prefixes for the provider with the new list.
-     * The first prefix in the list is considered the "primary" prefix for display.
-     *
-     * @param providerId The provider ID (contacts/files)
-     * @param prefixes List of prefixes to set for this provider
      */
     fun setProviderPrefixes(
         providerId: String,
@@ -334,23 +314,17 @@ class SettingsViewModel(
         onValidationResult: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            val mutationResult = settingsRepository.setProviderPrefixes(providerId, prefixes)
+            val mutationResult = prefixConfigRepository.setProviderPrefixes(providerId, prefixes)
             onValidationResult(mutationResult.toPrefixUserMessage())
         }
     }
 
     /**
      * Add a prefix to a provider's existing prefixes.
-     *
-     * If the provider has no existing configuration, this creates one with
-     * the default prefix plus the new prefix.
-     *
-     * @param providerId The provider ID
-     * @param prefix The prefix to add
      */
     fun addProviderPrefix(providerId: String, prefix: String, onValidationResult: (String) -> Unit) {
         viewModelScope.launch {
-            val mutationResult = settingsRepository.addProviderPrefix(
+            val mutationResult = prefixConfigRepository.addProviderPrefix(
                 providerId = providerId,
                 prefix = prefix,
                 defaultPrefix = getDefaultPrefix(providerId)
@@ -361,49 +335,33 @@ class SettingsViewModel(
 
     /**
      * Remove a prefix from a provider's prefixes.
-     *
-     * If this is the last prefix, the provider will fall back to its default prefix.
-     *
-     * @param providerId The provider ID
-     * @param prefix The prefix to remove
      */
     fun removeProviderPrefix(providerId: String, prefix: String) {
         viewModelScope.launch {
-            settingsRepository.removeProviderPrefix(providerId, prefix)
+            prefixConfigRepository.removeProviderPrefix(providerId, prefix)
         }
     }
 
     /**
      * Reset a provider's prefixes to the default.
-     *
-     * This removes any custom configuration for the provider.
-     *
-     * @param providerId The provider ID to reset
      */
     fun resetProviderPrefixes(providerId: String) {
         viewModelScope.launch {
-            settingsRepository.resetProviderPrefixes(providerId)
+            prefixConfigRepository.resetProviderPrefixes(providerId)
         }
     }
 
     /**
      * Reset all prefix configurations to defaults.
-     *
-     * This removes all custom prefix configurations.
      */
     fun resetAllPrefixConfigurations() {
         viewModelScope.launch {
-            settingsRepository.resetAllPrefixConfigurations()
+            prefixConfigRepository.resetAllPrefixConfigurations()
         }
     }
 
     /**
      * Get the default prefix for a provider.
-     *
-     * This is used when there's no custom configuration for the provider.
-     *
-     * @param providerId The provider ID
-     * @return The default prefix for this provider
      */
     private fun getDefaultPrefix(providerId: String): String {
         return PrefixConfig.defaults[providerId]?.primaryPrefix.orEmpty()
@@ -415,7 +373,7 @@ class SettingsViewModel(
 
     fun toggleHiddenApp(packageName: String) {
         viewModelScope.launch {
-            settingsRepository.toggleHiddenApp(packageName)
+            hiddenAppsRepository.toggleHiddenApp(packageName)
         }
     }
 
@@ -425,7 +383,7 @@ class SettingsViewModel(
 
     fun resetToDefaults() {
         viewModelScope.launch {
-            settingsRepository.updateSettings { LauncherSettings() }
+            settingsReader.updateSettings { LauncherSettings() }
         }
     }
 

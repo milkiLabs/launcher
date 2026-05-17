@@ -27,7 +27,7 @@
  * DEPENDENCIES ON OTHER MODULES:
  * This module depends on coreModule for:
  * - AppRepository (SearchViewModel needs it to search installed apps)
- * - SettingsRepository (SearchViewModel needs it to read prefix configurations)
+ * - SettingsReader (SearchViewModel needs it to read prefix configurations)
  *
  * DEPENDENCY DIRECTION:
  *   searchModule → coreModule (allowed)
@@ -57,7 +57,7 @@ import org.koin.dsl.module
  * Search module — all search feature dependencies.
  *
  * This module is loaded alongside coreModule. It can call get() to retrieve
- * AppRepository and SettingsRepository from coreModule because Koin merges
+ * AppRepository and SettingsReader from coreModule because Koin merges
  * all modules into one global container at startup. The get() calls resolve
  * across module boundaries automatically.
  */
@@ -210,7 +210,7 @@ val searchModule = module {
      * - URL handling (via UrlHandlerResolver)
      * - Clipboard suggestions (via ClipboardSuggestionResolver)
      * - Recent items (via AppRepository, ContactsRepository)
-     * - Settings-driven behavior (via SettingsRepository for prefix configs)
+     * - Settings-driven behavior (via SettingsReader for prefix configs)
      *
      * LIFECYCLE: Scoped to the Activity/Composable that requests it.
      *            Survives configuration changes (screen rotation).
@@ -219,14 +219,14 @@ val searchModule = module {
      * DEPENDENCIES (6 total):
      * - AppRepository (from coreModule — installed apps and recent apps)
      * - ContactsRepository (from this module — recent contacts)
-     * - SettingsRepository (from coreModule — prefix configurations)
+     * - SettingsReader (from coreModule — prefix configurations)
      * - SearchProviderRegistry (from this module — search providers)
      * - FilterAppsUseCase (from this module — app filtering logic)
      * - ClipboardSuggestionResolver (from this module — clipboard suggestions)
      */
     viewModel {
         // Each get() call resolves a dependency from Koin's global container.
-        // Some come from coreModule (AppRepository, SettingsRepository),
+        // Some come from coreModule (AppRepository, SettingsReader),
         // and the rest come from this searchModule.
         SearchViewModel(
             appRepository = get(),

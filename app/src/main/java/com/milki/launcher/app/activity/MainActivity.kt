@@ -19,7 +19,7 @@ import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.HomeRepository
-import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.presentation.drawer.AppDrawerViewModel
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.search.SearchViewModel
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
     // ── Eagerly resolved: needed for the first visible frame ──────────
     private val homeViewModel: HomeViewModel by viewModel()
     private val homeRepository: HomeRepository by inject()
-    private val settingsRepository: SettingsRepository by inject()
+    private val settingsRepository: SettingsReader by inject()
     private val actionShortcutRepository: ActionShortcutRepository by inject()
     private val widgetHostManager: WidgetHostManager by inject()
 

@@ -30,7 +30,7 @@ import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.model.targetForTrigger
-import com.milki.launcher.domain.repository.SettingsRepository
+import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
  * STARTUP OPTIMIZATION:
  * SearchViewModel and AppDrawerViewModel are accepted as provider functions so
  * their Koin construction is deferred until actual use. On the first frame, only
- * HomeViewModel state (pinnedItems) and SettingsRepository (launcherSettings)
+ * HomeViewModel state (pinnedItems) and SettingsReader (launcherSettings)
  * are collected. Search and drawer state collection is deferred until the VMs
  * are resolved (which happens after the first frame via deferred startup or
  * user interaction).
@@ -74,7 +74,7 @@ internal fun LauncherRootContent(
     searchViewModelProvider: () -> SearchViewModel,
     homeViewModel: HomeViewModel,
     appDrawerViewModelProvider: () -> AppDrawerViewModel,
-    settingsRepository: SettingsRepository,
+    settingsRepository: SettingsReader,
     appRepositoryProvider: () -> AppRepository,
     actionShortcutRepository: ActionShortcutRepository,
     widgetHostManager: WidgetHostManager,

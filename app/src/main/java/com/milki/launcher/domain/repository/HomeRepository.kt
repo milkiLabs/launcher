@@ -2,7 +2,7 @@
  * HomeRepository.kt - Repository interface for home screen pinned items
  *
  * This repository manages the items pinned to the launcher's home screen.
- * It follows the same repository pattern as SettingsRepository and AppRepository.
+ * It follows the same repository pattern as the focused settings interfaces and AppRepository.
  *
  * RESPONSIBILITIES:
  * - Store and retrieve pinned items
@@ -10,7 +10,7 @@
  * - Handle add/remove operations
  *
  * IMPLEMENTATION:
- * HomeRepositoryImpl uses DataStore for persistence, similar to SettingsRepository.
+ * HomeRepositoryImpl uses DataStore for persistence, similar to SettingsRepositoryImpl.
  * Each item is serialized to a string and stored in a StringSet.
  */
 

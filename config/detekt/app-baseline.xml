@@ -115,7 +115,6 @@
     <ID>TooGenericExceptionCaught:DragGestureDetector.kt:e: Exception</ID>
     <ID>TooManyFunctions:ActionExecutor.kt:ActionExecutor</ID>
     <ID>TooManyFunctions:HomeViewModel.kt:HomeViewModel : ViewModelHomeMutationHandler</ID>
-    <ID>TooManyFunctions:SettingsRepository.kt:SettingsRepository</ID>
     <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
   </CurrentIssues>
 </SmellBaseline>
