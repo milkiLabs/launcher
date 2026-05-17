@@ -21,11 +21,12 @@ import kotlinx.coroutines.launch
  */
 class HomeRepositoryImpl(
     context: Context
-) : HomeRepository {
+) : HomeRepository, AutoCloseable {
 
     private val snapshotStore = HomeSnapshotStore(context)
     private val occupancyPolicy = HomeGridOccupancyPolicy()
-    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val repositoryJob = SupervisorJob()
+    private val repositoryScope = CoroutineScope(repositoryJob + Dispatchers.IO)
 
     @Volatile
     private var latestPinnedItems: List<HomeItem>? = null
@@ -70,5 +71,9 @@ class HomeRepositoryImpl(
     override suspend fun clearAll() {
         latestPinnedItems = emptyList()
         snapshotStore.clearAll()
+    }
+
+    override fun close() {
+        repositoryJob.cancel()
     }
 }
