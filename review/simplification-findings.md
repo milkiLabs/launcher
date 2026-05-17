@@ -224,36 +224,6 @@ Four nearly identical `registerForActivityResult` blocks (contacts, call, files,
 
 **Savings:** ~15 lines
 
-### 3.6 PermissionHandler — Merge accessState Methods (12 lines)
-
-`accessStateForRuntimePermission` and `accessStateForSpecialPermission` have identical structure with only the permission check function differing.
-
-**Action:** Single method with `checkGranted: () -> Boolean` parameter.
-
-**Savings:** ~12 lines
-
----
-
-## 4. Merge Opportunities — Consolidate (130 lines)
-
-### 4.1 Recent Storage Classes → Generic Base (80 lines)
-
-Three files follow the **identical** "LRU list stored as CSV in DataStore" pattern:
-
-| File                                       | Lines | Data Type              |
-| ------------------------------------------ | ----- | ---------------------- |
-| `data/repository/apps/RecentAppsStore.kt`  | ~75   | `String` (app IDs)     |
-| `data/repository/ContactsRecentStorage.kt` | ~83   | `String` (contact IDs) |
-| `data/repository/FilesRecentStorage.kt`    | ~79   | `Long` (file IDs)      |
-
-All three have identical `saveRecent()` (remove old, add front, `take(max)`) and `observeRecent()` (DataStore flow → parse CSV → map) logic.
-
-**Action:** Create a generic `RecentListStorage<T>` base class (~40 lines) with 3 thin subclasses (~15 lines each).
-
-**Current:** 75 + 83 + 79 = 237 lines
-**After:** 40 + 15 + 15 + 15 = 85 lines
-**Savings:** ~152 lines
-
 ---
 
 ## 6. Comment/Doc Bloat in Source Files
