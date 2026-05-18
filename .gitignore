@@ -28,3 +28,16 @@ website/docs/.vitepress/cache/
 
 # Kotlin cache
 .kotlin/
+
+# Build artifacts
+*.apk
+*.aab
+
+# Logs and profiles
+*.log
+*.hprof
+
+# Secrets and keys
+.env
+*.jks
+*.keystore

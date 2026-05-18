@@ -200,46 +200,7 @@ The baseline suppresses issues across all categories. New code should not add to
 
 ---
 
-## 7. .gitignore Completeness
-
-### 7.1 Issues
-
-| Issue                                                                        | Severity |
-| ---------------------------------------------------------------------------- | -------- |
-| `keystore.properties` in .gitignore but file exists (likely tracked)         | HIGH     |
-| Redundant entries: `/local.properties` and `local.properties`                | LOW      |
-| Missing: `*.log`, `*.hprof`, `*.jks`, `*.keystore`, `.env`, `*.apk`, `*.aab` | LOW      |
-
-### 7.2 Recommendation
-
-```gitignore
-# Add:
-*.log
-*.hprof
-*.jks
-*.keystore
-secrets/
-.env
-.env.*
-*.apk
-*.aab
-*.ap_
-*.dex
-```
-
----
-
 ## 8. Build Performance
-
-### 8.1 Good Practices
-
-| Setting                         | File                          | Status  |
-| ------------------------------- | ----------------------------- | ------- |
-| Configuration cache             | `gradle.properties:1`         | ENABLED |
-| Parallel execution              | `gradle.properties:2`         | ENABLED |
-| Build cache                     | `gradle.properties:3`         | ENABLED |
-| Non-transitive R class          | `gradle.properties:7`         | ENABLED |
-| Gradle wrapper SHA verification | `gradle-wrapper.properties:4` | ENABLED |
 
 ### 8.2 Improvements
 
