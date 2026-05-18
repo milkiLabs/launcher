@@ -139,10 +139,10 @@ private fun ItemActionMenuBubble(
     onExternalDragStarted: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val surfaceColor = Color(0xFF2F323A).copy(alpha = 0.97f)
-    val iconTintDefault = Color.White.copy(alpha = 0.96f)
-    val textColorDefault = Color.White.copy(alpha = 0.98f)
-    val destructiveColor = Color(0xFFFFB4AB)
+    val surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
+    val iconTintDefault = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.96f)
+    val textColorDefault = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.98f)
+    val destructiveColor = MaterialTheme.colorScheme.error
     val hapticFeedback = LocalHapticFeedback.current
     val hostView = LocalView.current
     val arrowOffset = with(LocalDensity.current) { placement.arrowOffsetPx.toDp() }

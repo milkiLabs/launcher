@@ -255,46 +255,8 @@ org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+UseParallelGC
 
 ---
 
-## 9. Manifest Security
-
-### 9.1 Exported Components
-
-| Component                     | Exported                        | Assessment              |
-| ----------------------------- | ------------------------------- | ----------------------- |
-| `MainActivity`                | `true`                          | CORRECT — launcher home |
-| `SettingsActivity`            | `false`                         | CORRECT                 |
-| `LauncherDeviceAdminReceiver` | `true` with `BIND_DEVICE_ADMIN` | CORRECT                 |
-
 ### 9.2 Permission Analysis
 
-| Permission                          | Type                 | Needed?                          |
-| ----------------------------------- | -------------------- | -------------------------------- |
-| `CALL_PHONE`                        | Dangerous            | Questionable — use `ACTION_DIAL` |
-| `READ_CONTACTS`                     | Dangerous            | Yes — contact search             |
-| `BIND_APPWIDGET`                    | Signature/privileged | NO — remove                      |
-| `EXPAND_STATUS_BAR`                 | Protected            | NO — remove                      |
-| `READ_EXTERNAL_STORAGE` (maxSdk 32) | Dangerous            | Yes — legacy support             |
-| `READ_MEDIA_IMAGES/VIDEO/AUDIO`     | Dangerous            | Yes — file search                |
-| `MANAGE_EXTERNAL_STORAGE`           | Special              | Questionable                     |
-| `REQUEST_DELETE_PACKAGES`           | Normal               | Yes — uninstall apps             |
-| `QUERY_ALL_PACKAGES`                | Special              | Yes — launcher                   |
-| `REQUEST_PIN_SHORTCUTS`             | Normal               | Yes — shortcut pinning           |
-
----
-
-## 10. Priority Summary
-
-| Priority | Finding                                     | File                               | Impact              |
-| -------- | ------------------------------------------- | ---------------------------------- | ------------------- |
-| P0       | Rotate keystore — passwords exposed         | `keystore.properties`              | Security            |
-| P0       | Add ProGuard rules for serialization + Koin | `app/proguard-rules.pro`           | Release crash       |
-| P1       | Restrict backup/extraction rules            | `backup_rules.xml`                 | Privacy             |
-| P1       | Remove duplicate release workflow           | `.github/workflows/`               | CI confusion        |
-| P1       | Add lint/detekt to CI                       | `.github/workflows/ci-android.yml` | Quality gate        |
-| P1       | Fix JDK version mismatch (17 vs 21)         | `.github/workflows/ci-android.yml` | Build consistency   |
-| P2       | Remove impossible system permissions        | `AndroidManifest.xml`              | Manifest hygiene    |
-| P2       | Enable `warningsAsErrors` for Detekt in CI  | `config/detekt/detekt.yml`         | Quality gate        |
-| P2       | Increase Gradle JVM heap                    | `gradle.properties:4`              | Build performance   |
-| P3       | Add `enableOnBackInvokedCallback`           | `AndroidManifest.xml`              | Android 14+ support |
-| P3       | Remove unused Coil from catalog             | `libs.versions.toml:14`            | Confusion           |
-| P3       | Add `kotlin-android` plugin to app module   | `app/build.gradle.kts:1-6`         | Build stability     |
+| Permission   | Type      | Needed?                          |
+| ------------ | --------- | -------------------------------- |
+| `CALL_PHONE` | Dangerous | Questionable — use `ACTION_DIAL` |

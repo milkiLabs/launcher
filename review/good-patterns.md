@@ -118,3 +118,83 @@ These areas are complex but **correctly so** — simplifying them would introduc
 | `SearchProviderRegistry` prefix routing | Multi-provider prefix matching is inherently complex.                          |
 | `WidgetHostManager` lifecycle           | AppWidgetHost lifecycle is fragile; the careful state management is necessary. |
 | `HomeAvailabilityPruner`                | ContentObserver + DataStore sync is correctly complex.                         |
+
+### 1.2 Gesture Handling
+
+**Good:** Consistent drag-and-drop architecture with layered approach (`InternalGridDragLayer`, `ExternalDropRoutingLayer`, `WidgetOverlayLayer`, `DropHighlightLayer`).
+
+## 12. Drag and Drop UX
+
+### 12.1 Strengths
+
+- Layered architecture with separate drag, drop routing, highlight, and widget overlay layers
+- Preview position uses same reorder engine as commit
+- Auto-paging when dragging to folder edges
+- Drag-out-to-extract from folder with platform drag
+
+## 2. Android Launcher Best Practices
+
+### 2.1 HOME Intent Handling
+
+**Good:**
+
+- Proper `ACTION_MAIN` + `CATEGORY_HOME` + `CATEGORY_DEFAULT` intent filter
+- `singleTask` launch mode
+- Default launcher detection using `RoleManager.ROLE_HOME` with fallback
+- HOME role request with cascading fallbacks
+
+### 2.3 Widget Hosting
+
+**Good:**
+
+- Proper `AppWidgetHost` lifecycle with `startListening`/`stopListening`
+- Proper widget ID allocation/deallocation
+- `WidgetLongPressFrameLayout` for reliable long-press detection
+- API-level branching for `SIZEF` (API 31+) vs deprecated method
+
+## 5. Error UX
+
+### 5.1 Good Patterns
+
+- `PermissionHandler` — context-specific messages for each permission type
+- `HomeViewModel` — `MutableStateFlow<String?>` for `lastMoveErrorMessage` with mutation counting
+
+## 7. Configuration Change Handling
+
+### 7.1 ViewModel Survival
+
+**Good:** All ViewModels extend `ViewModel` and survive configuration changes. Koin's `viewModel()` delegate handles this correctly.
+
+## 8. Multi-Window & Foldable Support
+
+### 8.1 Multi-Window
+
+**Good:**
+
+- `android:resizeableActivity="true"` declared on application and MainActivity
+
+## 9. RTL Layout Support
+
+### 9.1 Declaration
+
+**Good:** `android:supportsRtl="true"` declared in manifest.
+
+## 10. Dark Mode Support
+
+### 10.1 Theme Implementation
+
+**Good:**
+
+- Dynamic color support on Android 12+
+- Fallback to static light/dark schemes
+
+## 3. Existing Test Quality
+
+### 3.1 Strengths
+
+| Test                                                    | Quality                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------- |
+| `GridReorderEngineDeterminismTest.kt`                   | Tests determinism — important for drag-drop consistency |
+| `HomeModelWriterTest.kt`                                | Tests core domain mutation logic                        |
+| `AppQueryRankerTest.kt`                                 | Tests search ranking algorithm                          |
+| `WidgetLayoutPolicyTest.kt` / `WidgetSpanPolicyTest.kt` | Tests widget layout policies                            |

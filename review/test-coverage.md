@@ -8,40 +8,40 @@
 
 ### 1.1 Unit Tests (27 files)
 
-| Test File | What It Tests |
-|-----------|---------------|
-| `LauncherActivityIntentTest.kt` | Benchmark intent parsing |
-| `PermissionOutcomeResolverTest.kt` | Permission state resolution |
-| `SettingsMutationStorePrefixConflictTest.kt` | Prefix conflict detection |
+| Test File                                       | What It Tests                     |
+| ----------------------------------------------- | --------------------------------- |
+| `LauncherActivityIntentTest.kt`                 | Benchmark intent parsing          |
+| `PermissionOutcomeResolverTest.kt`              | Permission state resolution       |
+| `SettingsMutationStorePrefixConflictTest.kt`    | Prefix conflict detection         |
 | `ContactsSearchProviderPermissionPromptTest.kt` | Contact search permission prompts |
-| `FilesSearchProviderPermissionPromptTest.kt` | File search permission prompts |
-| `GridReorderEngineDeterminismTest.kt` | Grid reorder determinism |
-| `HomeModelWriterTest.kt` | Home model mutations |
-| `LauncherInteractionCatalogTest.kt` | Interaction catalog |
-| `AppQueryRankerTest.kt` | App search ranking |
-| `WidgetLayoutPolicyTest.kt` | Widget layout policy |
-| `WidgetSpanPolicyTest.kt` | Widget span policy |
-| `WidgetTransformFrameTest.kt` | Widget transform frame |
-| `DrawerListAssemblerTest.kt` | Drawer list assembly |
-| `SurfaceStateCoordinatorTest.kt` | Surface state coordination |
-| `SearchResultActionTest.kt` | Search result actions |
-| `AppItemContextMenuSupportTest.kt` | Context menu support |
-| `AppDrawerOverlayKeyTest.kt` | Drawer overlay key handling |
-| `DraggablePinnedItemsGridLookupTest.kt` | Grid lookup |
-| `ExternalHomeDropActionTest.kt` | External drop actions |
-| `ExternalHomeDropPreviewTest.kt` | External drop preview |
-| `HomeSurfaceInteractionControllerTest.kt` | Surface interaction |
-| `InternalHomeDropActionTest.kt` | Internal drop actions |
-| `ItemActionMenuPlacementTest.kt` | Menu placement |
-| `FolderPopupLayoutTest.kt` | Folder popup layout |
-| `HomeBackgroundGesturePolicyTest.kt` | Background gesture policy |
-| `LauncherActionsContractTest.kt` | Actions contract |
-| `LauncherSheetHostPolicyTest.kt` | Sheet host policy |
+| `FilesSearchProviderPermissionPromptTest.kt`    | File search permission prompts    |
+| `GridReorderEngineDeterminismTest.kt`           | Grid reorder determinism          |
+| `HomeModelWriterTest.kt`                        | Home model mutations              |
+| `LauncherInteractionCatalogTest.kt`             | Interaction catalog               |
+| `AppQueryRankerTest.kt`                         | App search ranking                |
+| `WidgetLayoutPolicyTest.kt`                     | Widget layout policy              |
+| `WidgetSpanPolicyTest.kt`                       | Widget span policy                |
+| `WidgetTransformFrameTest.kt`                   | Widget transform frame            |
+| `DrawerListAssemblerTest.kt`                    | Drawer list assembly              |
+| `SurfaceStateCoordinatorTest.kt`                | Surface state coordination        |
+| `SearchResultActionTest.kt`                     | Search result actions             |
+| `AppItemContextMenuSupportTest.kt`              | Context menu support              |
+| `AppDrawerOverlayKeyTest.kt`                    | Drawer overlay key handling       |
+| `DraggablePinnedItemsGridLookupTest.kt`         | Grid lookup                       |
+| `ExternalHomeDropActionTest.kt`                 | External drop actions             |
+| `ExternalHomeDropPreviewTest.kt`                | External drop preview             |
+| `HomeSurfaceInteractionControllerTest.kt`       | Surface interaction               |
+| `InternalHomeDropActionTest.kt`                 | Internal drop actions             |
+| `ItemActionMenuPlacementTest.kt`                | Menu placement                    |
+| `FolderPopupLayoutTest.kt`                      | Folder popup layout               |
+| `HomeBackgroundGesturePolicyTest.kt`            | Background gesture policy         |
+| `LauncherActionsContractTest.kt`                | Actions contract                  |
+| `LauncherSheetHostPolicyTest.kt`                | Sheet host policy                 |
 
 ### 1.2 Instrumented Tests (1 file)
 
-| Test File | What It Tests |
-|-----------|---------------|
+| Test File                    | What It Tests                   |
+| ---------------------------- | ------------------------------- |
 | `ExampleInstrumentedTest.kt` | Default template test (useless) |
 
 ---
@@ -50,89 +50,80 @@
 
 ### 2.1 Coverage by Layer
 
-| Layer | Files | Tested | Coverage % |
-|-------|-------|--------|------------|
-| **core/** | ~15 | 3 | ~20% |
-| **data/cache/** | 2 | 0 | 0% |
-| **data/contextmenu/** | 1 | 1 | 100% |
-| **data/icon/** | 4 | 0 | 0% |
-| **data/repository/** | ~15 | 2 | ~13% |
-| **data/search/** | 3 | 2 | ~67% |
-| **data/widget/** | 4 | 0 | 0% |
-| **domain/drag/** | ~10 | 2 | ~20% |
-| **domain/homegraph/** | 3 | 1 | ~33% |
-| **domain/model/** | ~15 | 1 | ~7% |
-| **domain/repository/** | 8 | 0 | 0% (interfaces) |
-| **domain/search/** | 7 | 2 | ~29% |
-| **domain/widget/** | 3 | 3 | 100% |
-| **presentation/** | ~15 | 4 | ~27% |
-| **ui/components/** | ~30 | 10 | ~33% |
-| **ui/interaction/** | ~7 | 1 | ~14% |
-| **ui/screens/** | ~5 | 1 | ~20% |
-| **ui/theme/** | 4 | 0 | 0% |
+| Layer                  | Files | Tested | Coverage %      |
+| ---------------------- | ----- | ------ | --------------- |
+| **core/**              | ~15   | 3      | ~20%            |
+| **data/cache/**        | 2     | 0      | 0%              |
+| **data/contextmenu/**  | 1     | 1      | 100%            |
+| **data/icon/**         | 4     | 0      | 0%              |
+| **data/repository/**   | ~15   | 2      | ~13%            |
+| **data/search/**       | 3     | 2      | ~67%            |
+| **data/widget/**       | 4     | 0      | 0%              |
+| **domain/drag/**       | ~10   | 2      | ~20%            |
+| **domain/homegraph/**  | 3     | 1      | ~33%            |
+| **domain/model/**      | ~15   | 1      | ~7%             |
+| **domain/repository/** | 8     | 0      | 0% (interfaces) |
+| **domain/search/**     | 7     | 2      | ~29%            |
+| **domain/widget/**     | 3     | 3      | 100%            |
+| **presentation/**      | ~15   | 4      | ~27%            |
+| **ui/components/**     | ~30   | 10     | ~33%            |
+| **ui/interaction/**    | ~7    | 1      | ~14%            |
+| **ui/screens/**        | ~5    | 1      | ~20%            |
+| **ui/theme/**          | 4     | 0      | 0%              |
 
 ### 2.2 Critical Untested Files
 
 These files handle critical functionality but have **zero test coverage**:
 
-| File | Functionality | Risk |
-|------|--------------|------|
-| `UrlValidator.kt` | URL detection and validation | HIGH |
-| `MimeTypeUtil.kt` | MIME type resolution for file icons | MEDIUM |
-| `PinnedFileAvailability.kt` | File availability checks (pruning) | HIGH |
-| `AppIconMemoryCache.kt` | Three-tier icon cache with telemetry | HIGH |
-| `AppIconDiskSnapshotStore.kt` | Disk caching for app icons | HIGH |
-| `ShortcutIconLoader.kt` | Shortcut icon loading | MEDIUM |
-| `WidgetHostManager.kt` | Widget lifecycle management | HIGH |
-| `WidgetPickerCatalogStore.kt` | Widget catalog caching | MEDIUM |
-| `UrlHandlerResolver.kt` | URL handler resolution and browser detection | HIGH |
-| `SuggestionResolver.kt` | Clipboard suggestion logic | MEDIUM |
-| `HomeGridOccupancyPolicy.kt` | Grid placement algorithm | HIGH |
-| `HomeSnapshotStore.kt` | DataStore transactions | HIGH |
-| `HomeItemSerializer.kt` | Home item serialization | HIGH |
-| `ContactsQueryLayer.kt` | ContentResolver queries | HIGH |
-| `FilesRepositoryImpl.kt` | MediaStore queries | HIGH |
-| `LauncherBackupRepositoryImpl.kt` | Backup/import logic | HIGH |
-| `SettingsRepositoryImpl.kt` | Settings persistence | HIGH |
-| `RecentAppsStore.kt` | Recent app tracking | MEDIUM |
-| `InstalledAppsCatalog.kt` | Installed app enumeration | HIGH |
-| `PackageChangeMonitor.kt` | Package change detection | HIGH |
-| `PermissionHandler.kt` | Permission state machine | HIGH |
-| `ConfigurableUrlSearchProvider.kt` | URL-based search | MEDIUM |
-| `FilterAppsUseCase.kt` | App filtering | MEDIUM |
+| File                               | Functionality                                | Risk   |
+| ---------------------------------- | -------------------------------------------- | ------ |
+| `UrlValidator.kt`                  | URL detection and validation                 | HIGH   |
+| `MimeTypeUtil.kt`                  | MIME type resolution for file icons          | MEDIUM |
+| `PinnedFileAvailability.kt`        | File availability checks (pruning)           | HIGH   |
+| `AppIconMemoryCache.kt`            | Three-tier icon cache with telemetry         | HIGH   |
+| `AppIconDiskSnapshotStore.kt`      | Disk caching for app icons                   | HIGH   |
+| `ShortcutIconLoader.kt`            | Shortcut icon loading                        | MEDIUM |
+| `WidgetHostManager.kt`             | Widget lifecycle management                  | HIGH   |
+| `WidgetPickerCatalogStore.kt`      | Widget catalog caching                       | MEDIUM |
+| `UrlHandlerResolver.kt`            | URL handler resolution and browser detection | HIGH   |
+| `SuggestionResolver.kt`            | Clipboard suggestion logic                   | MEDIUM |
+| `HomeGridOccupancyPolicy.kt`       | Grid placement algorithm                     | HIGH   |
+| `HomeSnapshotStore.kt`             | DataStore transactions                       | HIGH   |
+| `HomeItemSerializer.kt`            | Home item serialization                      | HIGH   |
+| `ContactsQueryLayer.kt`            | ContentResolver queries                      | HIGH   |
+| `FilesRepositoryImpl.kt`           | MediaStore queries                           | HIGH   |
+| `LauncherBackupRepositoryImpl.kt`  | Backup/import logic                          | HIGH   |
+| `SettingsRepositoryImpl.kt`        | Settings persistence                         | HIGH   |
+| `RecentAppsStore.kt`               | Recent app tracking                          | MEDIUM |
+| `InstalledAppsCatalog.kt`          | Installed app enumeration                    | HIGH   |
+| `PackageChangeMonitor.kt`          | Package change detection                     | HIGH   |
+| `PermissionHandler.kt`             | Permission state machine                     | HIGH   |
+| `ConfigurableUrlSearchProvider.kt` | URL-based search                             | MEDIUM |
+| `FilterAppsUseCase.kt`             | App filtering                                | MEDIUM |
 
 ---
 
 ## 3. Existing Test Quality
 
-### 3.1 Strengths
-
-| Test | Quality |
-|------|---------|
-| `GridReorderEngineDeterminismTest.kt` | Tests determinism — important for drag-drop consistency |
-| `HomeModelWriterTest.kt` | Tests core domain mutation logic |
-| `AppQueryRankerTest.kt` | Tests search ranking algorithm |
-| `WidgetLayoutPolicyTest.kt` / `WidgetSpanPolicyTest.kt` | Tests widget layout policies |
-
 ### 3.2 Weaknesses
 
-| Test | Issue |
-|------|-------|
-| `SettingsMutationStorePrefixConflictTest.kt` | Only tests prefix conflicts; missing add/update/delete/enable/disable flows |
-| `ContactsSearchProviderPermissionPromptTest.kt` | Only tests permission prompts; missing actual search logic |
-| `FilesSearchProviderPermissionPromptTest.kt` | Same as above |
-| `ExampleInstrumentedTest.kt` | Default template — provides zero value |
+| Test                                            | Issue                                                                       |
+| ----------------------------------------------- | --------------------------------------------------------------------------- |
+| `SettingsMutationStorePrefixConflictTest.kt`    | Only tests prefix conflicts; missing add/update/delete/enable/disable flows |
+| `ContactsSearchProviderPermissionPromptTest.kt` | Only tests permission prompts; missing actual search logic                  |
+| `FilesSearchProviderPermissionPromptTest.kt`    | Same as above                                                               |
+| `ExampleInstrumentedTest.kt`                    | Default template — provides zero value                                      |
 
 ### 3.3 Missing Test Categories
 
-| Category | Status |
-|----------|--------|
-| Unit tests for data layer | Mostly missing |
-| Unit tests for core utilities | Mostly missing |
-| Integration tests | None |
-| UI/instrumented tests | None (only template) |
-| Performance tests | None (separate benchmark module exists) |
-| Screenshot tests | None |
+| Category                      | Status                                  |
+| ----------------------------- | --------------------------------------- |
+| Unit tests for data layer     | Mostly missing                          |
+| Unit tests for core utilities | Mostly missing                          |
+| Integration tests             | None                                    |
+| UI/instrumented tests         | None (only template)                    |
+| Performance tests             | None (separate benchmark module exists) |
+| Screenshot tests              | None                                    |
 
 ---
 
@@ -140,24 +131,24 @@ These files handle critical functionality but have **zero test coverage**:
 
 ### 4.1 Current Setup
 
-| Aspect | Status |
-|--------|--------|
-| Test framework | JUnit 4 (`libs.junit`) |
-| Android test runner | `androidx.test.runner.AndroidJUnitRunner` |
-| Compose testing | `androidx.compose.ui.test.junit4` available |
-| Mocking | No mocking library declared |
-| Coroutines testing | `kotlinx-coroutines-test` not declared |
-| Turbine (Flow testing) | Not declared |
+| Aspect                 | Status                                      |
+| ---------------------- | ------------------------------------------- |
+| Test framework         | JUnit 4 (`libs.junit`)                      |
+| Android test runner    | `androidx.test.runner.AndroidJUnitRunner`   |
+| Compose testing        | `androidx.compose.ui.test.junit4` available |
+| Mocking                | No mocking library declared                 |
+| Coroutines testing     | `kotlinx-coroutines-test` not declared      |
+| Turbine (Flow testing) | Not declared                                |
 
 ### 4.2 Missing Dependencies
 
-| Dependency | Purpose | Recommendation |
-|------------|---------|----------------|
-| `kotlinx-coroutines-test` | Testing coroutines | ADD |
-| `turbine` | Testing Flow emissions | ADD |
-| `mockk` or `mockito-kotlin` | Mocking | ADD |
-| `robolectric` | JVM Android tests | CONSIDER |
-| `compose-test-junit4` | Compose UI testing | Already available but unused |
+| Dependency                  | Purpose                | Recommendation               |
+| --------------------------- | ---------------------- | ---------------------------- |
+| `kotlinx-coroutines-test`   | Testing coroutines     | ADD                          |
+| `turbine`                   | Testing Flow emissions | ADD                          |
+| `mockk` or `mockito-kotlin` | Mocking                | ADD                          |
+| `robolectric`               | JVM Android tests      | CONSIDER                     |
+| `compose-test-junit4`       | Compose UI testing     | Already available but unused |
 
 ### 4.3 CI Integration
 
@@ -169,6 +160,7 @@ These files handle critical functionality but have **zero test coverage**:
 ```
 
 Unit tests run in CI, but:
+
 - No test coverage reporting (Jacoco not configured)
 - No instrumentation tests in CI
 - No test failure notifications
@@ -249,13 +241,13 @@ tasks.register<JacocoReport>("jacocoTestReport") {
 
 ## 6. Priority Summary
 
-| Priority | Finding | Impact |
-|----------|---------|--------|
-| P0 | 40+ critical files with zero test coverage | Reliability |
-| P0 | No instrumentation tests (only template) | UI regression risk |
-| P1 | Missing coroutines testing library | Cannot test async code |
-| P1 | Missing mocking library | Hard to test with dependencies |
-| P1 | No Jacoco coverage reporting | No coverage visibility |
-| P2 | Existing tests are narrow in scope | Incomplete coverage |
-| P2 | No screenshot/visual regression tests | UI regression risk |
-| P3 | No Robolectric for JVM Android tests | Slow feedback loop |
+| Priority | Finding                                    | Impact                         |
+| -------- | ------------------------------------------ | ------------------------------ |
+| P0       | 40+ critical files with zero test coverage | Reliability                    |
+| P0       | No instrumentation tests (only template)   | UI regression risk             |
+| P1       | Missing coroutines testing library         | Cannot test async code         |
+| P1       | Missing mocking library                    | Hard to test with dependencies |
+| P1       | No Jacoco coverage reporting               | No coverage visibility         |
+| P2       | Existing tests are narrow in scope         | Incomplete coverage            |
+| P2       | No screenshot/visual regression tests      | UI regression risk             |
+| P3       | No Robolectric for JVM Android tests       | Slow feedback loop             |

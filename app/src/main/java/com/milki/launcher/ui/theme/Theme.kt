@@ -76,14 +76,19 @@ import androidx.compose.ui.platform.LocalContext
  * We define the main colors here; others use Material defaults.
  */
 private val DarkColorScheme = darkColorScheme(
-    // Primary colors - main brand color
     primary = Purple80,
-    
-    // Secondary colors - accent color
     secondary = PurpleGrey80,
-    
-    // Tertiary colors - additional accent
-    tertiary = Pink80
+    tertiary = Pink80,
+    background = Color(0xFF1C1C1E),
+    onBackground = Color(0xFFE5E5EA),
+    surface = Color(0xFF2F323A),
+    onSurface = Color(0xFFE5E5EA),
+    surfaceVariant = Color(0xFF3A3A3C),
+    onSurfaceVariant = Color(0xFFAEAEB2),
+    error = Color(0xFFFF6961),
+    onError = Color(0xFF1C1C1E),
+    outline = Color(0xFF636366),
+    outlineVariant = Color(0xFF48484A)
 )
 
 /**
@@ -92,31 +97,19 @@ private val DarkColorScheme = darkColorScheme(
  * light backgrounds.
  */
 private val LightColorScheme = lightColorScheme(
-    // Primary colors
     primary = Purple40,
-    
-    // Secondary colors
     secondary = PurpleGrey40,
-    
-    // Tertiary colors
-    tertiary = Pink40
-
-    // You can override additional colors here.
-    // Uncomment to customize:
-    /*
-    // Background colors
-    background = Color(0xFFFFFBFE),  // Almost white
-    onBackground = Color(0xFF1C1B1F),  // Dark text on background
-    
-    // Surface colors (cards, sheets)
+    tertiary = Pink40,
+    background = Color(0xFFFFFBFE),
+    onBackground = Color(0xFF1C1B1F),
     surface = Color(0xFFFFFBFE),
     onSurface = Color(0xFF1C1B1F),
-    
-    // Primary text colors
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    */
+    surfaceVariant = Color(0xFFE7E0EC),
+    onSurfaceVariant = Color(0xFF49454F),
+    error = Color(0xFFBA1A1A),
+    onError = Color(0xFFFFFFFF),
+    outline = Color(0xFF79747E),
+    outlineVariant = Color(0xFFCAC4D0)
 )
 
 // ============================================================================

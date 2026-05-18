@@ -180,7 +180,7 @@ fun PinnedItemView(
     IconLabelCell(
         label = formatHomeItemLabel(item),
         layout = layout,
-        labelColor = Color.White,
+        labelColor = MaterialTheme.colorScheme.onBackground,
         labelStyle = MaterialTheme.typography.bodySmall,
         labelOverflow = TextOverflow.Ellipsis,
         labelTextAlign = TextAlign.Center
