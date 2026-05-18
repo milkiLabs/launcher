@@ -3,42 +3,41 @@ package com.milki.launcher.domain.model
 
 object FileFilterConfig {
         private val EXCLUDED_FILENAME_PREFIXES = setOf(
-        ".",    // Hidden files on Unix/Linux/Android (e.g., .hidden_file)
-        "~"     // Backup files created by some editors (e.g., ~document.txt)
+        ".",    
+        "~"     
     )
         private val EXCLUDED_EXTENSIONS = setOf(
-        "tmp",      // Generic temporary file
-        "temp",     // Generic temporary file
-        "cache",    // Cached data
-        "bak",      // Backup file
-        "backup",   // Backup file
-        "lock",     // Lock file (prevents concurrent access)
-        "log",      // Application log file
-        "part",         // Firefox partial download
-        "partial",      // Generic partial download
-        "crdownload",   // Chrome partial download
-        "download",     // Generic partial download
-        "ds_store",     // macOS folder settings
-        "nomedia",      // Android "ignore this folder" marker
-        "thumbnails",   // Thumbnail cache database
-        "thumb",        // Thumbnail file
-        "thumbdata"     // Android thumbnail data file
+        "tmp",      
+        "temp",     
+        "cache",   
+        "bak",    
+        "backup",
+        "lock", 
+        "log", 
+        "part",         
+        "partial",      
+        "crdownload",   
+        "download",     
+        "ds_store",     
+        "nomedia",      
+        "thumbnails",   
+        "thumb",        
+        "thumbdata"     
     )
         private val EXCLUDED_DIRECTORY_NAMES = setOf(
-        "cache",        // Standard cache directory name
-        "tmp",          // Temporary directory
-        "temp",         // Temporary directory
-        ".cache",       // Hidden cache directory
-        "code_cache",   // Android code cache (API 21+)
-        "files_cache",  // Some apps use this name
-        "thumbnails"    // Android thumbnail cache directory
+        "cache",        
+        "tmp",          
+        "temp",         
+        ".cache",       
+        "code_cache",   
+        "files_cache",  
+        "thumbnails"    
     )
         private val EXCLUDED_MIME_PREFIXES = setOf(
-        "image/",   // All image types (jpeg, png, gif, webp, etc.)
-        "video/",   // All video types (mp4, webm, mkv, etc.)
-        "audio/"    // All audio types (mp3, wav, flac, ogg, etc.)
+        "image/", 
+        "video/", 
+        "audio/"  
     )
-    //
 
         private val ALLOWED_MIME_PREFIXES = setOf(
         "application/vnd.openxmlformats-officedocument.",

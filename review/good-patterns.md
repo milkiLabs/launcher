@@ -198,3 +198,15 @@ These areas are complex but **correctly so** — simplifying them would introduc
 | `HomeModelWriterTest.kt`                                | Tests core domain mutation logic                        |
 | `AppQueryRankerTest.kt`                                 | Tests search ranking algorithm                          |
 | `WidgetLayoutPolicyTest.kt` / `WidgetSpanPolicyTest.kt` | Tests widget layout policies                            |
+
+## 8. Build Performance
+
+### 8.1 Good Practices
+
+| Setting                         | File                          | Status  |
+| ------------------------------- | ----------------------------- | ------- |
+| Configuration cache             | `gradle.properties:1`         | ENABLED |
+| Parallel execution              | `gradle.properties:2`         | ENABLED |
+| Build cache                     | `gradle.properties:3`         | ENABLED |
+| Non-transitive R class          | `gradle.properties:7`         | ENABLED |
+| Gradle wrapper SHA verification | `gradle-wrapper.properties:4` | ENABLED |

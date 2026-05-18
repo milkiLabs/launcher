@@ -4,66 +4,15 @@
 
 ---
 
-## 1. Security Issues
-
-### 1.1 CRITICAL: Plaintext Keystore Passwords
-
-**File:** `keystore.properties:2-4`
-
-```properties
-storePassword=eEHP5%&a8uXJJy
-keyPassword=eEHP5%&a8uXJJy
-```
-
-The release keystore password is exposed. See `P0-Critical-Findings.md` for full details.
-
-### 1.2 Backup Enabled with Empty Rules
-
-**File:** `AndroidManifest.xml:52`
-
-```xml
-android:allowBackup="true"
-```
-
-**File:** `res/xml/backup_rules.xml` and `res/xml/data_extraction_rules.xml` — both empty, backing up EVERYTHING.
-
-**Risk:** All app data (DataStore preferences, serialized HomeItems, settings, contact cache) is backed up to Google Cloud with no exclusions.
-
-**Fix:** Either set `android:allowBackup="false"` or explicitly `<exclude>` sensitive preferences.
-
-### 1.3 Over-Privileged Permissions
-
-| Permission                | File:Line                   | Issue                                                                     | Severity |
-| ------------------------- | --------------------------- | ------------------------------------------------------------------------- | -------- |
-| `MANAGE_EXTERNAL_STORAGE` | `AndroidManifest.xml:26-27` | Most sensitive storage permission; Play Store heavily restricts           | HIGH     |
-| `CALL_PHONE`              | `AndroidManifest.xml:7`     | Allows direct calling without user confirmation; should use `ACTION_DIAL` | MEDIUM   |
-| `BIND_APPWIDGET`          | `AndroidManifest.xml:10`    | System-level permission; normal apps cannot hold it                       | LOW      |
-| `EXPAND_STATUS_BAR`       | `AndroidManifest.xml:16-18` | System-level permission; silently ignored on non-system launchers         | LOW      |
-
 ### 1.4 Missing Security Configurations
 
 | Missing                                      | Impact                                          | Severity |
 | -------------------------------------------- | ----------------------------------------------- | -------- |
 | `android:enableOnBackInvokedCallback="true"` | Required for proper back gesture on Android 14+ | MEDIUM   |
-| `android:networkSecurityConfig`              | No protection against cleartext traffic         | LOW      |
-| `BOOT_COMPLETED` receiver                    | Widgets not restored after reboot               | MEDIUM   |
 
 ---
 
 ## 2. Dependency Version Hygiene
-
-### 2.1 Version Catalog Analysis
-
-| Dependency  | Version       | Status            | Notes                                                |
-| ----------- | ------------- | ----------------- | ---------------------------------------------------- |
-| AGP         | 9.0.1         | Cutting-edge      | Requires Gradle 9.1+, may break third-party tooling  |
-| Kotlin      | 2.3.20        | Very recent       | Verify compatibility with all deps                   |
-| Compose BOM | 2026.03.00    | Date-based scheme | Verify it exists on Maven                            |
-| Koin BOM    | 4.2.0         | Major version     | Verify API compatibility with 3.x                    |
-| Detekt      | 2.0.0-alpha.2 | Alpha             | Risky for production builds                          |
-| Coil        | 2.7.0         | Outdated          | Commented out; remove from catalog or upgrade to 3.x |
-
-## 3. Build Configuration Issues
 
 ### 3.1 SDK Configuration
 
@@ -71,7 +20,6 @@ android:allowBackup="true"
 | ------------ | ----- | ------------------------------------------- | ---------- |
 | `compileSdk` | 36    | Testing against API 36                      | ACCEPTABLE |
 | `targetSdk`  | 35    | Targeting API 35 while compiling against 36 | ACCEPTABLE |
-| `minSdk`     | 24    | Android 7.0; covers ~95%+ of devices        | GOOD       |
 
 ### 3.2 Java/Kotlin Configuration
 
@@ -93,48 +41,7 @@ Hardcoded. For CI/CD release workflows, these should be dynamic (git tags, env v
 
 ---
 
-## 4. ProGuard/R8 Rules — SEVERELY INCOMPLETE
-
-**File:** `app/proguard-rules.pro` — Contains ONLY default comments. Zero actual keep rules.
-
-### 4.1 Required Rules
-
-```proguard
-# kotlinx.serialization
--keepattributes *Annotation*, InnerClasses
--keep class kotlinx.serialization.** { *; }
--keepclassmembers class com.milki.launcher.domain.model.** {
-    *** Companion;
-}
--keepclasseswithmembers class com.milki.launcher.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
-
-# Koin
--keep class org.koin.** { *; }
--keepclassmembers class com.milki.launcher.core.di.** { *; }
-
-# Device Admin
--keep class com.milki.launcher.core.deviceadmin.LauncherDeviceAdminReceiver { *; }
-
-# DataStore
--keep class androidx.datastore.** { *; }
-```
-
-### 4.2 Impact
-
-**Release builds will crash** — R8 will strip serialization serializers, Koin modules, and reflected classes. The app has `isMinifyEnabled = true` in release build type.
-
----
-
 ## 5. CI/CD Workflow Issues
-
-### 5.1 Duplicate Release Workflows
-
-| File                                    | Issue                              | Severity |
-| --------------------------------------- | ---------------------------------- | -------- |
-| `.github/workflows/android-release.yml` | Duplicate of `release-android.yml` | MEDIUM   |
-| `.github/workflows/release-android.yml` | Duplicate of `android-release.yml` | MEDIUM   |
 
 ### 5.2 Missing CI Checks
 
@@ -145,13 +52,6 @@ Missing:
 - `./gradlew :app:lintDebug` — Android lint checks
 - `./gradlew :app:detekt` — Detekt static analysis
 - `./gradlew :app:check` — All checks combined
-
-### 5.3 JDK Version Mismatch
-
-| Workflow              | JDK Version | Issue                         |
-| --------------------- | ----------- | ----------------------------- |
-| `ci-android.yml`      | JDK 17      | Should match release workflow |
-| `release-android.yml` | JDK 21      | AGP 9.x recommends JDK 21     |
 
 ### 5.4 Missing Security Practices
 
@@ -213,11 +113,3 @@ The baseline suppresses issues across all categories. New code should not add to
 ```properties
 org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+UseParallelGC
 ```
-
----
-
-### 9.2 Permission Analysis
-
-| Permission   | Type      | Needed?                          |
-| ------------ | --------- | -------------------------------- |
-| `CALL_PHONE` | Dangerous | Questionable — use `ACTION_DIAL` |
