@@ -12,11 +12,7 @@
     <!-- Required to request uninstallation of apps -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
-    <!-- Best-effort notification shade expansion from home gestures -->
-    <uses-permission
-        android:name="android.permission.EXPAND_STATUS_BAR"
-        tools:ignore="ProtectedPermissions" />
-    
+
     <!-- Storage permissions for file search -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
