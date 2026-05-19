@@ -26,7 +26,7 @@ class SettingsMutationStorePrefixConflictTest {
         )
 
         assertEquals(
-            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_kagi"),
+            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_duckduckgo"),
             result
         )
         assertTrue(storedPrefixConfigurations(preferences).isEmpty())
@@ -38,7 +38,7 @@ class SettingsMutationStorePrefixConflictTest {
 
         val result = store.addPrefixToSource(
             preferences = preferences,
-            sourceId = "source_kagi",
+            sourceId = "source_duckduckgo",
             prefix = "c"
         )
 
@@ -78,11 +78,11 @@ class SettingsMutationStorePrefixConflictTest {
 
         val result = store.updateSearchSource(
             preferences = preferences,
-            sourceId = "source_kagi",
-            name = "Kagi",
-            urlTemplate = "https://kagi.com/search?q={query}",
+            sourceId = "source_duckduckgo",
+            name = "DuckDuckGo",
+            urlTemplate = "https://duckduckgo.com/?q={query}",
             prefixes = listOf("f"),
-            accentColorHex = "#FFFFFF"
+            accentColorHex = "#DE5833"
         )
 
         assertEquals(

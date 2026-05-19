@@ -413,7 +413,7 @@ fun startExternalWidgetDrag(
     providerInfo: AppWidgetProviderInfo,
     span: GridSpan,
     displayMode: WidgetDisplayMode = WidgetDisplayMode.Inline,
-    dragShadowSize: Dp = IconSize.appGrid
+    dragShadowSize: Dp = IconSize.appHomeCompact
 ): Boolean {
     val density = hostView.context.resources.displayMetrics.density
     val shadowCellSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)

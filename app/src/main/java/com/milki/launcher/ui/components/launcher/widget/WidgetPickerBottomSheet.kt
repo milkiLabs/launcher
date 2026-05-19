@@ -557,7 +557,7 @@ private fun WidgetCard(
                     ) {
                         WidgetPopupIcon(
                             packageName = entry.providerInfo.provider.packageName,
-                            size = IconSize.appGrid,
+                            size = IconSize.appHomeCompact,
                             label = entry.label
                         )
                     }
@@ -590,7 +590,7 @@ private fun WidgetDragOptionColumn(
                     providerInfo = entry.providerInfo,
                     span = entry.span,
                     displayMode = mode,
-                    dragShadowSize = IconSize.appGrid
+                    dragShadowSize = IconSize.appHomeCompact
                 )
 
                 if (dragStarted) {

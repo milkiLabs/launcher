@@ -4,57 +4,6 @@
 
 ---
 
-## 2. Composition Scope and Structure
-
-### 2.2 State Hoisting
-
-**Good patterns:**
-
-- `PinnedItem` hoists `isMenuVisible` state
-- `ItemActionMenu` receives `expanded` state from parent
-
-**Issues:**
-| File:Line | Issue | Severity |
-|-----------|-------|----------|
-| `LauncherScreen.kt:83-84` | `homescreenMenuAnchorPx` and `homeItemBoundsById` are `remember`-based, reset on config change | MEDIUM |
-| `ActionShortcutManagerSheet.kt:71-72` | `editingShortcut` and `isCreating` reset on rotation | LOW |
-
----
-
-## 3. Theming Consistency
-
-### 3.1 Hardcoded Colors
-
-| File:Line                   | Hardcoded Value                                        | Issue                                    | Severity |
-| --------------------------- | ------------------------------------------------------ | ---------------------------------------- | -------- |
-| `PinnedItem.kt:183`         | `Color.White` for label                                | Unreadable on light wallpapers           | HIGH     |
-| `ItemActionMenu.kt:142-144` | `Color(0xFF2F323A)` background, `Color.White` text     | Breaks in light mode                     | HIGH     |
-| `PinnedItem.kt:408`         | `fileTypeVisual.backgroundColor.copy(alpha = 0.2f)`    | Alpha-based theming                      | LOW      |
-| `PinnedItem.kt:367`         | `MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)` | Acceptable but could use dedicated color | LOW      |
-
-**`PinnedItem.kt:183` Detail:** White text on transparent background over the home screen wallpaper. Contrast is entirely dependent on wallpaper brightness and will frequently fail WCAG requirements.
-
-**`ItemActionMenu.kt:142-144` Detail:** Hardcoded dark background with white text looks correct in dark mode but will be invisible or low-contrast in light mode.
-
-### 3.2 Incomplete Color Scheme Customization
-
-`Theme.kt:78-120` — Only `primary`, `secondary`, `tertiary` are customized. `surface`, `background`, `error` etc. use Material defaults, which may not match the intended design.
-
-### 3.3 Icon Size Inconsistency
-
-| Usage          | Size | Source           |
-| -------------- | ---- | ---------------- |
-| App grid       | 72dp | `Spacing.kt:198` |
-| Home compact   | 56dp | `Spacing.kt:191` |
-| App list       | 40dp | `Spacing.kt:179` |
-| Search leading | 24dp | `Spacing.kt:165` |
-| Small trailing | 20dp | `Spacing.kt:158` |
-| Extra small    | 16dp | `Spacing.kt:151` |
-
-The range is reasonable but some sizes (40dp, 24dp, 20dp, 16dp) fall below the 48dp minimum touch target.
-
----
-
 ## 4. Performance Bottlenecks
 
 ### 4.1 List/Grid Performance. \* should we change DraggablePinnedItemsGrid?

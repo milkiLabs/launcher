@@ -831,10 +831,7 @@ private fun FolderDragPreview(
                 .zIndex(FOLDER_DRAG_PREVIEW_Z_INDEX)
                 .alpha(FOLDER_PREVIEW_ALPHA)
         ) {
-            com.milki.launcher.ui.components.launcher.PinnedItemView(
-                item = draggedItem,
-                compactLayout = false
-            )
+            com.milki.launcher.ui.components.launcher.PinnedItemView(item = draggedItem)
         }
     }
 }

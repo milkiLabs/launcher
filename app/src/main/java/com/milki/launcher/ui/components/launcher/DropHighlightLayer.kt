@@ -133,10 +133,7 @@ internal fun DropHighlightLayer(
                         shadowElevation = config.shadowElevation
                     }
             ) {
-                PinnedItemView(
-                    item = activeSession.item,
-                    compactLayout = true
-                )
+                PinnedItemView(item = activeSession.item)
             }
         }
     }
@@ -268,10 +265,7 @@ private fun DropPreviewContent(
     when {
         item != null -> {
             Box(modifier = Modifier.alpha(highlightAlpha)) {
-                PinnedItemView(
-                    item = item,
-                    compactLayout = true
-                )
+                PinnedItemView(item = item)
             }
         }
         widgetSpan != null -> {

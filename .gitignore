@@ -41,3 +41,5 @@ website/docs/.vitepress/cache/
 .env
 *.jks
 *.keystore
+
+.codex

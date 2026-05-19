@@ -308,10 +308,7 @@ private fun FolderPopupItem(
                 }
             )
     ) {
-        com.milki.launcher.ui.components.launcher.PinnedItemView(
-            item = item,
-            compactLayout = false
-        )
+        com.milki.launcher.ui.components.launcher.PinnedItemView(item = item)
 
         ItemContextMenu(
             packageName = item.appInfoPackageNameOrNull() ?: "",
@@ -561,11 +558,11 @@ internal fun lerp(start: Float, end: Float, progress: Float): Float {
     return start + ((end - start) * progress)
 }
 
-internal val FOLDER_BASE_CELL_WIDTH = 108.dp
-internal val FOLDER_BASE_CELL_HEIGHT = 112.dp
-internal val FOLDER_CELL_SPACING = Spacing.smallMedium
-internal val FOLDER_HORIZONTAL_PADDING = Spacing.mediumLarge
-internal val FOLDER_VERTICAL_PADDING = Spacing.mediumLarge
+internal val FOLDER_BASE_CELL_WIDTH = 80.dp
+internal val FOLDER_BASE_CELL_HEIGHT = 96.dp
+internal val FOLDER_CELL_SPACING = Spacing.small
+internal val FOLDER_HORIZONTAL_PADDING = Spacing.medium
+internal val FOLDER_VERTICAL_PADDING = Spacing.medium
 internal val FOLDER_HEADER_HEIGHT = 44.dp
 internal val FOLDER_HEADER_BOTTOM_SPACING = Spacing.medium
 internal val FOLDER_INDICATOR_TOP_SPACING = Spacing.medium

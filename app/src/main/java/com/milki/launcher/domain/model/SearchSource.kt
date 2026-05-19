@@ -108,13 +108,13 @@ data class SearchSource(
         fun defaultSources(): List<SearchSource> {
             return listOf(
                 SearchSource(
-                    id = "source_kagi",
-                    name = "Kagi",
-                    urlTemplate = "https://kagi.com/search?q={query}",
+                    id = "source_duckduckgo",
+                    name = "DuckDuckGo",
+                    urlTemplate = "https://duckduckgo.com/?q={query}",
                     prefixes = listOf("k"),
                     isEnabled = true,
                     showAsSuggestedAction = true,
-                    accentColorHex = "#FFFFFF"
+                    accentColorHex = "#DE5833"
                 ),
                 SearchSource(
                     id = "source_youtube",

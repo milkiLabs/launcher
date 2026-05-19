@@ -348,7 +348,7 @@ private fun drawerGridColumns(isPortrait: Boolean): GridCells {
     return if (isPortrait) {
         GridCells.Fixed(DRAWER_GRID_PORTRAIT_COLUMNS)
     } else {
-        GridCells.Adaptive(minSize = IconSize.appGrid + Spacing.large)
+        GridCells.Adaptive(minSize = IconSize.appHomeCompact + Spacing.large)
     }
 }
 

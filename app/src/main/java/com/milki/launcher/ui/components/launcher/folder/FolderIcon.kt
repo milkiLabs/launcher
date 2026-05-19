@@ -24,9 +24,9 @@
  * If there are fewer than 4 children, empty cells are left blank (transparent).
  *
  * SIZE CONSTANTS (all from Spacing.kt / IconSize.kt — no hardcoded dp values):
- * - Folder icon container: [IconSize.appGrid] = 56dp  (same as other home-screen icons)
- * - Inner padding:         [Spacing.smallMedium] = 8dp on all sides
- * - Each mini icon:        [IconSize.small] = 20dp    ((56 - 2×8) / 2 = 20dp ✓)
+ * - Folder icon container: [IconSize.appHomeCompact] = 56dp
+ * - Inner padding:         [Spacing.small] = 4dp on all sides
+ * - Each mini icon:        derived from container: (iconSize - 2×padding) / 2 = 24dp
  * - Corner radius:         [CornerRadius.medium] = 12dp
  */
 
@@ -61,7 +61,6 @@ import com.milki.launcher.ui.components.launcher.homeItemIconLabelLayout
 import com.milki.launcher.ui.components.launcher.FOLDER_PREVIEW_SLOT_COUNT
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconLabelCell
-import com.milki.launcher.ui.components.common.IconLabelLayout
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.launcher.resolveFileTypeVisual
 import com.milki.launcher.ui.theme.CornerRadius
@@ -80,8 +79,8 @@ import com.milki.launcher.ui.theme.Spacing
  * item type is [HomeItem.FolderItem].
  *
  * USAGE:
- * Called from [PinnedItemContent] / [PinnedItem] when item is [HomeItem.FolderItem].
- * The parent size is determined by the home grid cell (typically [IconSize.appGrid]).
+ * Called from [PinnedItemView] when item is [HomeItem.FolderItem].
+ * The parent size is determined by the home grid cell ([IconSize.appHomeCompact]).
  *
  * @param folder The folder whose name and children should be rendered.
  * @param modifier Optional modifier applied to the root column (cell area).
@@ -89,25 +88,18 @@ import com.milki.launcher.ui.theme.Spacing
 @Composable
 fun FolderIcon(
     folder: HomeItem.FolderItem,
-    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val layout = homeItemIconLabelLayout(
-        compact = compact,
-        regularContentVerticalPadding = Spacing.none
-    )
+    val layout = homeItemIconLabelLayout()
 
-    val contentPadding = Spacing.smallMedium
-    val miniIconSize = IconSize.small
-    val rootVerticalPadding = if (compact) Spacing.none else Spacing.medium
-    val rootHorizontalPadding = if (compact) Spacing.none else Spacing.smallMedium
+    val iconSize = layout.iconSize
+    val contentPadding = Spacing.small
+    val miniIconSize = (iconSize - contentPadding * 2) / 2
 
     IconLabelCell(
         label = folder.name,
         layout = layout,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = rootVerticalPadding, horizontal = rootHorizontalPadding),
+        modifier = modifier.fillMaxWidth(),
         labelColor = Color.White,
         labelStyle = MaterialTheme.typography.bodySmall,
         labelOverflow = TextOverflow.Ellipsis,
@@ -190,9 +182,8 @@ private fun FolderMiniGrid(
 /**
  * FolderMiniIconSlot renders a single mini-icon cell within the folder preview.
  *
- * SIZE: [IconSize.small] = 20dp
- * Each slot is exactly 20dp × 20dp, filling a quarter of the 40dp inner area
- * (the 56dp container minus 8dp padding on each side).
+ * SIZE: derived from container - (iconSize - 2×padding) / 2
+ * = 24dp (56dp container - 8dp padding) / 2
  *
  * ITEM TYPE DISPATCH:
  * - null         → blank transparent Box (empty slot)
@@ -208,7 +199,7 @@ private fun FolderMiniIconSlot(
     item: HomeItem?,
     miniIconSize: Dp
 ) {
-    // All slots occupy IconSize.small so the 2×2 grid stays perfectly square.
+    // All slots occupy the same calculated miniIconSize so the 2×2 grid stays perfectly square.
     Box(
         modifier = Modifier.size(miniIconSize),
         contentAlignment = Alignment.Center

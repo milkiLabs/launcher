@@ -282,10 +282,7 @@ internal fun InternalGridDragLayer(
                             }
                         )
                     } else {
-                        PinnedItemView(
-                            item = item,
-                            compactLayout = true
-                        )
+                        PinnedItemView(item = item)
 
                         if (!isPopupWidget) {
                             com.milki.launcher.ui.components.common.ItemContextMenu(

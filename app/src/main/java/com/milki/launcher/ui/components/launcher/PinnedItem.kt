@@ -56,7 +56,6 @@ import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconLabelCell
-import com.milki.launcher.ui.components.common.IconLabelLayout
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.WidgetPopupIcon
 import com.milki.launcher.ui.components.common.ItemContextMenu
@@ -102,7 +101,6 @@ import com.milki.launcher.ui.theme.Spacing
 fun PinnedItem(
     item: HomeItem,
     onClick: () -> Unit,
-    compactLayout: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
@@ -125,7 +123,7 @@ fun PinnedItem(
             color = Color.Transparent,
             shape = RoundedCornerShape(CornerRadius.medium)
         ) {
-            PinnedItemView(item = item, compactLayout = compactLayout)
+            PinnedItemView(item = item)
         }
         
         ItemContextMenu(
@@ -156,23 +154,16 @@ fun PinnedItem(
  */
 @Composable
 fun PinnedItemView(
-    item: HomeItem,
-    compactLayout: Boolean
+    item: HomeItem
 ) {
-    val layout = homeItemIconLabelLayout(
-        compact = compactLayout,
-        regularContentVerticalPadding = Spacing.extraSmall
-    )
+    val layout = homeItemIconLabelLayout()
 
     // ── Folder short-circuit ──────────────────────────────────────────────────
     // FolderItem has its own layout with a 2×2 mini-icon preview grid.
     // Delegate directly to FolderIcon and return early to skip the standard
     // single-icon + label column below.
     if (item is HomeItem.FolderItem) {
-        FolderIcon(
-            folder = item,
-            compact = compactLayout
-        )
+        FolderIcon(folder = item)
         return
     }
 

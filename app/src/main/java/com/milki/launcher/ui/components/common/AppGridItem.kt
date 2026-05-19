@@ -2,7 +2,7 @@
  * AppGridItem.kt - Compact grid item component for displaying apps
  *
  * Displays an app in a grid format with:
- * - App icon (56dp)
+ * - App icon (56dp, matching home screen compact grid)
  * - App name (2 lines max)
  * - Long-press menu for actions
  */
@@ -65,7 +65,7 @@ fun AppGridItem(
 ) {
     val menuState = rememberItemContextMenuState()
     val layout = IconLabelLayout(
-        iconSize = IconSize.appGrid,
+        iconSize = IconSize.appHomeCompact,
         contentPadding = contentPadding,
         labelTopPadding = Spacing.smallMedium,
         labelMaxLines = 2
@@ -77,7 +77,7 @@ fun AppGridItem(
                 .fillMaxWidth()
                 .detectAppExternalDragGesture(
                     appInfo = appInfo,
-                    dragShadowSize = IconSize.appGrid,
+                    dragShadowSize = IconSize.appHomeCompact,
                     onTap = onClick,
                     onLongPress = menuState::onLongPress,
                     onLongPressRelease = menuState::onLongPressRelease,

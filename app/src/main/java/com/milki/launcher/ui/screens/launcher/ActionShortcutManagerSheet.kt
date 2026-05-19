@@ -194,7 +194,7 @@ private fun ActionShortcutGridItem(
                         val started = startExternalActionShortcutDrag(
                             hostView = hostView,
                             shortcut = shortcut,
-                            dragShadowSize = IconSize.appGrid
+                            dragShadowSize = IconSize.appHomeCompact
                         )
                         if (started) {
                             hostView.post(onExternalDragStarted)
@@ -208,7 +208,7 @@ private fun ActionShortcutGridItem(
         ) {
             com.milki.launcher.ui.components.launcher.ActionShortcutIcon(
                 shortcut = shortcut,
-                size = IconSize.appGrid
+                size = IconSize.appHomeCompact
             )
         }
 
