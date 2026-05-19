@@ -19,5 +19,5 @@ internal object AppPreferenceKeys {
      */
     val RECENT_APPS = stringPreferencesKey("recent_apps")
 
-    const val MAX_RECENT_APPS = 8
+    const val MAX_RECENT_APPS = 10
 }

@@ -48,7 +48,7 @@ import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppListItem
 import com.milki.launcher.ui.theme.Spacing
 
-private const val APP_RESULTS_GRID_COLUMNS = 4
+private const val APP_RESULTS_GRID_COLUMNS = 5
 
 /**
  * SearchResultsList - Displays search results in either a grid or list layout.
