@@ -142,7 +142,7 @@ class SettingsMutationStorePrefixConflictTest {
         )
 
         assertEquals(
-            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_kagi"),
+            PrefixMutationResult.DuplicatePrefixOnAnotherOwner(ownerId = "source_duckduckgo"),
             result
         )
         assertTrue(storedPrefixConfigurations(preferences).isEmpty())
