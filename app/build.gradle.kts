@@ -15,6 +15,22 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val latestTag = try {
+    providers.exec {
+        commandLine("git", "describe", "--tags", "--abbrev=0")
+    }.standardOutput.asText.get().trim().removePrefix("v")
+} catch (e: Exception) {
+    ""
+}
+
+val tagParts = latestTag.split(".")
+val major = tagParts.getOrNull(0)?.toIntOrNull() ?: 0
+val minor = tagParts.getOrNull(1)?.toIntOrNull() ?: 0
+val patch = tagParts.getOrNull(2)?.toIntOrNull() ?: 0
+val versionCode = major * 10000 + minor * 100 + patch
+
+val versionName = latestTag.takeIf { it.isNotEmpty() } ?: "1.0.0"
+
 android {
     namespace = "com.milki.launcher"
     compileSdk = 36
@@ -30,8 +46,8 @@ android {
         applicationId = "com.milki.launcher"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = versionCode
+        versionName = versionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

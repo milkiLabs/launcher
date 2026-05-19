@@ -56,6 +56,7 @@ import androidx.compose.runtime.Composable
 
 // LocalContext provides access to the current Android Context
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
 // ============================================================================
 // COLOR SCHEMES

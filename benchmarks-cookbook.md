@@ -43,7 +43,7 @@ mkdir -p review/benchmark-runs/$(date +%F)
 adb shell am instrument -w \
 	-e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreen' \
 	com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner \
-	| tee review/benchmark-runs/$(date +%F)/coldStartupToHomescreen.log
+	| tee benchmark-runs/$(date +%F)/coldStartupToHomescreen.log
 ```
 
 ### 6. Run cold-start benchmark (without baseline profile)
@@ -52,7 +52,7 @@ adb shell am instrument -w \
 adb shell am instrument -w \
 	-e class 'com.milki.launcher.benchmark.LauncherHomeBenchmark#coldStartupToHomescreenWithoutBaselineProfile' \
 	com.milki.launcher.baselineprofile/androidx.test.runner.AndroidJUnitRunner \
-	| tee review/benchmark-runs/$(date +%F)/coldStartupToHomescreenWithoutBaselineProfile.log
+	| tee benchmark-runs/$(date +%F)/coldStartupToHomescreenWithoutBaselineProfile.log
 ```
 
 ### 7. Optional: run warm/hot startup and drawer scenarios
