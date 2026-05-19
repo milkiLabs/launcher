@@ -515,7 +515,7 @@ internal data class SearchPipelineOutput(
 )
 
 internal data class SearchRuntimeSettings(
-    val maxSearchResults: Int = 8,
+    val maxSearchResults: Int = 10,
     val showRecentApps: Boolean = true,
     val autoFocusKeyboard: Boolean = true,
     val searchSources: List<SearchSource> = emptyList(),

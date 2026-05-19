@@ -13,6 +13,7 @@
 package com.milki.launcher.domain.model
 
 import androidx.compose.runtime.Immutable
+import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import kotlinx.serialization.Serializable
 
 /**
@@ -235,7 +236,7 @@ data class LauncherSettings(
     // ========================================================================
 
     /** Maximum number of search results to show per query */
-    val maxSearchResults: Int = 8,
+    val maxSearchResults: Int = HomeGridDefaults.COLUMNS * 2,
 
     /** Whether to auto-focus the keyboard when search dialog opens */
     val autoFocusKeyboard: Boolean = true,

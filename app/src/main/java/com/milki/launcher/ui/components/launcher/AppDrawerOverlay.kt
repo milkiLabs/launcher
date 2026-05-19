@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.data.icon.AppIconMemoryCache
+import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
@@ -76,6 +77,7 @@ import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.FixedAppGrid
 
 import com.milki.launcher.ui.components.common.detectAppExternalDragGesture
 import com.milki.launcher.ui.components.common.rememberItemContextMenuState
@@ -87,10 +89,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val PORTRAIT_RECENT_ROW_CAPACITY = 4
 private const val LANDSCAPE_RECENT_ROW_CAPACITY = 6
 private const val BENCHMARK_SCROLL_DOWN_FRACTION = 0.75f
-private const val DRAWER_GRID_PORTRAIT_COLUMNS = 5
 private const val RECENT_ROW_ITEM_KEY = "drawer_recently_changed_row"
 private const val RECENT_ROW_CONTENT_TYPE = "drawer_recently_changed_row"
 private const val SECTION_HEADER_CONTENT_TYPE = "drawer_section_header"
@@ -123,9 +123,9 @@ fun AppDrawerOverlay(
     val scope = rememberCoroutineScope()
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val recentRowCapacity = if (isPortrait) {
-        PORTRAIT_RECENT_ROW_CAPACITY
+        HomeGridDefaults.COLUMNS * 2
     } else {
-        LANDSCAPE_RECENT_ROW_CAPACITY
+        LANDSCAPE_RECENT_ROW_CAPACITY * 2
     }
     val topRecentApps = uiState.recentlyChangedApps.take(recentRowCapacity)
     val shouldShowTopRecentRow = uiState.query.isBlank() && topRecentApps.isNotEmpty()
@@ -197,7 +197,6 @@ fun AppDrawerOverlay(
                         isPortrait = isPortrait,
                         shouldShowTopRecentRow = shouldShowTopRecentRow,
                         topRecentApps = topRecentApps,
-                        recentRowCapacity = recentRowCapacity,
                         gridState = gridState,
                         onAppClick = { appInfo ->
                             actionHandler(SearchResultAction.Tap(AppSearchResult(appInfo)))
@@ -314,7 +313,6 @@ private fun DrawerGrid(
     isPortrait: Boolean,
     shouldShowTopRecentRow: Boolean,
     topRecentApps: List<AppInfo>,
-    recentRowCapacity: Int,
     gridState: androidx.compose.foundation.lazy.grid.LazyGridState,
     onAppClick: (AppInfo) -> Unit,
     onExternalDragStarted: () -> Unit
@@ -331,7 +329,6 @@ private fun DrawerGrid(
         addRecentAppsRow(
             shouldShowTopRecentRow = shouldShowTopRecentRow,
             topRecentApps = topRecentApps,
-            recentRowCapacity = recentRowCapacity,
             onAppClick = onAppClick,
             onExternalDragStarted = onExternalDragStarted
         )
@@ -346,7 +343,7 @@ private fun DrawerGrid(
 
 private fun drawerGridColumns(isPortrait: Boolean): GridCells {
     return if (isPortrait) {
-        GridCells.Fixed(DRAWER_GRID_PORTRAIT_COLUMNS)
+        GridCells.Fixed(HomeGridDefaults.COLUMNS)
     } else {
         GridCells.Adaptive(minSize = IconSize.appHomeCompact + Spacing.large)
     }
@@ -355,7 +352,6 @@ private fun drawerGridColumns(isPortrait: Boolean): GridCells {
 private fun androidx.compose.foundation.lazy.grid.LazyGridScope.addRecentAppsRow(
     shouldShowTopRecentRow: Boolean,
     topRecentApps: List<AppInfo>,
-    recentRowCapacity: Int,
     onAppClick: (AppInfo) -> Unit,
     onExternalDragStarted: () -> Unit
 ) {
@@ -369,7 +365,6 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.addRecentAppsRow
     ) {
         RecentlyChangedAppsRow(
             apps = topRecentApps,
-            rowCapacity = recentRowCapacity,
             onAppClick = onAppClick,
             onExternalDragStarted = onExternalDragStarted,
             modifier = Modifier
@@ -446,7 +441,6 @@ private fun DrawerGridItem(
 @Composable
 private fun RecentlyChangedAppsRow(
     apps: List<AppInfo>,
-    rowCapacity: Int,
     onAppClick: (AppInfo) -> Unit,
     onExternalDragStarted: () -> Unit,
     modifier: Modifier = Modifier
@@ -461,23 +455,12 @@ private fun RecentlyChangedAppsRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.small)
-        ) {
-            apps.forEach { app ->
-                Box(modifier = Modifier.weight(1f)) {
-                    AppGridItem(
-                        appInfo = app,
-                        onClick = { onAppClick(app) },
-                        onExternalDragStarted = onExternalDragStarted
-                    )
-                }
-            }
-
-            repeat((rowCapacity - apps.size).coerceAtLeast(0)) {
-                Spacer(modifier = Modifier.weight(1f))
-            }
-        }
+        FixedAppGrid(
+            apps = apps,
+            columns = HomeGridDefaults.COLUMNS,
+            onAppClick = onAppClick,
+            onExternalDragStarted = onExternalDragStarted,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

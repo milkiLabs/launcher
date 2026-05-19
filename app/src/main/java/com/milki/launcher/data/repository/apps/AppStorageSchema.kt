@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.domain.homegraph.HomeGridDefaults
 
 /**
  * DataStore schema for app repository persistence.
@@ -19,5 +20,5 @@ internal object AppPreferenceKeys {
      */
     val RECENT_APPS = stringPreferencesKey("recent_apps")
 
-    const val MAX_RECENT_APPS = 10
+    const val MAX_RECENT_APPS = HomeGridDefaults.COLUMNS * 2
 }

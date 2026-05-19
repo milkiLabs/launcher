@@ -32,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
+import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ContactSearchResult
 import com.milki.launcher.domain.model.FileDocumentSearchResult
@@ -46,9 +47,8 @@ import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppListItem
+import com.milki.launcher.ui.components.common.FixedAppGrid
 import com.milki.launcher.ui.theme.Spacing
-
-private const val APP_RESULTS_GRID_COLUMNS = 5
 
 /**
  * SearchResultsList - Displays search results in either a grid or list layout.
@@ -131,18 +131,17 @@ fun SearchResultsList(
 }
 
 /**
- * AppResultsGrid - Displays app results in a 2×4 grid layout.
+ * AppResultsGrid - Displays app results in a grid layout.
  *
  * GRID CONFIGURATION:
- * - 4 columns (fixed width, evenly distributed)
- * - 2 rows (implicit, based on number of items)
- * - Maximum 8 items (limited by ViewModel)
+ * - Columns are dynamically determined by HomeGridDefaults.COLUMNS (default: 5)
+ * - Rows are implicit, based on number of items
+ * - Maximum items limited by ViewModel settings (default: 10)
  *
- * The grid is rendered as a simple 4-column layout because search
- * app results are capped at 8 items. This lets the dialog wrap to
+ * The grid is rendered as a simple fixed-column layout. This lets the dialog wrap to
  * content height instead of reserving unnecessary empty space.
  *
- * @param appResults List of app search results to display (max 8)
+ * @param appResults List of app search results to display
  * @param actionHandler The action handler to emit actions when user interacts
  */
 @Composable
@@ -152,33 +151,18 @@ private fun AppResultsGrid(
     onExternalAppDragStart: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    FixedAppGrid(
+        apps = appResults.map { it.appInfo },
+        columns = HomeGridDefaults.COLUMNS,
+        onAppClick = { appInfo ->
+            val result = appResults.first { it.appInfo.packageName == appInfo.packageName }
+            actionHandler(SearchResultAction.Tap(result))
+        },
+        onExternalDragStarted = onExternalAppDragStart,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.smallMedium),
-        verticalArrangement = Arrangement.spacedBy(Spacing.small)
-    ) {
-        appResults.chunked(APP_RESULTS_GRID_COLUMNS).forEach { rowResults ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small)
-            ) {
-                rowResults.forEach { result ->
-                    Box(modifier = Modifier.weight(1f)) {
-                        AppGridItem(
-                            appInfo = result.appInfo,
-                            onExternalDragStarted = onExternalAppDragStart,
-                            onClick = { actionHandler(SearchResultAction.Tap(result)) }
-                        )
-                    }
-                }
-
-                repeat(APP_RESULTS_GRID_COLUMNS - rowResults.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
+            .padding(horizontal = Spacing.smallMedium)
+    )
 }
 
 /**

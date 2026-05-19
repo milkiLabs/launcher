@@ -5,6 +5,7 @@ package com.milki.launcher.presentation.drawer
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
 import kotlinx.coroutines.Dispatchers
@@ -41,8 +42,8 @@ class AppDrawerViewModel(
     private val drawerListAssembler: DrawerListAssembler,
     private val assemblyContext: CoroutineContext = Dispatchers.Default
 ) : ViewModel() {
-    private companion object {
-        const val RECENTLY_CHANGED_ROW_LIMIT = 8
+    private     companion object {
+        val RECENTLY_CHANGED_ROW_LIMIT = HomeGridDefaults.COLUMNS * 2
     }
 
     private val isLoading = MutableStateFlow(true)
