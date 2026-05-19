@@ -405,7 +405,7 @@ private fun FileIcon(
         Icon(
             imageVector = fileTypeVisual.icon,
             contentDescription = null,
-            tint = Color.White,
+            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(size * FILE_ICON_FOREGROUND_SCALE)
         )
     }

@@ -4,58 +4,6 @@
 
 ---
 
-## 1. Recomposition Optimization
-
-### 1.1 Stability Annotations Missing
-
-| File                                       | Issue                                                                | Severity |
-| ------------------------------------------ | -------------------------------------------------------------------- | -------- |
-| `domain/model/*.kt`                        | Domain model data classes lack `@Immutable` or `@Stable` annotations | MEDIUM   |
-| `presentation/search/SearchUiState.kt`     | UI state data classes not annotated                                  | MEDIUM   |
-| `presentation/drawer/DrawerAdapterItem.kt` | Adapter item classes not annotated                                   | LOW      |
-
-Compose can skip recomposition for stable types. Without `@Immutable` on data classes, Compose must assume they may change, causing unnecessary recompositions.
-
-### 1.2 Lambda Stability Issues
-
-| File:Line                     | Issue                                                          | Severity |
-| ----------------------------- | -------------------------------------------------------------- | -------- |
-| `PinnedItem.kt:118-123`       | `combinedClickable` lambdas created inline every recomposition | MEDIUM   |
-| `DraggablePinnedItemsGrid.kt` | Drag gesture lambdas not remembered                            | MEDIUM   |
-| `LauncherScreen.kt`           | Multiple inline lambdas passed to child composables            | LOW      |
-
-**Example from `PinnedItem.kt:118-123`:**
-
-```kotlin
-.combinedClickable(
-    onClick = onClick,
-    onLongClick = {
-        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-        isMenuVisible = true
-    }
-)
-```
-
-The `onLongClick` lambda is created inline every recomposition. Should be:
-
-```kotlin
-val onLongClick = remember {
-    {
-        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-        isMenuVisible = true
-    }
-}
-```
-
-### 1.3 Missing `derivedStateOf` Usage
-
-| File                            | Issue                                                                           | Severity |
-| ------------------------------- | ------------------------------------------------------------------------------- | -------- |
-| `HomeViewModel.kt`              | `pinnedItems` StateFlow combined with other state without `derivedStateOf`      | MEDIUM   |
-| `SearchViewModelStateHolder.kt` | Complex combine chains could benefit from `derivedStateOf` for sub-computations | LOW      |
-
----
-
 ## 2. Composition Scope and Structure
 
 ### 2.2 State Hoisting
