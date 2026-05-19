@@ -1,5 +1,6 @@
 package com.milki.launcher.domain.model
 
+import androidx.compose.runtime.Immutable
 import java.util.UUID
 import kotlinx.serialization.Serializable
 
@@ -42,6 +43,7 @@ import kotlinx.serialization.Serializable
  * @property accentColorHex Custom user-selected color used by UI accents for this
  *                          source. Stored as `#RRGGBB` for simplicity.
  */
+@Immutable
 @Serializable
 data class SearchSource(
     val id: String,

@@ -38,6 +38,7 @@
 
 package com.milki.launcher.domain.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 
 /**
@@ -63,6 +64,7 @@ import kotlinx.serialization.Serializable
  * PrefixConfig(listOf("c", "ct", "contact"))
  * ```
  */
+@Immutable
 @Serializable
 data class PrefixConfig(
     val prefixes: List<String>

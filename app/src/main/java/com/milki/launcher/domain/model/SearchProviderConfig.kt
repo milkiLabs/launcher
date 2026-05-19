@@ -22,6 +22,8 @@
 
 package com.milki.launcher.domain.model
 
+import androidx.compose.runtime.Immutable
+
 /**
  * Configuration for a search provider's semantic metadata.
  *
@@ -58,6 +60,7 @@ package com.milki.launcher.domain.model
  * )
  * ```
  */
+@Immutable
 data class SearchProviderConfig(
     val providerId: String,
     val prefix: String,

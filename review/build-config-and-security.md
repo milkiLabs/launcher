@@ -28,17 +28,6 @@
 | Java 11 compatibility (conservative)         | `app/build.gradle.kts:98-101` | LOW      |
 | Missing `kotlinOptions { jvmTarget = "11" }` | `app/build.gradle.kts`        | MEDIUM   |
 
-### 3.3 Version Code/Name Static
-
-**File:** `app/build.gradle.kts:33-34`
-
-```kotlin
-versionCode = 1
-versionName = "1.0"
-```
-
-Hardcoded. For CI/CD release workflows, these should be dynamic (git tags, env vars, or `version.properties`).
-
 ---
 
 ## 5. CI/CD Workflow Issues

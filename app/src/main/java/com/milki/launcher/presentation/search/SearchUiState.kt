@@ -26,6 +26,7 @@
 
 package com.milki.launcher.presentation.search
 
+import androidx.compose.runtime.Immutable
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.SearchSource
@@ -62,6 +63,7 @@ import com.milki.launcher.domain.search.ActionSuggestion
  * @property clipboardSuggestion Optional single clipboard-driven suggestion
  * @property querySuggestion Optional single query-driven suggestion
  */
+@Immutable
 data class SearchUiState(
     val query: String = "",
     val isSearchVisible: Boolean = false,

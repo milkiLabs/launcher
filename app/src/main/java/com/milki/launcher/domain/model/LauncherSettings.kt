@@ -12,6 +12,7 @@
 
 package com.milki.launcher.domain.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 
 /**
@@ -68,6 +69,7 @@ enum class LauncherGestureDirection {
  * metadata instead of creating one-off booleans and callback fields throughout
  * the UI/runtime layers.
  */
+@Immutable
 @Serializable
 data class LauncherTriggerMetadata(
     val kind: LauncherGestureKind,
@@ -127,10 +129,12 @@ enum class LauncherTriggerAction(val displayName: String) {
 /**
  * Payload for trigger actions that need a concrete launch target.
  */
+@Immutable
 @Serializable
 sealed class LauncherTriggerTarget {
     abstract val displayName: String
 
+    @Immutable
     @Serializable
     data class App(
         val packageName: String,
@@ -138,6 +142,7 @@ sealed class LauncherTriggerTarget {
         override val displayName: String
     ) : LauncherTriggerTarget()
 
+    @Immutable
     @Serializable
     data class AppShortcut(
         val packageName: String,
@@ -159,6 +164,7 @@ sealed class LauncherTriggerTarget {
         }
     }
 
+    @Immutable
     @Serializable
     data class ActionShortcut(
         val id: String,
@@ -220,6 +226,7 @@ object LauncherInteractionCatalog {
  * 3. Home Screen - Home button/gesture behavior
  * 4. Search Providers - Enable local providers and configure dynamic sources
  */
+@Immutable
 @Serializable
 data class LauncherSettings(
 

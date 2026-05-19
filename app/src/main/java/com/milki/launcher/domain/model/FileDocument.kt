@@ -10,6 +10,7 @@
 package com.milki.launcher.domain.model
 
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 import com.milki.launcher.core.file.MimeTypeUtil
 
 /**
@@ -39,6 +40,7 @@ import com.milki.launcher.core.file.MimeTypeUtil
  * )
  * ```
  */
+@Immutable
 data class FileDocument(
     /**
      * Unique file ID from the MediaStore (_ID column).
