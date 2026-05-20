@@ -26,7 +26,6 @@ import com.milki.launcher.presentation.launcher.WidgetPlacementCoordinator
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchViewModel
-import com.milki.launcher.presentation.search.shouldCloseSearch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
@@ -134,16 +133,6 @@ internal class LauncherHostRuntime(
             initializeDeferredHandlers()
         }
         actionExecutor.execute(action, permissionHandler::hasPermission)
-    }
-
-    /**
-     * Applies the policy that decides whether launching an action should dismiss search.
-     */
-    fun updateSearchClosePolicy(closeSearchOnLaunch: Boolean) {
-        if (!::actionExecutor.isInitialized) return
-        actionExecutor.shouldCloseSearchForAction = { action ->
-            closeSearchOnLaunch && action.shouldCloseSearch()
-        }
     }
 
     fun onResume() {

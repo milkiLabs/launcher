@@ -63,7 +63,6 @@ internal class SearchViewModelStateHolder(
             results = if (visible) output.results else emptyList(),
             activeProviderConfig = if (visible) output.activeProviderConfig else null,
             isLoading = visible && output.isLoading,
-            autoFocusKeyboard = runtimeSettings.autoFocusKeyboard,
             clipboardSuggestion = if (visible) clipSuggestion else null,
             suggestedActionSources = if (visible) runtimeSettings.searchSources else emptyList(),
             defaultSearchSourceId = runtimeSettings.defaultSearchSourceId

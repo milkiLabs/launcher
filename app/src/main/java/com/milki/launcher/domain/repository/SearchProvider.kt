@@ -42,7 +42,6 @@ import com.milki.launcher.domain.model.SearchResult
 
 data class SearchRequest(
     val query: String,
-    val maxResults: Int,
     val contactsPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST,
     val filesPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST
 )

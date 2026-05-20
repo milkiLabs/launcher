@@ -13,7 +13,7 @@ class FilterAppsUseCase {
         recentApps: List<AppInfo>
     ): List<AppInfo> {
         if (query.isBlank()) {
-            return recentApps
+            return recentApps.take(MAX_SEARCH_RESULTS)
         }
 
         return AppQueryRanker.rank(
@@ -21,6 +21,10 @@ class FilterAppsUseCase {
             query = query,
             includePackageNameMatches = false,
             recentApps = recentApps
-        )
+        ).take(MAX_SEARCH_RESULTS)
+    }
+
+    companion object {
+        private const val MAX_SEARCH_RESULTS = 10
     }
 }

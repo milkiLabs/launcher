@@ -11,7 +11,6 @@ val settingsModule = module {
             searchSourceRepository = get(),
             prefixConfigRepository = get(),
             homeTriggerRepository = get(),
-            hiddenAppsRepository = get(),
             appRepository = get(),
             actionShortcutRepository = get(),
             launcherBackupRepository = get(),

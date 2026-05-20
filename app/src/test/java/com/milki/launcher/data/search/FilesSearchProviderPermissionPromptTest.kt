@@ -21,7 +21,6 @@ class FilesSearchProviderPermissionPromptTest {
         val results = provider.search(
             SearchRequest(
                 query = "report",
-                maxResults = 8,
                 filesPermissionState = PermissionAccessState.REQUIRES_SETTINGS
             )
         )

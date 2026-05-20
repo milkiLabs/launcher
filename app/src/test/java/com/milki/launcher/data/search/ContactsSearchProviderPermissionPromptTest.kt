@@ -22,7 +22,6 @@ class ContactsSearchProviderPermissionPromptTest {
         val results = provider.search(
             SearchRequest(
                 query = "ali",
-                maxResults = 8,
                 contactsPermissionState = PermissionAccessState.REQUIRES_SETTINGS
             )
         )
@@ -53,7 +52,6 @@ class ContactsSearchProviderPermissionPromptTest {
         val results = provider.search(
             SearchRequest(
                 query = "+20 123 456 7890",
-                maxResults = 8,
                 contactsPermissionState = PermissionAccessState.GRANTED
             )
         )
@@ -71,7 +69,6 @@ class ContactsSearchProviderPermissionPromptTest {
         val results = provider.search(
             SearchRequest(
                 query = "123456",
-                maxResults = 8,
                 contactsPermissionState = PermissionAccessState.CAN_REQUEST
             )
         )

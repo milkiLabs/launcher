@@ -21,10 +21,8 @@ import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.PrefixMutationResult
-import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.UrlHandlerApp
-import com.milki.launcher.domain.repository.HiddenAppsRepository
 import com.milki.launcher.domain.repository.HomeTriggerRepository
 import com.milki.launcher.domain.repository.LauncherBackupRepository
 import com.milki.launcher.domain.repository.ActionShortcutRepository
@@ -50,7 +48,6 @@ class SettingsViewModel(
     private val searchSourceRepository: SearchSourceRepository,
     private val prefixConfigRepository: PrefixConfigurationRepository,
     private val homeTriggerRepository: HomeTriggerRepository,
-    private val hiddenAppsRepository: HiddenAppsRepository,
     appRepository: AppRepository,
     private val actionShortcutRepository: ActionShortcutRepository,
     private val launcherBackupRepository: LauncherBackupRepository,
@@ -94,28 +91,6 @@ class SettingsViewModel(
 
     private val _lastImportReport = MutableStateFlow<LauncherImportResult?>(null)
     val lastImportReport: StateFlow<LauncherImportResult?> = _lastImportReport
-
-    // ========================================================================
-    // APPEARANCE
-    // ========================================================================
-
-    fun setSearchResultLayout(layout: SearchResultLayout) {
-        viewModelScope.launch {
-            settingsReader.updateSettings { it.copy(searchResultLayout = layout) }
-        }
-    }
-
-    fun setShowHomescreenHint(value: Boolean) {
-        viewModelScope.launch {
-            settingsReader.updateSettings { it.copy(showHomescreenHint = value) }
-        }
-    }
-
-    fun setShowAppIcons(value: Boolean) {
-        viewModelScope.launch {
-            settingsReader.updateSettings { it.copy(showAppIcons = value) }
-        }
-    }
 
     // ========================================================================
     // HOME SCREEN
@@ -365,16 +340,6 @@ class SettingsViewModel(
      */
     private fun getDefaultPrefix(providerId: String): String {
         return PrefixConfig.defaults[providerId]?.primaryPrefix.orEmpty()
-    }
-
-    // ========================================================================
-    // HIDDEN APPS
-    // ========================================================================
-
-    fun toggleHiddenApp(packageName: String) {
-        viewModelScope.launch {
-            hiddenAppsRepository.toggleHiddenApp(packageName)
-        }
     }
 
     // ========================================================================

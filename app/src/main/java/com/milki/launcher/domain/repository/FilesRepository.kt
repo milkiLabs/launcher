@@ -95,7 +95,7 @@ interface FilesRepository {
      * @param maxItems Maximum number of matching documents to return
      * @return List of matching FileDocument objects, sorted by date modified (newest first)
      */
-    suspend fun searchFiles(query: String, maxItems: Int = 8): List<FileDocument>
+    suspend fun searchFiles(query: String, maxItems: Int = 10): List<FileDocument>
     
     /**
      * Get recently modified document files.

@@ -33,23 +33,20 @@ internal fun rememberDelayedSearchLoadingIndicator(isLoading: Boolean): Boolean 
 
 @Composable
 internal fun SearchDialogFocusEffects(
-    autoFocusKeyboard: Boolean,
     focusRequester: FocusRequester,
     keyboardController: SoftwareKeyboardController?,
     lifecycleOwner: LifecycleOwner
 ) {
-    LaunchedEffect(autoFocusKeyboard) {
-        if (autoFocusKeyboard) {
-            requestDialogFocus(
-                focusRequester = focusRequester,
-                keyboardController = keyboardController
-            )
-        }
+    LaunchedEffect(Unit) {
+        requestDialogFocus(
+            focusRequester = focusRequester,
+            keyboardController = keyboardController
+        )
     }
 
-    DisposableEffect(lifecycleOwner, autoFocusKeyboard) {
+    DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && autoFocusKeyboard) {
+            if (event == Lifecycle.Event.ON_RESUME) {
                 requestDialogFocus(
                     focusRequester = focusRequester,
                     keyboardController = keyboardController

@@ -13,7 +13,6 @@
 package com.milki.launcher.domain.model
 
 import androidx.compose.runtime.Immutable
-import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import kotlinx.serialization.Serializable
 
 /**
@@ -26,15 +25,6 @@ import kotlinx.serialization.Serializable
  * The map values are PrefixConfig objects containing the list of prefixes.
  */
 typealias ProviderPrefixConfiguration = Map<String, PrefixConfig>
-
-/**
- * Display layout options for search results.
- */
-@Serializable
-enum class SearchResultLayout(val displayName: String) {
-    LIST("List"),
-    GRID("Grid")
-}
 
 /**
  * High-level homescreen gesture categories.
@@ -232,35 +222,6 @@ object LauncherInteractionCatalog {
 data class LauncherSettings(
 
     // ========================================================================
-    // SEARCH BEHAVIOR
-    // ========================================================================
-
-    /** Maximum number of search results to show per query */
-    val maxSearchResults: Int = HomeGridDefaults.COLUMNS * 2,
-
-    /** Whether to auto-focus the keyboard when search dialog opens */
-    val autoFocusKeyboard: Boolean = true,
-
-    /** Whether to show recent apps when search is opened with empty query */
-    val showRecentApps: Boolean = true,
-
-    /** Whether to close search dialog after launching an app */
-    val closeSearchOnLaunch: Boolean = true,
-
-    // ========================================================================
-    // APPEARANCE
-    // ========================================================================
-
-    /** Layout for search results (list or grid) */
-    val searchResultLayout: SearchResultLayout = SearchResultLayout.LIST,
-
-    /** Whether to show the "Tap to search" hint text on homescreen */
-    val showHomescreenHint: Boolean = true,
-
-    /** Whether to show app icons in search results */
-    val showAppIcons: Boolean = true,
-
-    // ========================================================================
     // HOME SCREEN
     // ========================================================================
 
@@ -331,14 +292,7 @@ data class LauncherSettings(
      * )
      * ```
      */
-    val prefixConfigurations: ProviderPrefixConfiguration = emptyMap(),
-
-    // ========================================================================
-    // HIDDEN APPS
-    // ========================================================================
-
-    /** Package names of apps hidden from search results */
-    val hiddenApps: Set<String> = emptySet()
+    val prefixConfigurations: ProviderPrefixConfiguration = emptyMap()
 )
 
 /**

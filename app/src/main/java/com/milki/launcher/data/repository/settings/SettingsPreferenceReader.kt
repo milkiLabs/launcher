@@ -6,7 +6,6 @@ import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
-import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
 import kotlinx.serialization.decodeFromString
 
@@ -17,25 +16,6 @@ internal object SettingsPreferenceReader {
             parsePrefixConfigurations(preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS])
 
         return LauncherSettings(
-            maxSearchResults =
-                preferences[SettingsPreferenceKeys.MAX_SEARCH_RESULTS] ?: defaults.maxSearchResults,
-            autoFocusKeyboard =
-                preferences[SettingsPreferenceKeys.AUTO_FOCUS_KEYBOARD] ?: defaults.autoFocusKeyboard,
-            showRecentApps =
-                preferences[SettingsPreferenceKeys.SHOW_RECENT_APPS] ?: defaults.showRecentApps,
-            closeSearchOnLaunch =
-                preferences[SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH]
-                    ?: defaults.closeSearchOnLaunch,
-            searchResultLayout =
-                preferences[SettingsPreferenceKeys.SEARCH_RESULT_LAYOUT]?.let {
-                    runCatching { SearchResultLayout.valueOf(it) }
-                        .getOrDefault(defaults.searchResultLayout)
-                } ?: defaults.searchResultLayout,
-            showHomescreenHint =
-                preferences[SettingsPreferenceKeys.SHOW_HOMESCREEN_HINT]
-                    ?: defaults.showHomescreenHint,
-            showAppIcons =
-                preferences[SettingsPreferenceKeys.SHOW_APP_ICONS] ?: defaults.showAppIcons,
             triggerActions = parseTriggerActions(preferences),
             triggerTargets = parseTriggerTargets(preferences),
             contactsSearchEnabled =
@@ -46,7 +26,6 @@ internal object SettingsPreferenceReader {
                     ?: defaults.filesSearchEnabled,
             searchSources = parseSearchSources(preferences),
             prefixConfigurations = parsedPrefixConfigurations,
-            hiddenApps = preferences[SettingsPreferenceKeys.HIDDEN_APPS] ?: defaults.hiddenApps,
             defaultSearchSourceId = preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID]
         )
     }

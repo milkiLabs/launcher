@@ -126,7 +126,6 @@ fun AppSearchDialog(
     }
 
     SearchDialogFocusEffects(
-        autoFocusKeyboard = uiState.autoFocusKeyboard,
         focusRequester = focusRequester,
         keyboardController = keyboardController,
         lifecycleOwner = lifecycleOwner

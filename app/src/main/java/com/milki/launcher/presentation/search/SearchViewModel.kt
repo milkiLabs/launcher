@@ -193,9 +193,6 @@ class SearchViewModel(
                         contactsSearchEnabled = settings.contactsSearchEnabled,
                         filesSearchEnabled = settings.filesSearchEnabled,
                         prefixConfigurations = settings.prefixConfigurations,
-                        maxSearchResults = settings.maxSearchResults,
-                        showRecentApps = settings.showRecentApps,
-                        autoFocusKeyboard = settings.autoFocusKeyboard,
                         defaultSearchSourceId = settings.defaultSearchSourceId
                     )
                 }
@@ -249,9 +246,6 @@ class SearchViewModel(
 
         providerRegistry.updatePrefixConfigurations(mergedConfigurations)
         stateHolder.runtimeSettings.value = SearchRuntimeSettings(
-            maxSearchResults = settings.maxSearchResults.coerceAtLeast(1),
-            showRecentApps = settings.showRecentApps,
-            autoFocusKeyboard = settings.autoFocusKeyboard,
             searchSources = settings.searchSources.filter { it.showAsSuggestedAction },
             defaultSearchSourceId = settings.defaultSearchSourceId
         )
@@ -335,23 +329,19 @@ class SearchViewModel(
                 provider = parsed.provider,
                 request = SearchRequest(
                     query = parsed.query,
-                    maxResults = settings.maxSearchResults,
                     contactsPermissionState = contactsPermissionState,
                     filesPermissionState = filesPermissionState
                 )
             )
         }
 
-        val recentAppsToUse = if (settings.showRecentApps) recentApps else emptyList()
-
         val filteredApps = filterAppsUseCase(
             query = parsed.query,
             installedApps = installedApps,
-            recentApps = recentAppsToUse
+            recentApps = recentApps
         )
 
         return filteredApps
-            .take(settings.maxSearchResults)
             .map { app -> AppSearchResult(appInfo = app) }
     }
 
@@ -495,9 +485,6 @@ private data class SearchRuntimeSettingsSnapshot(
     val contactsSearchEnabled: Boolean,
     val filesSearchEnabled: Boolean,
     val prefixConfigurations: ProviderPrefixConfiguration,
-    val maxSearchResults: Int,
-    val showRecentApps: Boolean,
-    val autoFocusKeyboard: Boolean,
     val defaultSearchSourceId: String?
 )
 
@@ -515,9 +502,6 @@ internal data class SearchPipelineOutput(
 )
 
 internal data class SearchRuntimeSettings(
-    val maxSearchResults: Int = 10,
-    val showRecentApps: Boolean = true,
-    val autoFocusKeyboard: Boolean = true,
     val searchSources: List<SearchSource> = emptyList(),
     val defaultSearchSourceId: String? = null
 )

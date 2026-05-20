@@ -1,6 +1,6 @@
 {
   "statistics": {
-    "detectionDate": "2026-05-20T20:27:13.458Z",
+    "detectionDate": "2026-05-20T20:33:58.530Z",
     "formats": {
       "kotlin": {
         "sources": {
@@ -2070,7 +2070,7 @@
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/data/search/ContactsSearchProvider.kt": {
             "lines": 198,
-            "tokens": 945,
+            "tokens": 944,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -2201,8 +2201,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/data/repository/ContactsQueryLayer.kt": {
-            "lines": 394,
-            "tokens": 3028,
+            "lines": 387,
+            "tokens": 2992,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -2718,8 +2718,8 @@
           }
         },
         "total": {
-          "lines": 30182,
-          "tokens": 202801,
+          "lines": 30175,
+          "tokens": 202764,
           "sources": 226,
           "clones": 4,
           "duplicatedLines": 45,
@@ -2732,8 +2732,8 @@
       }
     },
     "total": {
-      "lines": 30182,
-      "tokens": 202801,
+      "lines": 30175,
+      "tokens": 202764,
       "sources": 226,
       "clones": 4,
       "duplicatedLines": 45,
@@ -2761,7 +2761,7 @@
         },
         "endLoc": {
           "line": 39,
-          "column": 29,
+          "column": 3,
           "position": 431
         }
       },
@@ -2776,7 +2776,7 @@
         },
         "endLoc": {
           "line": 38,
-          "column": 33,
+          "column": 7,
           "position": 423
         }
       }
@@ -2797,7 +2797,7 @@
         },
         "endLoc": {
           "line": 41,
-          "column": 32,
+          "column": 8,
           "position": 184
         }
       },
@@ -2812,7 +2812,7 @@
         },
         "endLoc": {
           "line": 52,
-          "column": 27,
+          "column": 3,
           "position": 224
         }
       }
@@ -2833,7 +2833,7 @@
         },
         "endLoc": {
           "line": 54,
-          "column": 33,
+          "column": 7,
           "position": 613
         }
       },
@@ -2848,7 +2848,7 @@
         },
         "endLoc": {
           "line": 17,
-          "column": 31,
+          "column": 5,
           "position": 187
         }
       }
@@ -2869,7 +2869,7 @@
         },
         "endLoc": {
           "line": 38,
-          "column": 68,
+          "column": 18,
           "position": 463
         }
       },
@@ -2884,7 +2884,7 @@
         },
         "endLoc": {
           "line": 33,
-          "column": 75,
+          "column": 25,
           "position": 397
         }
       }

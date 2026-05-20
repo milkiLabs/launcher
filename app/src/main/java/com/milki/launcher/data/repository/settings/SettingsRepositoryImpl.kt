@@ -11,9 +11,7 @@ import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.PrefixMutationResult
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
-import com.milki.launcher.domain.model.SearchResultLayout
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.repository.HiddenAppsRepository
 import com.milki.launcher.domain.repository.HomeTriggerRepository
 import com.milki.launcher.domain.repository.PrefixConfigurationRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
@@ -32,8 +30,7 @@ class SettingsRepositoryImpl(
 ) : SettingsReader,
     SearchSourceRepository,
     PrefixConfigurationRepository,
-    HomeTriggerRepository,
-    HiddenAppsRepository {
+    HomeTriggerRepository {
 
     private val mutationStore = SettingsMutationStore()
 
@@ -61,34 +58,6 @@ class SettingsRepositoryImpl(
     // ========================================================================
     // Targeted single-key setters
     // ========================================================================
-
-    suspend fun setMaxSearchResults(value: Int) {
-        writeIntSetting(SettingsPreferenceKeys.MAX_SEARCH_RESULTS, value)
-    }
-
-    suspend fun setAutoFocusKeyboard(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.AUTO_FOCUS_KEYBOARD, value)
-    }
-
-    suspend fun setShowRecentApps(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.SHOW_RECENT_APPS, value)
-    }
-
-    suspend fun setCloseSearchOnLaunch(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.CLOSE_SEARCH_ON_LAUNCH, value)
-    }
-
-    suspend fun setSearchResultLayout(layout: SearchResultLayout) {
-        writeStringSetting(SettingsPreferenceKeys.SEARCH_RESULT_LAYOUT, layout.name)
-    }
-
-    suspend fun setShowHomescreenHint(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.SHOW_HOMESCREEN_HINT, value)
-    }
-
-    suspend fun setShowAppIcons(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.SHOW_APP_ICONS, value)
-    }
 
     suspend fun setContactsSearchEnabled(value: Boolean) {
         writeBooleanSetting(SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED, value)
@@ -327,49 +296,12 @@ class SettingsRepositoryImpl(
     }
 
     // ========================================================================
-    // HiddenAppsRepository
-    // ========================================================================
-
-    override suspend fun toggleHiddenApp(packageName: String) {
-        context.settingsDataStore.edit { preferences ->
-            val currentHiddenApps =
-                (preferences[SettingsPreferenceKeys.HIDDEN_APPS] ?: emptySet()).toMutableSet()
-
-            if (packageName in currentHiddenApps) {
-                currentHiddenApps.remove(packageName)
-            } else {
-                currentHiddenApps.add(packageName)
-            }
-
-            preferences[SettingsPreferenceKeys.HIDDEN_APPS] = currentHiddenApps
-        }
-    }
-
-    // ========================================================================
     // Private helpers
     // ========================================================================
 
     private suspend fun writeBooleanSetting(
         key: Preferences.Key<Boolean>,
         value: Boolean
-    ) {
-        context.settingsDataStore.edit { preferences ->
-            preferences[key] = value
-        }
-    }
-
-    private suspend fun writeIntSetting(
-        key: Preferences.Key<Int>,
-        value: Int
-    ) {
-        context.settingsDataStore.edit { preferences ->
-            preferences[key] = value
-        }
-    }
-
-    private suspend fun writeStringSetting(
-        key: Preferences.Key<String>,
-        value: String
     ) {
         context.settingsDataStore.edit { preferences ->
             preferences[key] = value

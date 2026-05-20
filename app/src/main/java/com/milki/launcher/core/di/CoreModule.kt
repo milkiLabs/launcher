@@ -6,7 +6,6 @@ import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
-import com.milki.launcher.domain.repository.HiddenAppsRepository
 import com.milki.launcher.domain.repository.HomeTriggerRepository
 import com.milki.launcher.domain.repository.PrefixConfigurationRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
@@ -33,7 +32,6 @@ val coreModule = module {
     single<SearchSourceRepository> { get<SettingsRepositoryImpl>() }
     single<PrefixConfigurationRepository> { get<SettingsRepositoryImpl>() }
     single<HomeTriggerRepository> { get<SettingsRepositoryImpl>() }
-    single<HiddenAppsRepository> { get<SettingsRepositoryImpl>() }
 
     single<ActionShortcutRepository> {
         ActionShortcutRepositoryImpl(get())

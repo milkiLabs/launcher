@@ -48,7 +48,7 @@ class ContactsSearchProvider(
 ) : SearchProvider {
 
     private companion object {
-        const val MAX_RESULTS = 8
+        const val MAX_RESULTS = 10
         const val MIN_PHONE_DIGITS = 3
         val PHONE_QUERY_PATTERN = Regex("""^\+?[0-9][0-9 .()\-]{2,}$""")
     }
@@ -120,14 +120,14 @@ class ContactsSearchProvider(
         // If no contacts found, returns empty list (UI handles empty state)
         val contacts = contactsRepository.searchContacts(
             query = request.query,
-            maxItems = request.maxResults
+            maxItems = MAX_RESULTS
         )
         return buildList {
             typedPhoneNumberResult?.let(::add)
             contacts.mapTo(this) { contact ->
                 ContactSearchResult(contact = contact)
             }
-        }
+        }.take(MAX_RESULTS)
     }
 
     private fun isPhoneNumberQuery(query: String): Boolean {
@@ -171,7 +171,9 @@ class ContactsSearchProvider(
         val contactsByPhone = contactsRepository.getContactsByPhoneNumbers(recentPhones)
 
         // Build results, using batch lookup results when available
-        return recentPhones.map { phoneNumber ->
+        return recentPhones
+            .take(MAX_RESULTS)
+            .map { phoneNumber ->
             // Check if we found a contact for this phone number
             val contact = contactsByPhone[phoneNumber]
 

@@ -4,9 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.LauncherTriggerTarget
@@ -56,17 +54,6 @@ internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDat
  * reduces coupling between repository read/write paths.
  */
 internal object SettingsPreferenceKeys {
-    // Search Behavior
-    val MAX_SEARCH_RESULTS = intPreferencesKey("max_search_results")
-    val AUTO_FOCUS_KEYBOARD = booleanPreferencesKey("auto_focus_keyboard")
-    val SHOW_RECENT_APPS = booleanPreferencesKey("show_recent_apps")
-    val CLOSE_SEARCH_ON_LAUNCH = booleanPreferencesKey("close_search_on_launch")
-
-    // Appearance
-    val SEARCH_RESULT_LAYOUT = stringPreferencesKey("search_result_layout")
-    val SHOW_HOMESCREEN_HINT = booleanPreferencesKey("show_homescreen_hint")
-    val SHOW_APP_ICONS = booleanPreferencesKey("show_app_icons")
-
     // Home Screen
     val TRIGGER_ACTIONS = stringPreferencesKey("trigger_actions")
     val TRIGGER_TARGETS = stringPreferencesKey("trigger_targets")
@@ -78,9 +65,6 @@ internal object SettingsPreferenceKeys {
     // Search Providers
     val CONTACTS_SEARCH_ENABLED = booleanPreferencesKey("contacts_search_enabled")
     val FILES_SEARCH_ENABLED = booleanPreferencesKey("files_search_enabled")
-
-    // Hidden Apps
-    val HIDDEN_APPS = stringSetPreferencesKey("hidden_apps")
 
     // Prefix Configuration - stored as JSON string
     val PREFIX_CONFIGURATIONS = stringPreferencesKey("prefix_configurations")

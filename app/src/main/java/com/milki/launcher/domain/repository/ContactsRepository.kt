@@ -36,7 +36,7 @@ interface ContactsRepository {
      * @return List of matching contacts
      * @throws SecurityException if permission is not granted
      */
-    suspend fun searchContacts(query: String, maxItems: Int = 8): List<Contact>
+    suspend fun searchContacts(query: String, maxItems: Int = 10): List<Contact>
 
     /**
      * Save a phone number to recent contacts.
