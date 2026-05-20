@@ -138,8 +138,6 @@ class SettingsActivity : ComponentActivity() {
                         onSetDefaultSearchSource = settingsViewModel::setDefaultSearchSource
                     ),
                     localPrefixes = SettingsLocalPrefixActions(
-                        onSetContactsSearchEnabled = settingsViewModel::setContactsSearchEnabled,
-                        onSetFilesSearchEnabled = settingsViewModel::setFilesSearchEnabled,
                         onAddProviderPrefix = settingsViewModel::addProviderPrefix,
                         onRemoveProviderPrefix = settingsViewModel::removeProviderPrefix,
                         onResetProviderPrefixes = settingsViewModel::resetProviderPrefixes

@@ -56,18 +56,6 @@ class SettingsRepositoryImpl(
     }
 
     // ========================================================================
-    // Targeted single-key setters
-    // ========================================================================
-
-    suspend fun setContactsSearchEnabled(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED, value)
-    }
-
-    suspend fun setFilesSearchEnabled(value: Boolean) {
-        writeBooleanSetting(SettingsPreferenceKeys.FILES_SEARCH_ENABLED, value)
-    }
-
-    // ========================================================================
     // HomeTriggerRepository
     // ========================================================================
 

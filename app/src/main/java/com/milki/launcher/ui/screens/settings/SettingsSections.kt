@@ -148,8 +148,6 @@ internal fun LocalPrefixesSection(
         providerIcon = Icons.Default.Person,
         providerColor = MaterialTheme.colorScheme.secondary,
         defaultPrefix = "c",
-        isEnabled = settings.contactsSearchEnabled,
-        onToggleEnabled = actions.onSetContactsSearchEnabled,
         currentPrefixes = settings.prefixConfigurations[ProviderId.CONTACTS]?.prefixes
             ?: listOf("c"),
         onAddPrefix = { prefix, onResult ->
@@ -164,8 +162,6 @@ internal fun LocalPrefixesSection(
         providerIcon = Icons.AutoMirrored.Filled.InsertDriveFile,
         providerColor = MaterialTheme.colorScheme.primaryContainer,
         defaultPrefix = "f",
-        isEnabled = settings.filesSearchEnabled,
-        onToggleEnabled = actions.onSetFilesSearchEnabled,
         currentPrefixes = settings.prefixConfigurations[ProviderId.FILES]?.prefixes
             ?: listOf("f"),
         onAddPrefix = { prefix, onResult ->

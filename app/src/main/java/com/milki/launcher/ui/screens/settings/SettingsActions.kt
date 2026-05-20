@@ -58,8 +58,6 @@ data class SettingsCustomSourceActions(
  * Actions used by local-provider prefix editing section.
  */
 data class SettingsLocalPrefixActions(
-    val onSetContactsSearchEnabled: (Boolean) -> Unit,
-    val onSetFilesSearchEnabled: (Boolean) -> Unit,
     val onAddProviderPrefix: (String, String, (String) -> Unit) -> Unit,
     val onRemoveProviderPrefix: (String, String) -> Unit,
     val onResetProviderPrefixes: (String) -> Unit

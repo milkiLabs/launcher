@@ -118,18 +118,6 @@ class SettingsViewModel(
     // SEARCH PROVIDERS
     // ========================================================================
 
-    fun setContactsSearchEnabled(value: Boolean) {
-        viewModelScope.launch {
-            settingsReader.updateSettings { it.copy(contactsSearchEnabled = value) }
-        }
-    }
-
-    fun setFilesSearchEnabled(value: Boolean) {
-        viewModelScope.launch {
-            settingsReader.updateSettings { it.copy(filesSearchEnabled = value) }
-        }
-    }
-
     // ========================================================================
     // DYNAMIC SEARCH SOURCES
     // ========================================================================
