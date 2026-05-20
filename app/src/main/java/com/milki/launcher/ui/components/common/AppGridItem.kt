@@ -102,22 +102,10 @@ fun AppGridItem(
             }
         }
 
-        ItemContextMenu(
-            packageName = appInfo.packageName,
-            appName = appInfo.name,
-            expanded = menuState.showMenu,
-            onDismiss = menuState::dismiss,
-            focusable = menuState.isMenuFocusable,
-            onExternalDragStarted = {
-                menuState.dismiss()
-                onExternalDragStarted()
-            },
-            extraActions = listOf(
-                com.milki.launcher.ui.components.launcher.createUninstallAppAction(
-                    packageName = appInfo.packageName,
-                    actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-                )
-            )
+        AppItemContextMenu(
+            appInfo = appInfo,
+            menuState = menuState,
+            onExternalDragStarted = onExternalDragStarted
         )
     }
 }

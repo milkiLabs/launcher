@@ -120,6 +120,40 @@ fun ItemContextMenu(
     )
 }
 
+/**
+ * Convenience composable for displaying the context menu of an [AppInfo].
+ *
+ * Bundles the standard uninstall action and wires up the menu state
+ * so callers don't repeat the same boilerplate.
+ */
+@Composable
+fun AppItemContextMenu(
+    appInfo: AppInfo,
+    menuState: ItemContextMenuState,
+    onExternalDragStarted: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
+    ItemContextMenu(
+        packageName = appInfo.packageName,
+        appName = appInfo.name,
+        expanded = menuState.showMenu,
+        onDismiss = menuState::dismiss,
+        focusable = menuState.isMenuFocusable,
+        onExternalDragStarted = {
+            menuState.dismiss()
+            onExternalDragStarted()
+        },
+        extraActions = listOf(
+            createUninstallAppAction(
+                packageName = appInfo.packageName,
+                actionHandler = actionHandler
+            )
+        ),
+        modifier = modifier
+    )
+}
+
 fun buildAppUtilityMenuActions(
     packageName: String,
     appName: String? = null,
