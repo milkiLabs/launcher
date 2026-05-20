@@ -53,6 +53,7 @@ import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.core.util.ViewModelSharingStarted
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SearchProvider
@@ -125,7 +126,7 @@ class SearchViewModel(
      */
     private val installedAppsStream = appRepository.observeInstalledApps().stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        started = ViewModelSharingStarted,
         initialValue = emptyList()
     )
 

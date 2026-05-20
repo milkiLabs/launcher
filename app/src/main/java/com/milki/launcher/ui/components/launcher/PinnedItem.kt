@@ -27,6 +27,7 @@ package com.milki.launcher.ui.components.launcher
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.IconBadge
 import com.milki.launcher.ui.components.common.IconLabelCell
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.WidgetPopupIcon
@@ -292,27 +294,16 @@ internal fun ActionShortcutIcon(
                 size = size,
                 modifier = Modifier.matchParentSize()
             )
-            
-            val badgeSize = (size * 0.34f).coerceAtLeast(16.dp)
-            val badgePadding = (badgeSize * 0.12f).coerceAtLeast(2.dp)
-            
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(badgeSize),
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                shadowElevation = 3.dp
+            IconBadge(
+                iconSize = size,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Link,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier
-                            .size(badgeSize - badgePadding)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Link,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
         return

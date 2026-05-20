@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.core.util.ViewModelSharingStarted
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.AppInfo
@@ -105,7 +106,7 @@ class HomeViewModel(
 
     val pinnedItems = homeRepository.pinnedItems.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = ViewModelSharingStarted,
         initialValue = emptyList()
     )
 
@@ -120,7 +121,7 @@ class HomeViewModel(
         }
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = ViewModelSharingStarted,
         initialValue = null
     )
 
@@ -128,7 +129,7 @@ class HomeViewModel(
         .map { pendingUpdates -> pendingUpdates > 0 }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            started = ViewModelSharingStarted,
             initialValue = false
         )
 

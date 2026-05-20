@@ -5,6 +5,7 @@ package com.milki.launcher.presentation.drawer
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.core.util.ViewModelSharingStarted
 import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
@@ -73,7 +74,7 @@ class AppDrawerViewModel(
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            started = ViewModelSharingStarted,
             initialValue = emptyList()
         )
 
@@ -89,7 +90,7 @@ class AppDrawerViewModel(
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            started = ViewModelSharingStarted,
             initialValue = emptyList()
         )
 
@@ -109,7 +110,7 @@ class AppDrawerViewModel(
         )
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        started = ViewModelSharingStarted,
         initialValue = AppDrawerUiState(isLoading = true)
     )
 

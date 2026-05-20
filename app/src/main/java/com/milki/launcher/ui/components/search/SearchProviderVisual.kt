@@ -28,16 +28,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.milki.launcher.core.util.hexToColor
 import com.milki.launcher.domain.model.ProviderId
-
-private val HexColorRegex = Regex("^#[0-9A-F]{6}$")
-
-private const val HEX_RADIX = 16
-private const val RED_START_INDEX = 1
-private const val GREEN_START_INDEX = 3
-private const val BLUE_START_INDEX = 5
-private const val COLOR_COMPONENT_LENGTH = 2
-private const val HEX_PREFIX = "#"
 
 /**
  * UI-only visual representation for a search provider.
@@ -68,7 +60,7 @@ fun rememberSearchProviderVisual(
     val colorScheme = MaterialTheme.colorScheme
 
     return remember(providerId, customAccentHex, colorScheme) {
-        val customAccentColor = parseHexColorOrNull(customAccentHex)
+        val customAccentColor = hexToColor(customAccentHex)
 
         when (providerId) {
             ProviderId.CONTACTS -> SearchProviderVisual(
@@ -88,27 +80,4 @@ fun rememberSearchProviderVisual(
     }
 }
 
-/**
- * Parses #RRGGBB into Compose Color.
- * Returns null when input is invalid.
- */
-private fun parseHexColorOrNull(hex: String?): Color? {
-    val normalized = hex?.trim()?.uppercase()
-    val withHash = normalized?.let { value ->
-        if (value.startsWith(HEX_PREFIX)) value else "$HEX_PREFIX$value"
-    }
 
-    return if (withHash != null && HexColorRegex.matches(withHash)) {
-        Color(
-            red = withHash.hexColorComponent(RED_START_INDEX),
-            green = withHash.hexColorComponent(GREEN_START_INDEX),
-            blue = withHash.hexColorComponent(BLUE_START_INDEX)
-        )
-    } else {
-        null
-    }
-}
-
-private fun String.hexColorComponent(startIndex: Int): Int {
-    return substring(startIndex, startIndex + COLOR_COMPONENT_LENGTH).toInt(HEX_RADIX)
-}

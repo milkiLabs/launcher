@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.milki.launcher.core.util.hexToColor
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.ui.theme.IconSize
@@ -35,15 +36,6 @@ import com.milki.launcher.ui.theme.Spacing
 
 import com.milki.launcher.domain.search.ActionSuggestion
 import com.milki.launcher.presentation.search.SearchResultAction
-
-private const val HEX_COLOR_LENGTH = 7
-private const val HEX_RED_START = 1
-private const val HEX_RED_END = 3
-private const val HEX_GREEN_START = 3
-private const val HEX_GREEN_END = 5
-private const val HEX_BLUE_START = 5
-private const val HEX_BLUE_END = 7
-private val hexColorPattern = Regex("^#[0-9A-F]{6}$")
 
 @Composable
 fun SuggestionChipsRow(
@@ -169,7 +161,7 @@ private fun SearchTextSuggestionChips(
 
     sources.forEach { source ->
         val accentColor = remember(source.accentColorHex) {
-            parseColor(source.accentColorHex)
+            hexToColor(source.accentColorHex)
         }
         val searchUrl = source.buildUrl(encodedText)
 
@@ -287,17 +279,4 @@ private fun ChipIcon(imageVector: androidx.compose.ui.graphics.vector.ImageVecto
     )
 }
 
-private fun parseColor(hex: String): Color? {
-    return runCatching {
-        val n = hex.trim().uppercase().let { if (it.startsWith("#")) it else "#$it" }
-        if (n.length != HEX_COLOR_LENGTH || !n.matches(hexColorPattern)) {
-            null
-        } else {
-            Color(
-                red = n.substring(HEX_RED_START, HEX_RED_END).toInt(radix = 16),
-                green = n.substring(HEX_GREEN_START, HEX_GREEN_END).toInt(radix = 16),
-                blue = n.substring(HEX_BLUE_START, HEX_BLUE_END).toInt(radix = 16)
-            )
-        }
-    }.getOrNull()
-}
+

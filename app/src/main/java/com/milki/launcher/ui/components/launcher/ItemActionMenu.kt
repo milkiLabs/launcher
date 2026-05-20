@@ -98,7 +98,7 @@ fun ItemActionMenu(
 
     val positionProvider = remember(density) {
         with(density) {
-            ItemActionMenuPositionProvider(
+            PopupOffsetPositionProvider(
                 windowMarginPx = 12.dp.roundToPx(),
                 anchorGapPx = 8.dp.roundToPx(),
                 arrowSizePx = 16.dp.roundToPx(),
@@ -258,35 +258,6 @@ private fun ItemActionMenuBubble(
                 .rotate(45f)
                 .background(surfaceColor, RoundedCornerShape(4.dp))
         )
-    }
-}
-
-private class ItemActionMenuPositionProvider(
-    private val windowMarginPx: Int,
-    private val anchorGapPx: Int,
-    private val arrowSizePx: Int,
-    private val arrowEdgePaddingPx: Int
-) : PopupPositionProvider {
-    var placement by mutableStateOf(ItemActionMenuPlacement())
-        private set
-
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize
-    ): IntOffset {
-        val resolvedPlacement = calculateItemActionMenuPlacement(
-            anchorBounds = anchorBounds,
-            windowSize = windowSize,
-            popupContentSize = popupContentSize,
-            windowMarginPx = windowMarginPx,
-            anchorGapPx = anchorGapPx,
-            arrowSizePx = arrowSizePx,
-            arrowEdgePaddingPx = arrowEdgePaddingPx
-        )
-        placement = resolvedPlacement
-        return resolvedPlacement.popupOffset
     }
 }
 

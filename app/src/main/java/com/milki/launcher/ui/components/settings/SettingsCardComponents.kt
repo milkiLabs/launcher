@@ -45,7 +45,7 @@ import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 @Composable
-private fun SettingsCardSurface(
+internal fun SettingsCardSurface(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {

@@ -12,6 +12,7 @@ package com.milki.launcher.presentation.settings
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.milki.launcher.core.util.ViewModelSharingStarted
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
@@ -68,21 +69,21 @@ class SettingsViewModel(
     val settings: StateFlow<LauncherSettings> = settingsReader.settings
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = ViewModelSharingStarted,
             initialValue = LauncherSettings()
         )
 
     val installedApps: StateFlow<List<AppInfo>> = appRepository.observeInstalledApps()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = ViewModelSharingStarted,
             initialValue = emptyList()
         )
 
     val actionShortcuts: StateFlow<List<HomeItem.ActionShortcut>> = actionShortcutRepository.shortcuts
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = ViewModelSharingStarted,
             initialValue = emptyList()
         )
 

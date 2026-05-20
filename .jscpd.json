@@ -1,5 +1,5 @@
 {
-  "minTokens": 80,
+  "minTokens": 185,
   "minLines": 8,
   "maxLines": 500,
   "maxSize": "50kb",

@@ -1,18 +1,18 @@
 {
   "statistics": {
-    "detectionDate": "2026-05-20T20:33:58.530Z",
+    "detectionDate": "2026-05-20T20:50:41.332Z",
     "formats": {
       "kotlin": {
         "sources": {
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/launcher/widget/PopupWidgetView.kt": {
-            "lines": 88,
-            "tokens": 693,
+            "lines": 59,
+            "tokens": 460,
             "sources": 1,
-            "clones": 1,
-            "duplicatedLines": 8,
-            "duplicatedTokens": 104,
-            "percentage": 9.09,
-            "percentageTokens": 15.01,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -32,11 +32,11 @@
             "lines": 327,
             "tokens": 1892,
             "sources": 1,
-            "clones": 1,
-            "duplicatedLines": 11,
-            "duplicatedTokens": 134,
-            "percentage": 3.36,
-            "percentageTokens": 7.08,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -65,8 +65,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/screens/settings/SettingsSections.kt": {
-            "lines": 223,
-            "tokens": 1899,
+            "lines": 219,
+            "tokens": 1859,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -101,8 +101,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/screens/settings/SettingsActions.kt": {
-            "lines": 85,
-            "tokens": 599,
+            "lines": 83,
+            "tokens": 569,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -281,14 +281,14 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/settings/SettingsSourceEditorComponents.kt": {
-            "lines": 368,
-            "tokens": 2951,
+            "lines": 349,
+            "tokens": 2742,
             "sources": 1,
-            "clones": 1,
-            "duplicatedLines": 14,
-            "duplicatedTokens": 158,
-            "percentage": 3.8,
-            "percentageTokens": 5.35,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -305,14 +305,14 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/settings/SettingsPrefixEditorComponents.kt": {
-            "lines": 192,
-            "tokens": 1602,
+            "lines": 182,
+            "tokens": 1497,
             "sources": 1,
-            "clones": 1,
-            "duplicatedLines": 14,
-            "duplicatedTokens": 158,
-            "percentage": 7.29,
-            "percentageTokens": 9.86,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -365,8 +365,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/search/SuggestionChipsRow.kt": {
-            "lines": 302,
-            "tokens": 2433,
+            "lines": 279,
+            "tokens": 2153,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -497,8 +497,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/search/SearchProviderVisual.kt": {
-            "lines": 113,
-            "tokens": 684,
+            "lines": 80,
+            "tokens": 401,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -556,15 +556,27 @@
             "newDuplicatedLines": 0,
             "newClones": 0
           },
-          "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/launcher/PinnedItem.kt": {
-            "lines": 402,
-            "tokens": 2559,
+          "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/launcher/PopupOffsetPositionProvider.kt": {
+            "lines": 45,
+            "tokens": 314,
             "sources": 1,
-            "clones": 1,
-            "duplicatedLines": 11,
-            "duplicatedTokens": 134,
-            "percentage": 2.74,
-            "percentageTokens": 5.24,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/launcher/PinnedItem.kt": {
+            "lines": 393,
+            "tokens": 2474,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -581,14 +593,14 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/launcher/ItemActionMenu.kt": {
-            "lines": 426,
-            "tokens": 3709,
+            "lines": 397,
+            "tokens": 3500,
             "sources": 1,
-            "clones": 1,
-            "duplicatedLines": 8,
-            "duplicatedTokens": 104,
-            "percentage": 1.88,
-            "percentageTokens": 2.8,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
             "newDuplicatedLines": 0,
             "newClones": 0
           },
@@ -725,8 +737,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/common/WidgetPopupIcon.kt": {
-            "lines": 97,
-            "tokens": 826,
+            "lines": 73,
+            "tokens": 626,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -737,8 +749,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/common/ShortcutIcon.kt": {
-            "lines": 107,
-            "tokens": 844,
+            "lines": 81,
+            "tokens": 616,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -763,6 +775,18 @@
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/common/IconLabelLayout.kt": {
             "lines": 75,
             "tokens": 682,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/ui/components/common/IconBadge.kt": {
+            "lines": 85,
+            "tokens": 487,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -1013,8 +1037,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/data/repository/settings/SettingsRepositoryImpl.kt": {
-            "lines": 309,
-            "tokens": 2200,
+            "lines": 297,
+            "tokens": 2130,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -1265,8 +1289,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/presentation/settings/SettingsViewModel.kt": {
-            "lines": 383,
-            "tokens": 2458,
+            "lines": 372,
+            "tokens": 2363,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -1457,8 +1481,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/presentation/drawer/AppDrawerViewModel.kt": {
-            "lines": 163,
-            "tokens": 1203,
+            "lines": 164,
+            "tokens": 1202,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -2344,9 +2368,33 @@
             "newDuplicatedLines": 0,
             "newClones": 0
           },
+          "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/core/util/ViewModelSharing.kt": {
+            "lines": 10,
+            "tokens": 40,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/core/util/CsvUtil.kt": {
             "lines": 12,
             "tokens": 76,
+            "sources": 1,
+            "clones": 0,
+            "duplicatedLines": 0,
+            "duplicatedTokens": 0,
+            "percentage": 0,
+            "percentageTokens": 0,
+            "newDuplicatedLines": 0,
+            "newClones": 0
+          },
+          "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/core/util/ColorUtil.kt": {
+            "lines": 27,
+            "tokens": 254,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -2681,8 +2729,8 @@
             "newClones": 0
           },
           "/media/Maind/zahrawi/productivity/monorepo/app/src/main/java/com/milki/launcher/app/activity/SettingsActivity.kt": {
-            "lines": 219,
-            "tokens": 1564,
+            "lines": 217,
+            "tokens": 1544,
             "sources": 1,
             "clones": 0,
             "duplicatedLines": 0,
@@ -2718,141 +2766,33 @@
           }
         },
         "total": {
-          "lines": 30175,
-          "tokens": 202764,
-          "sources": 226,
-          "clones": 4,
-          "duplicatedLines": 45,
-          "duplicatedTokens": 576,
-          "percentage": 0.15,
-          "percentageTokens": 0.28,
+          "lines": 30110,
+          "tokens": 201771,
+          "sources": 230,
+          "clones": 1,
+          "duplicatedLines": 12,
+          "duplicatedTokens": 180,
+          "percentage": 0.04,
+          "percentageTokens": 0.09,
           "newDuplicatedLines": 0,
           "newClones": 0
         }
       }
     },
     "total": {
-      "lines": 30175,
-      "tokens": 202764,
-      "sources": 226,
-      "clones": 4,
-      "duplicatedLines": 45,
-      "duplicatedTokens": 576,
-      "percentage": 0.15,
-      "percentageTokens": 0.28,
+      "lines": 30110,
+      "tokens": 201771,
+      "sources": 230,
+      "clones": 1,
+      "duplicatedLines": 12,
+      "duplicatedTokens": 180,
+      "percentage": 0.04,
+      "percentageTokens": 0.09,
       "newDuplicatedLines": 0,
       "newClones": 0
     }
   },
   "duplicates": [
-    {
-      "format": "kotlin",
-      "lines": 15,
-      "fragment": "import androidx.compose.material3.Surface\nimport androidx.compose.material3.Switch\nimport androidx.compose.material3.Text\nimport androidx.compose.material3.TextButton\nimport androidx.compose.runtime.Composable\nimport androidx.compose.runtime.getValue\nimport androidx.compose.runtime.mutableStateOf\nimport androidx.compose.runtime.remember\nimport androidx.compose.runtime.setValue\nimport androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier\nimport androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.vector.ImageVector\nimport androidx.compose.ui.text.font.FontWeight\nimport com.milki.launcher.ui",
-      "tokens": 0,
-      "firstFile": {
-        "name": "app/src/main/java/com/milki/launcher/ui/components/settings/SettingsPrefixEditorComponents.kt",
-        "start": 25,
-        "end": 39,
-        "startLoc": {
-          "line": 25,
-          "column": 1,
-          "position": 273
-        },
-        "endLoc": {
-          "line": 39,
-          "column": 3,
-          "position": 431
-        }
-      },
-      "secondFile": {
-        "name": "app/src/main/java/com/milki/launcher/ui/components/settings/SettingsSourceEditorComponents.kt",
-        "start": 24,
-        "end": 38,
-        "startLoc": {
-          "line": 24,
-          "column": 1,
-          "position": 265
-        },
-        "endLoc": {
-          "line": 38,
-          "column": 7,
-          "position": 423
-        }
-      }
-    },
-    {
-      "format": "kotlin",
-      "lines": 12,
-      "fragment": "import androidx.compose.foundation.layout.fillMaxWidth\nimport androidx.compose.foundation.layout.padding\nimport androidx.compose.foundation.layout.size\nimport androidx.compose.foundation.shape.RoundedCornerShape\nimport androidx.compose.material.icons.Icons\nimport androidx.compose.material.icons.filled.Link\nimport androidx.compose.material.icons.filled.Person\nimport androidx.compose.material3.Icon\nimport androidx.compose.material3.MaterialTheme\nimport androidx.compose.material3.Surface\nimport androidx.compose.runtime.Composable\nimport androidx.compose.runtime",
-      "tokens": 0,
-      "firstFile": {
-        "name": "app/src/main/java/com/milki/launcher/ui/components/launcher/PinnedItem.kt",
-        "start": 30,
-        "end": 41,
-        "startLoc": {
-          "line": 30,
-          "column": 1,
-          "position": 50
-        },
-        "endLoc": {
-          "line": 41,
-          "column": 8,
-          "position": 184
-        }
-      },
-      "secondFile": {
-        "name": "app/src/main/java/com/milki/launcher/ui/components/launcher/folder/FolderIcon.kt",
-        "start": 41,
-        "end": 52,
-        "startLoc": {
-          "line": 41,
-          "column": 1,
-          "position": 90
-        },
-        "endLoc": {
-          "line": 52,
-          "column": 3,
-          "position": 224
-        }
-      }
-    },
-    {
-      "format": "kotlin",
-      "lines": 9,
-      "fragment": "import androidx.compose.ui.unit.IntOffset\nimport androidx.compose.ui.unit.IntRect\nimport androidx.compose.ui.unit.IntSize\nimport androidx.compose.ui.unit.dp\nimport androidx.compose.ui.unit.LayoutDirection\nimport androidx.compose.ui.window.Popup\nimport androidx.compose.ui.window.PopupPositionProvider\nimport androidx.compose.ui.window.PopupProperties\nimport com.milki.launcher.domain",
-      "tokens": 0,
-      "firstFile": {
-        "name": "app/src/main/java/com/milki/launcher/ui/components/launcher/ItemActionMenu.kt",
-        "start": 46,
-        "end": 54,
-        "startLoc": {
-          "line": 46,
-          "column": 1,
-          "position": 509
-        },
-        "endLoc": {
-          "line": 54,
-          "column": 7,
-          "position": 613
-        }
-      },
-      "secondFile": {
-        "name": "app/src/main/java/com/milki/launcher/ui/components/launcher/widget/PopupWidgetView.kt",
-        "start": 9,
-        "end": 17,
-        "startLoc": {
-          "line": 9,
-          "column": 1,
-          "position": 83
-        },
-        "endLoc": {
-          "line": 17,
-          "column": 5,
-          "position": 187
-        }
-      }
-    },
     {
       "format": "kotlin",
       "lines": 13,

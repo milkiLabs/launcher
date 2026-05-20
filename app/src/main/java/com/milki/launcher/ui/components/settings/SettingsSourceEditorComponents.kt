@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -35,8 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import com.milki.launcher.core.util.hexToColorOr
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -52,14 +51,7 @@ fun SourceLikeToggleSettingItem(
     onToggleEnabled: (Boolean) -> Unit,
     accentColor: Color
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.extraSmall),
-        shape = RoundedCornerShape(CornerRadius.medium),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = Spacing.none
-    ) {
+    SettingsCardSurface {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -110,7 +102,7 @@ fun SourceSettingItem(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val sourceColor = parseHexColorOrFallback(source.accentColorHex)
+    val sourceColor = hexToColorOr(source.accentColorHex, Color.Unspecified)
     var showAddPrefixDialog by remember { mutableStateOf(false) }
 
     SettingsContainerCard {
@@ -357,13 +349,3 @@ fun SourceEditorDialog(
     )
 }
 
-/**
- * Parses #RRGGBB into color, with primary fallback.
- */
-private fun parseHexColorOrFallback(hex: String): Color {
-    val normalized = SearchSource.normalizeHexColor(hex)
-    val red = normalized.substring(1, 3).toInt(16)
-    val green = normalized.substring(3, 5).toInt(16)
-    val blue = normalized.substring(5, 7).toInt(16)
-    return Color(red = red, green = green, blue = blue)
-}
