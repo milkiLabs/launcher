@@ -6,7 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.milki.launcher.core.util.ViewModelSharingStarted
+import com.milki.launcher.presentation.common.ViewModelSharingStarted
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.AppInfo

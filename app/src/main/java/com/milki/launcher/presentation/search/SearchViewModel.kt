@@ -53,7 +53,7 @@ import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
-import com.milki.launcher.core.util.ViewModelSharingStarted
+import com.milki.launcher.presentation.common.ViewModelSharingStarted
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SearchProvider

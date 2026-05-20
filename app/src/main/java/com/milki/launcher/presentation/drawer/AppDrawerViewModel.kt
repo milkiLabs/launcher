@@ -5,7 +5,7 @@ package com.milki.launcher.presentation.drawer
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.milki.launcher.core.util.ViewModelSharingStarted
+import com.milki.launcher.presentation.common.ViewModelSharingStarted
 import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository

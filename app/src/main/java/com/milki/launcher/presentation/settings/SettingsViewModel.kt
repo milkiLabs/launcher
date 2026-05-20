@@ -12,7 +12,7 @@ package com.milki.launcher.presentation.settings
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.milki.launcher.core.util.ViewModelSharingStarted
+import com.milki.launcher.presentation.common.ViewModelSharingStarted
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem

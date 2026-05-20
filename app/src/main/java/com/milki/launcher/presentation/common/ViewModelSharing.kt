@@ -1,4 +1,4 @@
-package com.milki.launcher.core.util
+package com.milki.launcher.presentation.common
 
 import kotlinx.coroutines.flow.SharingStarted
 
