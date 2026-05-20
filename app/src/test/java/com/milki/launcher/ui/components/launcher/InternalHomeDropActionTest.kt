@@ -1,6 +1,6 @@
 package com.milki.launcher.ui.components.launcher
 
-import com.milki.launcher.domain.drag.drop.RejectReason
+import com.milki.launcher.domain.drop.RejectReason
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem

@@ -2,8 +2,8 @@ package com.milki.launcher.ui.components.launcher
 
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
-import com.milki.launcher.domain.drag.drop.RejectReason
-import com.milki.launcher.domain.drag.reorder.ReorderMode
+import com.milki.launcher.domain.drop.RejectReason
+import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan

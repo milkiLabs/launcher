@@ -2,10 +2,10 @@ package com.milki.launcher.ui.components.launcher
 
 import android.appwidget.AppWidgetProviderInfo
 import com.milki.launcher.data.widget.WidgetHostManager
-import com.milki.launcher.domain.drag.drop.RejectReason
-import com.milki.launcher.domain.drag.reorder.GridReorderEngine
-import com.milki.launcher.domain.drag.reorder.ReorderInput
-import com.milki.launcher.domain.drag.reorder.ReorderMode
+import com.milki.launcher.domain.drop.RejectReason
+import com.milki.launcher.domain.reorder.GridReorderEngine
+import com.milki.launcher.domain.reorder.ReorderInput
+import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem

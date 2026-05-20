@@ -1,4 +1,4 @@
-package com.milki.launcher.domain.drag.reorder
+package com.milki.launcher.domain.reorder
 
 data class ReorderDiagnostics(
     val checkedCells: Int = 0,

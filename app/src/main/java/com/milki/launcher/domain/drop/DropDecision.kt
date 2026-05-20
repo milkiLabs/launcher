@@ -1,4 +1,4 @@
-package com.milki.launcher.domain.drag.drop
+package com.milki.launcher.domain.drop
 
 sealed interface DropDecision {
     data object Pass : DropDecision
