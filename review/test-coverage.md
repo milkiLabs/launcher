@@ -4,6 +4,41 @@
 
 ---
 
+---
+
+## 6. Testing Recommendations
+
+### 6.1 Dramatically Increase Test Coverage
+
+**Current:** 1 unit test file (5 tests), 1 placeholder instrumented test.
+
+**Recommendation:** Add tests for:
+
+- **Domain layer:** All use cases, policies, engines (pure Kotlin, easiest to test)
+- **Data layer:** Repository implementations with fakes/mocks
+- **Presentation layer:** ViewModel state transitions
+- **UI layer:** Compose UI tests for critical components
+
+### 6.2 Add Test Infrastructure
+
+Create test utilities:
+
+```
+app/src/test/
+  com/milki/launcher/
+    testutil/
+      FakeHomeRepository.kt
+      FakeAppRepository.kt
+      TestDispatcherRule.kt
+      MainDispatcherRule.kt
+```
+
+### 6.3 Add Snapshot Tests for Compose
+
+Consider adding screenshot/snapshot tests for UI components to catch visual regressions.
+
+---
+
 ## 1. Test Inventory
 
 ### 1.1 Unit Tests (27 files)

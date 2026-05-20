@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.stateIn
  * and orchestration. It intentionally has no business logic (no searching,
  * no repository calls, no side effects beyond in-memory state updates).
  */
-internal class SearchViewModelStateHolder(
+internal class SearchState(
     scope: CoroutineScope
 ) {
 

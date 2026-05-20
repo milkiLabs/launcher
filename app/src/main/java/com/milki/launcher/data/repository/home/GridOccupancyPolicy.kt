@@ -9,7 +9,7 @@ import com.milki.launcher.domain.model.homeGridSpan
 /**
  * Shared span-aware occupancy policy for home-grid placement decisions.
  */
-internal class HomeGridOccupancyPolicy(
+internal class GridOccupancyPolicy(
     private val defaultGridColumns: Int = HomeGridDefaults.COLUMNS
 ) {
 

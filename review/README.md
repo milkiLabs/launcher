@@ -18,6 +18,7 @@
 | [UX & Accessibility](ux-and-accessibility.md)                         | UX consistency, a11y, launcher best practices, RTL        | 30+ findings       |
 | [Test Coverage](test-coverage.md)                                     | Test inventory, coverage gaps, testing strategy           | 40+ untested files |
 | [Developer Experience](developer-experience.md)                       | Onboarding, documentation, tooling, productivity          | 20+ findings       |
+| [Multi-Module Architecture Plan](multi-module-architecture-plan.md)   | Incremental modularization strategy with dependency audit | 3-phase plan       |
 
 ---
 
