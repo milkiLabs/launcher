@@ -1,0 +1,29 @@
+{
+  "minTokens": 80,
+  "minLines": 8,
+  "maxLines": 500,
+  "maxSize": "50kb",
+  "threshold": 30,
+  "reporters": ["json", "markdown", "consoleFull"],
+  "output": "/media/Maind/zahrawi/productivity/monorepo/review/jscpd/",
+  "ignore": [
+    "**/build/**",
+    "**/.gradle/**",
+    "**/node_modules/**",
+    "**/generated/**",
+    "**/R.java",
+    "**/BuildConfig.java",
+    "**/test/**",
+    "**/androidTest/**",
+    "**/*.xml",
+    "**/res/**"
+  ],
+  "languages": {
+    "kotlin": {
+      "extensions": [".kt", ".kts"]
+    },
+    "java": {
+      "extensions": [".java"]
+    }
+  }
+}
