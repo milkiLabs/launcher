@@ -1,7 +1,7 @@
 package com.milki.launcher.core.di
 
 import android.content.Context
-import com.milki.launcher.data.repository.HomeRepositoryImpl
+import com.milki.launcher.data.repository.home.HomeRepositoryImpl
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.presentation.home.HomeIconWarmupCoordinator
 import com.milki.launcher.presentation.home.HomeViewModel

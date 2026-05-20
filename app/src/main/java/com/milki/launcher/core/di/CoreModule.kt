@@ -1,7 +1,7 @@
 package com.milki.launcher.core.di
 
-import com.milki.launcher.data.repository.ActionShortcutRepositoryImpl
-import com.milki.launcher.data.repository.AppRepositoryImpl
+import com.milki.launcher.data.repository.shortcut.ActionShortcutRepositoryImpl
+import com.milki.launcher.data.repository.apps.AppRepositoryImpl
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.domain.repository.ActionShortcutRepository

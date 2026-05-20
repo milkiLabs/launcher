@@ -1,4 +1,4 @@
-package com.milki.launcher.data.repository
+package com.milki.launcher.data.repository.contacts
 
 import com.milki.launcher.domain.model.Contact
 

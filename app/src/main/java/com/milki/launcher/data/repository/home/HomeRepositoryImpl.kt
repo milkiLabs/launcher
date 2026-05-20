@@ -1,8 +1,6 @@
-package com.milki.launcher.data.repository
+package com.milki.launcher.data.repository.home
 
 import android.content.Context
-import com.milki.launcher.data.repository.home.GridOccupancyPolicy
-import com.milki.launcher.data.repository.home.HomeSnapshotStore
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository

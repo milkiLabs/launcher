@@ -1,4 +1,4 @@
-package com.milki.launcher.data.repository
+package com.milki.launcher.data.repository.files
 
 import android.database.Cursor
 import android.net.Uri

@@ -1,7 +1,7 @@
 package com.milki.launcher.core.di
 
-import com.milki.launcher.data.repository.ContactsRepositoryImpl
-import com.milki.launcher.data.repository.FilesRepositoryImpl
+import com.milki.launcher.data.repository.contacts.ContactsRepositoryImpl
+import com.milki.launcher.data.repository.files.FilesRepositoryImpl
 import com.milki.launcher.data.search.ConfigurableUrlSearchProvider
 import com.milki.launcher.data.search.ContactsSearchProvider
 import com.milki.launcher.data.search.FilesSearchProvider

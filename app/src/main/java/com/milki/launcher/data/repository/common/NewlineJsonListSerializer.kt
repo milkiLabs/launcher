@@ -1,4 +1,4 @@
-package com.milki.launcher.data.repository
+package com.milki.launcher.data.repository.common
 
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences

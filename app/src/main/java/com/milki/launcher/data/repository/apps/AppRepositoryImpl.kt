@@ -1,4 +1,4 @@
-package com.milki.launcher.data.repository
+package com.milki.launcher.data.repository.apps
 
 import android.app.Application
 import android.content.ComponentName
@@ -7,10 +7,6 @@ import android.os.Build
 import com.milki.launcher.data.contextmenu.AppContextDataCache
 import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.data.icon.ShortcutIconMemoryCache
-import com.milki.launcher.data.repository.apps.InstalledAppsCatalog
-import com.milki.launcher.data.repository.apps.PackageChangeEvent
-import com.milki.launcher.data.repository.apps.PackageChangeMonitor
-import com.milki.launcher.data.repository.apps.RecentAppsStore
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
 import kotlinx.coroutines.CoroutineScope

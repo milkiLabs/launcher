@@ -1,6 +1,6 @@
 package com.milki.launcher.data.repository.home
 
-import com.milki.launcher.data.repository.NewlineJsonListSerializer
+import com.milki.launcher.data.repository.common.NewlineJsonListSerializer
 import com.milki.launcher.domain.model.HomeItem
 
 /**

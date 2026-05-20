@@ -5,7 +5,7 @@ import android.content.ComponentName
 import androidx.datastore.preferences.core.edit
 import com.milki.launcher.core.util.parseCsv
 import com.milki.launcher.core.util.toCsv
-import com.milki.launcher.data.repository.RecentListStorage
+import com.milki.launcher.data.repository.common.RecentListStorage
 import com.milki.launcher.domain.model.AppInfo
 
 internal class RecentAppsStore(application: Application) : RecentListStorage<String>(

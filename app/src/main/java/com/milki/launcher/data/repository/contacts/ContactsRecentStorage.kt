@@ -1,10 +1,11 @@
-package com.milki.launcher.data.repository
+package com.milki.launcher.data.repository.contacts
 
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.data.repository.common.RecentListStorage
 
 private val Context.recentContactsDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "recent_contacts"
