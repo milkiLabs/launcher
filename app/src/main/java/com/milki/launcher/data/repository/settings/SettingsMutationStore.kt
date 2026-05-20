@@ -67,7 +67,7 @@ internal class SettingsMutationStore {
             return PrefixMutationResult.DuplicatePrefixOnAnotherOwner(conflictingOwner.id)
         }
 
-        writeSearchSources(currentSources + normalizedSource, preferences)
+        preferences.writeSearchSources(currentSources + normalizedSource)
         return PrefixMutationResult.Success
     }
 
@@ -111,7 +111,7 @@ internal class SettingsMutationStore {
                     }
                 }
 
-                writeSearchSources(updatedSources, preferences)
+                preferences.writeSearchSources(updatedSources)
                 PrefixMutationResult.Success
             }
         }
@@ -128,7 +128,7 @@ internal class SettingsMutationStore {
             return
         }
 
-        writeSearchSources(updatedSources, preferences)
+        preferences.writeSearchSources(updatedSources)
     }
 
     fun setSearchSourceEnabled(
@@ -150,7 +150,7 @@ internal class SettingsMutationStore {
             }
         }
 
-        writeSearchSources(updatedSources, preferences)
+        preferences.writeSearchSources(updatedSources)
     }
 
     fun setSearchSourceSuggestedAction(
@@ -172,7 +172,7 @@ internal class SettingsMutationStore {
             }
         }
 
-        writeSearchSources(updatedSources, preferences)
+        preferences.writeSearchSources(updatedSources)
     }
 
     fun setProviderPrefixes(
@@ -203,7 +203,7 @@ internal class SettingsMutationStore {
                     updatedConfigurations.remove(providerId)
                 }
 
-                writePrefixConfigurations(updatedConfigurations, preferences)
+                preferences.writePrefixConfigurations(updatedConfigurations)
                 PrefixMutationResult.Success
             }
         }
@@ -240,7 +240,7 @@ internal class SettingsMutationStore {
                 val updatedPrefixes = (currentPrefixes + normalizedPrefix).distinct()
                 val updatedConfigurations = currentConfigurations.toMutableMap()
                 updatedConfigurations[providerId] = PrefixConfig(updatedPrefixes)
-                writePrefixConfigurations(updatedConfigurations, preferences)
+                preferences.writePrefixConfigurations(updatedConfigurations)
                 PrefixMutationResult.Success
             }
         }
@@ -264,7 +264,7 @@ internal class SettingsMutationStore {
             updatedConfigurations.remove(providerId)
         }
 
-        writePrefixConfigurations(updatedConfigurations, preferences)
+        preferences.writePrefixConfigurations(updatedConfigurations)
     }
 
     fun resetProviderPrefixes(
@@ -280,7 +280,7 @@ internal class SettingsMutationStore {
 
         val updatedConfigurations = currentConfigurations.toMutableMap()
         updatedConfigurations.remove(providerId)
-        writePrefixConfigurations(updatedConfigurations, preferences)
+        preferences.writePrefixConfigurations(updatedConfigurations)
     }
 
     fun resetAllPrefixConfigurations(preferences: MutablePreferences) {
@@ -291,7 +291,7 @@ internal class SettingsMutationStore {
         preferences: MutablePreferences,
         configurations: ProviderPrefixConfiguration
     ) {
-        writePrefixConfigurations(configurations, preferences)
+        preferences.writePrefixConfigurations(configurations)
     }
 
     fun addPrefixToSource(
@@ -338,7 +338,7 @@ internal class SettingsMutationStore {
                     }
                 }
 
-                writeSearchSources(updatedSources, preferences)
+                preferences.writeSearchSources(updatedSources)
                 PrefixMutationResult.Success
             }
         }
@@ -374,7 +374,7 @@ internal class SettingsMutationStore {
                     }
                 }
 
-                writeSearchSources(updatedSources, preferences)
+                preferences.writeSearchSources(updatedSources)
                 PrefixMutationResult.Success
             }
         }
@@ -421,29 +421,6 @@ internal class SettingsMutationStore {
 
     private fun duplicatePrefixResult(conflictingOwner: PrefixOwner): PrefixMutationResult {
         return PrefixMutationResult.DuplicatePrefixOnAnotherOwner(conflictingOwner.id)
-    }
-
-    private fun writePrefixConfigurations(
-        configurations: ProviderPrefixConfiguration,
-        preferences: MutablePreferences
-    ) {
-        if (configurations.isEmpty()) {
-            preferences.remove(SettingsPreferenceKeys.PREFIX_CONFIGURATIONS)
-            return
-        }
-
-        preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS] =
-            serializePrefixConfigurations(configurations)
-    }
-
-    private fun writeSearchSources(
-        sources: List<SearchSource>,
-        preferences: MutablePreferences
-    ) {
-        preferences[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] =
-            SearchSourcesStorageState.INITIALIZED
-        preferences[SettingsPreferenceKeys.SEARCH_SOURCES] =
-            serializeSearchSources(sources)
     }
 
     private fun parseSearchSources(preferences: MutablePreferences): List<SearchSource> {
