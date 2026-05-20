@@ -296,31 +296,20 @@ class ActionExecutor(
     }
 
     // ========================================================================
-    // DIAL CONTACT HANDLER
+    // DIAL HANDLERS
     // ========================================================================
 
     private fun handleDialContact(action: SearchResultAction.DialContact) {
-        val intent = Intent(Intent.ACTION_CALL).apply {
-            data = phoneUri(action.phoneNumber)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        
-        try {
-            context.startActivity(intent)
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while placing direct call", e)
-            Toast.makeText(context, "Call permission not granted", Toast.LENGTH_SHORT).show()
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No phone app available for direct call", e)
-            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
-        }
-        
-        saveRecentContact(action.phoneNumber)
+        executeDirectCall(action.phoneNumber)
     }
 
     private fun handleDialPhoneNumber(action: SearchResultAction.DialPhoneNumber) {
+        executeDirectCall(action.phoneNumber)
+    }
+
+    private fun executeDirectCall(phoneNumber: String) {
         val intent = Intent(Intent.ACTION_CALL).apply {
-            data = phoneUri(action.phoneNumber)
+            data = phoneUri(phoneNumber)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
@@ -334,7 +323,7 @@ class ActionExecutor(
             Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
         }
 
-        saveRecentContact(action.phoneNumber)
+        saveRecentContact(phoneNumber)
     }
 
     private fun handleSavePhoneNumber(action: SearchResultAction.SavePhoneNumber) {
