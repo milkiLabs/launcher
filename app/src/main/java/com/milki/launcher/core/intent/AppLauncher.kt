@@ -31,6 +31,7 @@ import android.os.Build
 import android.os.Process
 import android.widget.Toast
 import com.milki.launcher.core.shortcut.ShortcutInfoComparator
+import com.milki.launcher.core.shortcut.toAppShortcut
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 
@@ -213,14 +214,7 @@ fun queryAppQuickShortcuts(
         .asSequence()
         .filter { it.isEnabled }
         .sortedWith(ShortcutInfoComparator)
-        .map { shortcut ->
-            HomeItem.AppShortcut.fromShortcutInfo(
-                packageName = shortcut.`package`,
-                shortcutId = shortcut.id,
-                shortLabel = shortcut.shortLabel?.toString().orEmpty(),
-                longLabel = shortcut.longLabel?.toString() ?: shortcut.shortLabel?.toString().orEmpty()
-            )
-        }
+        .map { it.toAppShortcut() }
         .distinctBy { it.shortcutId }
         .take(maxCount)
         .toList()

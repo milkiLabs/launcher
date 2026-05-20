@@ -5,6 +5,7 @@ import android.content.pm.LauncherApps
 import android.os.Build
 import android.os.Process
 import com.milki.launcher.core.shortcut.ShortcutInfoComparator
+import com.milki.launcher.core.shortcut.toAppShortcut
 import com.milki.launcher.data.cache.SnapshotCache
 import com.milki.launcher.domain.model.HomeItem
 
@@ -108,14 +109,7 @@ object AppContextDataCache {
             .mapValues { (_, shortcuts) ->
                 shortcuts
                     .sortedWith(ShortcutInfoComparator)
-                    .map { shortcut ->
-                    HomeItem.AppShortcut.fromShortcutInfo(
-                        packageName = shortcut.`package`,
-                        shortcutId = shortcut.id,
-                        shortLabel = shortcut.shortLabel?.toString().orEmpty(),
-                        longLabel = shortcut.longLabel?.toString() ?: shortcut.shortLabel?.toString().orEmpty()
-                    )
-                }
+                    .map { it.toAppShortcut() }
                     .distinctBy { it.shortcutId }
                     .take(MAX_SHORTCUTS_PER_APP)
             }
