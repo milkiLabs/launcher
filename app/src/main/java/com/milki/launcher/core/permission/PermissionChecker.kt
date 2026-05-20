@@ -1,5 +1,5 @@
 /**
- * PermissionUtil.kt - Centralized permission checking utilities
+ * PermissionChecker.kt - Centralized permission checking utilities
  *
  * This utility object provides static methods for checking permission states.
  * It's used by PermissionHandler and can be used anywhere in the app that
@@ -33,7 +33,7 @@ import androidx.core.content.ContextCompat
  * any thread (though they typically need to be called from the main thread
  * to update UI).
  */
-object PermissionUtil {
+object PermissionChecker {
 
     /**
      * Checks if the app has permission to read contacts.

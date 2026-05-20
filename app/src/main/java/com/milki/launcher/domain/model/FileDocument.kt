@@ -11,7 +11,7 @@ package com.milki.launcher.domain.model
 
 import android.net.Uri
 import androidx.compose.runtime.Immutable
-import com.milki.launcher.core.file.MimeTypeUtil
+import com.milki.launcher.core.file.MimeTypeResolver
 
 /**
  * Represents a single document/file from the device storage.
@@ -130,40 +130,40 @@ fun FileDocument.extension(): String {
 
 /**
  * Extension function to check if this file is a PDF.
- * Uses MimeTypeUtil for consistent type checking.
+ * Uses MimeTypeResolver for consistent type checking.
  */
-fun FileDocument.isPdf(): Boolean = MimeTypeUtil.isPdf(mimeType, name)
+fun FileDocument.isPdf(): Boolean = MimeTypeResolver.isPdf(mimeType, name)
 
 /**
  * Extension function to check if this file is an EPUB ebook.
- * Uses MimeTypeUtil for consistent type checking.
+ * Uses MimeTypeResolver for consistent type checking.
  */
-fun FileDocument.isEpub(): Boolean = MimeTypeUtil.isEpub(mimeType, name)
+fun FileDocument.isEpub(): Boolean = MimeTypeResolver.isEpub(mimeType, name)
 
 /**
  * Extension function to check if this file is a Word document.
  * Covers both .doc and .docx formats.
- * Uses MimeTypeUtil for consistent type checking.
+ * Uses MimeTypeResolver for consistent type checking.
  */
-fun FileDocument.isWordDocument(): Boolean = MimeTypeUtil.isWordDocument(mimeType, name)
+fun FileDocument.isWordDocument(): Boolean = MimeTypeResolver.isWordDocument(mimeType, name)
 
 /**
  * Extension function to check if this file is an Excel spreadsheet.
  * Covers both .xls and .xlsx formats.
- * Uses MimeTypeUtil for consistent type checking.
+ * Uses MimeTypeResolver for consistent type checking.
  */
-fun FileDocument.isExcelSpreadsheet(): Boolean = MimeTypeUtil.isExcelSpreadsheet(mimeType, name)
+fun FileDocument.isExcelSpreadsheet(): Boolean = MimeTypeResolver.isExcelSpreadsheet(mimeType, name)
 
 /**
  * Extension function to check if this file is a PowerPoint presentation.
  * Covers both .ppt and .pptx formats.
- * Uses MimeTypeUtil for consistent type checking.
+ * Uses MimeTypeResolver for consistent type checking.
  */
-fun FileDocument.isPowerPoint(): Boolean = MimeTypeUtil.isPowerPoint(mimeType, name)
+fun FileDocument.isPowerPoint(): Boolean = MimeTypeResolver.isPowerPoint(mimeType, name)
 
 /**
  * Extension function to check if this file is a text file.
  * Includes plain text, RTF, and other text-based formats.
- * Uses MimeTypeUtil for consistent type checking.
+ * Uses MimeTypeResolver for consistent type checking.
  */
-fun FileDocument.isTextFile(): Boolean = MimeTypeUtil.isTextFile(mimeType, name)
+fun FileDocument.isTextFile(): Boolean = MimeTypeResolver.isTextFile(mimeType, name)

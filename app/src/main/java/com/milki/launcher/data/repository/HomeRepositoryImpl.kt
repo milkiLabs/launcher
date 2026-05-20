@@ -1,7 +1,7 @@
 package com.milki.launcher.data.repository
 
 import android.content.Context
-import com.milki.launcher.data.repository.home.HomeGridOccupancyPolicy
+import com.milki.launcher.data.repository.home.GridOccupancyPolicy
 import com.milki.launcher.data.repository.home.HomeSnapshotStore
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
@@ -12,14 +12,14 @@ import com.milki.launcher.domain.repository.HomeRepository
  *
  * ARCHITECTURE:
  * - HomeSnapshotStore: DataStore flow + transactional read/modify/write helper.
- * - HomeGridOccupancyPolicy: span-aware placement for utility slot lookup.
+ * - GridOccupancyPolicy: span-aware placement for utility slot lookup.
  */
 class HomeRepositoryImpl(
     context: Context
 ) : HomeRepository {
 
     private val snapshotStore = HomeSnapshotStore(context)
-    private val occupancyPolicy = HomeGridOccupancyPolicy()
+    private val occupancyPolicy = GridOccupancyPolicy()
 
     override val pinnedItems = snapshotStore.pinnedItems
 

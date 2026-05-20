@@ -15,7 +15,7 @@ import android.webkit.MimeTypeMap
  * - System lookups get updates with Android/WebKit improvements.
  * - A small fallback map still protects common document formats when lookups fail.
  */
-object MimeTypeUtil {
+object MimeTypeResolver {
     const val MIME_BINARY_FALLBACK = "application/octet-stream"
 
     private const val MIME_PDF = "application/pdf"

@@ -4,7 +4,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
-import com.milki.launcher.core.file.MimeTypeUtil
+import com.milki.launcher.core.file.MimeTypeResolver
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileFilterConfig
 import kotlinx.coroutines.CancellationException
@@ -93,7 +93,7 @@ private fun readCursorRow(
     val name = cursor.getString(columns.nameColumn)
     val rawMimeType = cursor.getString(columns.mimeTypeColumn) ?: ""
     val normalizedMimeType = name?.let {
-        MimeTypeUtil.normalizeMimeType(
+        MimeTypeResolver.normalizeMimeType(
             fileName = it,
             providedMimeType = rawMimeType
         )

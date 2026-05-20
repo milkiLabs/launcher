@@ -112,7 +112,7 @@ class SearchViewModel(
     private val filterAppsUseCase: FilterAppsUseCase,
     private val suggestionResolver: SuggestionResolver
 ) : ViewModel() {
-    private val stateHolder = SearchViewModelStateHolder(viewModelScope)
+    private val stateHolder = SearchState(viewModelScope)
     private val searchPrefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
 
     /**

@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
-import com.milki.launcher.core.permission.PermissionUtil
+import com.milki.launcher.core.permission.PermissionChecker
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.repository.FilesRepository
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +29,7 @@ class FilesRepositoryImpl(
         private val contentResolver = context.contentResolver
 
         override fun hasFilesPermission(): Boolean {
-        return PermissionUtil.hasFilesPermission(context)
+        return PermissionChecker.hasFilesPermission(context)
     }
 
         override suspend fun searchFiles(query: String, maxItems: Int): List<FileDocument> {

@@ -50,7 +50,7 @@ class PermissionHandler(
         manageStorageLauncher = activity.registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) {
-            val hasPermission = PermissionUtil.hasFilesPermission(activity)
+            val hasPermission = PermissionChecker.hasFilesPermission(activity)
             handleManageStorageResult(hasPermission)
         }
     }
@@ -68,7 +68,7 @@ class PermissionHandler(
 
     private fun updateFilesPermissionState() {
         val state = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            accessStateForPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE) { PermissionUtil.hasFilesPermission(activity) }
+            accessStateForPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE) { PermissionChecker.hasFilesPermission(activity) }
         } else {
             accessStateForPermission(Manifest.permission.READ_EXTERNAL_STORAGE) { hasPermission(Manifest.permission.READ_EXTERNAL_STORAGE) }
         }
@@ -107,7 +107,7 @@ class PermissionHandler(
     }
 
     private fun requestManageStoragePermission() {
-        if (PermissionUtil.hasFilesPermission(activity)) {
+        if (PermissionChecker.hasFilesPermission(activity)) {
             accessStateStore.clearRequiresSettings(Manifest.permission.MANAGE_EXTERNAL_STORAGE)
             permissionStateSink.updateFilesPermission(PermissionAccessState.GRANTED)
             onPermissionResult?.invoke(Manifest.permission.MANAGE_EXTERNAL_STORAGE, true)
