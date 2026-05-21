@@ -140,6 +140,13 @@ internal fun ActionShortcutManagerSheet(
                 Button(onClick = { isCreating = true }) {
                     Text("Add shortcut")
                 }
+                Spacer(modifier = Modifier.height(Spacing.medium))
+                Text(
+                    text = "Long press and drag a shortcut to add it to your home screen",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
             return@Scaffold
         }
@@ -162,6 +169,18 @@ internal fun ActionShortcutManagerSheet(
                     onClick = { editingShortcut = shortcut },
                     onDelete = { onDeleteShortcut(shortcut) },
                     onExternalDragStarted = onExternalDragStarted
+                )
+            }
+            item {
+                Spacer(modifier = Modifier.height(Spacing.medium))
+                Text(
+                    text = "Long press and drag a shortcut to add it to your home screen",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = Spacing.mediumLarge),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         }
