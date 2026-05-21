@@ -7,11 +7,12 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -61,13 +63,20 @@ import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
+enum class MenuSection {
+    QuickShortcut,
+    AppUtility,
+    Management
+}
+
 data class MenuAction(
     val label: String,
     val icon: ImageVector,
     val onClick: () -> Unit,
     val isDestructive: Boolean = false,
     val enabled: Boolean = true,
-    val shortcutIcon: HomeItem.AppShortcut? = null
+    val shortcutIcon: HomeItem.AppShortcut? = null,
+    val section: MenuSection = MenuSection.Management
 )
 
 internal enum class ItemActionMenuVerticalPlacement {
@@ -173,10 +182,20 @@ private fun ItemActionMenuBubble(
                 modifier = Modifier.padding(vertical = Spacing.small, horizontal = Spacing.small),
                 verticalArrangement = Arrangement.spacedBy(Spacing.none)
             ) {
-                actions.forEach { action ->
+                actions.forEachIndexed { index, action ->
                     val tint = if (action.isDestructive) destructiveColor else iconTintDefault
                     val textColor = if (action.isDestructive) destructiveColor else textColorDefault
                     val draggableShortcut = action.shortcutIcon
+
+                    if (index > 0 && action.section != actions[index - 1].section) {
+                        Spacer(modifier = Modifier.height(Spacing.extraSmall))
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = Spacing.medium)
+                        )
+                        Spacer(modifier = Modifier.height(Spacing.extraSmall))
+                    }
 
                     Row(
                         modifier = Modifier
@@ -355,7 +374,8 @@ fun createAppInfoAction(packageName: String, actionHandler: (SearchResultAction)
     return MenuAction(
         label = "App info",
         icon = Icons.Filled.Info,
-        onClick = { actionHandler(SearchResultAction.OpenAppInfo(packageName)) }
+        onClick = { actionHandler(SearchResultAction.OpenAppInfo(packageName)) },
+        section = MenuSection.AppUtility
     )
 }
 
@@ -393,6 +413,7 @@ fun createOpenAppWidgetsAction(appName: String, actionHandler: (SearchResultActi
     return MenuAction(
         label = "Widgets",
         icon = Icons.Filled.Widgets,
-        onClick = { actionHandler(SearchResultAction.OpenAppWidgets(appName)) }
+        onClick = { actionHandler(SearchResultAction.OpenAppWidgets(appName)) },
+        section = MenuSection.AppUtility
     )
 }
