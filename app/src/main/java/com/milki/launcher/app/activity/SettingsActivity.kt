@@ -27,33 +27,15 @@ import com.milki.launcher.domain.repository.WidgetBindRequest
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsActions
 import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
-import com.milki.launcher.ui.screens.settings.SettingsCustomSourceActions
 import com.milki.launcher.ui.screens.settings.SettingsHomeScreenActions
-import com.milki.launcher.ui.screens.settings.SettingsLocalPrefixActions
+import com.milki.launcher.ui.screens.settings.SettingsPrefixActions
 import com.milki.launcher.ui.screens.settings.SettingsScreen
+import com.milki.launcher.ui.screens.settings.SettingsSourceActions
 import com.milki.launcher.ui.theme.LauncherTheme
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class SettingsActivity : ComponentActivity() {
 
-    /**
-     * SettingsViewModel instance provided by Koin.
-     *
-     * Koin's viewModel() delegate handles:
-     * - Creating the ViewModel with all its focused repository dependencies
-     * - Scoping the ViewModel to this Activity's lifecycle
-     * - Surviving configuration changes (screen rotation)
-     * - Clearing when the Activity is destroyed
-     *
-     * BEFORE (manual DI):
-     * private val settingsViewModel: SettingsViewModel by lazy {
-     *     (application as LauncherApplication).container.settingsViewModelFactory
-     *         .create(SettingsViewModel::class.java)
-     * }
-     *
-     * AFTER (Koin):
-     * private val settingsViewModel: SettingsViewModel by viewModel()
-     */
     private val settingsViewModel: SettingsViewModel by viewModel()
 
     private var isDefaultLauncher by mutableStateOf(false)
@@ -127,20 +109,18 @@ class SettingsActivity : ComponentActivity() {
                         onSetTriggerAction = settingsViewModel::setTriggerAction,
                         onSetTriggerOpenAppTarget = settingsViewModel::setTriggerOpenAppTarget
                     ),
-                    customSources = SettingsCustomSourceActions(
-                        onAddSearchSource = settingsViewModel::addSearchSource,
-                        onUpdateSearchSource = settingsViewModel::updateSearchSource,
-                        onDeleteSearchSource = settingsViewModel::deleteSearchSource,
-                        onSetSearchSourceEnabled = settingsViewModel::setSearchSourceEnabled,
-                        onSetSearchSourceSuggestedAction = settingsViewModel::setSearchSourceSuggestedAction,
-                        onAddPrefixToSource = settingsViewModel::addPrefixToSource,
-                        onRemovePrefixFromSource = settingsViewModel::removePrefixFromSource,
-                        onSetDefaultSearchSource = settingsViewModel::setDefaultSearchSource
-                    ),
-                    localPrefixes = SettingsLocalPrefixActions(
-                        onAddProviderPrefix = settingsViewModel::addProviderPrefix,
-                        onRemoveProviderPrefix = settingsViewModel::removeProviderPrefix,
-                        onResetProviderPrefixes = settingsViewModel::resetProviderPrefixes
+                    sources = SettingsSourceActions(
+                        onAddSource = settingsViewModel::addSearchSource,
+                        onUpdateSource = settingsViewModel::updateSearchSource,
+                        onDeleteSource = settingsViewModel::deleteSearchSource,
+                        onSetSourceEnabled = settingsViewModel::setSearchSourceEnabled,
+                        onSetSourceSuggestedAction = settingsViewModel::setSearchSourceSuggestedAction,
+                        onSetDefaultSource = settingsViewModel::setDefaultSearchSource,
+                        prefixes = SettingsPrefixActions(
+                            onAddPrefix = settingsViewModel::addPrefix,
+                            onRemovePrefix = settingsViewModel::removePrefix,
+                            onResetPrefixes = settingsViewModel::resetPrefixes
+                        )
                     ),
                     advanced = SettingsAdvancedActions(
                         onResetToDefaults = settingsViewModel::resetToDefaults,
@@ -156,11 +136,11 @@ class SettingsActivity : ComponentActivity() {
             }
 
             LauncherTheme {
-            SettingsScreen(
-                settings = settings,
-                installedApps = installedApps,
-                actionShortcuts = actionShortcuts,
-                showSetDefaultLauncherOption = !isDefaultLauncher,
+                SettingsScreen(
+                    settings = settings,
+                    installedApps = installedApps,
+                    actionShortcuts = actionShortcuts,
+                    showSetDefaultLauncherOption = !isDefaultLauncher,
                     backupStatusMessage = backupStatusMessage,
                     importReport = importReport,
                     onDismissImportReport = settingsViewModel::clearLastImportReport,

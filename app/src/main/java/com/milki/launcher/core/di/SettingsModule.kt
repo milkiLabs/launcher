@@ -9,7 +9,7 @@ val settingsModule = module {
         SettingsViewModel(
             settingsReader = get(),
             searchSourceRepository = get(),
-            prefixConfigRepository = get(),
+            prefixOwnerRepository = get(),
             homeTriggerRepository = get(),
             appRepository = get(),
             actionShortcutRepository = get(),

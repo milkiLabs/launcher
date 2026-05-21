@@ -7,7 +7,7 @@ import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeTriggerRepository
-import com.milki.launcher.domain.repository.PrefixConfigurationRepository
+import com.milki.launcher.domain.repository.PrefixOwnerRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
 import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.search.UrlHandlerResolver
@@ -30,7 +30,7 @@ val coreModule = module {
     }
     single<SettingsReader> { get<SettingsRepositoryImpl>() }
     single<SearchSourceRepository> { get<SettingsRepositoryImpl>() }
-    single<PrefixConfigurationRepository> { get<SettingsRepositoryImpl>() }
+    single<PrefixOwnerRepository> { get<SettingsRepositoryImpl>() }
     single<HomeTriggerRepository> { get<SettingsRepositoryImpl>() }
 
     single<ActionShortcutRepository> {

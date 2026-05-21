@@ -1,7 +1,3 @@
-/**
- * AppInfo.kt - Domain model representing a single installed application
- */
-
 package com.milki.launcher.domain.model
 
 import androidx.compose.runtime.Immutable
@@ -25,4 +21,3 @@ data class AppInfo(
     val nameLower: String = name.lowercase()
     val packageLower: String = packageName.lowercase()
 }
-

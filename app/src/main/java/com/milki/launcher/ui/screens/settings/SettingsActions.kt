@@ -3,19 +3,11 @@ package com.milki.launcher.ui.screens.settings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
-import com.milki.launcher.domain.model.UrlHandlerApp
-import com.milki.launcher.domain.model.HomeItem
 
 /**
  * SettingsActions.kt - Grouped action contracts for Settings UI
  *
- * WHY THIS FILE EXISTS:
- * The original SettingsScreen accepted a very long list of callback parameters.
- * That approach made the screen signature noisy and increased coupling between
- * every section and every callback, even when a section only needed a subset.
- *
- * This file introduces section-scoped contracts so each composable receives only
- * the actions it actually uses.
+ * Section-scoped contracts so each composable receives only the actions it uses.
  */
 
 /**
@@ -27,17 +19,26 @@ data class SettingsHomeScreenActions(
 )
 
 /**
- * Actions used by dynamic/custom source management section.
+ * Unified actions for prefix management across all owners (providers and sources).
  */
-data class SettingsCustomSourceActions(
-    val onAddSearchSource: (
+data class SettingsPrefixActions(
+    val onAddPrefix: (String, String, (String) -> Unit) -> Unit,
+    val onRemovePrefix: (String, String) -> Unit,
+    val onResetPrefixes: (String) -> Unit
+)
+
+/**
+ * Actions used by search source management section.
+ */
+data class SettingsSourceActions(
+    val onAddSource: (
         name: String,
         urlTemplate: String,
         prefixes: List<String>,
         accentColorHex: String,
         onValidationResult: (String) -> Unit
     ) -> Unit,
-    val onUpdateSearchSource: (
+    val onUpdateSource: (
         sourceId: String,
         name: String,
         urlTemplate: String,
@@ -45,22 +46,11 @@ data class SettingsCustomSourceActions(
         accentColorHex: String,
         onValidationResult: (String) -> Unit
     ) -> Unit,
-    val onDeleteSearchSource: (String) -> Unit,
-    val onSetSearchSourceEnabled: (String, Boolean) -> Unit,
-    val onSetSearchSourceSuggestedAction: (String, Boolean) -> Unit,
-    val onAddPrefixToSource: (String, String, (String) -> Unit) -> Unit,
-    val onRemovePrefixFromSource: (String, String) -> Unit,
-    /** Sets the user's preferred default search engine (null = first enabled source). */
-    val onSetDefaultSearchSource: (String?) -> Unit
-)
-
-/**
- * Actions used by local-provider prefix editing section.
- */
-data class SettingsLocalPrefixActions(
-    val onAddProviderPrefix: (String, String, (String) -> Unit) -> Unit,
-    val onRemoveProviderPrefix: (String, String) -> Unit,
-    val onResetProviderPrefixes: (String) -> Unit
+    val onDeleteSource: (String) -> Unit,
+    val onSetSourceEnabled: (String, Boolean) -> Unit,
+    val onSetSourceSuggestedAction: (String, Boolean) -> Unit,
+    val onSetDefaultSource: (String?) -> Unit,
+    val prefixes: SettingsPrefixActions
 )
 
 /**
@@ -78,7 +68,6 @@ data class SettingsAdvancedActions(
 data class SettingsActions(
     val onOpenDefaultLauncherSettings: () -> Unit,
     val homeScreen: SettingsHomeScreenActions,
-    val customSources: SettingsCustomSourceActions,
-    val localPrefixes: SettingsLocalPrefixActions,
+    val sources: SettingsSourceActions,
     val advanced: SettingsAdvancedActions
 )

@@ -1,21 +1,3 @@
-/**
- * ContactsSearchProvider.kt - Search provider for device contacts
- *
- * This provider searches the device's contacts database when the user
- * uses the "c" prefix. It handles permission checking and returns
- * either contact results or a permission request placeholder.
- *
- * RESPONSIBILITIES:
- * - Define the "c" prefix configuration
- * - Check contacts permission status
- * - Return contact results or permission request placeholder
- * - NOT responsible for actually making calls (that's SearchResultAction)
- *
- * PERMISSION HANDLING:
- * If permission is not granted, returns a PermissionRequestResult
- * instead of actual contacts. The UI will show a permission request button.
- */
-
 package com.milki.launcher.data.search
 
 import com.milki.launcher.domain.model.Contact
@@ -29,19 +11,16 @@ import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SearchProvider
+import com.milki.launcher.domain.search.QueryRanker
 import kotlinx.coroutines.flow.first
 
 /**
- * Search provider for device contacts.
+ * Search provider for device contacts (activated by "c" prefix).
  *
- * This provider has special behavior:
- * - Checks permission status before searching
- * - Returns permission request placeholder if permission not granted
- * - When query is blank, shows recent contacts (like recent apps on empty search)
- * - Searches contacts by name when query exists
- *
- * @property contactsRepository Repository for accessing contacts data
- * @property config Display configuration for this provider
+ * Behavior:
+ * - Permission not granted → permission prompt (+ phone number result if query looks like a phone)
+ * - Blank query → recent contacts
+ * - Typed query → search + rank contacts using [QueryRanker]
  */
 class ContactsSearchProvider(
     private val contactsRepository: ContactsRepository
@@ -60,74 +39,46 @@ class ContactsSearchProvider(
         description = "Search your contacts"
     )
 
-    /**
-     * Search contacts or return permission request.
-     *
-     * Flow:
-     * 1. Check if contacts permission is granted
-     * 2. If not granted, return PermissionRequestResult
-     * 3. If granted and query is blank, return recent contacts
-     * 4. If granted and query exists, search contacts by name
-     *
-     * RECENT CONTACTS BEHAVIOR:
-     * When query is blank (user types "c " without a search term),
-     * we show the 8 most recently called contacts. This is similar to
-     * how recent apps are shown when the search query is empty.
-     *
-     * This provides quick access to frequently called contacts without
-     * having to search for them.
-     *
-     * @param query The search query (without the "c " prefix)
-     * @return List of ContactSearchResult or PermissionRequestResult, or empty list
-     */
     override suspend fun search(request: SearchRequest): List<SearchResult> {
-        val typedPhoneNumberResult = request.query
-            .trim()
-            .takeIf(::isPhoneNumberQuery)
-            ?.let(::PhoneNumberSearchResult)
+        val typedPhoneResult = request.query.trim().takeIf(::isPhoneNumberQuery)?.let(::PhoneNumberSearchResult)
 
         if (!request.contactsPermissionState.isGranted) {
-            val requiresSettings = request.contactsPermissionState == PermissionAccessState.REQUIRES_SETTINGS
-
-            val permissionPrompt = PermissionRequestResult(
-                permission = android.Manifest.permission.READ_CONTACTS,
-                providerPrefix = config.prefix,
-                message = if (requiresSettings) {
-                    "Contacts access is blocked. Open Settings to search contacts"
-                } else {
-                    "Contacts permission required to search contacts"
-                },
-                buttonText = if (requiresSettings) {
-                    "Open Settings"
-                } else {
-                    "Grant Permission"
-                }
-            )
-
-            return listOfNotNull(
-                typedPhoneNumberResult,
-                permissionPrompt
-            )
+            return listOfNotNull(typedPhoneResult, permissionPrompt(request.contactsPermissionState))
         }
 
-        // Permission granted - check for empty query
         if (request.query.isBlank()) {
-            // Empty query - show recent contacts
-            return getRecentContactsResults()
+            return resolveRecentContacts()
         }
 
-        // Search contacts and map to results
-        // If no contacts found, returns empty list (UI handles empty state)
-        val contacts = contactsRepository.searchContacts(
+        val contacts = contactsRepository.searchContacts(query = request.query, maxItems = MAX_RESULTS)
+        val recentContacts = resolveRecentContactsForBoosting()
+
+        val ranked = QueryRanker.rank(
+            items = contacts,
             query = request.query,
-            maxItems = MAX_RESULTS
+            recentItems = recentContacts,
+            nameSelector = { it.displayName },
+            identitySelector = { it.id.toString() },
         )
+
         return buildList {
-            typedPhoneNumberResult?.let(::add)
-            contacts.mapTo(this) { contact ->
-                ContactSearchResult(contact = contact)
-            }
+            typedPhoneResult?.let(::add)
+            addAll(ranked.map { ContactSearchResult(it) })
         }.take(MAX_RESULTS)
+    }
+
+    private fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
+        val requiresSettings = state == PermissionAccessState.REQUIRES_SETTINGS
+        return PermissionRequestResult(
+            permission = android.Manifest.permission.READ_CONTACTS,
+            providerPrefix = config.prefix,
+            message = if (requiresSettings) {
+                "Contacts access is blocked. Open Settings to search contacts"
+            } else {
+                "Contacts permission required to search contacts"
+            },
+            buttonText = if (requiresSettings) "Open Settings" else "Grant Permission"
+        )
     }
 
     private fun isPhoneNumberQuery(query: String): Boolean {
@@ -135,65 +86,40 @@ class ContactsSearchProvider(
         return digitCount >= MIN_PHONE_DIGITS && PHONE_QUERY_PATTERN.matches(query)
     }
 
-    /**
-     * Get recent contacts as search results.
-     *
-     * This method fetches the list of recently called phone numbers
-     * and looks up each one to get the contact information.
-     *
-     * PERFORMANCE OPTIMIZATION:
-     * Uses batch lookup (getContactsByPhoneNumbers) instead of individual
-     * lookups. This reduces N database queries to 1 query for N contacts.
-     *
-     * FALLBACK BEHAVIOR:
-     * If a phone number is in recent contacts but no longer matches
-     * a contact in the device's contacts database (e.g., contact was deleted),
-     * we create a minimal Contact with just the phone number.
-     *
-     * @return List of ContactSearchResult for recent contacts (max 8)
-     */
-    private suspend fun getRecentContactsResults(): List<SearchResult> {
-        // Get recent phone numbers from DataStore
+    private suspend fun resolveRecentContacts(): List<SearchResult> {
         val recentPhones = contactsRepository.getRecentContacts().first()
+        if (recentPhones.isEmpty()) return emptyList()
 
-        if (recentPhones.isEmpty()) {
-            return emptyList()
-        }
-
-        /**
-         * BATCH LOOKUP:
-         * Query all phone numbers in a single database call.
-         * This is significantly faster than N individual queries.
-         *
-         * The returned map only contains phone numbers that matched a contact.
-         * Phone numbers without matching contacts will be handled in the fallback.
-         */
         val contactsByPhone = contactsRepository.getContactsByPhoneNumbers(recentPhones)
 
-        // Build results, using batch lookup results when available
-        return recentPhones
-            .take(MAX_RESULTS)
-            .map { phoneNumber ->
-            // Check if we found a contact for this phone number
-            val contact = contactsByPhone[phoneNumber]
+        return recentPhones.take(MAX_RESULTS).map { phoneNumber ->
+            val contact = contactsByPhone[phoneNumber] ?: Contact(
+                id = -1,
+                displayName = phoneNumber,
+                phoneNumbers = listOf(phoneNumber),
+                emails = emptyList(),
+                photoUri = null,
+                lookupKey = ""
+            )
+            ContactSearchResult(contact)
+        }
+    }
 
-            if (contact != null) {
-                // Found a matching contact from batch lookup
-                ContactSearchResult(contact = contact)
-            } else {
-                // No matching contact - create a minimal contact with just the phone number
-                // This handles the case where a contact was deleted after being added to recent
-                ContactSearchResult(
-                    contact = Contact(
-                        id = -1, // Invalid ID to indicate this is not a real contact
-                        displayName = phoneNumber,
-                        phoneNumbers = listOf(phoneNumber),
-                        emails = emptyList(),
-                        photoUri = null,
-                        lookupKey = ""
-                    )
-                )
-            }
+    private suspend fun resolveRecentContactsForBoosting(): List<Contact> {
+        val recentPhones = contactsRepository.getRecentContacts().first()
+        if (recentPhones.isEmpty()) return emptyList()
+
+        val contactsByPhone = contactsRepository.getContactsByPhoneNumbers(recentPhones)
+
+        return recentPhones.mapNotNull { phoneNumber ->
+            contactsByPhone[phoneNumber] ?: Contact(
+                id = -1,
+                displayName = phoneNumber,
+                phoneNumbers = listOf(phoneNumber),
+                emails = emptyList(),
+                photoUri = null,
+                lookupKey = ""
+            )
         }
     }
 }

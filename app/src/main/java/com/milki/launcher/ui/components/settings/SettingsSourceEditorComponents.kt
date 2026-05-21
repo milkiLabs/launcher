@@ -2,26 +2,10 @@ package com.milki.launcher.ui.components.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,197 +13,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import com.milki.launcher.core.util.hexToColorOr
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
-
-/**
- * Card styled like a source item for built-in local providers.
- */
-@Composable
-fun SourceLikeToggleSettingItem(
-    name: String,
-    subtitle: String,
-    icon: ImageVector,
-    isEnabled: Boolean,
-    onToggleEnabled: (Boolean) -> Unit,
-    accentColor: Color
-) {
-    SettingsCardSurface {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(Spacing.medium),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accentColor,
-                modifier = Modifier.size(IconSize.standard)
-            )
-
-            Spacer(modifier = Modifier.size(Spacing.smallMedium))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Switch(
-                checked = isEnabled,
-                onCheckedChange = onToggleEnabled
-            )
-        }
-    }
-}
-
-/**
- * Card that displays one user-configured source with quick actions.
- */
-@Composable
-fun SourceSettingItem(
-    source: SearchSource,
-    onToggleEnabled: (Boolean) -> Unit,
-    onToggleSuggestedAction: (Boolean) -> Unit,
-    onAddPrefix: (String, (String) -> Unit) -> Unit,
-    onRemovePrefix: (String) -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val sourceColor = hexToColorOr(source.accentColorHex, Color.Unspecified)
-    var showAddPrefixDialog by remember { mutableStateOf(false) }
-
-    SettingsContainerCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = null,
-                    tint = sourceColor,
-                    modifier = Modifier.size(IconSize.standard)
-                )
-
-                Spacer(modifier = Modifier.size(Spacing.smallMedium))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = source.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${source.prefixes.joinToString(", ")} • ${source.accentColorHex}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Edit source"
-                    )
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Delete source",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(Spacing.small))
-
-            SwitchSettingItem(
-                title = "Prefix search",
-                subtitle = "Enable searching by prefix (e.g. 'yt query')",
-                checked = source.isEnabled,
-                onCheckedChange = onToggleEnabled
-            )
-
-            Spacer(modifier = Modifier.height(Spacing.small))
-
-            SwitchSettingItem(
-                title = "Suggested action",
-                subtitle = "Show this source as a quick action chip",
-                checked = source.showAsSuggestedAction,
-                onCheckedChange = onToggleSuggestedAction
-            )
-            
-            Spacer(modifier = Modifier.height(Spacing.small))
-
-            Text(
-                text = "Prefixes",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(Spacing.extraSmall))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LazyRow(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small)
-                ) {
-                    items(source.prefixes) { prefix ->
-                        PrefixChip(
-                            text = prefix,
-                            onRemove = { onRemovePrefix(prefix) },
-                            color = sourceColor
-                        )
-                    }
-                }
-
-                IconButton(onClick = { showAddPrefixDialog = true }) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "Add prefix",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            if (showAddPrefixDialog) {
-                AddPrefixDialog(
-                    existingPrefixes = source.prefixes,
-                    onDismiss = { showAddPrefixDialog = false },
-                    onAdd = { newPrefix, onResult ->
-                        onAddPrefix(newPrefix) { validationMessage ->
-                            onResult(validationMessage)
-                            if (validationMessage.isEmpty()) {
-                                showAddPrefixDialog = false
-                            }
-                        }
-                    },
-                    description = "Enter a new prefix for this source. It can be one or more characters.",
-                    duplicatePrefixMessage = "Prefix already exists in this source"
-                )
-            }
-    }
-}
 
 /**
  * Dialog to create or edit one source.
@@ -348,4 +144,3 @@ fun SourceEditorDialog(
         }
     )
 }
-

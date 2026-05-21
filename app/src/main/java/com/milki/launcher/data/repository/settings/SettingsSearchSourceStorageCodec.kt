@@ -92,11 +92,18 @@ internal fun normalizeAndValidateSearchSources(
             "https://www.google.com/search?q={query}"
         }
 
+        val normalizedDefaultPrefixes = source.defaultPrefixes
+            .map(SearchSource.Companion::normalizePrefix)
+            .filter { it.isNotBlank() && !it.contains(" ") }
+            .distinct()
+            .ifEmpty { normalizedPrefixes }
+
         source.copy(
             name = safeName,
             urlTemplate = safeTemplate,
             prefixes = normalizedPrefixes,
-            accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex)
+            accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex),
+            defaultPrefixes = normalizedDefaultPrefixes
         )
     }
 

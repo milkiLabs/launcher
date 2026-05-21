@@ -2,11 +2,6 @@
  * SettingsScreen.kt - Main settings screen for the launcher
  *
  * Displays launcher settings organized into focused section composables.
- *
- * REFACTOR NOTE:
- * This file was decomposed into section-level composables and grouped action
- * contracts (`SettingsActions`) so each section receives only the callbacks it
- * actually needs. This improves readability and keeps change impact localized.
  */
 
 package com.milki.launcher.ui.screens.settings
@@ -45,9 +40,6 @@ import com.milki.launcher.domain.model.targetForTrigger
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.theme.Spacing
 
-/**
- * SettingsScreen - launcher settings page with grouped action contract.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -134,9 +126,9 @@ fun SettingsScreen(
                 onSelectOpenAppAction = { trigger, action -> appPickerTrigger = trigger to action }
             )
 
-            CustomSourcesSection(
+            SearchSourcesSection(
                 settings = settings,
-                actions = actions.customSources,
+                actions = actions.sources,
                 onRequestAddSource = { showAddSourceDialog = true },
                 onRequestEditSource = { editingSource = it },
                 onRequestDeleteSource = { sourceIdPendingDelete = it }
@@ -144,7 +136,7 @@ fun SettingsScreen(
 
             LocalPrefixesSection(
                 settings = settings,
-                actions = actions.localPrefixes
+                actions = actions.sources.prefixes
             )
 
             AdvancedSection(
@@ -168,7 +160,7 @@ fun SettingsScreen(
         showAddSourceDialog = showAddSourceDialog,
         onDismissAddSourceDialog = { showAddSourceDialog = false },
         onAddSearchSource = { name, urlTemplate, prefixes, accentColorHex, onValidationResult ->
-            actions.customSources.onAddSearchSource(
+            actions.sources.onAddSource(
                 name,
                 urlTemplate,
                 prefixes,
@@ -184,7 +176,7 @@ fun SettingsScreen(
         editingSource = editingSource,
         onDismissEditSourceDialog = { editingSource = null },
         onUpdateSearchSource = { sourceId, name, urlTemplate, prefixes, accentColorHex, onValidationResult ->
-            actions.customSources.onUpdateSearchSource(
+            actions.sources.onUpdateSource(
                 sourceId,
                 name,
                 urlTemplate,
@@ -201,7 +193,7 @@ fun SettingsScreen(
         sourceIdPendingDelete = sourceIdPendingDelete,
         onDismissDeleteSourceDialog = { sourceIdPendingDelete = null },
         onConfirmDeleteSource = { sourceId ->
-            actions.customSources.onDeleteSearchSource(sourceId)
+            actions.sources.onDeleteSource(sourceId)
             sourceIdPendingDelete = null
         },
         importReport = importReport,

@@ -15,10 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,94 +35,96 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import com.milki.launcher.domain.model.PrefixOwner
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
 /**
- * Prefix configuration card for a single provider.
+ * Unified prefix management card for any prefix owner (provider or source).
  */
 @Composable
-fun PrefixSettingItem(
-    providerName: String,
-    providerIcon: ImageVector,
-    providerColor: Color,
-    defaultPrefix: String,
-    currentPrefixes: List<String>,
+fun PrefixOwnerSettingItem(
+    owner: PrefixOwner,
+    icon: ImageVector,
+    accentColor: Color,
     onAddPrefix: (String, (String) -> Unit) -> Unit,
     onRemovePrefix: (String) -> Unit,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    extraContent: @Composable () -> Unit = {}
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
     SettingsContainerCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = providerIcon,
-                    contentDescription = null,
-                    tint = providerColor,
-                    modifier = Modifier.size(IconSize.standard)
-                )
-                Spacer(modifier = Modifier.width(Spacing.smallMedium))
-                Text(
-                    text = providerName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                if (currentPrefixes != listOf(defaultPrefix) && currentPrefixes.isNotEmpty()) {
-                    TextButton(
-                        onClick = onReset,
-                        contentPadding = PaddingValues(horizontal = Spacing.smallMedium)
-                    ) {
-                        Text(
-                            text = "Reset",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(Spacing.smallMedium))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LazyRow(
-                    modifier = Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(IconSize.standard)
+            )
+            Spacer(modifier = Modifier.width(Spacing.smallMedium))
+            Text(
+                text = owner.name,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (owner.canReset) {
+                TextButton(
+                    onClick = onReset,
+                    contentPadding = PaddingValues(horizontal = Spacing.smallMedium)
                 ) {
-                    items(currentPrefixes) { prefix ->
-                        PrefixChip(
-                            text = prefix,
-                            onRemove = { onRemovePrefix(prefix) },
-                            color = providerColor
-                        )
-                    }
-                }
-
-                IconButton(
-                    onClick = { showAddDialog = true },
-                    modifier = Modifier.size(IconSize.appList)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = "Add prefix",
-                        tint = MaterialTheme.colorScheme.primary
+                    Text(
+                        text = "Reset",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
+        }
+
+        Spacer(modifier = Modifier.height(Spacing.small))
+
+        extraContent()
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LazyRow(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+            ) {
+                items(owner.prefixes) { prefix ->
+                    PrefixChip(
+                        text = prefix,
+                        onRemove = { onRemovePrefix(prefix) },
+                        color = accentColor
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier.size(IconSize.appList)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Add prefix",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
     }
 
     if (showAddDialog) {
         AddPrefixDialog(
-            existingPrefixes = currentPrefixes,
+            existingPrefixes = owner.prefixes,
             onDismiss = { showAddDialog = false },
             onAdd = { prefix, onResult ->
                 onAddPrefix(prefix) { validationMessage ->

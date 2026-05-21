@@ -9,40 +9,8 @@ import kotlinx.serialization.Serializable
  *
  * This file defines a fully user-configurable "search source" concept used by the
  * launcher's unified external search system.
- *
- * WHY THIS MODEL EXISTS:
- * Historically, web and YouTube searches were hard-coded in provider classes.
- * That made it hard for users to:
- * - Add new sources like Instagram
- * - Change prefixes without being constrained to one predefined source
- * - Customize source visuals (accent colors) in the UI
- * - Delete sources they do not need
- *
- * With SearchSource, each source becomes plain data stored in settings.
- * The runtime creates providers from this data, so the feature is dynamic.
  */
 
-/**
- * Serializable configuration for one external search source.
- *
- * @property id Stable unique source identifier.
- *              - Generated once and persisted.
- *              - Used for lookups, updates, and provider IDs.
- *
- * @property name User-visible source name shown in Settings and search results.
- *
- * @property urlTemplate URL template used to produce final search URL.
- *                       Must contain the `{query}` placeholder exactly once.
- *                       Example: `https://www.youtube.com/results?search_query={query}`
- *
- * @property prefixes Prefixes that activate this source in provider mode.
- *                    Parsing rule in query parser remains `prefix + space`.
- *
- * @property isEnabled If false, this source is excluded from prefix activation.
- *
- * @property accentColorHex Custom user-selected color used by UI accents for this
- *                          source. Stored as `#RRGGBB` for simplicity.
- */
 @Immutable
 @Serializable
 data class SearchSource(
@@ -52,32 +20,19 @@ data class SearchSource(
     val prefixes: List<String>,
     val isEnabled: Boolean,
     val showAsSuggestedAction: Boolean = true,
-    val accentColorHex: String
+    val accentColorHex: String,
+    val defaultPrefixes: List<String> = emptyList()
 ) {
 
-    /**
-     * Returns the first configured prefix, or empty string if none exists.
-     * This value is used only as fallback display/default metadata.
-     */
     val primaryPrefix: String
         get() = prefixes.firstOrNull().orEmpty()
 
-    /**
-     * Builds a final URL by replacing `{query}` with URI-encoded query text.
-     *
-     * IMPORTANT:
-     * - The placeholder replacement is intentionally straightforward and predictable.
-     * - Validation of placeholder existence is handled by helper methods and UI.
-     */
     fun buildUrl(encodedQuery: String): String {
         return urlTemplate.replace("{query}", encodedQuery)
     }
 
     companion object {
 
-        /**
-         * Creates a new source instance with generated stable ID.
-         */
         fun create(
             name: String,
             urlTemplate: String,
@@ -86,25 +41,19 @@ data class SearchSource(
             isEnabled: Boolean = true,
             showAsSuggestedAction: Boolean = true
         ): SearchSource {
+            val normalizedPrefixes = normalizePrefixes(prefixes)
             return SearchSource(
                 id = "source_${UUID.randomUUID()}",
                 name = name,
                 urlTemplate = urlTemplate,
-                prefixes = prefixes,
+                prefixes = normalizedPrefixes,
                 isEnabled = isEnabled,
                 showAsSuggestedAction = showAsSuggestedAction,
-                accentColorHex = normalizeHexColor(accentColorHex)
+                accentColorHex = normalizeHexColor(accentColorHex),
+                defaultPrefixes = normalizedPrefixes
             )
         }
 
-        /**
-         * Default starter sources used for first run and reset fallback.
-         *
-         * These defaults intentionally include a compact starter set:
-         * - Kagi
-         * - YouTube
-         * - Instagram
-         */
         fun defaultSources(): List<SearchSource> {
             return listOf(
                 SearchSource(
@@ -114,7 +63,8 @@ data class SearchSource(
                     prefixes = listOf("k"),
                     isEnabled = true,
                     showAsSuggestedAction = true,
-                    accentColorHex = "#DE5833"
+                    accentColorHex = "#DE5833",
+                    defaultPrefixes = listOf("k")
                 ),
                 SearchSource(
                     id = "source_youtube",
@@ -123,7 +73,8 @@ data class SearchSource(
                     prefixes = listOf("y", "yt"),
                     isEnabled = true,
                     showAsSuggestedAction = true,
-                    accentColorHex = "#FF0000"
+                    accentColorHex = "#FF0000",
+                    defaultPrefixes = listOf("y", "yt")
                 ),
                 SearchSource(
                     id = "source_instagram",
@@ -132,14 +83,12 @@ data class SearchSource(
                     prefixes = listOf("ig"),
                     isEnabled = true,
                     showAsSuggestedAction = true,
-                    accentColorHex = "#E1306C"
+                    accentColorHex = "#E1306C",
+                    defaultPrefixes = listOf("ig")
                 )
             )
         }
 
-        /**
-         * Returns true only when template is usable for runtime URL generation.
-         */
         fun isValidUrlTemplate(template: String): Boolean {
             val normalized = template.trim()
             if (normalized.isEmpty()) return false
@@ -148,11 +97,6 @@ data class SearchSource(
             return hasWebScheme
         }
 
-        /**
-         * Normalizes user prefix input by trimming and lowercasing.
-         *
-         * This supports case-insensitive matching and stable persistence.
-         */
         fun normalizePrefix(prefix: String): String {
             return prefix.trim().lowercase()
         }
@@ -164,10 +108,6 @@ data class SearchSource(
                 .distinct()
         }
 
-        /**
-         * Normalizes color input into strict #RRGGBB form.
-         * Falls back to Google blue when input is invalid.
-         */
         fun normalizeHexColor(raw: String): String {
             val candidate = raw.trim().uppercase()
             val withHash = if (candidate.startsWith("#")) candidate else "#$candidate"

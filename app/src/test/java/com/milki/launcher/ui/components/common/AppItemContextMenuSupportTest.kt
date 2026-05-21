@@ -1,6 +1,10 @@
 package com.milki.launcher.ui.components.common
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.runtime.Composable
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.launcher.MenuAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,10 +16,11 @@ class AppItemContextMenuSupportTest {
         val pinnedApp = HomeItem.PinnedApp(
             id = "app:com.example.app",
             packageName = "com.example.app",
-            label = "Example"
+            label = "Example",
+            activityName = ""
         )
 
-        val menuActions = buildHomeItemMenuActions(pinnedApp)
+        val menuActions = buildHomeItemMenuActionsTest(pinnedApp)
 
         assertTrue(menuActions.any { it.label == "App info" })
         assertTrue(menuActions.any { it.label == "Unpin from home" })
@@ -31,7 +36,7 @@ class AppItemContextMenuSupportTest {
             longLabel = "Start a new chat"
         )
 
-        val menuActions = buildHomeItemMenuActions(shortcut)
+        val menuActions = buildHomeItemMenuActionsTest(shortcut)
 
         assertEquals(1, menuActions.size)
         assertEquals("Unpin from home", menuActions[0].label)
@@ -46,7 +51,7 @@ class AppItemContextMenuSupportTest {
             destinationUri = "android.settings.APPLICATION_SETTINGS"
         )
 
-        val menuActions = buildHomeItemMenuActions(shortcut)
+        val menuActions = buildHomeItemMenuActionsTest(shortcut)
 
         assertEquals(1, menuActions.size)
         assertEquals("Unpin from home", menuActions[0].label)
@@ -60,7 +65,7 @@ class AppItemContextMenuSupportTest {
             children = emptyList()
         )
 
-        val menuActions = buildHomeItemMenuActions(folder)
+        val menuActions = buildHomeItemMenuActionsTest(folder)
 
         assertEquals(1, menuActions.size)
         assertEquals("Unpin from home", menuActions[0].label)
@@ -71,17 +76,26 @@ class AppItemContextMenuSupportTest {
         val pinnedApp = HomeItem.PinnedApp(
             id = "app:com.example.app",
             packageName = "com.example.app",
-            label = "Example"
+            label = "Example",
+            activityName = ""
         )
-        val extraAction = com.milki.launcher.ui.components.launcher.MenuAction(
+        val extraAction = MenuAction(
             label = "Custom action",
-            icon = androidx.compose.material.icons.Icons.Default.Delete,
+            icon = Icons.Default.Delete,
             onClick = {}
         )
 
-        val menuActions = buildHomeItemMenuActions(pinnedApp, listOf(extraAction))
+        val menuActions = buildHomeItemMenuActionsTest(pinnedApp, listOf(extraAction))
 
         assertTrue(menuActions.any { it.label == "Custom action" })
         assertEquals("Custom action", menuActions.last().label)
+    }
+
+    @Composable
+    private fun buildHomeItemMenuActionsTest(
+        item: HomeItem,
+        extraActions: List<MenuAction> = emptyList()
+    ): List<String> {
+        return buildHomeItemMenuActions(item, extraActions).map { it.label }
     }
 }
