@@ -54,4 +54,15 @@ class AppItemContextMenuSupportTest {
         assertEquals(1, menuActions.size)
         assertEquals("App info", menuActions[0].label)
     }
+
+    @Test
+    fun app_menu_without_package_name_omits_app_info() {
+        val menuActions = buildAppUtilityMenuActions(
+            packageName = "",
+            appName = "Folder",
+            actionHandler = {}
+        )
+
+        assertTrue(menuActions.isEmpty())
+    }
 }

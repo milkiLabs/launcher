@@ -135,6 +135,7 @@ fun PinnedItem(
             onDismiss = dismissMenu,
             focusable = true,
             onExternalDragStarted = dismissMenu,
+            includeAppUtilityActions = item is HomeItem.PinnedApp,
             extraActions = listOf(
                 createUnpinAction(
                     itemId = item.id,

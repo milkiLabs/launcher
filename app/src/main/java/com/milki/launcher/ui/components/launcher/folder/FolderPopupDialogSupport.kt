@@ -322,6 +322,7 @@ private fun FolderPopupItem(
             onDismiss = onMenuDismiss,
             focusable = !isLongPressGestureActive,
             onExternalDragStarted = onExternalDragStarted,
+            includeAppUtilityActions = item is HomeItem.PinnedApp,
             extraActions = listOf(
                 com.milki.launcher.ui.components.launcher.MenuAction(
                     label = "Remove from folder",

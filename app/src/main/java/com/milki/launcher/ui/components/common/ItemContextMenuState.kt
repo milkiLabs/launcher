@@ -92,20 +92,23 @@ fun ItemContextMenu(
     focusable: Boolean = true,
     onExternalDragStarted: (() -> Unit)? = null,
     extraActions: List<MenuAction> = emptyList(),
+    includeAppUtilityActions: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-    val actions = remember(packageName, appName, extraActions, actionHandler) {
+    val actions = remember(packageName, appName, extraActions, includeAppUtilityActions, actionHandler) {
         buildList {
-            addAll(
-                buildAppUtilityMenuActions(
-                    packageName = packageName,
-                    appName = appName,
-                    quickActions = getAppQuickActions(packageName),
-                    hasWidgets = getAppHasWidgets(packageName),
-                    actionHandler = actionHandler
+            if (includeAppUtilityActions) {
+                addAll(
+                    buildAppUtilityMenuActions(
+                        packageName = packageName,
+                        appName = appName,
+                        quickActions = getAppQuickActions(packageName),
+                        hasWidgets = getAppHasWidgets(packageName),
+                        actionHandler = actionHandler
+                    )
                 )
-            )
+            }
             addAll(extraActions)
         }
     }
@@ -166,7 +169,9 @@ fun buildAppUtilityMenuActions(
             add(createOpenAppWidgetsAction(appName ?: packageName, actionHandler))
         }
         addAll(quickActions.map { createLaunchShortcutAction(it, actionHandler) })
-        add(createAppInfoAction(packageName, actionHandler))
+        if (packageName.isNotBlank()) {
+            add(createAppInfoAction(packageName, actionHandler))
+        }
     }
 }
 

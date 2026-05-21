@@ -297,6 +297,7 @@ internal fun InternalGridDragLayer(
                                 onDismiss = { interactionController.dismissMenu() },
                                 focusable = !interactionController.isMenuGestureActive,
                                 onExternalDragStarted = { interactionController.dismissMenu() },
+                                includeAppUtilityActions = item is HomeItem.PinnedApp,
                                 extraActions = listOf(
                                     com.milki.launcher.ui.components.launcher.createUnpinAction(
                                         itemId = item.id,
