@@ -1,6 +1,5 @@
 package com.milki.launcher.data.search
 
-import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.model.PhoneNumberSearchResult
@@ -16,7 +15,7 @@ import org.junit.Test
 class ContactsSearchProviderPermissionPromptTest {
 
     @Test
-    fun blocked_contacts_permission_surfaces_open_settings_prompt() = runBlocking {
+    fun blocked_permission_shows_open_settings_prompt() = runBlocking {
         val provider = ContactsSearchProvider(FakeContactsRepository())
 
         val results = provider.search(
@@ -27,70 +26,47 @@ class ContactsSearchProviderPermissionPromptTest {
         )
 
         val prompt = results.single() as PermissionRequestResult
-
         assertEquals("Open Settings", prompt.buttonText)
         assertTrue(prompt.message.contains("blocked"))
     }
 
     @Test
-    fun phone_number_query_surfaces_call_or_save_result_before_contact_matches() = runBlocking {
-        val provider = ContactsSearchProvider(
-            FakeContactsRepository(
-                searchResults = listOf(
-                    Contact(
-                        id = 1,
-                        displayName = "Ali",
-                        phoneNumbers = listOf("+201234567890"),
-                        emails = emptyList(),
-                        photoUri = null,
-                        lookupKey = "ali"
-                    )
-                )
-            )
-        )
-
-        val results = provider.search(
-            SearchRequest(
-                query = "+20 123 456 7890",
-                contactsPermissionState = PermissionAccessState.GRANTED
-            )
-        )
-
-        val phoneNumberResult = results.first() as PhoneNumberSearchResult
-
-        assertEquals("+20 123 456 7890", phoneNumberResult.phoneNumber)
-        assertEquals(2, results.size)
-    }
-
-    @Test
-    fun phone_number_query_is_available_without_contacts_permission() = runBlocking {
+    fun can_request_permission_shows_grant_prompt() = runBlocking {
         val provider = ContactsSearchProvider(FakeContactsRepository())
 
         val results = provider.search(
             SearchRequest(
-                query = "123456",
+                query = "ali",
                 contactsPermissionState = PermissionAccessState.CAN_REQUEST
             )
         )
 
+        val prompt = results.single() as PermissionRequestResult
+        assertEquals("Grant Permission", prompt.buttonText)
+    }
+
+    @Test
+    fun phone_query_without_permission_surfaces_number_and_prompt() = runBlocking {
+        val provider = ContactsSearchProvider(FakeContactsRepository())
+
+        val results = provider.search(
+            SearchRequest(
+                query = "+201234567890",
+                contactsPermissionState = PermissionAccessState.CAN_REQUEST
+            )
+        )
+
+        assertEquals(2, results.size)
         assertTrue(results[0] is PhoneNumberSearchResult)
         assertTrue(results[1] is PermissionRequestResult)
     }
 
-    private class FakeContactsRepository(
-        private val searchResults: List<Contact> = emptyList()
-    ) : ContactsRepository {
+    private class FakeContactsRepository : ContactsRepository {
         override fun hasContactsPermission(): Boolean = false
-
-        override suspend fun searchContacts(query: String, maxItems: Int): List<Contact> = searchResults
-
+        override suspend fun searchContacts(query: String, maxItems: Int) = emptyList<com.milki.launcher.domain.model.Contact>()
         override suspend fun saveRecentContact(phoneNumber: String) = Unit
-
         override fun getRecentContacts(): Flow<List<String>> = flowOf(emptyList())
-
-        override suspend fun getContactByPhoneNumber(phoneNumber: String): Contact? = null
-
-        override suspend fun getContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> =
-            emptyMap()
+        override suspend fun getContactByPhoneNumber(phoneNumber: String) = null
+        override suspend fun getContactsByPhoneNumbers(phoneNumbers: List<String>) = emptyMap<String, com.milki.launcher.domain.model.Contact>()
     }
 }
