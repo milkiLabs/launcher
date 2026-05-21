@@ -45,7 +45,7 @@ import com.milki.launcher.ui.components.launcher.widget.HomeScreenWidgetView
 import com.milki.launcher.ui.components.launcher.widget.PopupWidgetView
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
-import com.milki.launcher.ui.components.common.appInfoPackageNameOrNull
+import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
 
 /**
  * InternalGridDragLayer owns on-grid item rendering and internal drag gesture handling.
@@ -286,24 +286,11 @@ internal fun InternalGridDragLayer(
 
                         if (!isPopupWidget) {
                             com.milki.launcher.ui.components.common.ItemContextMenu(
-                                packageName = item.appInfoPackageNameOrNull() ?: "",
-                                appName = when (item) {
-                                    is HomeItem.PinnedApp -> item.label
-                                    is HomeItem.AppShortcut -> item.shortLabel.ifBlank { item.longLabel }
-                                    is HomeItem.ActionShortcut -> item.label
-                                    else -> null
-                                },
+                                actions = buildHomeItemMenuActions(item),
                                 expanded = interactionController.menuShownForItemId == item.id,
                                 onDismiss = { interactionController.dismissMenu() },
                                 focusable = !interactionController.isMenuGestureActive,
                                 onExternalDragStarted = { interactionController.dismissMenu() },
-                                includeAppUtilityActions = item is HomeItem.PinnedApp,
-                                extraActions = listOf(
-                                    com.milki.launcher.ui.components.launcher.createUnpinAction(
-                                        itemId = item.id,
-                                        actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-                                    )
-                                )
                             )
                         }
 

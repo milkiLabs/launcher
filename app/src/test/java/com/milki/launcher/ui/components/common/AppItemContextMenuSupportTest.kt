@@ -1,8 +1,6 @@
 package com.milki.launcher.ui.components.common
 
-import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.presentation.search.SearchResultAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,13 +8,22 @@ import org.junit.Test
 class AppItemContextMenuSupportTest {
 
     @Test
-    fun app_menu_includes_quick_actions_before_app_info() {
-        val appInfo = AppInfo(
-            name = "Example",
+    fun pinned_app_menu_includes_app_info_and_unpin() {
+        val pinnedApp = HomeItem.PinnedApp(
+            id = "app:com.example.app",
             packageName = "com.example.app",
-            activityName = "com.example.app.Main"
+            label = "Example"
         )
-        val quickAction = HomeItem.AppShortcut(
+
+        val menuActions = buildHomeItemMenuActions(pinnedApp)
+
+        assertTrue(menuActions.any { it.label == "App info" })
+        assertTrue(menuActions.any { it.label == "Unpin from home" })
+    }
+
+    @Test
+    fun app_shortcut_menu_only_includes_unpin() {
+        val shortcut = HomeItem.AppShortcut(
             id = "shortcut:com.example.app/new-chat",
             packageName = "com.example.app",
             shortcutId = "new-chat",
@@ -24,45 +31,57 @@ class AppItemContextMenuSupportTest {
             longLabel = "Start a new chat"
         )
 
-        val menuActions = buildAppUtilityMenuActions(
-            packageName = appInfo.packageName,
-            appName = appInfo.name,
-            quickActions = listOf(quickAction),
-            actionHandler = {}
-        )
-
-        assertEquals(2, menuActions.size)
-        assertEquals("New chat", menuActions[0].label)
-        assertEquals(quickAction, menuActions[0].shortcutIcon)
-        assertEquals("App info", menuActions[1].label)
-    }
-
-    @Test
-    fun app_menu_without_quick_actions_keeps_app_info_only() {
-        val appInfo = AppInfo(
-            name = "Example",
-            packageName = "com.example.app",
-            activityName = "com.example.app.Main"
-        )
-
-        val menuActions = buildAppUtilityMenuActions(
-            packageName = appInfo.packageName,
-            appName = appInfo.name,
-            actionHandler = {}
-        )
+        val menuActions = buildHomeItemMenuActions(shortcut)
 
         assertEquals(1, menuActions.size)
-        assertEquals("App info", menuActions[0].label)
+        assertEquals("Unpin from home", menuActions[0].label)
     }
 
     @Test
-    fun app_menu_without_package_name_omits_app_info() {
-        val menuActions = buildAppUtilityMenuActions(
-            packageName = "",
-            appName = "Folder",
-            actionHandler = {}
+    fun action_shortcut_menu_only_includes_unpin() {
+        val shortcut = HomeItem.ActionShortcut(
+            id = "action:com.example.app/settings",
+            packageName = "com.example.app",
+            label = "Settings",
+            destinationUri = "android.settings.APPLICATION_SETTINGS"
         )
 
-        assertTrue(menuActions.isEmpty())
+        val menuActions = buildHomeItemMenuActions(shortcut)
+
+        assertEquals(1, menuActions.size)
+        assertEquals("Unpin from home", menuActions[0].label)
+    }
+
+    @Test
+    fun folder_item_menu_only_includes_unpin() {
+        val folder = HomeItem.FolderItem(
+            id = "folder:my-folder",
+            name = "My Folder",
+            children = emptyList()
+        )
+
+        val menuActions = buildHomeItemMenuActions(folder)
+
+        assertEquals(1, menuActions.size)
+        assertEquals("Unpin from home", menuActions[0].label)
+    }
+
+    @Test
+    fun extra_actions_are_appended() {
+        val pinnedApp = HomeItem.PinnedApp(
+            id = "app:com.example.app",
+            packageName = "com.example.app",
+            label = "Example"
+        )
+        val extraAction = com.milki.launcher.ui.components.launcher.MenuAction(
+            label = "Custom action",
+            icon = androidx.compose.material.icons.Icons.Default.Delete,
+            onClick = {}
+        )
+
+        val menuActions = buildHomeItemMenuActions(pinnedApp, listOf(extraAction))
+
+        assertTrue(menuActions.any { it.label == "Custom action" })
+        assertEquals("Custom action", menuActions.last().label)
     }
 }

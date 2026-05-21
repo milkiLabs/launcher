@@ -17,8 +17,9 @@ import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.components.launcher.createAppInfoAction
 import com.milki.launcher.ui.components.launcher.createLaunchShortcutAction
 import com.milki.launcher.ui.components.launcher.createOpenAppWidgetsAction
-import com.milki.launcher.ui.components.launcher.createUninstallAppAction
 import com.milki.launcher.ui.components.launcher.createPinAction
+import com.milki.launcher.ui.components.launcher.createUninstallAppAction
+import com.milki.launcher.ui.components.launcher.createUnpinAction
 
 @Stable
 class ItemContextMenuState {
@@ -61,58 +62,18 @@ fun rememberItemContextMenuState(): ItemContextMenuState {
 }
 
 /**
- * Returns cached quick shortcuts for [packageName].
- *
- * Reads synchronously from [AppContextDataCache], which is pre-populated
- * at startup and refreshed on package changes. No LaunchedEffect, no
- * async loading — data is available in the same frame.
+ * Simple context menu that displays a list of actions.
+ * Callers are responsible for building the correct actions for their item type.
  */
-fun getAppQuickActions(
-    packageName: String,
-    maxCount: Int = 4
-): List<HomeItem.AppShortcut> {
-    return AppContextDataCache.getShortcuts(packageName).take(maxCount)
-}
-
-/**
- * Returns whether [packageName] has any widget providers.
- *
- * Reads synchronously from [AppContextDataCache].
- */
-fun getAppHasWidgets(packageName: String): Boolean {
-    return AppContextDataCache.hasWidgets(packageName)
-}
-
 @Composable
 fun ItemContextMenu(
-    packageName: String,
-    appName: String? = null,
+    actions: List<MenuAction>,
     expanded: Boolean,
     onDismiss: () -> Unit,
     focusable: Boolean = true,
     onExternalDragStarted: (() -> Unit)? = null,
-    extraActions: List<MenuAction> = emptyList(),
-    includeAppUtilityActions: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-    val actions = remember(packageName, appName, extraActions, includeAppUtilityActions, actionHandler) {
-        buildList {
-            if (includeAppUtilityActions) {
-                addAll(
-                    buildAppUtilityMenuActions(
-                        packageName = packageName,
-                        appName = appName,
-                        quickActions = getAppQuickActions(packageName),
-                        hasWidgets = getAppHasWidgets(packageName),
-                        actionHandler = actionHandler
-                    )
-                )
-            }
-            addAll(extraActions)
-        }
-    }
-    
     ItemActionMenu(
         expanded = expanded,
         onDismiss = onDismiss,
@@ -124,22 +85,73 @@ fun ItemContextMenu(
 }
 
 /**
- * Convenience composable for displaying the context menu of an [AppInfo].
+ * Builds menu actions for a [HomeItem] on the home screen.
  *
- * Bundles the standard uninstall action and wires up the menu state
- * so callers don't repeat the same boilerplate.
+ * Rules:
+ * - [HomeItem.PinnedApp]: widgets + quick shortcuts + app info + unpin
+ * - All other items: unpin only (no parent app actions for shortcuts)
+ */
+@Composable
+fun buildHomeItemMenuActions(
+    item: HomeItem,
+    extraActions: List<MenuAction> = emptyList()
+): List<MenuAction> {
+    val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
+    return remember(item, extraActions, actionHandler) {
+        buildList {
+            if (item is HomeItem.PinnedApp) {
+                if (AppContextDataCache.hasWidgets(item.packageName)) {
+                    add(createOpenAppWidgetsAction(item.label, actionHandler))
+                }
+                val quickActions = AppContextDataCache.getShortcuts(item.packageName).take(4)
+                addAll(quickActions.map { createLaunchShortcutAction(it, actionHandler) })
+                add(createAppInfoAction(item.packageName, actionHandler))
+            }
+            add(createUnpinAction(item.id, actionHandler))
+            addAll(extraActions)
+        }
+    }
+}
+
+/**
+ * Builds menu actions for an [AppInfo] in the app drawer or search results.
+ *
+ * Always includes the full app context: widgets + quick shortcuts + app info + uninstall.
+ */
+@Composable
+fun buildAppDrawerMenuActions(
+    appInfo: AppInfo,
+    extraActions: List<MenuAction> = emptyList()
+): List<MenuAction> {
+    val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
+    return remember(appInfo, extraActions, actionHandler) {
+        buildList {
+            if (AppContextDataCache.hasWidgets(appInfo.packageName)) {
+                add(createOpenAppWidgetsAction(appInfo.name, actionHandler))
+            }
+            val quickActions = AppContextDataCache.getShortcuts(appInfo.packageName).take(4)
+            addAll(quickActions.map { createLaunchShortcutAction(it, actionHandler) })
+            add(createAppInfoAction(appInfo.packageName, actionHandler))
+            add(createUninstallAppAction(appInfo.packageName, actionHandler))
+            addAll(extraActions)
+        }
+    }
+}
+
+/**
+ * Convenience composable for displaying the context menu of an [AppInfo].
+ * Used in the app drawer and search results.
  */
 @Composable
 fun AppItemContextMenu(
     appInfo: AppInfo,
     menuState: ItemContextMenuState,
     onExternalDragStarted: () -> Unit = {},
+    extraActions: List<MenuAction> = emptyList(),
     modifier: Modifier = Modifier
 ) {
-    val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
     ItemContextMenu(
-        packageName = appInfo.packageName,
-        appName = appInfo.name,
+        actions = buildAppDrawerMenuActions(appInfo, extraActions),
         expanded = menuState.showMenu,
         onDismiss = menuState::dismiss,
         focusable = menuState.isMenuFocusable,
@@ -147,52 +159,32 @@ fun AppItemContextMenu(
             menuState.dismiss()
             onExternalDragStarted()
         },
-        extraActions = listOf(
-            createUninstallAppAction(
-                packageName = appInfo.packageName,
-                actionHandler = actionHandler
-            )
-        ),
         modifier = modifier
     )
 }
 
-fun buildAppUtilityMenuActions(
+/**
+ * Returns cached quick shortcuts for [packageName].
+ */
+fun getAppQuickActions(
     packageName: String,
-    appName: String? = null,
-    quickActions: List<HomeItem.AppShortcut> = emptyList(),
-    hasWidgets: Boolean = false,
-    actionHandler: (com.milki.launcher.presentation.search.SearchResultAction) -> Unit
-): List<MenuAction> {
-    return buildList {
-        if (hasWidgets) {
-            add(createOpenAppWidgetsAction(appName ?: packageName, actionHandler))
-        }
-        addAll(quickActions.map { createLaunchShortcutAction(it, actionHandler) })
-        if (packageName.isNotBlank()) {
-            add(createAppInfoAction(packageName, actionHandler))
-        }
-    }
+    maxCount: Int = 4
+): List<HomeItem.AppShortcut> {
+    return AppContextDataCache.getShortcuts(packageName).take(maxCount)
 }
 
-fun HomeItem.appInfoPackageNameOrNull(): String? {
-    return when (this) {
-        is HomeItem.PinnedApp -> packageName
-        is HomeItem.AppShortcut -> packageName
-        is HomeItem.ActionShortcut -> packageName
-        else -> null
-    }
-}
-
+/**
+ * Builds menu actions for a file document in search results.
+ */
 fun buildFileItemMenuActions(
-    file: com.milki.launcher.domain.model.FileDocument,
-    actionHandler: (com.milki.launcher.presentation.search.SearchResultAction) -> Unit
+    file: FileDocument,
+    actionHandler: (SearchResultAction) -> Unit
 ): List<MenuAction> {
     return listOf(
         createPinAction(
             isPinned = false,
-            pinAction = com.milki.launcher.presentation.search.SearchResultAction.PinFile(file),
-            unpinAction = com.milki.launcher.presentation.search.SearchResultAction.UnpinItem(
+            pinAction = SearchResultAction.PinFile(file),
+            unpinAction = SearchResultAction.UnpinItem(
                 HomeItem.PinnedFile.fromFileDocument(file).id
             ),
             actionHandler = actionHandler

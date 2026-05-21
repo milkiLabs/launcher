@@ -61,7 +61,7 @@ import com.milki.launcher.ui.components.common.IconLabelCell
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.WidgetPopupIcon
 import com.milki.launcher.ui.components.common.ItemContextMenu
-import com.milki.launcher.ui.components.common.appInfoPackageNameOrNull
+import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
 import com.milki.launcher.ui.components.launcher.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -129,19 +129,11 @@ fun PinnedItem(
         }
         
         ItemContextMenu(
-            packageName = item.appInfoPackageNameOrNull() ?: "",
-            appName = formatHomeItemLabel(item),
+            actions = buildHomeItemMenuActions(item),
             expanded = isMenuVisible,
             onDismiss = dismissMenu,
             focusable = true,
             onExternalDragStarted = dismissMenu,
-            includeAppUtilityActions = item is HomeItem.PinnedApp,
-            extraActions = listOf(
-                createUnpinAction(
-                    itemId = item.id,
-                    actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-                )
-            )
         )
     }
 }

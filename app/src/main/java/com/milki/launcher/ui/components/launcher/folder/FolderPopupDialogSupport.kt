@@ -47,9 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.ItemContextMenu
-import com.milki.launcher.ui.components.common.appInfoPackageNameOrNull
-import com.milki.launcher.ui.components.common.appInfoPackageNameOrNull
-import com.milki.launcher.ui.components.launcher.ItemActionMenu
+import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
 import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.components.launcher.PinnedItem
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
@@ -274,7 +272,6 @@ private fun FolderPopupItem(
     modifier: Modifier = Modifier
 ) {
     var isLongPressGestureActive by remember { mutableStateOf(false) }
-    val appInfoPackageName = item.appInfoPackageNameOrNull()
 
     Box(
         modifier = modifier
@@ -311,26 +308,21 @@ private fun FolderPopupItem(
         com.milki.launcher.ui.components.launcher.PinnedItemView(item = item)
 
         ItemContextMenu(
-            packageName = item.appInfoPackageNameOrNull() ?: "",
-            appName = when (item) {
-                is HomeItem.PinnedApp -> item.label
-                is HomeItem.AppShortcut -> item.shortLabel.ifBlank { item.longLabel }
-                is HomeItem.ActionShortcut -> item.label
-                else -> null
-            },
+            actions = buildHomeItemMenuActions(
+                item = item,
+                extraActions = listOf(
+                    MenuAction(
+                        label = "Remove from folder",
+                        icon = Icons.Filled.Delete,
+                        onClick = onRemoveFromFolder,
+                        isDestructive = true
+                    )
+                )
+            ),
             expanded = showMenu,
             onDismiss = onMenuDismiss,
             focusable = !isLongPressGestureActive,
             onExternalDragStarted = onExternalDragStarted,
-            includeAppUtilityActions = item is HomeItem.PinnedApp,
-            extraActions = listOf(
-                com.milki.launcher.ui.components.launcher.MenuAction(
-                    label = "Remove from folder",
-                    icon = androidx.compose.material.icons.Icons.Filled.Delete,
-                    onClick = onRemoveFromFolder,
-                    isDestructive = true
-                )
-            )
         )
     }
 }
