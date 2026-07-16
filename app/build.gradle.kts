@@ -27,7 +27,7 @@ val tagParts = latestTag.split(".")
 val major = tagParts.getOrNull(0)?.toIntOrNull() ?: 0
 val minor = tagParts.getOrNull(1)?.toIntOrNull() ?: 0
 val patch = tagParts.getOrNull(2)?.toIntOrNull() ?: 0
-val versionCode = major * 10000 + minor * 100 + patch
+val versionCode = (major * 10000 + minor * 100 + patch).coerceAtLeast(1)
 
 val versionName = latestTag.takeIf { it.isNotEmpty() } ?: "1.0.0"
 
