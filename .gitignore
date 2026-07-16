@@ -25,7 +25,7 @@ node_modules/
 # VitePress Build
 website/docs/.vitepress/dist/
 website/docs/.vitepress/cache/
-docs/
+notes/
 
 # Kotlin cache
 .kotlin/
