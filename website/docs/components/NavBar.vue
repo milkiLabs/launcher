@@ -97,7 +97,7 @@ const closeMenu = () => {
         </a>
         <a
           target="_blank"
-          href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk"
+          href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
           class="btn-download"
         >
           Download
