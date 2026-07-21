@@ -1,76 +1,90 @@
 <script setup>
-import { withBase } from 'vitepress'
-import { onMounted, onUnmounted, ref } from 'vue'
-import PhoneFrame from './PhoneFrame.vue'
+import { withBase } from "vitepress";
+import { onMounted, onUnmounted, ref } from "vue";
+import PhoneFrame from "./PhoneFrame.vue";
 
 // Typing animation for the search demo
 const typingTexts = [
-  { prefix: '', text: 'whats', label: 'Find any app instantly' },
-  { prefix: 'f ', text: 'budget.pdf', label: 'Search files on your device' },
-  { prefix: 'c ', text: 'sarah', label: 'Call a contact in two taps' },
-  { prefix: 'yt ', text: 'lo-fi music', label: 'Search YouTube directly' },
-]
-const currentTypingIdx = ref(0)
-const displayedText = ref('')
-const isDeleting = ref(false)
-let typingTimeout = null
+  { prefix: "", text: "whats", label: "Find any app instantly" },
+  { prefix: "f ", text: "budget.pdf", label: "Search files on your device" },
+  { prefix: "c ", text: "sarah", label: "Call a contact in two taps" },
+  { prefix: "yt ", text: "lo-fi music", label: "Search YouTube directly" },
+];
+const currentTypingIdx = ref(0);
+const displayedText = ref("");
+const isDeleting = ref(false);
+let typingTimeout = null;
 
 const typeStep = () => {
-  const current = typingTexts[currentTypingIdx.value]
-  const fullText = current.prefix + current.text
+  const current = typingTexts[currentTypingIdx.value];
+  const fullText = current.prefix + current.text;
 
   if (!isDeleting.value) {
-    displayedText.value = fullText.slice(0, displayedText.value.length + 1)
+    displayedText.value = fullText.slice(0, displayedText.value.length + 1);
     if (displayedText.value === fullText) {
       typingTimeout = setTimeout(() => {
-        isDeleting.value = true
-        typeStep()
-      }, 2200)
-      return
+        isDeleting.value = true;
+        typeStep();
+      }, 2200);
+      return;
     }
-    typingTimeout = setTimeout(typeStep, 80 + Math.random() * 40)
+    typingTimeout = setTimeout(typeStep, 80 + Math.random() * 40);
   } else {
-    displayedText.value = fullText.slice(0, displayedText.value.length - 1)
-    if (displayedText.value === '') {
-      isDeleting.value = false
-      currentTypingIdx.value = (currentTypingIdx.value + 1) % typingTexts.length
-      typingTimeout = setTimeout(typeStep, 400)
-      return
+    displayedText.value = fullText.slice(0, displayedText.value.length - 1);
+    if (displayedText.value === "") {
+      isDeleting.value = false;
+      currentTypingIdx.value = (currentTypingIdx.value + 1) % typingTexts.length;
+      typingTimeout = setTimeout(typeStep, 400);
+      return;
     }
-    typingTimeout = setTimeout(typeStep, 35)
+    typingTimeout = setTimeout(typeStep, 35);
   }
-}
+};
 
-onMounted(() => { typeStep() })
-onUnmounted(() => { clearTimeout(typingTimeout) })
+onMounted(() => {
+  typeStep();
+});
+onUnmounted(() => {
+  clearTimeout(typingTimeout);
+});
 </script>
 
 <template>
   <section class="hero">
     <div class="hero-content">
-
       <div class="title-row animate-in">
-        <h1 class="hero-title">
-          Your phone.<br><span>Your rules.</span>
-        </h1>
+        <h1 class="hero-title">Your phone.<br /><span>Your rules.</span></h1>
         <span class="beta-badge">BETA</span>
       </div>
 
       <p class="hero-subtitle animate-in">
-        <strong>Milki Launcher</strong> is a search-first Android launcher that replaces
-        mindless scrolling with instant access. Find apps, files, contacts, and
-        anything else — all from one search bar. No ads. No tracking. No paywalls.
+        <strong>Milki Launcher</strong> is a search-first Android launcher that replaces mindless
+        scrolling with instant access. Find apps, files, contacts, and anything else — all from one
+        search bar. No ads. No tracking. No paywalls.
       </p>
 
       <!-- Animated search bar demo -->
       <div class="search-demo animate-in">
         <div class="search-bar">
-          <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="m21 21-4.3-4.3"/>
+          <svg
+            class="search-icon"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
           </svg>
           <span class="search-text">
-            <span class="search-prefix" v-if="typingTexts[currentTypingIdx].prefix">{{ typingTexts[currentTypingIdx].prefix }}</span>{{ displayedText.slice(typingTexts[currentTypingIdx].prefix.length) }}
+            <span class="search-prefix" v-if="typingTexts[currentTypingIdx].prefix">{{
+              typingTexts[currentTypingIdx].prefix
+            }}</span
+            >{{ displayedText.slice(typingTexts[currentTypingIdx].prefix.length) }}
           </span>
           <span class="cursor-blink">|</span>
         </div>
@@ -78,26 +92,50 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
       </div>
 
       <div class="hero-actions animate-in">
-        <a href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk" class="btn btn-primary" id="hero-download">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <a
+          href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
+          class="btn btn-primary"
+          id="hero-download"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
           Download APK
         </a>
-        <!-- Temporarily hidden while the guide route is paused. -->
-        <!-- <a href="/launcher/guide/overview" class="btn btn-secondary" id="hero-guide">Read the Guide -></a> -->
+        <a href="/launcher/guide/overview" class="btn btn-secondary" id="hero-guide"
+          >Read the Guide -></a
+        >
       </div>
     </div>
 
     <div class="hero-visual animate-in">
       <div class="mockup-glow"></div>
       <PhoneFrame>
-        <img :src="withBase('/images/home-screen.webp')" alt="Milki Launcher Home Screen" class="hero-image" width="280" height="566" />
+        <img
+          :src="withBase('/images/home-screen.webp')"
+          alt="Milki Launcher Home Screen"
+          class="hero-image"
+          width="280"
+          height="566"
+        />
       </PhoneFrame>
     </div>
   </section>
 </template>
 
 <style scoped>
-@import './home-vars.css';
+@import "./home-vars.css";
 
 .hero {
   display: flex;
@@ -117,11 +155,16 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
   max-width: 580px;
 }
 
-
-
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
-  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
 }
 
 /* Title */
@@ -175,7 +218,9 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
 }
 
 /* Search demo */
-.search-demo { margin-bottom: 2.5rem; }
+.search-demo {
+  margin-bottom: 2.5rem;
+}
 
 .search-bar {
   display: flex;
@@ -188,19 +233,32 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
   font-size: 1.05rem;
   font-family: var(--h-font-body);
   color: var(--vp-c-text-1);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
   max-width: 420px;
   backdrop-filter: blur(10px);
 }
 
 .search-bar:hover {
   border-color: var(--h-green-400);
-  box-shadow: 0 0 0 4px rgba(34,197,94,0.08), 0 4px 20px rgba(34,197,94,0.06);
+  box-shadow:
+    0 0 0 4px rgba(34, 197, 94, 0.08),
+    0 4px 20px rgba(34, 197, 94, 0.06);
 }
 
-.search-icon { color: var(--vp-c-text-3); flex-shrink: 0; }
-.search-text { white-space: nowrap; overflow: hidden; }
-.search-prefix { color: var(--h-green-500); font-weight: 600; }
+.search-icon {
+  color: var(--vp-c-text-3);
+  flex-shrink: 0;
+}
+.search-text {
+  white-space: nowrap;
+  overflow: hidden;
+}
+.search-prefix {
+  color: var(--h-green-500);
+  font-weight: 600;
+}
 
 .cursor-blink {
   animation: blink 1s step-end infinite;
@@ -210,8 +268,13 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .search-hint {
@@ -225,7 +288,10 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
 }
 
 /* Buttons */
-.hero-actions { display: flex; gap: 1rem; }
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+}
 
 .btn {
   display: inline-flex;
@@ -244,12 +310,16 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
 .btn-primary {
   background: linear-gradient(135deg, var(--h-green-500), var(--h-green-600));
   color: #fff;
-  box-shadow: 0 4px 16px rgba(34,197,94,0.3), 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow:
+    0 4px 16px rgba(34, 197, 94, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(34,197,94,0.35), 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow:
+    0 8px 28px rgba(34, 197, 94, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.1);
   background: linear-gradient(135deg, var(--h-green-400), var(--h-green-500));
 }
 
@@ -288,14 +358,27 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
 }
 
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 @keyframes breathe {
-  0%, 100% { opacity: 0.18; transform: scale(1); }
-  50% { opacity: 0.28; transform: scale(1.04); }
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.28;
+    transform: scale(1.04);
+  }
 }
 
 .hero-image {
@@ -307,7 +390,9 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
 .animate-in {
   opacity: 0;
   transform: translateY(28px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-in.visible {
@@ -322,10 +407,23 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
     padding: 5rem 1.25rem 3rem;
     gap: 3rem;
   }
-  .hero-title { font-size: 2.8rem; }
-  .hero-actions { justify-content: center; gap: 0.75rem; }
-  .btn { padding: 0.65rem 1.25rem; font-size: 0.85rem; border-radius: 10px; }
-  .search-bar { margin: 0 auto; }
-  .search-hint { text-align: center; }
+  .hero-title {
+    font-size: 2.8rem;
+  }
+  .hero-actions {
+    justify-content: center;
+    gap: 0.75rem;
+  }
+  .btn {
+    padding: 0.65rem 1.25rem;
+    font-size: 0.85rem;
+    border-radius: 10px;
+  }
+  .search-bar {
+    margin: 0 auto;
+  }
+  .search-hint {
+    text-align: center;
+  }
 }
 </style>

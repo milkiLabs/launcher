@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { useRoute } from 'vitepress';
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useRoute } from "vitepress";
 
 const route = useRoute();
 const isScrolled = ref(false);
@@ -11,56 +11,60 @@ const handleScroll = () => {
 };
 
 onMounted(() => {
-  window.addEventListener('scroll', handleScroll, { passive: true });
+  window.addEventListener("scroll", handleScroll, { passive: true });
 });
 
 onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll);
+  window.removeEventListener("scroll", handleScroll);
 });
 
 const navLinks = [
-  { text: 'Home', link: '/launcher/' },
-  // Temporarily hidden while the guide route is paused.
-  // { text: 'Guide', link: '/launcher/guide/overview' },
+  { text: "Home", link: "/launcher/" },
+  { text: "Guide", link: "/launcher/guide/overview" },
 ];
 
 const isActive = (link) => {
-  if (link === '/launcher/') {
-    return route.path === '/' || route.path === '/launcher/' || route.path === '/launcher/index.html' || route.path === '/index.html';
+  if (link === "/launcher/") {
+    return (
+      route.path === "/" ||
+      route.path === "/launcher/" ||
+      route.path === "/launcher/index.html" ||
+      route.path === "/index.html"
+    );
   }
-  return route.path.startsWith('/launcher/guide') || route.path.startsWith('/guide');
+  return route.path.startsWith("/launcher/guide") || route.path.startsWith("/guide");
 };
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
   // Prevent scrolling when menu is open
   if (isMobileMenuOpen.value) {
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
   } else {
-    document.body.style.overflow = '';
+    document.body.style.overflow = "";
   }
 };
 
 const closeMenu = () => {
   isMobileMenuOpen.value = false;
-  document.body.style.overflow = '';
+  document.body.style.overflow = "";
 };
 </script>
 
 <template>
   <header class="milki-nav" :class="{ 'is-scrolled': isScrolled }">
     <div class="nav-container">
-        <a href="/launcher/" class="nav-brand" @click="closeMenu">
+      <a href="/launcher/" class="nav-brand" @click="closeMenu">
         <img src="/icon.svg" alt="Milki Logo" class="nav-logo" width="38" height="38" />
         <span class="nav-title">Milki Launcher</span>
       </a>
 
       <!-- Desktop Nav -->
       <nav class="nav-links desktop-only">
-        <a 
-          v-for="link in navLinks" 
-          :key="link.text" 
-          :href="link.link" 
+        <a
+          v-for="link in navLinks"
+          :key="link.text"
+          :href="link.link"
           class="nav-link"
           :class="{ 'is-active': isActive(link.link) }"
         >
@@ -69,18 +73,44 @@ const closeMenu = () => {
       </nav>
 
       <div class="nav-actions desktop-only">
-        <a href="https://github.com/milkilabs/launcher" target="_blank" rel="noopener" class="icon-link" aria-label="GitHub">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+        <a
+          href="https://github.com/milkilabs/launcher"
+          target="_blank"
+          rel="noopener"
+          class="icon-link"
+          aria-label="GitHub"
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+            ></path>
           </svg>
         </a>
-        <a target="_blank" href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk" class="btn-download">
+        <a
+          target="_blank"
+          href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk"
+          class="btn-download"
+        >
           Download
         </a>
       </div>
 
       <!-- Mobile Menu Toggle -->
-      <button class="mobile-toggle" @click="toggleMobileMenu" :aria-expanded="isMobileMenuOpen" aria-label="Toggle Menu">
+      <button
+        class="mobile-toggle"
+        @click="toggleMobileMenu"
+        :aria-expanded="isMobileMenuOpen"
+        aria-label="Toggle Menu"
+      >
         <div class="hamburger" :class="{ 'is-active': isMobileMenuOpen }">
           <span class="line line-1"></span>
           <span class="line line-2"></span>
@@ -92,18 +122,25 @@ const closeMenu = () => {
     <!-- Mobile Nav Overlay -->
     <div class="mobile-menu" :class="{ 'is-open': isMobileMenuOpen }">
       <nav class="mobile-nav-links">
-        <a 
-          v-for="link in navLinks" 
-          :key="link.text" 
-          :href="link.link" 
+        <a
+          v-for="link in navLinks"
+          :key="link.text"
+          :href="link.link"
           class="mobile-nav-link"
           :class="{ 'is-active': isActive(link.link) }"
           @click="closeMenu"
         >
           {{ link.text }}
         </a>
-        <a href="https://github.com/milkilabs/launcher" class="mobile-nav-link" @click="closeMenu">GitHub</a>
-        <a href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk" class="btn-download mobile-btn" @click="closeMenu">Download APK</a>
+        <a href="https://github.com/milkilabs/launcher" class="mobile-nav-link" @click="closeMenu"
+          >GitHub</a
+        >
+        <a
+          href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk"
+          class="btn-download mobile-btn"
+          @click="closeMenu"
+          >Download APK</a
+        >
       </nav>
     </div>
   </header>
@@ -118,7 +155,7 @@ const closeMenu = () => {
   height: 72px;
   z-index: 100;
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  font-family: 'DM Sans', sans-serif;
+  font-family: "DM Sans", sans-serif;
   background: transparent;
   border-bottom: 1px solid transparent;
 }
@@ -128,7 +165,7 @@ const closeMenu = () => {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--vp-c-divider);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 }
 
 .nav-container {
@@ -160,7 +197,7 @@ const closeMenu = () => {
 }
 
 .nav-title {
-  font-family: 'Playfair Display', serif;
+  font-family: "Playfair Display", serif;
   font-weight: 800;
   font-size: 1.5rem;
   font-style: italic;
@@ -189,7 +226,7 @@ const closeMenu = () => {
 }
 
 .nav-link::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
@@ -220,7 +257,9 @@ const closeMenu = () => {
 
 .icon-link {
   color: var(--vp-c-text-2);
-  transition: color 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    color 0.3s ease,
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -239,7 +278,9 @@ const closeMenu = () => {
   font-size: 0.95rem;
   font-weight: 700;
   text-decoration: none;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
   box-shadow: 0 4px 14px rgba(34, 197, 94, 0.25);
 }
 
@@ -274,9 +315,17 @@ const closeMenu = () => {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.hamburger .line-1 { top: 0; }
-.hamburger .line-2 { top: 8px; width: 70%; right: 0; }
-.hamburger .line-3 { top: 16px; }
+.hamburger .line-1 {
+  top: 0;
+}
+.hamburger .line-2 {
+  top: 8px;
+  width: 70%;
+  right: 0;
+}
+.hamburger .line-3 {
+  top: 16px;
+}
 
 .hamburger.is-active .line-1 {
   transform: translateY(8px) rotate(45deg);
@@ -333,7 +382,9 @@ const closeMenu = () => {
   font-weight: 700;
   color: var(--vp-c-text-1);
   text-decoration: none;
-  transition: color 0.2s ease, transform 0.2s ease;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .mobile-nav-link:hover {
