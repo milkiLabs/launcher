@@ -77,7 +77,7 @@ export default defineConfig({
     ],
   },
   base: "/launcher/",
-  srcExclude: ["guide/**"],
+
   title: "Milki Launcher",
   description:
     "An open-source, privacy-respecting Android launcher focused on search-driven usage.",
