@@ -8,28 +8,15 @@ plugins {
 import java.util.Properties
 import java.io.FileInputStream
 
+val versionCode = 10004
+val versionName = "1.0.4"
+
 // LOAD KEYSTORE PROPERTIES
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
-
-val latestTag = try {
-    providers.exec {
-        commandLine("git", "describe", "--tags", "--abbrev=0")
-    }.standardOutput.asText.get().trim().removePrefix("v")
-} catch (e: Exception) {
-    ""
-}
-
-val tagParts = latestTag.split(".")
-val major = tagParts.getOrNull(0)?.toIntOrNull() ?: 0
-val minor = tagParts.getOrNull(1)?.toIntOrNull() ?: 0
-val patch = tagParts.getOrNull(2)?.toIntOrNull() ?: 0
-val versionCode = (major * 10000 + minor * 100 + patch).coerceAtLeast(1)
-
-val versionName = latestTag.takeIf { it.isNotEmpty() } ?: "1.0.0"
 
 android {
     namespace = "com.milki.launcher"

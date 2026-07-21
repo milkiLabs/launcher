@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted } from 'vue'
 import HeroSection from './HeroSection.vue'
 import TrustBar from './TrustBar.vue'
+import OnePageSection from './OnePageSection.vue'
 import FeatureShowcase from './FeatureShowcase.vue'
 import ComparisonSection from './ComparisonSection.vue'
 import FeatureGrid from './FeatureGrid.vue'
@@ -46,6 +47,7 @@ onMounted(() => {
 
     <HeroSection />
     <TrustBar />
+    <OnePageSection />
     <!-- <ComparisonSection /> -->
     <FeatureShowcase />
     <FeatureGrid />

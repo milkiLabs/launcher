@@ -109,7 +109,12 @@ jobs:
             echo "Release APK not found."
             exit 1
           fi
-          # cp "$RELEASE_APK" "dist/launcher-${TAG_NAME}-release.apk"
+
+          # cp "$RELEASE_APK" "dist/milki_launcher_${TAG_NAME}.apk"
+          # cp "$RELEASE_APK" "dist/milki_launcher_latest.apk"
+
+          # Compatibility alias for existing F-Droid metadata:
+          # Binaries: .../releases/download/v%v/app-release.apk
           cp "$RELEASE_APK" "dist/app-release.apk"
 
           ls -lh dist

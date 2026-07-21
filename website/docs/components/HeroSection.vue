@@ -78,11 +78,12 @@ onUnmounted(() => { clearTimeout(typingTimeout) })
       </div>
 
       <div class="hero-actions animate-in">
-        <a href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk" class="btn btn-primary" id="hero-download">
+        <a href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk" class="btn btn-primary" id="hero-download">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download APK
         </a>
-        <a href="/launcher/guide/overview" class="btn btn-secondary" id="hero-guide">Read the Guide →</a>
+        <!-- Temporarily hidden while the guide route is paused. -->
+        <!-- <a href="/launcher/guide/overview" class="btn btn-secondary" id="hero-guide">Read the Guide -></a> -->
       </div>
     </div>
 

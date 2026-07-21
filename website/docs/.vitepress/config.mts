@@ -77,6 +77,7 @@ export default defineConfig({
     ],
   },
   base: "/launcher/",
+  srcExclude: ["guide/**"],
   title: "Milki Launcher",
   description:
     "An open-source, privacy-respecting Android launcher focused on search-driven usage.",
@@ -113,19 +114,21 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: "Home", link: "/" },
-      { text: "Guide", link: "/guide/overview" },
+      // Temporarily hidden while the guide route is paused.
+      // { text: "Guide", link: "/guide/overview" },
     ],
 
-    sidebar: [
-      {
-        text: "Getting Started",
-        items: [
-          { text: "Overview", link: "/guide/overview" },
-          { text: "Home Screen", link: "/guide/homescreen" },
-          { text: "Search Dialog", link: "/guide/search-dialog" },
-        ],
-      },
-    ],
+    // Temporarily hidden while the guide route is paused.
+    // sidebar: [
+    //   {
+    //     text: "Getting Started",
+    //     items: [
+    //       { text: "Overview", link: "/guide/overview" },
+    //       { text: "Home Screen", link: "/guide/homescreen" },
+    //       { text: "Search Dialog", link: "/guide/search-dialog" },
+    //     ],
+    //   },
+    // ],
 
     socialLinks: [
       { icon: "github", link: "https://github.com/milkilabs/launcher" },
