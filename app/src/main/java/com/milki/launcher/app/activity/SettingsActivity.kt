@@ -10,6 +10,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import android.os.Process
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.milki.launcher.core.intent.openUrlDestination
 import com.milki.launcher.core.launcher.isAppDefaultLauncher
 import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
 import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
@@ -31,6 +33,7 @@ import com.milki.launcher.ui.screens.settings.SettingsHomeScreenActions
 import com.milki.launcher.ui.screens.settings.SettingsPrefixActions
 import com.milki.launcher.ui.screens.settings.SettingsScreen
 import com.milki.launcher.ui.screens.settings.SettingsSourceActions
+import com.milki.launcher.ui.screens.settings.SettingsSupportActions
 import com.milki.launcher.ui.theme.LauncherTheme
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -122,6 +125,9 @@ class SettingsActivity : ComponentActivity() {
                             onResetPrefixes = settingsViewModel::resetPrefixes
                         )
                     ),
+                    support = SettingsSupportActions(
+                        onOpenSupportLink = ::openSupportLink
+                    ),
                     advanced = SettingsAdvancedActions(
                         onResetToDefaults = settingsViewModel::resetToDefaults,
                         onExportBackup = {
@@ -169,6 +175,16 @@ class SettingsActivity : ComponentActivity() {
 
     private fun launchHomeRoleRequestIfNeeded(): Boolean {
         return launchHomeRoleRequestIfNeeded(requestHomeRoleLauncher)
+    }
+
+    private fun openSupportLink(url: String) {
+        openUrlDestination(
+            context = this,
+            url = url,
+            onFailure = {
+                Toast.makeText(this, "No browser app found", Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 
     private suspend fun awaitActivityResult(

@@ -139,6 +139,8 @@ fun SettingsScreen(
                 actions = actions.sources.prefixes
             )
 
+            SupportSection(actions = actions.support)
+
             AdvancedSection(
                 backupStatusMessage = backupStatusMessage,
                 onRequestReset = { showResetDialog = true },
