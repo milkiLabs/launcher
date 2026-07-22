@@ -8,8 +8,8 @@ plugins {
 import java.util.Properties
 import java.io.FileInputStream
 
-val versionCode = 10004
-val versionName = "1.0.4"
+val appVersionCode = 10004
+val appVersionName = "1.0.4"
 
 // LOAD KEYSTORE PROPERTIES
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -33,8 +33,8 @@ android {
         applicationId = "com.milki.launcher"
         minSdk = 24
         targetSdk = 35
-        versionCode = versionCode
-        versionName = versionName
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

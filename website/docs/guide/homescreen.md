@@ -1,6 +1,6 @@
 # Home Screen
 
-The Milki Launcher home screen is your curated command center. Place anything under your fingertips—apps, app shortcuts, files, contacts, and widgets—and customize every gesture to match your workflow.
+<!-- The Milki Launcher home screen is your curated command center. Place anything under your fingertips—apps, app shortcuts, files, contacts, and widgets—and customize every gesture to match your workflow. -->
 
 ## Placing Items
 
@@ -110,6 +110,7 @@ Long-press on any empty area of the home screen to open the context menu. From h
 ### Action Shortcuts
 
 Action Shortcuts let you create custom shortcuts with specific URIs (like intents, deep links, or web pages) that you can launch directly from your home screen. You can access the shortcut manager from the home screen context menu (long-press an empty area -> **Shortcuts**). From there, you can:
+
 - **Create a new shortcut:** Provide a label and a destination URI.
 - **Pin a shortcut:** Drag any saved action shortcut directly onto your home screen grid.
 - **Manage shortcuts:** Edit or delete your existing action shortcuts.

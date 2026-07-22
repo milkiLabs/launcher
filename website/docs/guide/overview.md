@@ -10,9 +10,4 @@ Milki is designed to work perfectly out-of-the-box, but gives you the freedom to
 
 ## Installation
 
-You can [download the latest APK directly](https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk) or visit our [GitHub Releases](https://github.com/milkilabs/launcher/releases) page. It is also available via F-Droid (coming soon).
-
-```sh
-# Example F-Droid repo installation (coming soon)
-https://fdroid.milkilabs.com/repo
-```
+You can [download the latest APK directly](https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk) or via [F-Droid](https://f-droid.org/en/packages/com.milki.launcher/)
