@@ -86,9 +86,6 @@ Each gesture can be mapped to one of the following actions:
 
 Tapping the home button instantly opens the Search Dialog, putting your command center one tap away.
 
-> [!TIP] Placeholder: GIF
-> Show a GIF of tapping the home button and the Search Dialog sliding up.
-
 ### Context Menu
 
 Long-press on any empty area of the home screen to open the context menu. From here you can:
@@ -96,9 +93,6 @@ Long-press on any empty area of the home screen to open the context menu. From h
 - **Open Settings**
 - **Open Widget Picker** to add a new widget
 - **Open Shortcuts** to manage and create custom Action Shortcuts
-
-> [!TIP] Placeholder: GIF
-> Show a GIF of long-pressing an empty area, the context menu appearing, and selecting "Widget Picker."
 
 ### Action Shortcuts
 
