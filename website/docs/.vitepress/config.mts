@@ -99,6 +99,14 @@ export default defineConfig({
       {},
       '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@600;700;800&display=swap">',
     ],
+    [
+      "script",
+      {
+        defer: "",
+        src: "https://cloud.umami.is/script.js",
+        "data-website-id": "2519dd00-4827-4029-9b3f-549c98c80c78",
+      },
+    ],
   ],
   
   // This automatically runs after the Vite build completes
