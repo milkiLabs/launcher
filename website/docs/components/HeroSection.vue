@@ -97,6 +97,8 @@ onUnmounted(() => {
           class="btn btn-primary"
           id="hero-download"
           target="_blank"
+          data-umami-event="download"
+          data-umami-event-data='{"location":"hero"}'
         >
           <svg
             width="18"

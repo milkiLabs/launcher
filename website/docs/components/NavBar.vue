@@ -99,6 +99,8 @@ const closeMenu = () => {
           target="_blank"
           href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
           class="btn-download"
+          data-umami-event="download"
+          data-umami-event-data='{"location":"nav"}'
         >
           Download
         </a>
@@ -139,6 +141,8 @@ const closeMenu = () => {
           href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk"
           class="btn-download mobile-btn"
           @click="closeMenu"
+          data-umami-event="download"
+          data-umami-event-data='{"location":"nav-mobile"}'
           >Download APK</a
         >
       </nav>
