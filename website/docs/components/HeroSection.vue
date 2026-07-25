@@ -96,6 +96,7 @@ onUnmounted(() => {
           href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
           class="btn btn-primary"
           id="hero-download"
+          target="_blank"
         >
           <svg
             width="18"

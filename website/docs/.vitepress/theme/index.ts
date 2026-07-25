@@ -3,6 +3,7 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
 import NavBar from '../../components/NavBar.vue'
+import DocVideo from '../../components/DocVideo.vue'
 import './style.css'
 
 export default {
@@ -14,6 +15,6 @@ export default {
     })
   },
   enhanceApp({ app, router, siteData }) {
-    // ...
+    app.component('DocVideo', DocVideo)
   }
 } satisfies Theme

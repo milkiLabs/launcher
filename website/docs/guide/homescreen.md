@@ -10,36 +10,31 @@ Your home screen supports a variety of item types. Simply drag anything from the
 
 Place your most-used apps front and center. Long-press any app from the search dialog or the drawer and drag it to your desired spot.
 
-> [!TIP] Placeholder: GIF
-> Show a GIF of dragging an app icon from the drawer onto the home screen and dropping it into a grid cell.
+<DocVideo src="/launcher/videos/search-app-drag.mp4" />
 
 ### File Icons
 
 Quick-access files can live right on your home screen. Documents, PDFs, downloads—whatever you reach for often.
 
-> [!TIP] Placeholder: Screenshot
-> Add a screenshot showing file icons (PDF, image, document) alongside app icons on the home screen.
+<DocVideo src="/launcher/videos/file-drag.mp4" />
 
 ### Contact Icons
 
 Pin your most frequent contacts for one-tap calling.
 
-> [!TIP] Placeholder: Screenshot
-> Add a screenshot showing contact icons with avatars displayed on the home screen.
+<DocVideo src="/launcher/videos/contact-drag.mp4" />
 
 ### Folders
 
 Group related items together. Drag one item on top of another to create a folder, then drag additional items in.
 
-> [!TIP] Placeholder: GIF
-> Show a GIF of creating a folder by dragging one app icon onto another, then adding more items into it.
+<DocVideo src="/launcher/videos/folder-drag.mp4" />
 
 ## No Duplicates
 
 Milki prevents duplicate items on the home screen. If you drag an existing item from one cell to another, it **moves** instead of copying. This keeps your home screen clean and intentional.
 
-> [!TIP] Placeholder: GIF
-> Show a GIF of dragging an already-placed app icon from one cell to a different cell, demonstrating it moves rather than duplicates.
+<DocVideo src="/launcher/videos/duplicate-drag.mp4" />
 
 ## Widgets
 
@@ -49,15 +44,13 @@ Milki supports two widget styles so you can choose what fits your layout.
 
 The actual widget is rendered directly in the home screen grid.
 
-> [!TIP] Placeholder: Screenshot
-> Add a screenshot showing an inline weather widget and an inline music player widget embedded directly in the home screen grid.
+<DocVideo src="/launcher/videos/inline-widget-drag.mp4" />
 
 ### Popup Widgets
 
 A single cell icon represents a widget. Tap it and the full widget expands as an overlay. Great for widgets you use occasionally but don't want taking up permanent space for efficient use of space.
 
-> [!TIP] Placeholder: GIF
-> Show a GIF of tapping a popup widget icon and the widget expanding as an overlay, then dismissing it.
+<DocVideo src="/launcher/videos/popup-widget-drag.mp4" />
 
 ## Gesture Actions
 
@@ -119,5 +112,4 @@ Action Shortcuts let you create custom shortcuts with specific URIs (like intent
 
 Long-press any app icon to open its context menu, which displays available app shortcuts provided by the app. You can drag any of these shortcuts and drop them onto the home screen to create a dedicated icon for quick access.
 
-> [!TIP] Placeholder: GIF
-> Show a GIF of long-pressing an app icon, revealing shortcuts, and dragging one shortcut onto an empty cell to create a standalone icon.
+<DocVideo src="/launcher/videos/shortcut-drag.mp4" />
