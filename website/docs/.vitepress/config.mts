@@ -107,6 +107,29 @@ export default defineConfig({
         "data-website-id": "2519dd00-4827-4029-9b3f-549c98c80c78",
       },
     ],
+    ["meta", { property: "og:title", content: "Milki Launcher" }],
+    [
+      "meta",
+      {
+        property: "og:description",
+        content:
+          "An open-source, privacy-respecting Android launcher focused on search-driven usage.",
+      },
+    ],
+    ["meta", { property: "og:image", content: "/launcher/og.webp" }],
+    ["meta", { property: "og:type", content: "website" }],
+    ["meta", { property: "og:url", content: "https://milkilabs.github.io/launcher/" }],
+    ["meta", { name: "twitter:card", content: "summary_large_image" }],
+    ["meta", { name: "twitter:title", content: "Milki Launcher" }],
+    [
+      "meta",
+      {
+        name: "twitter:description",
+        content:
+          "An open-source, privacy-respecting Android launcher focused on search-driven usage.",
+      },
+    ],
+    ["meta", { name: "twitter:image", content: "/launcher/og.webp" }],
   ],
   
   // This automatically runs after the Vite build completes

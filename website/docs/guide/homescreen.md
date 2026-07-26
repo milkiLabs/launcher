@@ -94,7 +94,7 @@ Long-press on any empty area of the home screen to open the context menu. From h
 - **Open Widget Picker** to add a new widget
 - **Open Shortcuts** to manage and create custom Action Shortcuts
 
-### Action Shortcuts
+### Action Shortcuts Icons
 
 Action Shortcuts let you create custom shortcuts with specific URIs (like intents, deep links, or web pages) that you can launch directly from your home screen. You can access the shortcut manager from the home screen context menu (long-press an empty area -> **Shortcuts**). From there, you can:
 

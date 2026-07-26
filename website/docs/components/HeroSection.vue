@@ -2,6 +2,7 @@
 import { withBase } from "vitepress";
 import { onMounted, onUnmounted, ref } from "vue";
 import PhoneFrame from "./PhoneFrame.vue";
+import DownloadDropdown from "./DownloadDropdown.vue";
 
 // Typing animation for the search demo
 const typingTexts = [
@@ -44,6 +45,7 @@ const typeStep = () => {
 onMounted(() => {
   typeStep();
 });
+
 onUnmounted(() => {
   clearTimeout(typingTimeout);
 });
@@ -54,7 +56,7 @@ onUnmounted(() => {
     <div class="hero-content">
       <div class="title-row animate-in">
         <h1 class="hero-title">Your phone.<br /><span>Your rules.</span></h1>
-        <span class="beta-badge">BETA</span>
+        <!-- <span class="beta-badge">BETA</span> -->
       </div>
 
       <p class="hero-subtitle animate-in">
@@ -92,30 +94,12 @@ onUnmounted(() => {
       </div>
 
       <div class="hero-actions animate-in">
-        <a
-          href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
-          class="btn btn-primary"
-          id="hero-download"
-          target="_blank"
-          data-umami-event="download"
-          data-umami-event-data='{"location":"hero"}'
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Download APK
-        </a>
+        <DownloadDropdown
+          variant="primary"
+          direction="down"
+          align="left"
+          analytics-prefix="download-hero"
+        />
         <a href="/launcher/guide/overview" class="btn btn-secondary" id="hero-guide"
           >Read the Guide -></a
         >
@@ -294,6 +278,7 @@ onUnmounted(() => {
 .hero-actions {
   display: flex;
   gap: 1rem;
+  align-items: flex-start;
 }
 
 .btn {
@@ -308,22 +293,6 @@ onUnmounted(() => {
   text-decoration: none;
   font-family: var(--h-font-body);
   gap: 8px;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, var(--h-green-500), var(--h-green-600));
-  color: #fff;
-  box-shadow:
-    0 4px 16px rgba(34, 197, 94, 0.3),
-    0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 8px 28px rgba(34, 197, 94, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.1);
-  background: linear-gradient(135deg, var(--h-green-400), var(--h-green-500));
 }
 
 .btn-secondary {

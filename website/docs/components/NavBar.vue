@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vitepress";
+import DownloadDropdown from "./DownloadDropdown.vue";
 
 const route = useRoute();
 const isScrolled = ref(false);
@@ -12,10 +13,12 @@ const handleScroll = () => {
 
 onMounted(() => {
   window.addEventListener("scroll", handleScroll, { passive: true });
+  document.addEventListener("keydown", handleEscape);
 });
 
 onUnmounted(() => {
   window.removeEventListener("scroll", handleScroll);
+  document.removeEventListener("keydown", handleEscape);
 });
 
 const navLinks = [
@@ -37,7 +40,6 @@ const isActive = (link) => {
 
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
-  // Prevent scrolling when menu is open
   if (isMobileMenuOpen.value) {
     document.body.style.overflow = "hidden";
   } else {
@@ -48,6 +50,12 @@ const toggleMobileMenu = () => {
 const closeMenu = () => {
   isMobileMenuOpen.value = false;
   document.body.style.overflow = "";
+};
+
+const handleEscape = (event) => {
+  if (event.key === "Escape") {
+    closeMenu();
+  }
 };
 </script>
 
@@ -95,15 +103,7 @@ const closeMenu = () => {
             ></path>
           </svg>
         </a>
-        <a
-          target="_blank"
-          href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
-          class="btn-download"
-          data-umami-event="download"
-          data-umami-event-data='{"location":"nav"}'
-        >
-          Download
-        </a>
+        <DownloadDropdown variant="nav" direction="down" align="right" analytics-prefix="download-nav" />
       </div>
 
       <!-- Mobile Menu Toggle -->
@@ -137,14 +137,37 @@ const closeMenu = () => {
         <a href="https://github.com/milkilabs/launcher" class="mobile-nav-link" @click="closeMenu"
           >GitHub</a
         >
-        <a
-          href="https://github.com/milkilabs/launcher/releases/latest/download/milki_launcher_latest.apk"
-          class="btn-download mobile-btn"
-          @click="closeMenu"
-          data-umami-event="download"
-          data-umami-event-data='{"location":"nav-mobile"}'
-          >Download APK</a
-        >
+        <div class="mobile-download-group">
+          <a
+            href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
+            class="btn-download mobile-btn"
+            @click="closeMenu"
+            data-umami-event="download"
+            data-umami-event-data='{"location":"nav-mobile","method":"apk"}'
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download APK
+          </a>
+          <a
+            href="https://f-droid.org/en/packages/com.milki.launcher/"
+            class="btn-download mobile-btn fdroid-btn"
+            target="_blank"
+            @click="closeMenu"
+            data-umami-event="download"
+            data-umami-event-data='{"location":"nav-mobile","method":"fdroid"}'
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+            Get on F-Droid
+          </a>
+        </div>
       </nav>
     </div>
   </header>
@@ -274,6 +297,21 @@ const closeMenu = () => {
   transform: translateY(-3px);
 }
 
+/* Mobile download group */
+.mobile-download-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 280px;
+}
+
+.mobile-download-group .mobile-btn {
+  width: 100%;
+  justify-content: center;
+}
+
 .btn-download {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
@@ -286,11 +324,25 @@ const closeMenu = () => {
     transform 0.3s ease,
     box-shadow 0.3s ease;
   box-shadow: 0 4px 14px rgba(34, 197, 94, 0.25);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn-download:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(34, 197, 94, 0.35);
+}
+
+.fdroid-btn {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+}
+
+.fdroid-btn:hover {
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.35);
 }
 
 /* Mobile Toggle Hamburger */
