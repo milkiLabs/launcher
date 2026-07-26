@@ -7,7 +7,11 @@ const props = defineProps({
     default: "primary",
     validator: (v) => ["primary", "nav", "ghost"].includes(v),
   },
-  direction: { type: String, default: "down", validator: (v) => ["up", "down"].includes(v) },
+  direction: {
+    type: String,
+    default: "down",
+    validator: (v) => ["up", "down"].includes(v),
+  },
   align: {
     type: String,
     default: "left",
@@ -18,44 +22,63 @@ const props = defineProps({
 
 const emit = defineEmits(["select"]);
 
-const detailsRef = ref(null);
-const summaryRef = ref(null);
+const triggerRef = ref(null);
 const menuRef = ref(null);
 const isOpen = ref(false);
-const menuStyle = ref({});
+const layerStyle = ref({});
 
-const positionMenu = () => {
-  const rect = summaryRef.value.getBoundingClientRect();
-  const menuWidth = 240;
-  const gap = 10;
+const updatePosition = () => {
+  if (!isOpen.value || !triggerRef.value) return;
+  const rect = triggerRef.value.getBoundingClientRect();
+  const gap = 8;
 
-  let top = props.direction === "up" ? rect.top - gap : rect.bottom + gap;
-  let left =
-    props.align === "center"
-      ? rect.left + rect.width / 2 - menuWidth / 2
-      : props.align === "right"
-        ? rect.right - menuWidth
-        : rect.left;
+  let x = rect.left;
+  let translateX = "0";
+  if (props.align === "right") {
+    x = rect.right;
+    translateX = "-100%";
+  } else if (props.align === "center") {
+    x = rect.left + rect.width / 2;
+    translateX = "-50%";
+  }
 
-  menuStyle.value = {
+  let y = rect.bottom + gap;
+  let translateY = "0";
+  if (props.direction === "up") {
+    y = rect.top - gap;
+    translateY = "-100%";
+  }
+
+  let transform = "";
+  if (translateX !== "0" && translateY !== "0") {
+    transform = `translate(${translateX}, ${translateY})`;
+  } else if (translateX !== "0") {
+    transform = `translateX(${translateX})`;
+  } else if (translateY !== "0") {
+    transform = `translateY(${translateY})`;
+  } else {
+    transform = "none";
+  }
+
+  layerStyle.value = {
     position: "fixed",
-    top: props.direction === "up" ? "auto" : `${top}px`,
-    bottom: props.direction === "up" ? `${window.innerHeight - top}px` : "auto",
-    left: `${left}px`,
+    zIndex: "99999",
+    top: `${y}px`,
+    left: `${x}px`,
+    transform,
   };
 };
 
-const close = () => {
-  if (detailsRef.value) detailsRef.value.open = false;
-  isOpen.value = false;
-};
-
-const handleToggle = async (e) => {
-  isOpen.value = e.target.open;
+const toggle = async () => {
+  isOpen.value = !isOpen.value;
   if (isOpen.value) {
     await nextTick();
-    positionMenu();
+    updatePosition();
   }
+};
+
+const close = () => {
+  isOpen.value = false;
 };
 
 const handleSelect = (method) => {
@@ -65,7 +88,7 @@ const handleSelect = (method) => {
 
 const handleClickOutside = (event) => {
   if (!isOpen.value) return;
-  if (detailsRef.value?.contains(event.target)) return;
+  if (triggerRef.value?.contains(event.target)) return;
   if (menuRef.value?.contains(event.target)) return;
   close();
 };
@@ -74,29 +97,37 @@ const handleEscape = (event) => {
   if (event.key === "Escape" && isOpen.value) close();
 };
 
-const handleScroll = () => {
-  if (isOpen.value) close();
+const handleScrollOrResize = () => {
+  if (isOpen.value) {
+    updatePosition();
+  }
 };
 
 onMounted(() => {
   document.addEventListener("click", handleClickOutside);
   document.addEventListener("keydown", handleEscape);
-  window.addEventListener("scroll", handleScroll, { passive: true });
+  window.addEventListener("scroll", handleScrollOrResize, { capture: true, passive: true });
+  window.addEventListener("resize", handleScrollOrResize, { passive: true });
 });
+
 onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside);
   document.removeEventListener("keydown", handleEscape);
-  window.removeEventListener("scroll", handleScroll);
+  window.removeEventListener("scroll", handleScrollOrResize, { capture: true });
+  window.removeEventListener("resize", handleScrollOrResize);
 });
 </script>
 
 <template>
-  <details ref="detailsRef" class="download-dropdown" @toggle="handleToggle">
-    <summary
-      ref="summaryRef"
-      class="download-trigger"
-      :class="[`trigger-${variant}`]"
+  <div class="dd-wrapper">
+    <button
+      ref="triggerRef"
+      type="button"
+      class="dd-trigger"
+      :class="[`dd-trigger--${variant}`]"
       :data-umami-event="analyticsPrefix"
+      :aria-expanded="isOpen"
+      @click="toggle"
     >
       <slot name="trigger-icon">
         <svg
@@ -108,6 +139,7 @@ onUnmounted(() => {
           stroke-width="2.5"
           stroke-linecap="round"
           stroke-linejoin="round"
+          aria-hidden="true"
         >
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <polyline points="7 10 12 15 17 10" />
@@ -116,8 +148,8 @@ onUnmounted(() => {
       </slot>
       <slot name="trigger-text">Download</slot>
       <svg
-        class="chevron"
-        :class="{ 'is-open': isOpen }"
+        class="dd-chevron"
+        :class="{ 'dd-chevron--open': isOpen }"
         width="14"
         height="14"
         viewBox="0 0 24 24"
@@ -126,79 +158,95 @@ onUnmounted(() => {
         stroke-width="2.5"
         stroke-linecap="round"
         stroke-linejoin="round"
+        aria-hidden="true"
       >
         <polyline points="6 9 12 15 18 9" />
       </svg>
-    </summary>
-  </details>
+    </button>
 
-  <Teleport to="body">
-    <div v-if="isOpen" ref="menuRef" class="download-dropdown-menu" :style="menuStyle">
-      <a
-        href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
-        class="dd-item"
-        target="_blank"
-        @click="handleSelect('apk')"
-        :data-umami-event="analyticsPrefix"
-        :data-umami-event-data="JSON.stringify({ method: 'apk' })"
+    <Teleport to="body">
+      <div
+        v-if="isOpen"
+        ref="menuRef"
+        class="dd-teleport-layer"
+        :style="layerStyle"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-        <div class="dd-item-text">
-          <span class="dd-item-title">Direct APK</span>
-          <span class="dd-item-desc">Download from GitHub</span>
-        </div>
-      </a>
+        <Transition :name="direction === 'up' ? 'dd-fade-up' : 'dd-fade-down'" appear>
+          <div class="dd-menu" role="menu">
+            <a
+              href="https://github.com/milkilabs/launcher/releases/latest/download/app-release.apk"
+              class="dd-option"
+              target="_blank"
+              role="menuitem"
+              @click="handleSelect('apk')"
+              :data-umami-event="analyticsPrefix"
+              :data-umami-event-data="JSON.stringify({ method: 'apk' })"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <div class="dd-option__text">
+                <span class="dd-option__title">Direct APK</span>
+                <span class="dd-option__desc">Download from GitHub</span>
+              </div>
+            </a>
 
-      <a
-        href="https://f-droid.org/en/packages/com.milki.launcher/"
-        class="dd-item"
-        target="_blank"
-        @click="handleSelect('fdroid')"
-        :data-umami-event="analyticsPrefix"
-        :data-umami-event-data="JSON.stringify({ method: 'fdroid' })"
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M12 2L2 7l10 5 10-5-10-5z" />
-          <path d="M2 17l10 5 10-5" />
-          <path d="M2 12l10 5 10-5" />
-        </svg>
-        <div class="dd-item-text">
-          <span class="dd-item-title">F-Droid</span>
-          <span class="dd-item-desc">Open source repository</span>
-        </div>
-      </a>
-    </div>
-  </Teleport>
+            <a
+              href="https://f-droid.org/en/packages/com.milki.launcher/"
+              class="dd-option"
+              target="_blank"
+              role="menuitem"
+              @click="handleSelect('fdroid')"
+              :data-umami-event="analyticsPrefix"
+              :data-umami-event-data="JSON.stringify({ method: 'fdroid' })"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+              <div class="dd-option__text">
+                <span class="dd-option__title">F-Droid</span>
+                <span class="dd-option__desc">Open source repository</span>
+              </div>
+            </a>
+          </div>
+        </Transition>
+      </div>
+    </Teleport>
+  </div>
 </template>
 
-<style>
-.download-dropdown {
+<style scoped>
+/* ── Wrapper ── */
+.dd-wrapper {
   display: inline-block;
 }
 
-.download-trigger {
+/* ── Trigger button ── */
+.dd-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -207,29 +255,25 @@ onUnmounted(() => {
   font-size: 0.95rem;
   font-weight: 700;
   border-radius: 14px;
+  border: none;
   font-family:
     "DM Sans",
     system-ui,
     -apple-system,
     sans-serif;
   cursor: pointer;
-  list-style: none;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-.download-trigger::-webkit-details-marker,
-.download-trigger::marker {
-  display: none;
-  content: "";
-}
 
-.trigger-primary {
+/* Primary variant */
+.dd-trigger--primary {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   box-shadow:
     0 4px 16px rgba(34, 197, 94, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.08);
 }
-.trigger-primary:hover {
+.dd-trigger--primary:hover {
   transform: translateY(-2px);
   box-shadow:
     0 8px 28px rgba(34, 197, 94, 0.35),
@@ -237,7 +281,8 @@ onUnmounted(() => {
   background: linear-gradient(135deg, #4ade80, #22c55e);
 }
 
-.trigger-nav {
+/* Nav variant */
+.dd-trigger--nav {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   box-shadow: 0 4px 14px rgba(34, 197, 94, 0.25);
@@ -245,53 +290,78 @@ onUnmounted(() => {
   font-size: 0.95rem;
   border-radius: 12px;
 }
-.trigger-nav:hover {
+.dd-trigger--nav:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(34, 197, 94, 0.35);
 }
 
-.trigger-ghost {
+/* Ghost variant */
+.dd-trigger--ghost {
   background: transparent;
   color: var(--vp-c-text-1);
   border: 1.5px solid var(--vp-c-divider);
 }
-.trigger-ghost:hover {
+.dd-trigger--ghost:hover {
   border-color: #4ade80;
   background: rgba(34, 197, 94, 0.08);
   transform: translateY(-2px);
 }
 
-.chevron {
+/* ── Chevron ── */
+.dd-chevron {
   transition: transform 0.3s ease;
 }
-.chevron.is-open {
+.dd-chevron--open {
   transform: rotate(180deg);
 }
 
-.download-dropdown-menu {
+/* ── Teleport Layer & Menu ── */
+.dd-teleport-layer {
+  pointer-events: auto;
+}
+
+.dd-menu {
   min-width: 240px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
   background: var(--vp-c-bg);
   border: 1px solid var(--vp-c-divider);
   border-radius: 14px;
   padding: 8px;
   box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.06);
-  z-index: 9999;
-  animation: dropdown-in 0.15s ease;
-}
-@keyframes dropdown-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    0 10px 40px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  font-family:
+    "DM Sans",
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
-.dd-item {
+/* ── Animations ── */
+.dd-fade-down-enter-active,
+.dd-fade-down-leave-active,
+.dd-fade-up-enter-active,
+.dd-fade-up-leave-active {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.dd-fade-down-enter-from,
+.dd-fade-down-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.dd-fade-up-enter-from,
+.dd-fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+/* ── Menu items ── */
+.dd-option {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -299,25 +369,26 @@ onUnmounted(() => {
   border-radius: 10px;
   text-decoration: none;
   color: var(--vp-c-text-1);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
-.dd-item:hover {
+.dd-option:hover {
   background: rgba(34, 197, 94, 0.08);
 }
-.dd-item svg {
+.dd-option svg {
   color: #22c55e;
   flex-shrink: 0;
 }
-.dd-item-text {
+
+.dd-option__text {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.dd-item-title {
+.dd-option__title {
   font-weight: 600;
   font-size: 0.9rem;
 }
-.dd-item-desc {
+.dd-option__desc {
   font-size: 0.75rem;
   color: var(--vp-c-text-3);
 }

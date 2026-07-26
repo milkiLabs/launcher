@@ -134,7 +134,6 @@ onUnmounted(() => {
   gap: 4rem;
   min-height: calc(100vh - var(--vp-nav-height));
   position: relative;
-  z-index: 1;
 }
 
 .hero-content {

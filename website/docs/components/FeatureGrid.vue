@@ -46,7 +46,6 @@ const feats = [
 
 .features {
   position: relative;
-  z-index: 1;
   padding: var(--h-section-pad);
   text-align: center;
 }

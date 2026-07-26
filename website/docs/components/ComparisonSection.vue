@@ -71,7 +71,6 @@
 
 .comparison {
   position: relative;
-  z-index: 1;
   padding: var(--h-section-pad);
 }
 

@@ -94,7 +94,7 @@ onMounted(() => {
 .milki-home {
   font-family: var(--h-font-body);
   color: var(--vp-c-text-1);
-  overflow-x: hidden;
+  overflow-x: clip;
   position: relative;
 }
 

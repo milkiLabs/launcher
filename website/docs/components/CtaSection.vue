@@ -46,7 +46,6 @@ import DownloadDropdown from "./DownloadDropdown.vue";
 
 .cta {
   position: relative;
-  z-index: 1;
   padding: var(--h-section-pad);
   padding-bottom: 8rem;
 }
