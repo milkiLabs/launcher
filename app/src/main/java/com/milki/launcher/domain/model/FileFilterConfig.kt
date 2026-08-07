@@ -33,7 +33,7 @@ object FileFilterConfig {
         "files_cache",  
         "thumbnails"    
     )
-        private val EXCLUDED_MIME_PREFIXES = setOf(
+        private val DEFAULT_EXCLUDED_MIME_PREFIXES = setOf(
         "image/", 
         "video/", 
         "audio/"  
@@ -65,7 +65,7 @@ object FileFilterConfig {
         "text/xml"
     )
 
-        private val ALLOWED_EXTENSIONS = setOf(
+        private val DEFAULT_ALLOWED_EXTENSIONS = setOf(
         "pdf", "epub", "txt", "rtf", "md",
         "doc", "docx", "odt",
         "xls", "xlsx", "ods", "csv", "tsv",
@@ -74,11 +74,22 @@ object FileFilterConfig {
         "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "apk"
     )
         const val MIN_FILE_SIZE_BYTES: Long = 1024L
-        fun shouldIncludeFile(
+
+    /**
+     * Check if a file should be included in search results.
+     *
+     * @param allowedExtensions Override for the allowed extensions set.
+     *        When null, uses the default hardcoded set.
+     * @param excludedMimePrefixes Override for the excluded MIME prefixes.
+     *        When null, uses the default set (image/, video/, audio/).
+     */
+    fun shouldIncludeFile(
         fileName: String,
         mimeType: String,
         size: Long,
-        relativePath: String
+        relativePath: String,
+        allowedExtensions: Set<String>? = null,
+        excludedMimePrefixes: Set<String>? = null
     ): Boolean {
         if (hasExcludedPrefix(fileName)) {
             return false
@@ -89,19 +100,29 @@ object FileFilterConfig {
         if (pathContainsExcludedDirectory(relativePath)) {
             return false
         }
-        if (hasExcludedMimeType(mimeType)) {
+        if (hasExcludedMimeType(mimeType, excludedMimePrefixes)) {
             return false
         }
         if (size < MIN_FILE_SIZE_BYTES) {
             return false
         }
-        if (!matchesSupportedDocumentType(fileName, mimeType)) {
+        if (!matchesSupportedDocumentType(fileName, mimeType, allowedExtensions)) {
             return false
         }
         return true
     }
 
-        fun matchesSupportedDocumentType(fileName: String, mimeType: String): Boolean {
+    /**
+     * Check if a file matches a supported document type.
+     *
+     * @param allowedExtensions Override for the allowed extensions set.
+     *        When null, uses the default hardcoded set.
+     */
+    fun matchesSupportedDocumentType(
+        fileName: String,
+        mimeType: String,
+        allowedExtensions: Set<String>? = null
+    ): Boolean {
         val extension = fileName.substringAfterLast('.', "").lowercase()
         val normalizedMimeType = mimeType.trim().lowercase()
 
@@ -111,7 +132,8 @@ object FileFilterConfig {
 
         val hasAllowedExactMimeType = normalizedMimeType in ALLOWED_EXACT_MIME_TYPES
 
-        val hasAllowedExtension = extension.isNotBlank() && extension in ALLOWED_EXTENSIONS
+        val effectiveAllowedExtensions = allowedExtensions ?: DEFAULT_ALLOWED_EXTENSIONS
+        val hasAllowedExtension = extension.isNotBlank() && extension in effectiveAllowedExtensions
 
         return hasAllowedExactMimeType || hasAllowedMimePrefix || hasAllowedExtension
     }
@@ -138,12 +160,22 @@ object FileFilterConfig {
             directory.lowercase() in EXCLUDED_DIRECTORY_NAMES
         }
     }
-    
-        fun hasExcludedMimeType(mimeType: String): Boolean {
+
+    /**
+     * Check if a MIME type is excluded.
+     *
+     * @param excludedMimePrefixes Override for the excluded MIME prefixes.
+     *        When null, uses the default set (image/, video/, audio/).
+     */
+    fun hasExcludedMimeType(
+        mimeType: String,
+        excludedMimePrefixes: Set<String>? = null
+    ): Boolean {
         if (mimeType.isEmpty()) {
             return false
         }
-        return EXCLUDED_MIME_PREFIXES.any { prefix ->
+        val effectiveExcluded = excludedMimePrefixes ?: DEFAULT_EXCLUDED_MIME_PREFIXES
+        return effectiveExcluded.any { prefix ->
             mimeType.lowercase().startsWith(prefix)
         }
     }

@@ -51,10 +51,12 @@ internal class MediaStoreFileCursorReader {
         collectionUri: Uri,
         files: MutableList<FileDocument>,
         addedFileIds: MutableSet<Long>,
-        logFilteredOut: Boolean
+        logFilteredOut: Boolean,
+        allowedExtensions: Set<String>? = null,
+        excludedMimePrefixes: Set<String>? = null
     ) {
         try {
-            when (val outcome = readCursorRow(cursor, columns, collectionUri, addedFileIds)) {
+            when (val outcome = readCursorRow(cursor, columns, collectionUri, addedFileIds, allowedExtensions, excludedMimePrefixes)) {
                 CursorRowOutcome.Skip -> Unit
                 is CursorRowOutcome.FilteredOut -> {
                     if (logFilteredOut) {
@@ -87,7 +89,9 @@ private fun readCursorRow(
     cursor: Cursor,
     columns: MediaStoreColumns,
     collectionUri: Uri,
-    addedFileIds: Set<Long>
+    addedFileIds: Set<Long>,
+    allowedExtensions: Set<String>? = null,
+    excludedMimePrefixes: Set<String>? = null
 ): CursorRowOutcome {
     val id = cursor.getLong(columns.idColumn)
     val name = cursor.getString(columns.nameColumn)
@@ -111,7 +115,9 @@ private fun readCursorRow(
             fileName = name,
             mimeType = normalizedMimeType,
             size = size,
-            relativePath = relativePath.orEmpty()
+            relativePath = relativePath.orEmpty(),
+            allowedExtensions = allowedExtensions,
+            excludedMimePrefixes = excludedMimePrefixes
         )
 
     return when {

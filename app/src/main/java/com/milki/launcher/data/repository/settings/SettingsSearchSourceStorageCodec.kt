@@ -1,5 +1,6 @@
 package com.milki.launcher.data.repository.settings
 
+import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.SearchSource
@@ -119,4 +120,20 @@ internal fun normalizeAndValidateSearchSources(
         }
         source.copy(prefixes = filteredPrefixes)
     }
+}
+
+internal fun parseFileSearchExtensionConfig(json: String?): FileSearchExtensionConfig {
+    if (json.isNullOrBlank()) {
+        return FileSearchExtensionConfig()
+    }
+
+    return runCatching {
+        settingsStorageJson.decodeFromString<FileSearchExtensionConfig>(json)
+    }.getOrElse {
+        FileSearchExtensionConfig()
+    }
+}
+
+internal fun serializeFileSearchExtensionConfig(config: FileSearchExtensionConfig): String {
+    return settingsStorageJson.encodeToString(config)
 }

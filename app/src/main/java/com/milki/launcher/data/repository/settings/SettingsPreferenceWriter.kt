@@ -46,6 +46,10 @@ internal object SettingsPreferenceWriter {
         if (current.prefixConfigurations != updated.prefixConfigurations) {
             preferences.writePrefixConfigurations(updated.prefixConfigurations)
         }
+        if (current.fileSearchExtensionConfig != updated.fileSearchExtensionConfig) {
+            preferences[SettingsPreferenceKeys.FILE_SEARCH_EXTENSION_CONFIG] =
+                serializeFileSearchExtensionConfig(updated.fileSearchExtensionConfig)
+        }
     }
 
     private fun writeInteractionSettings(

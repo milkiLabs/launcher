@@ -292,7 +292,24 @@ data class LauncherSettings(
      * )
      * ```
      */
-    val prefixConfigurations: ProviderPrefixConfiguration = emptyMap()
+    val prefixConfigurations: ProviderPrefixConfiguration = emptyMap(),
+
+    // ========================================================================
+    // FILE SEARCH EXTENSIONS
+    // ========================================================================
+
+    /**
+     * Configurable file search extension allowlist.
+     *
+     * Controls which file types appear in search results when using the
+     * file search prefix (e.g., "f"). Extensions are organized into
+     * toggleable categories (Documents, Images, Audio, Video, Archives, Code)
+     * plus user-defined custom extensions.
+     *
+     * By default, only Documents, Archives, and Code categories are enabled,
+     * matching the previous hardcoded behavior.
+     */
+    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
 )
 
 /**

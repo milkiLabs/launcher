@@ -47,6 +47,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
+import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
@@ -194,7 +195,8 @@ class SearchViewModel(
                         contactsSearchEnabled = settings.contactsSearchEnabled,
                         filesSearchEnabled = settings.filesSearchEnabled,
                         prefixConfigurations = settings.prefixConfigurations,
-                        defaultSearchSourceId = settings.defaultSearchSourceId
+                        defaultSearchSourceId = settings.defaultSearchSourceId,
+                        fileSearchExtensionConfig = settings.fileSearchExtensionConfig
                     )
                 }
                 .distinctUntilChanged()
@@ -248,7 +250,8 @@ class SearchViewModel(
         providerRegistry.updatePrefixConfigurations(mergedConfigurations)
         stateHolder.runtimeSettings.value = SearchRuntimeSettings(
             searchSources = settings.searchSources.filter { it.showAsSuggestedAction },
-            defaultSearchSourceId = settings.defaultSearchSourceId
+            defaultSearchSourceId = settings.defaultSearchSourceId,
+            fileSearchExtensionConfig = settings.fileSearchExtensionConfig
         )
         searchPrefixConfigurations.value = mergedConfigurations
         stateHolder.providerAccentColorById.value = settings.searchSources.associate { it.id to it.accentColorHex }
@@ -331,7 +334,8 @@ class SearchViewModel(
                 request = SearchRequest(
                     query = parsed.query,
                     contactsPermissionState = contactsPermissionState,
-                    filesPermissionState = filesPermissionState
+                    filesPermissionState = filesPermissionState,
+                    fileSearchExtensionConfig = settings.fileSearchExtensionConfig
                 )
             )
         }
@@ -486,7 +490,8 @@ private data class SearchRuntimeSettingsSnapshot(
     val contactsSearchEnabled: Boolean,
     val filesSearchEnabled: Boolean,
     val prefixConfigurations: ProviderPrefixConfiguration,
-    val defaultSearchSourceId: String?
+    val defaultSearchSourceId: String?,
+    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
 )
 
 internal data class SearchBackgroundState(
@@ -504,5 +509,6 @@ internal data class SearchPipelineOutput(
 
 internal data class SearchRuntimeSettings(
     val searchSources: List<SearchSource> = emptyList(),
-    val defaultSearchSourceId: String? = null
+    val defaultSearchSourceId: String? = null,
+    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
 )

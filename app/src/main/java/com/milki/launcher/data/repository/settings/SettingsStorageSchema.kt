@@ -77,6 +77,9 @@ internal object SettingsPreferenceKeys {
 
     // ID of the user-selected default search engine source.
     val DEFAULT_SEARCH_SOURCE_ID = stringPreferencesKey("default_search_source_id")
+
+    // File search extension configuration - stored as JSON string
+    val FILE_SEARCH_EXTENSION_CONFIG = stringPreferencesKey("file_search_extension_config")
 }
 
 /**

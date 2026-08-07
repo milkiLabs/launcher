@@ -1,5 +1,6 @@
 package com.milki.launcher.ui.screens.settings
 
+import com.milki.launcher.domain.model.FileSearchCategory
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
@@ -54,6 +55,15 @@ data class SettingsSourceActions(
 )
 
 /**
+ * Actions used by file search extension settings section.
+ */
+data class SettingsFileSearchActions(
+    val onToggleCategory: (FileSearchCategory, Boolean) -> Unit,
+    val onAddCustomExtension: (String) -> Unit,
+    val onRemoveCustomExtension: (String) -> Unit
+)
+
+/**
  * Actions used by advanced settings section.
  */
 data class SettingsAdvancedActions(
@@ -76,6 +86,7 @@ data class SettingsActions(
     val onOpenDefaultLauncherSettings: () -> Unit,
     val homeScreen: SettingsHomeScreenActions,
     val sources: SettingsSourceActions,
+    val fileSearch: SettingsFileSearchActions,
     val support: SettingsSupportActions,
     val advanced: SettingsAdvancedActions
 )

@@ -26,7 +26,10 @@ internal object SettingsPreferenceReader {
                     ?: defaults.filesSearchEnabled,
             searchSources = parseSearchSources(preferences),
             prefixConfigurations = parsedPrefixConfigurations,
-            defaultSearchSourceId = preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID]
+            defaultSearchSourceId = preferences[SettingsPreferenceKeys.DEFAULT_SEARCH_SOURCE_ID],
+            fileSearchExtensionConfig = parseFileSearchExtensionConfig(
+                preferences[SettingsPreferenceKeys.FILE_SEARCH_EXTENSION_CONFIG]
+            )
         )
     }
 

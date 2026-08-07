@@ -38,6 +38,7 @@
 package com.milki.launcher.domain.repository
 
 import com.milki.launcher.domain.model.FileDocument
+import com.milki.launcher.domain.model.FileSearchExtensionConfig
 
 /**
  * Interface for accessing document files on the device.
@@ -93,9 +94,14 @@ interface FilesRepository {
      * 
      * @param query The search query (file name to search for)
      * @param maxItems Maximum number of matching documents to return
+     * @param extensionConfig Configuration for file extensions to include
      * @return List of matching FileDocument objects, sorted by date modified (newest first)
      */
-    suspend fun searchFiles(query: String, maxItems: Int = 10): List<FileDocument>
+    suspend fun searchFiles(
+        query: String,
+        maxItems: Int = 10,
+        extensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
+    ): List<FileDocument>
     
     /**
      * Get recently modified document files.
@@ -106,9 +112,13 @@ interface FilesRepository {
      * The same FileFilterConfig filtering rules apply as searchFiles().
      * 
      * @param limit Maximum number of files to return (default: 20)
+     * @param extensionConfig Configuration for file extensions to include
      * @return List of recent FileDocument objects, sorted by date modified
      */
-    suspend fun getRecentFiles(limit: Int = 20): List<FileDocument>
+    suspend fun getRecentFiles(
+        limit: Int = 20,
+        extensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
+    ): List<FileDocument>
 
     /**
      * Stores one file ID in recent-file history.
@@ -123,5 +133,8 @@ interface FilesRepository {
     /**
      * Resolves multiple files by IDs in one batch query.
      */
-    suspend fun getFilesByIds(ids: List<Long>): Map<Long, FileDocument>
+    suspend fun getFilesByIds(
+        ids: List<Long>,
+        extensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
+    ): Map<Long, FileDocument>
 }

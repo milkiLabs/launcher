@@ -8,6 +8,7 @@ import android.provider.MediaStore
 import android.util.Log
 import com.milki.launcher.core.permission.PermissionChecker
 import com.milki.launcher.domain.model.FileDocument
+import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.repository.FilesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
@@ -32,7 +33,7 @@ class FilesRepositoryImpl(
         return PermissionChecker.hasFilesPermission(context)
     }
 
-        override suspend fun searchFiles(query: String, maxItems: Int): List<FileDocument> {
+        override suspend fun searchFiles(query: String, maxItems: Int, extensionConfig: FileSearchExtensionConfig): List<FileDocument> {
         val hasPermission = hasFilesPermission()
         if (!hasPermission) {
             Log.w(TAG, "searchFiles called without permission")
@@ -52,7 +53,8 @@ class FilesRepositoryImpl(
                         query = query,
                         files = files,
                         addedFileIds = addedFileIds,
-                        maxItems = maxItems
+                        maxItems = maxItems,
+                        extensionConfig = extensionConfig
                     )
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && files.size < maxItems) {
@@ -62,7 +64,8 @@ class FilesRepositoryImpl(
                             query = query,
                             files = files,
                             addedFileIds = addedFileIds,
-                            maxItems = maxItems
+                            maxItems = maxItems,
+                            extensionConfig = extensionConfig
                         )
                     }
 
@@ -86,7 +89,8 @@ class FilesRepositoryImpl(
         query: String,
         files: MutableList<FileDocument>,
         addedFileIds: MutableSet<Long>,
-        maxItems: Int
+        maxItems: Int,
+        extensionConfig: FileSearchExtensionConfig
     ) {
         try {
             currentCoroutineContext().ensureActive()
@@ -118,7 +122,9 @@ class FilesRepositoryImpl(
                         collectionUri = uri,
                         files = files,
                         addedFileIds = addedFileIds,
-                        logFilteredOut = true
+                        logFilteredOut = true,
+                        allowedExtensions = extensionConfig.resolveAllowedExtensions(),
+                        excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
                     )
                 }
             }
@@ -129,7 +135,7 @@ class FilesRepositoryImpl(
         }
     }
 
-        override suspend fun getRecentFiles(limit: Int): List<FileDocument> {
+        override suspend fun getRecentFiles(limit: Int, extensionConfig: FileSearchExtensionConfig): List<FileDocument> {
         if (!hasFilesPermission()) {
             Log.w(TAG, "getRecentFiles called without permission")
             return emptyList()
@@ -158,7 +164,9 @@ class FilesRepositoryImpl(
                             collectionUri = MediaStore.Files.getContentUri("external"),
                             files = files,
                             addedFileIds = addedFileIds,
-                            logFilteredOut = false
+                            logFilteredOut = false,
+                            allowedExtensions = extensionConfig.resolveAllowedExtensions(),
+                            excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
                         )
                     }
                 }
@@ -182,7 +190,10 @@ class FilesRepositoryImpl(
         return recentStorage.observeRecent().flowOn(Dispatchers.IO)
     }
 
-    override suspend fun getFilesByIds(ids: List<Long>): Map<Long, FileDocument> {
+    override suspend fun getFilesByIds(
+        ids: List<Long>,
+        extensionConfig: FileSearchExtensionConfig
+    ): Map<Long, FileDocument> {
         if (!hasFilesPermission() || ids.isEmpty()) {
             return emptyMap()
         }
@@ -217,7 +228,9 @@ class FilesRepositoryImpl(
                                 collectionUri = MediaStore.Files.getContentUri("external"),
                                 files = tempFiles,
                                 addedFileIds = addedFileIds,
-                                logFilteredOut = false
+                                logFilteredOut = false,
+                                allowedExtensions = extensionConfig.resolveAllowedExtensions(),
+                                excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
                             )
                             if (tempFiles.isNotEmpty()) {
                                 val doc = tempFiles.first()

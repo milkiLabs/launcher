@@ -139,6 +139,11 @@ fun SettingsScreen(
                 actions = actions.sources.prefixes
             )
 
+            FileSearchExtensionsSection(
+                extensionConfig = settings.fileSearchExtensionConfig,
+                actions = actions.fileSearch
+            )
+
             SupportSection(actions = actions.support)
 
             AdvancedSection(

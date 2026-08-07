@@ -29,6 +29,7 @@ import com.milki.launcher.domain.repository.WidgetBindRequest
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsActions
 import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
+import com.milki.launcher.ui.screens.settings.SettingsFileSearchActions
 import com.milki.launcher.ui.screens.settings.SettingsHomeScreenActions
 import com.milki.launcher.ui.screens.settings.SettingsPrefixActions
 import com.milki.launcher.ui.screens.settings.SettingsScreen
@@ -124,6 +125,11 @@ class SettingsActivity : ComponentActivity() {
                             onRemovePrefix = settingsViewModel::removePrefix,
                             onResetPrefixes = settingsViewModel::resetPrefixes
                         )
+                    ),
+                    fileSearch = SettingsFileSearchActions(
+                        onToggleCategory = settingsViewModel::toggleFileSearchCategory,
+                        onAddCustomExtension = settingsViewModel::addCustomFileExtension,
+                        onRemoveCustomExtension = settingsViewModel::removeCustomFileExtension
                     ),
                     support = SettingsSupportActions(
                         onOpenSupportLink = ::openSupportLink

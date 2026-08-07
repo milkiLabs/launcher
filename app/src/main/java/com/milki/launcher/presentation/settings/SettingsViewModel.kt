@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import com.milki.launcher.presentation.common.ViewModelSharingStarted
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.FileSearchCategory
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
@@ -209,6 +210,53 @@ class SettingsViewModel(
     fun resetAllPrefixes() {
         viewModelScope.launch {
             prefixOwnerRepository.resetAllPrefixes()
+        }
+    }
+
+    // ========================================================================
+    // FILE SEARCH EXTENSIONS
+    // ========================================================================
+
+    fun toggleFileSearchCategory(category: FileSearchCategory, enabled: Boolean) {
+        viewModelScope.launch {
+            settingsReader.updateSettings { current ->
+                val updatedCategories = if (enabled) {
+                    current.fileSearchExtensionConfig.enabledCategories + category
+                } else {
+                    current.fileSearchExtensionConfig.enabledCategories - category
+                }
+                current.copy(
+                    fileSearchExtensionConfig = current.fileSearchExtensionConfig.copy(
+                        enabledCategories = updatedCategories
+                    )
+                )
+            }
+        }
+    }
+
+    fun addCustomFileExtension(extension: String) {
+        val normalized = extension.lowercase().trim().removePrefix(".")
+        if (normalized.isBlank()) return
+        viewModelScope.launch {
+            settingsReader.updateSettings { current ->
+                current.copy(
+                    fileSearchExtensionConfig = current.fileSearchExtensionConfig.copy(
+                        customExtensions = current.fileSearchExtensionConfig.customExtensions + normalized
+                    )
+                )
+            }
+        }
+    }
+
+    fun removeCustomFileExtension(extension: String) {
+        viewModelScope.launch {
+            settingsReader.updateSettings { current ->
+                current.copy(
+                    fileSearchExtensionConfig = current.fileSearchExtensionConfig.copy(
+                        customExtensions = current.fileSearchExtensionConfig.customExtensions - extension
+                    )
+                )
+            }
         }
     }
 

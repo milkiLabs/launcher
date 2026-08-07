@@ -36,6 +36,7 @@
 
 package com.milki.launcher.domain.repository
 
+import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
@@ -43,7 +44,8 @@ import com.milki.launcher.domain.model.SearchResult
 data class SearchRequest(
     val query: String,
     val contactsPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST,
-    val filesPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST
+    val filesPermissionState: PermissionAccessState = PermissionAccessState.CAN_REQUEST,
+    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
 )
 
 /**

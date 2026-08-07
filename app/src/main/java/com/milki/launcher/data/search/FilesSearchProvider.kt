@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileDocumentSearchResult
+import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.model.ProviderId
@@ -44,11 +45,15 @@ class FilesSearchProvider(
         }
 
         if (request.query.isBlank()) {
-            return resolveRecentFiles()
+            return resolveRecentFiles(request.fileSearchExtensionConfig)
         }
 
-        val files = filesRepository.searchFiles(query = request.query, maxItems = MAX_RESULTS)
-        val recentFiles = resolveRecentFilesForBoosting()
+        val files = filesRepository.searchFiles(
+            query = request.query,
+            maxItems = MAX_RESULTS,
+            extensionConfig = request.fileSearchExtensionConfig
+        )
+        val recentFiles = resolveRecentFilesForBoosting(request.fileSearchExtensionConfig)
 
         return QueryRanker.rank(
             items = files,
@@ -82,22 +87,32 @@ class FilesSearchProvider(
         )
     }
 
-    private suspend fun resolveRecentFiles(): List<SearchResult> {
+    private suspend fun resolveRecentFiles(
+        extensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
+    ): List<SearchResult> {
         val recentIds = filesRepository.getRecentFileIds().first()
         if (recentIds.isEmpty()) return emptyList()
 
-        val filesById = filesRepository.getFilesByIds(recentIds)
+        val filesById = filesRepository.getFilesByIds(
+            ids = recentIds,
+            extensionConfig = extensionConfig
+        )
 
         return recentIds.take(MAX_RESULTS).mapNotNull { id ->
             filesById[id]?.let(::FileDocumentSearchResult)
         }
     }
 
-    private suspend fun resolveRecentFilesForBoosting(): List<FileDocument> {
+    private suspend fun resolveRecentFilesForBoosting(
+        extensionConfig: FileSearchExtensionConfig
+    ): List<FileDocument> {
         val recentIds = filesRepository.getRecentFileIds().first()
         if (recentIds.isEmpty()) return emptyList()
 
-        val filesById = filesRepository.getFilesByIds(recentIds)
+        val filesById = filesRepository.getFilesByIds(
+            ids = recentIds,
+            extensionConfig = extensionConfig
+        )
 
         return recentIds.mapNotNull { id -> filesById[id] }
     }
