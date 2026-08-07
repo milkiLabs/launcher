@@ -1,6 +1,7 @@
 package com.milki.launcher.data.search
 
 import com.milki.launcher.domain.model.FileDocument
+import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.repository.FilesRepository
@@ -34,14 +35,24 @@ class FilesSearchProviderPermissionPromptTest {
     private class FakeFilesRepository : FilesRepository {
         override fun hasFilesPermission(): Boolean = false
 
-        override suspend fun searchFiles(query: String, maxItems: Int): List<FileDocument> = emptyList()
+        override suspend fun searchFiles(
+            query: String,
+            maxItems: Int,
+            extensionConfig: FileSearchExtensionConfig
+        ): List<FileDocument> = emptyList()
 
-        override suspend fun getRecentFiles(limit: Int): List<FileDocument> = emptyList()
+        override suspend fun getRecentFiles(
+            limit: Int,
+            extensionConfig: FileSearchExtensionConfig
+        ): List<FileDocument> = emptyList()
 
         override suspend fun saveRecentFile(fileId: Long): Unit {}
 
         override fun getRecentFileIds(): Flow<List<Long>> = flowOf(emptyList())
 
-        override suspend fun getFilesByIds(ids: List<Long>): Map<Long, FileDocument> = emptyMap()
+        override suspend fun getFilesByIds(
+            ids: List<Long>,
+            extensionConfig: FileSearchExtensionConfig
+        ): Map<Long, FileDocument> = emptyMap()
     }
 }
