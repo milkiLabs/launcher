@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
@@ -94,13 +95,20 @@ fun SearchResultsList(
      */
     val allAppResults = results.all { it is AppSearchResult }
 
+    /**
+     * In ONE_HANDED mode the results are anchored to the bottom of the dialog,
+     * so we flip the display order: the most relevant result (the first item)
+     * ends up at the bottom, close to the thumb, and scrolling up reveals more.
+     */
+    val reverseOrder = searchLayout == SearchLayout.ONE_HANDED
+
     if (allAppResults && results.isNotEmpty()) {
         /**
          * GRID LAYOUT for app-only results.
          *
          * This is the primary use case: user searches for apps
-         * or views recent apps. The grid shows 8 apps in a
-         * compact 2-row × 4-column layout.
+         * or views recent apps. The grid shows 10 apps in a
+         * compact 2-row × 5-column layout.
          *
          * Benefits:
          * - More apps visible at once
@@ -111,6 +119,7 @@ fun SearchResultsList(
             appResults = results.filterIsInstance<AppSearchResult>(),
             actionHandler = actionHandler,
             onExternalAppDragStart = onExternalAppDragStart,
+            reverseOrder = reverseOrder,
             modifier = modifier
         )
     } else {
@@ -127,6 +136,7 @@ fun SearchResultsList(
             providerAccentColorById = providerAccentColorById,
             actionHandler = actionHandler,
             onExternalAppDragStart = onExternalAppDragStart,
+            reverseOrder = reverseOrder,
             modifier = modifier
         )
     }
@@ -146,25 +156,39 @@ fun SearchResultsList(
  *
  * @param appResults List of app search results to display (max 10)
  * @param actionHandler The action handler to emit actions when user interacts
+ * @param reverseOrder When true (ONE_HANDED layout), the grid is flipped so the
+ *                     most relevant apps appear on the bottom row, with the top
+ *                     result in the bottom-right corner (closest to the thumb).
  */
 @Composable
 private fun AppResultsGrid(
     appResults: List<AppSearchResult>,
     actionHandler: (SearchResultAction) -> Unit,
     onExternalAppDragStart: () -> Unit,
+    reverseOrder: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val displayOrder = if (reverseOrder) appResults.asReversed() else appResults
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = Spacing.smallMedium),
         verticalArrangement = Arrangement.spacedBy(Spacing.small)
     ) {
-        appResults.chunked(APP_RESULTS_GRID_COLUMNS).forEach { rowResults ->
+        displayOrder.chunked(APP_RESULTS_GRID_COLUMNS).forEach { rowResults ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small)
             ) {
+                val fillers = APP_RESULTS_GRID_COLUMNS - rowResults.size
+
+                if (reverseOrder) {
+                    repeat(fillers) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+
                 rowResults.forEach { result ->
                     Box(modifier = Modifier.weight(1f)) {
                         AppGridItem(
@@ -175,8 +199,10 @@ private fun AppResultsGrid(
                     }
                 }
 
-                repeat(APP_RESULTS_GRID_COLUMNS - rowResults.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+                if (!reverseOrder) {
+                    repeat(fillers) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
@@ -208,6 +234,9 @@ private fun AppResultsGrid(
  * @param results List of search results (can be any type)
  * @param activeProviderConfig Current search provider configuration (for theming)
  * @param actionHandler The action handler to emit actions when user interacts
+ * @param reverseOrder When true (ONE_HANDED layout), the list is bottom-anchored:
+ *                     the most relevant result is pinned to the bottom edge and
+ *                     scrolling upward reveals more results.
  */
 @Composable
 private fun MixedResultsList(
@@ -216,6 +245,7 @@ private fun MixedResultsList(
     providerAccentColorById: Map<String, String>,
     actionHandler: (SearchResultAction) -> Unit,
     onExternalAppDragStart: () -> Unit,
+    reverseOrder: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val providerVisual = rememberSearchProviderVisual(
@@ -227,28 +257,37 @@ private fun MixedResultsList(
     /**
      * Scroll state allows us to control and observe the scroll position
      * of the results container. We use this to programmatically scroll to the
-     * top when new results arrive.
+     * top (or bottom in ONE_HANDED mode) when new results arrive.
      */
     val scrollState = rememberScrollState()
 
     /**
-     * LaunchedEffect with results as the key ensures this effect runs
-     * whenever the results list changes. We use this to scroll to the
-     * top of the list so the user sees the most relevant new results.
-     *
-     * This is important for the user experience because:
-     * - When the user types more characters, results get filtered
-     * - Without this, the scroll position stays at a random offset
-     * - The user might miss the best matches that are now at the top
+     * In ONE_HANDED mode the list is flipped so the most relevant result
+     * (the first item) is displayed last and anchored to the bottom edge.
      */
-    LaunchedEffect(results) {
-        scrollState.scrollTo(0)
+    val displayResults = if (reverseOrder) results.asReversed() else results
+
+    /**
+     * LaunchedEffect with results as the key ensures this effect runs
+     * whenever the results list changes. In classic mode we scroll to the
+     * top so the most relevant results are visible. In ONE_HANDED mode we
+     * scroll to the bottom so the most relevant result is pinned to the
+     * bottom edge and the user scrolls upward to see more.
+     */
+    LaunchedEffect(results, reverseOrder) {
+        if (reverseOrder) {
+            snapshotFlow { scrollState.maxValue }
+                .collect { maxValue -> scrollState.scrollTo(maxValue) }
+        } else {
+            scrollState.scrollTo(0)
+        }
     }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .verticalScroll(scrollState)
+            .verticalScroll(scrollState),
+        verticalArrangement = if (reverseOrder) Arrangement.Bottom else Arrangement.Top
     ) {
         /**
          * Each result type gets its own dedicated composable.
@@ -258,7 +297,11 @@ private fun MixedResultsList(
          * SearchResult subtypes - if a new type is added, the
          * compiler will warn about missing branches.
          */
-        results.forEach { result ->
+        if (reverseOrder) {
+            Spacer(modifier = Modifier.height(Spacing.smallMedium))
+        }
+
+        displayResults.forEach { result ->
             when (result) {
                 is AppSearchResult -> {
                     AppListItem(
@@ -344,6 +387,8 @@ private fun MixedResultsList(
             }
         }
 
-        Spacer(modifier = Modifier.height(Spacing.smallMedium))
+        if (!reverseOrder) {
+            Spacer(modifier = Modifier.height(Spacing.smallMedium))
+        }
     }
 }
