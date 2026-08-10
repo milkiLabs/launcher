@@ -44,4 +44,5 @@ notes/
 *.keystore
 
 .codex
+.agents
 review/
