@@ -31,8 +31,8 @@ import com.milki.launcher.ui.screens.settings.SettingsActions
 import com.milki.launcher.ui.screens.settings.SettingsAdvancedActions
 import com.milki.launcher.ui.screens.settings.SettingsFileSearchActions
 import com.milki.launcher.ui.screens.settings.SettingsHomeScreenActions
+import com.milki.launcher.ui.screens.settings.SettingsNavHost
 import com.milki.launcher.ui.screens.settings.SettingsPrefixActions
-import com.milki.launcher.ui.screens.settings.SettingsScreen
 import com.milki.launcher.ui.screens.settings.SettingsSourceActions
 import com.milki.launcher.ui.screens.settings.SettingsSupportActions
 import com.milki.launcher.ui.theme.LauncherTheme
@@ -149,7 +149,7 @@ class SettingsActivity : ComponentActivity() {
             }
 
             LauncherTheme {
-                SettingsScreen(
+                SettingsNavHost(
                     settings = settings,
                     installedApps = installedApps,
                     actionShortcuts = actionShortcuts,

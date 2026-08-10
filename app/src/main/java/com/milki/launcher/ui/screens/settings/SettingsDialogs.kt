@@ -11,101 +11,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
-import com.milki.launcher.ui.components.settings.SourceEditorDialog
 import com.milki.launcher.ui.theme.Spacing
 
 /**
- * Modal coordination for SettingsScreen.
+ * Shared dialogs used by the settings pages.
  *
- * The root screen owns whether a dialog is open; this host owns dialog
- * composition and validation/dismissal contracts.
+ * Each page hosts its own dialogs; this file only owns dialog composition.
  */
-@Composable
-internal fun SettingsDialogHost(
-    showResetDialog: Boolean,
-    onDismissResetDialog: () -> Unit,
-    onConfirmReset: () -> Unit,
-    showAddSourceDialog: Boolean,
-    onDismissAddSourceDialog: () -> Unit,
-    onAddSearchSource: SourceCreateRequestHandler,
-    editingSource: SearchSource?,
-    onDismissEditSourceDialog: () -> Unit,
-    onUpdateSearchSource: SourceUpdateRequestHandler,
-    sourceIdPendingDelete: String?,
-    onDismissDeleteSourceDialog: () -> Unit,
-    onConfirmDeleteSource: (String) -> Unit,
-    importReport: LauncherImportResult?,
-    onDismissImportReport: () -> Unit
-) {
-    if (showResetDialog) {
-        ResetSettingsDialog(
-            onDismiss = onDismissResetDialog,
-            onConfirm = onConfirmReset
-        )
-    }
-
-    if (showAddSourceDialog) {
-        SourceEditorDialog(
-            initialSource = null,
-            onDismiss = onDismissAddSourceDialog,
-            onConfirm = onAddSearchSource
-        )
-    }
-
-    if (editingSource != null) {
-        SourceEditorDialog(
-            initialSource = editingSource,
-            onDismiss = onDismissEditSourceDialog,
-            onConfirm = { name, urlTemplate, prefixes, accentColorHex, onValidationResult ->
-                onUpdateSearchSource(
-                    editingSource.id,
-                    name,
-                    urlTemplate,
-                    prefixes,
-                    accentColorHex,
-                    onValidationResult
-                )
-            }
-        )
-    }
-
-    if (sourceIdPendingDelete != null) {
-        DeleteSourceDialog(
-            onDismiss = onDismissDeleteSourceDialog,
-            onConfirm = { onConfirmDeleteSource(sourceIdPendingDelete) }
-        )
-    }
-
-    if (importReport != null) {
-        ImportReportDialog(
-            importReport = importReport,
-            onDismiss = onDismissImportReport
-        )
-    }
-}
-
-private typealias SourceCreateRequestHandler = (
-    name: String,
-    urlTemplate: String,
-    prefixes: List<String>,
-    accentColorHex: String,
-    onValidationResult: (String) -> Unit
-) -> Unit
-
-private typealias SourceUpdateRequestHandler = (
-    sourceId: String,
-    name: String,
-    urlTemplate: String,
-    prefixes: List<String>,
-    accentColorHex: String,
-    onValidationResult: (String) -> Unit
-) -> Unit
 
 @Composable
-private fun ResetSettingsDialog(
+internal fun ResetSettingsDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -127,7 +44,7 @@ private fun ResetSettingsDialog(
 }
 
 @Composable
-private fun DeleteSourceDialog(
+internal fun DeleteSourceDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -149,7 +66,7 @@ private fun DeleteSourceDialog(
 }
 
 @Composable
-private fun ImportReportDialog(
+internal fun ImportReportDialog(
     importReport: LauncherImportResult,
     onDismiss: () -> Unit
 ) {

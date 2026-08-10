@@ -93,7 +93,7 @@
             android:taskAffinity="com.milki.launcher.settings"
             android:launchMode="singleTop"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Launcher" />
+            android:theme="@style/Theme.Launcher.Settings" />
 
         <!-- Device Admin receiver for screen lock via DevicePolicyManager.lockNow() -->
         <receiver
