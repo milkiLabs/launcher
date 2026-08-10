@@ -81,13 +81,6 @@ data class SearchUiState(
     val defaultSearchSourceId: String? = null
 ) {
     /**
-     * Whether results are available to display.
-     * Used by the UI to decide between showing results or empty state.
-     */
-    val hasResults: Boolean
-        get() = results.isNotEmpty()
-
-    /**
      * Controls clipboard chip visibility.
      *
      * UX RULES:

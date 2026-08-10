@@ -173,6 +173,7 @@ private fun AppResultsGrid(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.smallMedium),
         verticalArrangement = Arrangement.spacedBy(Spacing.small)
     ) {

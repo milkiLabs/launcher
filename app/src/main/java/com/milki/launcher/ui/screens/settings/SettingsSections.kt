@@ -73,7 +73,6 @@ internal fun SearchLayoutSection(
 
     DropdownSettingItem(
         title = "Search layout",
-        subtitle = "One-handed places results above the search field and actions near the keyboard",
         selectedValue = when (settings.searchLayout) {
             SearchLayout.CLASSIC -> "Classic"
             SearchLayout.ONE_HANDED -> "One-handed"
