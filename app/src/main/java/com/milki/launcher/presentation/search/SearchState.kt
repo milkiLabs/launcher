@@ -56,28 +56,33 @@ internal class SearchState(
         isSearchVisible,
         searchOutput,
         runtimeSettings,
-        clipboardSuggestion
-    ) { currentQuery, visible, output, runtimeSettings, clipSuggestion ->
+        clipboardSuggestion,
+        querySuggestion,
+        providerAccentColorById
+    ) { flows ->
+        val currentQuery = flows[0] as String
+        val visible = flows[1] as Boolean
+        val output = flows[2] as SearchPipelineOutput
+        val runtimeSettings = flows[3] as SearchRuntimeSettings
+        val clipSuggestion = flows[4] as ActionSuggestion?
+        val qSuggestion = flows[5] as ActionSuggestion?
+        @Suppress("UNCHECKED_CAST")
+        val colorMap = flows[6] as Map<String, String>
+
+        val isSearchVisible = visible && runtimeSettings.isSettingsLoaded
+
         SearchUiState(
-            // Gated on settings being loaded so the dialog never flashes the
-            // default CLASSIC layout before the user's chosen layout arrives.
-            isSearchVisible = visible && runtimeSettings.isSettingsLoaded,
+            query = currentQuery,
+            isSearchVisible = isSearchVisible,
+            searchLayout = runtimeSettings.searchLayout,
             results = if (visible) output.results else emptyList(),
             activeProviderConfig = if (visible) output.activeProviderConfig else null,
             isLoading = visible && output.isLoading,
             clipboardSuggestion = if (visible) clipSuggestion else null,
+            querySuggestion = if (isSearchVisible) qSuggestion else null,
+            providerAccentColorById = colorMap,
             suggestedActionSources = if (visible) runtimeSettings.searchSources else emptyList(),
-            defaultSearchSourceId = runtimeSettings.defaultSearchSourceId,
-            searchLayout = runtimeSettings.searchLayout
+            defaultSearchSourceId = runtimeSettings.defaultSearchSourceId
         )
-    }
-        .combine(querySuggestion) { partialState, qSuggestion ->
-            partialState.copy(
-                querySuggestion = if (partialState.isSearchVisible) qSuggestion else null
-            )
-        }
-        .combine(providerAccentColorById) { partialState, colorMap ->
-            partialState.copy(providerAccentColorById = colorMap)
-        }
-        .stateIn(scope, SharingStarted.Eagerly, SearchUiState())
+    }.stateIn(scope, SharingStarted.Eagerly, SearchUiState())
 }

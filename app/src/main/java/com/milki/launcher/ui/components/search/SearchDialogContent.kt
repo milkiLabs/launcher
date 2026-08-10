@@ -67,45 +67,25 @@ internal fun SearchDialogContent(
             .heightIn(max = maxHeight),
         verticalArrangement = Arrangement.Top
     ) {
-        if (uiState.searchLayout == SearchLayout.ONE_HANDED) {
-            SearchResults(
-                uiState = uiState,
-                onExternalAppDragStart = onDismiss,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-            )
+        SearchInput(
+            uiState = uiState,
+            onQueryChange = onQueryChange,
+            showLoadingIndicator = showLoadingIndicator,
+            focusRequester = focusRequester,
+            providerVisual = providerVisual,
+            indicatorColor = indicatorColor,
+            actionHandler = actionHandler
+        )
 
-            SearchFooter(
-                uiState = uiState,
-                onQueryChange = onQueryChange,
-                showLoadingIndicator = showLoadingIndicator,
-                focusRequester = focusRequester,
-                providerVisual = providerVisual,
-                indicatorColor = indicatorColor,
-                actionHandler = actionHandler
-            )
-        } else {
-            SearchInput(
-                uiState = uiState,
-                onQueryChange = onQueryChange,
-                showLoadingIndicator = showLoadingIndicator,
-                focusRequester = focusRequester,
-                providerVisual = providerVisual,
-                indicatorColor = indicatorColor,
-                actionHandler = actionHandler
-            )
+        SearchResults(
+            uiState = uiState,
+            onExternalAppDragStart = onDismiss,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f, fill = false)
+        )
 
-            SearchResults(
-                uiState = uiState,
-                onExternalAppDragStart = onDismiss,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-            )
-
-            SearchSuggestion(uiState = uiState)
-        }
+        SearchSuggestion(uiState = uiState)
     }
 }
 
@@ -158,28 +138,7 @@ private fun SearchLoadingIndicatorSlot(
     }
 }
 
-@Composable
-private fun SearchFooter(
-    uiState: SearchUiState,
-    onQueryChange: (String) -> Unit,
-    showLoadingIndicator: Boolean,
-    focusRequester: FocusRequester,
-    providerVisual: SearchProviderVisual?,
-    indicatorColor: androidx.compose.ui.graphics.Color,
-    actionHandler: (SearchResultAction) -> Unit
-) {
-    SearchInput(
-        uiState = uiState,
-        onQueryChange = onQueryChange,
-        showLoadingIndicator = showLoadingIndicator,
-        focusRequester = focusRequester,
-        providerVisual = providerVisual,
-        indicatorColor = indicatorColor,
-        actionHandler = actionHandler
-    )
 
-    SearchSuggestion(uiState = uiState)
-}
 
 @Composable
 private fun SearchInput(

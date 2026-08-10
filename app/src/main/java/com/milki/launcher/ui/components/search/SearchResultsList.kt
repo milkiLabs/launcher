@@ -27,11 +27,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ContactSearchResult
@@ -175,7 +177,7 @@ private fun AppResultsGrid(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Spacing.smallMedium),
-        verticalArrangement = Arrangement.spacedBy(Spacing.small)
+        verticalArrangement = if (reverseOrder) Arrangement.Bottom else Arrangement.Top
     ) {
         displayOrder.chunked(APP_RESULTS_GRID_COLUMNS).forEach { rowResults ->
             Row(
@@ -218,10 +220,9 @@ private fun AppResultsGrid(
  * display additional information (like contact phone numbers).
  *
  * SCROLL BEHAVIOR:
- * The list automatically scrolls to the top whenever the results change.
- * This ensures that when the user modifies their search query, they see
- * the most relevant results at the top of the list, not stuck at a
- * previous scroll position from an older query.
+ * Uses LazyColumn with native bottom-anchored scrolling in ONE_HANDED mode
+ * (`reverseLayout = true`), so the top match (first item in results) is pinned
+ * to the bottom edge without post-layout scroll commands or layout jitter.
  *
  * ITEM TYPES SUPPORTED:
  * - AppSearchResult → AppListItem (defined in AppListItem.kt)
@@ -254,55 +255,30 @@ private fun MixedResultsList(
         customAccentHex = activeProviderConfig?.providerId?.let(providerAccentColorById::get)
     )
     val accentColor = providerVisual?.accentColor
+    val listState = rememberLazyListState()
 
-    /**
-     * Scroll state allows us to control and observe the scroll position
-     * of the results container. We use this to programmatically scroll to the
-     * top (or bottom in ONE_HANDED mode) when new results arrive.
-     */
-    val scrollState = rememberScrollState()
-
-    /**
-     * In ONE_HANDED mode the list is flipped so the most relevant result
-     * (the first item) is displayed last and anchored to the bottom edge.
-     */
-    val displayResults = if (reverseOrder) results.asReversed() else results
-
-    /**
-     * LaunchedEffect with results as the key ensures this effect runs
-     * whenever the results list changes. In classic mode we scroll to the
-     * top so the most relevant results are visible. In ONE_HANDED mode we
-     * scroll to the bottom so the most relevant result is pinned to the
-     * bottom edge and the user scrolls upward to see more.
-     */
     LaunchedEffect(results, reverseOrder) {
-        if (reverseOrder) {
-            snapshotFlow { scrollState.maxValue }
-                .collect { maxValue -> scrollState.scrollTo(maxValue) }
-        } else {
-            scrollState.scrollTo(0)
+        if (!reverseOrder && results.isNotEmpty()) {
+            listState.scrollToItem(0)
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState),
+    LazyColumn(
+        state = listState,
+        reverseLayout = reverseOrder,
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = if (reverseOrder) Arrangement.Bottom else Arrangement.Top
     ) {
-        /**
-         * Each result type gets its own dedicated composable.
-         * This allows for type-specific layouts and interactions.
-         *
-         * The when expression ensures exhaustive handling of all
-         * SearchResult subtypes - if a new type is added, the
-         * compiler will warn about missing branches.
-         */
         if (reverseOrder) {
-            Spacer(modifier = Modifier.height(Spacing.smallMedium))
+            item(key = "bottom_spacer") {
+                Spacer(modifier = Modifier.height(Spacing.smallMedium))
+            }
         }
 
-        displayResults.forEach { result ->
+        items(
+            items = results,
+            key = { it.id }
+        ) { result ->
             when (result) {
                 is AppSearchResult -> {
                     AppListItem(
@@ -389,7 +365,9 @@ private fun MixedResultsList(
         }
 
         if (!reverseOrder) {
-            Spacer(modifier = Modifier.height(Spacing.smallMedium))
+            item(key = "top_spacer") {
+                Spacer(modifier = Modifier.height(Spacing.smallMedium))
+            }
         }
     }
 }
