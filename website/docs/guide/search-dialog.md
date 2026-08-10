@@ -4,6 +4,16 @@ The Search Dialog is the command center of Milki Launcher. It is where you searc
 
 The core of Milki launcher. A central search input that handles almost everything.
 
+## Search Layouts
+
+Milki Launcher offers two search layouts in **Settings > Search**:
+
+- **Classic:** A traditional top-aligned layout. The search bar sits at the top of the screen with results flowing top-to-bottom.
+- **One-Handed:** An ergonomic, bottom-anchored layout that intentionally breaks standard top-down visual conventions to prioritize single-hand reachability:
+  - **Search Input Bar:** Positioned at the top of the search dialog container, as text input is controlled via the soft keyboard rather than direct thumb taps.
+  - **Results & Apps:** The most relevant search result (and top app match) is pinned to the bottom—and bottom-right in grid view—closest to your thumb. Scrolling up reveals secondary results.
+  - **Action Suggestion Chips:** Placed directly above the keyboard and arranged from right-to-left, placing primary action pills within effortless one-thumb reach.
+
 <!-- - **Quick Actions:** Execute built-in commands directly from the search bar (e.g., `/settings`, `/wifi`). -->
 
 ## Recent Apps
