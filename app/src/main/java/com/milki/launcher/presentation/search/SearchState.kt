@@ -59,8 +59,9 @@ internal class SearchState(
         clipboardSuggestion
     ) { currentQuery, visible, output, runtimeSettings, clipSuggestion ->
         SearchUiState(
-            query = currentQuery,
-            isSearchVisible = visible,
+            // Gated on settings being loaded so the dialog never flashes the
+            // default CLASSIC layout before the user's chosen layout arrives.
+            isSearchVisible = visible && runtimeSettings.isSettingsLoaded,
             results = if (visible) output.results else emptyList(),
             activeProviderConfig = if (visible) output.activeProviderConfig else null,
             isLoading = visible && output.isLoading,

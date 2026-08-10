@@ -254,7 +254,8 @@ class SearchViewModel(
             searchSources = settings.searchSources.filter { it.showAsSuggestedAction },
             defaultSearchSourceId = settings.defaultSearchSourceId,
             searchLayout = settings.searchLayout,
-            fileSearchExtensionConfig = settings.fileSearchExtensionConfig
+            fileSearchExtensionConfig = settings.fileSearchExtensionConfig,
+            isSettingsLoaded = true
         )
         searchPrefixConfigurations.value = mergedConfigurations
         stateHolder.providerAccentColorById.value = settings.searchSources.associate { it.id to it.accentColorHex }
@@ -515,5 +516,13 @@ internal data class SearchRuntimeSettings(
     val searchSources: List<SearchSource> = emptyList(),
     val defaultSearchSourceId: String? = null,
     val searchLayout: SearchLayout = SearchLayout.CLASSIC,
-    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
+    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig(),
+    /**
+     * Whether the real settings have been loaded at least once.
+     *
+     * The search dialog is gated on this flag so it never renders with the
+     * default CLASSIC placeholder layout for a frame, then jumps to the
+     * user's chosen layout once settings arrive.
+     */
+    val isSettingsLoaded: Boolean = false
 )
