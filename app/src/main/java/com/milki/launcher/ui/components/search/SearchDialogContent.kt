@@ -64,28 +64,17 @@ internal fun SearchDialogContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (uiState.searchLayout == SearchLayout.ONE_HANDED) {
-                    Modifier.height(maxHeight)
-                } else {
-                    Modifier.heightIn(max = maxHeight)
-                }
-            ),
+            .heightIn(max = maxHeight),
         verticalArrangement = Arrangement.Top
     ) {
         if (uiState.searchLayout == SearchLayout.ONE_HANDED) {
-            Box(
+            SearchResults(
+                uiState = uiState,
+                onExternalAppDragStart = onDismiss,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                SearchResults(
-                    uiState = uiState,
-                    onExternalAppDragStart = onDismiss,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+                    .weight(1f, fill = false)
+            )
 
             SearchFooter(
                 uiState = uiState,
