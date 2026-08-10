@@ -28,7 +28,6 @@
 package com.milki.launcher.ui.components.search
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -191,8 +190,7 @@ private fun SearchDialogSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = SEARCH_DIALOG_MAX_WIDTH_DP.dp)
-                .heightIn(max = maxHeight)
-                .animateContentSize(),
+                .heightIn(max = maxHeight),
             shape = RoundedCornerShape(CornerRadius.large),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = Spacing.smallMedium
