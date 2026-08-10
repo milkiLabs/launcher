@@ -27,6 +27,7 @@
 package com.milki.launcher.presentation.search
 
 import androidx.compose.runtime.Immutable
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.SearchSource
@@ -67,6 +68,7 @@ import com.milki.launcher.domain.search.ActionSuggestion
 data class SearchUiState(
     val query: String = "",
     val isSearchVisible: Boolean = false,
+    val searchLayout: SearchLayout = SearchLayout.CLASSIC,
     val results: List<SearchResult> = emptyList(),
     val activeProviderConfig: SearchProviderConfig? = null,
     val isLoading: Boolean = false,

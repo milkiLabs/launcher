@@ -126,6 +126,11 @@ fun SettingsScreen(
                 onSelectOpenAppAction = { trigger, action -> appPickerTrigger = trigger to action }
             )
 
+            SearchLayoutSection(
+                settings = settings,
+                onSetSearchLayout = actions.onSetSearchLayout
+            )
+
             SearchSourcesSection(
                 settings = settings,
                 actions = actions.sources,

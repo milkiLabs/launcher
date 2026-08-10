@@ -23,6 +23,7 @@ import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.PrefixMutationResult
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.UrlHandlerApp
 import com.milki.launcher.domain.repository.HomeTriggerRepository
@@ -107,6 +108,14 @@ class SettingsViewModel(
     // ========================================================================
     // SEARCH SOURCES
     // ========================================================================
+
+    fun setSearchLayout(searchLayout: SearchLayout) {
+        viewModelScope.launch {
+            settingsReader.updateSettings { current ->
+                current.copy(searchLayout = searchLayout)
+            }
+        }
+    }
 
     fun addSearchSource(
         name: String,

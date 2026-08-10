@@ -2,6 +2,7 @@ package com.milki.launcher.presentation.search
 
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.PermissionAccessState
+
 import com.milki.launcher.domain.search.ActionSuggestion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,7 +66,8 @@ internal class SearchState(
             isLoading = visible && output.isLoading,
             clipboardSuggestion = if (visible) clipSuggestion else null,
             suggestedActionSources = if (visible) runtimeSettings.searchSources else emptyList(),
-            defaultSearchSourceId = runtimeSettings.defaultSearchSourceId
+            defaultSearchSourceId = runtimeSettings.defaultSearchSourceId,
+            searchLayout = runtimeSettings.searchLayout
         )
     }
         .combine(querySuggestion) { partialState, qSuggestion ->

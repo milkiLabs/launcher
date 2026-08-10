@@ -63,6 +63,7 @@ internal object SettingsPreferenceKeys {
     val SWIPE_UP_ACTION = stringPreferencesKey("swipe_up_action")
 
     // Search Providers
+    val SEARCH_LAYOUT = stringPreferencesKey("search_layout")
     val CONTACTS_SEARCH_ENABLED = booleanPreferencesKey("contacts_search_enabled")
     val FILES_SEARCH_ENABLED = booleanPreferencesKey("files_search_enabled")
 

@@ -34,6 +34,9 @@ internal object SettingsPreferenceWriter {
         updated: LauncherSettings,
         preferences: MutablePreferences
     ) {
+        if (current.searchLayout != updated.searchLayout) {
+            preferences[SettingsPreferenceKeys.SEARCH_LAYOUT] = updated.searchLayout.name
+        }
         if (current.contactsSearchEnabled != updated.contactsSearchEnabled) {
             preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED] = updated.contactsSearchEnabled
         }

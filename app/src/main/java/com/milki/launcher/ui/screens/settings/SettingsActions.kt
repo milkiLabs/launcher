@@ -4,6 +4,7 @@ import com.milki.launcher.domain.model.FileSearchCategory
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
+import com.milki.launcher.domain.model.SearchLayout
 
 /**
  * SettingsActions.kt - Grouped action contracts for Settings UI
@@ -84,6 +85,7 @@ data class SettingsSupportActions(
  */
 data class SettingsActions(
     val onOpenDefaultLauncherSettings: () -> Unit,
+    val onSetSearchLayout: (SearchLayout) -> Unit,
     val homeScreen: SettingsHomeScreenActions,
     val sources: SettingsSourceActions,
     val fileSearch: SettingsFileSearchActions,

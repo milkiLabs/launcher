@@ -217,6 +217,12 @@ object LauncherInteractionCatalog {
  * 3. Home Screen - Home button/gesture behavior
  * 4. Search Providers - Enable local providers and configure dynamic sources
  */
+@Serializable
+enum class SearchLayout {
+    CLASSIC,
+    ONE_HANDED
+}
+
 @Immutable
 @Serializable
 data class LauncherSettings(
@@ -235,6 +241,9 @@ data class LauncherSettings(
     // ========================================================================
     // SEARCH PROVIDERS
     // ========================================================================
+
+    /** Layout used by the search dialog. */
+    val searchLayout: SearchLayout = SearchLayout.CLASSIC,
 
     /** Whether contacts search provider is enabled */
     val contactsSearchEnabled: Boolean = true,

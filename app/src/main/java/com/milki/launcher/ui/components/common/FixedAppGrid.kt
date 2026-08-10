@@ -21,18 +21,28 @@ fun FixedAppGrid(
     columns: Int,
     onAppClick: (AppInfo) -> Unit,
     onExternalDragStarted: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fillFromRight: Boolean = false
 ) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(Spacing.small)
     ) {
-        apps.chunked(columns).forEach { rowApps ->
+        val rowAppsList = if (fillFromRight) apps.chunked(columns).asReversed() else apps.chunked(columns)
+
+        rowAppsList.forEach { rowApps ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small)
             ) {
-                rowApps.forEach { app ->
+                val emptySlots = (columns - rowApps.size).coerceAtLeast(0)
+                if (fillFromRight) {
+                    repeat(emptySlots) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+                val displayedApps = if (fillFromRight) rowApps.reversed() else rowApps
+                displayedApps.forEach { app ->
                     Box(modifier = Modifier.weight(1f)) {
                         AppGridItem(
                             appInfo = app,
@@ -41,8 +51,10 @@ fun FixedAppGrid(
                         )
                     }
                 }
-                repeat((columns - rowApps.size).coerceAtLeast(0)) {
-                    Spacer(modifier = Modifier.weight(1f))
+                if (!fillFromRight) {
+                    repeat(emptySlots) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }

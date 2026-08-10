@@ -6,6 +6,7 @@ import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchSource
 import kotlinx.serialization.decodeFromString
 
@@ -18,6 +19,11 @@ internal object SettingsPreferenceReader {
         return LauncherSettings(
             triggerActions = parseTriggerActions(preferences),
             triggerTargets = parseTriggerTargets(preferences),
+            searchLayout = preferences[SettingsPreferenceKeys.SEARCH_LAYOUT]
+                ?.let { storedValue ->
+                    runCatching { SearchLayout.valueOf(storedValue) }.getOrNull()
+                }
+                ?: defaults.searchLayout,
             contactsSearchEnabled =
                 preferences[SettingsPreferenceKeys.CONTACTS_SEARCH_ENABLED]
                     ?: defaults.contactsSearchEnabled,

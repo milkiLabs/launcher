@@ -5,7 +5,7 @@
  * in different layouts depending on the result types.
  *
  * LAYOUT DECISION:
- * - If ALL results are AppSearchResult → Show 2×4 grid (8 apps max)
+ * - If ALL results are AppSearchResult → Show 2×5 grid (10 apps max)
  * - If MIXED result types → Show traditional vertical list
  *
  * This design choice prioritizes:
@@ -32,12 +32,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
-import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ContactSearchResult
 import com.milki.launcher.domain.model.FileDocumentSearchResult
 import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.model.PhoneNumberSearchResult
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.model.UrlSearchResult
@@ -47,8 +47,9 @@ import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppListItem
-import com.milki.launcher.ui.components.common.FixedAppGrid
 import com.milki.launcher.ui.theme.Spacing
+
+private const val APP_RESULTS_GRID_COLUMNS = 5
 
 /**
  * SearchResultsList - Displays search results in either a grid or list layout.
@@ -74,6 +75,7 @@ fun SearchResultsList(
     activeProviderConfig: SearchProviderConfig?,
     providerAccentColorById: Map<String, String> = emptyMap(),
     onExternalAppDragStart: () -> Unit = {},
+    searchLayout: SearchLayout = SearchLayout.CLASSIC,
     modifier: Modifier = Modifier
 ) {
     /**
@@ -131,17 +133,18 @@ fun SearchResultsList(
 }
 
 /**
- * AppResultsGrid - Displays app results in a grid layout.
+ * AppResultsGrid - Displays app results in a 2×5 grid layout.
  *
  * GRID CONFIGURATION:
- * - Columns are dynamically determined by HomeGridDefaults.COLUMNS (default: 5)
- * - Rows are implicit, based on number of items
- * - Maximum items limited by ViewModel settings (default: 10)
+ * - 5 columns (fixed width, evenly distributed)
+ * - 2 rows (implicit, based on number of items)
+ * - Maximum 10 items (limited by ViewModel)
  *
- * The grid is rendered as a simple fixed-column layout. This lets the dialog wrap to
+ * The grid is rendered as a simple 5-column layout because search
+ * app results are capped at 10 items. This lets the dialog wrap to
  * content height instead of reserving unnecessary empty space.
  *
- * @param appResults List of app search results to display
+ * @param appResults List of app search results to display (max 10)
  * @param actionHandler The action handler to emit actions when user interacts
  */
 @Composable
@@ -151,18 +154,33 @@ private fun AppResultsGrid(
     onExternalAppDragStart: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    FixedAppGrid(
-        apps = appResults.map { it.appInfo },
-        columns = HomeGridDefaults.COLUMNS,
-        onAppClick = { appInfo ->
-            val result = appResults.first { it.appInfo.packageName == appInfo.packageName }
-            actionHandler(SearchResultAction.Tap(result))
-        },
-        onExternalDragStarted = onExternalAppDragStart,
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.smallMedium)
-    )
+            .padding(horizontal = Spacing.smallMedium),
+        verticalArrangement = Arrangement.spacedBy(Spacing.small)
+    ) {
+        appResults.chunked(APP_RESULTS_GRID_COLUMNS).forEach { rowResults ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+            ) {
+                rowResults.forEach { result ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        AppGridItem(
+                            appInfo = result.appInfo,
+                            onExternalDragStarted = onExternalAppDragStart,
+                            onClick = { actionHandler(SearchResultAction.Tap(result)) }
+                        )
+                    }
+                }
+
+                repeat(APP_RESULTS_GRID_COLUMNS - rowResults.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
 }
 
 /**

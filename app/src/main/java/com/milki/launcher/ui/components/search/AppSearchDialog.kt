@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
@@ -180,7 +181,11 @@ private fun SearchDialogSheet(
                 top = Spacing.smallMedium,
                 bottom = Spacing.smallMedium
             ),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = if (uiState.searchLayout == SearchLayout.ONE_HANDED) {
+            Alignment.BottomCenter
+        } else {
+            Alignment.TopCenter
+        }
     ) {
         Surface(
             modifier = Modifier

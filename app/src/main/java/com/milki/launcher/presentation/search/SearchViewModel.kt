@@ -52,6 +52,7 @@ import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.PrefixConfig
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.presentation.common.ViewModelSharingStarted
@@ -196,6 +197,7 @@ class SearchViewModel(
                         filesSearchEnabled = settings.filesSearchEnabled,
                         prefixConfigurations = settings.prefixConfigurations,
                         defaultSearchSourceId = settings.defaultSearchSourceId,
+                        searchLayout = settings.searchLayout,
                         fileSearchExtensionConfig = settings.fileSearchExtensionConfig
                     )
                 }
@@ -251,6 +253,7 @@ class SearchViewModel(
         stateHolder.runtimeSettings.value = SearchRuntimeSettings(
             searchSources = settings.searchSources.filter { it.showAsSuggestedAction },
             defaultSearchSourceId = settings.defaultSearchSourceId,
+            searchLayout = settings.searchLayout,
             fileSearchExtensionConfig = settings.fileSearchExtensionConfig
         )
         searchPrefixConfigurations.value = mergedConfigurations
@@ -491,6 +494,7 @@ private data class SearchRuntimeSettingsSnapshot(
     val filesSearchEnabled: Boolean,
     val prefixConfigurations: ProviderPrefixConfiguration,
     val defaultSearchSourceId: String?,
+    val searchLayout: SearchLayout,
     val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
 )
 
@@ -510,5 +514,6 @@ internal data class SearchPipelineOutput(
 internal data class SearchRuntimeSettings(
     val searchSources: List<SearchSource> = emptyList(),
     val defaultSearchSourceId: String? = null,
+    val searchLayout: SearchLayout = SearchLayout.CLASSIC,
     val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
 )

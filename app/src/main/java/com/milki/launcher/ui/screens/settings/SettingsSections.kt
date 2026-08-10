@@ -50,6 +50,7 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.ProviderId
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.SourcePrefixOwner
 import com.milki.launcher.domain.model.actionForTrigger
@@ -62,6 +63,28 @@ import com.milki.launcher.ui.components.settings.SettingsCategory
 import com.milki.launcher.ui.components.settings.SwitchSettingItem
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+
+@Composable
+internal fun SearchLayoutSection(
+    settings: LauncherSettings,
+    onSetSearchLayout: (SearchLayout) -> Unit
+) {
+    SettingsCategory(title = "Search")
+
+    DropdownSettingItem(
+        title = "Search layout",
+        subtitle = "One-handed places results above the search field and actions near the keyboard",
+        selectedValue = when (settings.searchLayout) {
+            SearchLayout.CLASSIC -> "Classic"
+            SearchLayout.ONE_HANDED -> "One-handed"
+        },
+        options = listOf(
+            "Classic" to SearchLayout.CLASSIC,
+            "One-handed" to SearchLayout.ONE_HANDED
+        ),
+        onOptionSelected = onSetSearchLayout
+    )
+}
 
 /**
  * Section-level settings UI.

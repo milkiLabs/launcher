@@ -1,9 +1,9 @@
 package com.milki.launcher.ui.components.search
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +27,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
@@ -63,52 +64,59 @@ internal fun SearchDialogContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = maxHeight)
-            .animateContentSize()
-    ) {
-        UnifiedSearchInputField(
-            query = uiState.query,
-            onQueryChange = onQueryChange,
-            placeholderText = uiState.placeholderText,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.mediumLarge)
-                .padding(top = Spacing.mediumLarge),
-            focusRequester = focusRequester,
-            leadingIcon = providerVisual?.icon ?: Icons.Default.Search,
-            leadingIconTint = providerVisual?.accentColor
-                ?: MaterialTheme.colorScheme.onSurfaceVariant,
-            leadingIconContentDescription = uiState.activeProviderConfig?.name,
-            indicatorColor = indicatorColor,
-            imeAction = ImeAction.Done,
-            onImeAction = {
-                uiState.results.firstOrNull()?.let { result ->
-                    actionHandler(SearchResultAction.Tap(result))
+            .then(
+                if (uiState.searchLayout == SearchLayout.ONE_HANDED) {
+                    Modifier.height(maxHeight)
+                } else {
+                    Modifier.heightIn(max = maxHeight)
                 }
-            },
-            onClear = { onQueryChange("") },
-            supportingContent = {
-                ActiveProviderSupportingContent(
+            ),
+        verticalArrangement = Arrangement.Top
+    ) {
+        if (uiState.searchLayout == SearchLayout.ONE_HANDED) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                SearchResults(
                     uiState = uiState,
-                    providerVisual = providerVisual
+                    onExternalAppDragStart = onDismiss,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
-        )
 
-        SearchLoadingIndicatorSlot(
-            isVisible = showLoadingIndicator,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.mediumLarge)
-        )
+            SearchFooter(
+                uiState = uiState,
+                onQueryChange = onQueryChange,
+                showLoadingIndicator = showLoadingIndicator,
+                focusRequester = focusRequester,
+                providerVisual = providerVisual,
+                indicatorColor = indicatorColor,
+                actionHandler = actionHandler
+            )
+        } else {
+            SearchInput(
+                uiState = uiState,
+                onQueryChange = onQueryChange,
+                showLoadingIndicator = showLoadingIndicator,
+                focusRequester = focusRequester,
+                providerVisual = providerVisual,
+                indicatorColor = indicatorColor,
+                actionHandler = actionHandler
+            )
 
-        SearchDialogBody(
-            uiState = uiState,
-            onExternalAppDragStart = onDismiss,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false)
-        )
+            SearchResults(
+                uiState = uiState,
+                onExternalAppDragStart = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+            )
+
+            SearchSuggestion(uiState = uiState)
+        }
     }
 }
 
@@ -162,13 +170,81 @@ private fun SearchLoadingIndicatorSlot(
 }
 
 @Composable
-private fun SearchDialogBody(
+private fun SearchFooter(
+    uiState: SearchUiState,
+    onQueryChange: (String) -> Unit,
+    showLoadingIndicator: Boolean,
+    focusRequester: FocusRequester,
+    providerVisual: SearchProviderVisual?,
+    indicatorColor: androidx.compose.ui.graphics.Color,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    SearchInput(
+        uiState = uiState,
+        onQueryChange = onQueryChange,
+        showLoadingIndicator = showLoadingIndicator,
+        focusRequester = focusRequester,
+        providerVisual = providerVisual,
+        indicatorColor = indicatorColor,
+        actionHandler = actionHandler
+    )
+
+    SearchSuggestion(uiState = uiState)
+}
+
+@Composable
+private fun SearchInput(
+    uiState: SearchUiState,
+    onQueryChange: (String) -> Unit,
+    showLoadingIndicator: Boolean,
+    focusRequester: FocusRequester,
+    providerVisual: SearchProviderVisual?,
+    indicatorColor: androidx.compose.ui.graphics.Color,
+    actionHandler: (SearchResultAction) -> Unit
+) {
+    UnifiedSearchInputField(
+        query = uiState.query,
+        onQueryChange = onQueryChange,
+        placeholderText = uiState.placeholderText,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.mediumLarge)
+            .padding(top = Spacing.mediumLarge),
+        focusRequester = focusRequester,
+        leadingIcon = providerVisual?.icon ?: Icons.Default.Search,
+        leadingIconTint = providerVisual?.accentColor
+            ?: MaterialTheme.colorScheme.onSurfaceVariant,
+        leadingIconContentDescription = uiState.activeProviderConfig?.name,
+        indicatorColor = indicatorColor,
+        imeAction = ImeAction.Done,
+        onImeAction = {
+            uiState.results.firstOrNull()?.let { result ->
+                actionHandler(SearchResultAction.Tap(result))
+            }
+        },
+        onClear = { onQueryChange("") },
+        supportingContent = {
+            ActiveProviderSupportingContent(
+                uiState = uiState,
+                providerVisual = providerVisual
+            )
+        }
+    )
+
+    SearchLoadingIndicatorSlot(
+        isVisible = showLoadingIndicator,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.mediumLarge)
+    )
+}
+
+@Composable
+private fun SearchResults(
     uiState: SearchUiState,
     onExternalAppDragStart: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val actionHandler = LocalSearchActionHandler.current
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -190,29 +266,34 @@ private fun SearchDialogBody(
                 activeProviderConfig = uiState.activeProviderConfig,
                 providerAccentColorById = uiState.providerAccentColorById,
                 onExternalAppDragStart = onExternalAppDragStart,
+                searchLayout = uiState.searchLayout,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f, fill = false)
             )
         }
-
-        val suggestionToShow = when {
-            uiState.shouldShowClipboardSuggestion -> uiState.clipboardSuggestion to "From clipboard"
-            uiState.shouldShowQuerySuggestion -> uiState.querySuggestion to "Suggested actions"
-            else -> null
-        }
-
-        if (suggestionToShow != null) {
-            val (suggestion, title) = suggestionToShow
-            if (suggestion != null) {
-                SuggestionChipsRow(
-                    title = title,
-                    suggestion = suggestion,
-                    sources = uiState.orderedSuggestedSources,
-                    defaultSourceId = uiState.defaultSearchSourceId,
-                    actionHandler = actionHandler
-                )
-            }
-        }
     }
+}
+
+@Composable
+private fun SearchSuggestion(uiState: SearchUiState) {
+    val actionHandler = LocalSearchActionHandler.current
+    val suggestionToShow = when {
+        uiState.shouldShowClipboardSuggestion ->
+            uiState.clipboardSuggestion to "From clipboard"
+        uiState.shouldShowQuerySuggestion ->
+            uiState.querySuggestion to "Suggested actions"
+        else -> null
+    }
+
+    val (suggestion, title) = suggestionToShow ?: return
+    suggestion ?: return
+
+    SuggestionChipsRow(
+        title = title,
+        suggestion = suggestion,
+        sources = uiState.orderedSuggestedSources,
+        defaultSourceId = uiState.defaultSearchSourceId,
+        actionHandler = actionHandler
+    )
 }
