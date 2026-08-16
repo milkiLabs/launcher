@@ -72,7 +72,14 @@ internal fun Modifier.detectHomeBackgroundGestures(
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val pressedCell = layoutMetrics.pixelToCell(down.position)
-                val startCellOccupied = items.findOccupantAt(pressedCell) != null
+                val occupant = items.findOccupantAt(pressedCell)
+                val startCellOccupied = occupant != null
+
+                // Popup widget icons handle their own swipe-up gesture to launch
+                // the provider app. Suppress background directional gestures when
+                // the touch starts on one so both don't fire simultaneously.
+                val isPopupWidgetCell = (occupant as? HomeItem.WidgetItem)
+                    ?.displayMode == com.milki.launcher.domain.model.WidgetDisplayMode.PopupIcon
 
                 if (!policy.canStartBackgroundGesture) {
                     return@awaitEachGesture
@@ -109,7 +116,8 @@ internal fun Modifier.detectHomeBackgroundGestures(
                     gestureThresholdPx = gestureThresholdPx,
                     longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
                     policy = policy,
-                    bindings = bindings
+                    bindings = bindings,
+                    suppressDirectionalGestures = isPopupWidgetCell
                 )
 
                 when (outcome) {
@@ -163,7 +171,8 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
     gestureThresholdPx: Float,
     longPressTimeoutMillis: Long,
     policy: HomeBackgroundGesturePolicy,
-    bindings: HomeBackgroundGestureBindings
+    bindings: HomeBackgroundGestureBindings,
+    suppressDirectionalGestures: Boolean = false
 ): BackgroundGestureOutcome? {
     var exceededTouchSlop = false
     val slopOutcome = withTimeoutOrNull(longPressTimeoutMillis) {
@@ -182,6 +191,9 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
                 minimumDistancePx = gestureThresholdPx
             )
             if (matchedTrigger != null) {
+                if (suppressDirectionalGestures) {
+                    return@withTimeoutOrNull BackgroundGestureOutcome.Moved
+                }
                 bindings.invoke(matchedTrigger)
                 return@withTimeoutOrNull BackgroundGestureOutcome.Triggered
             }
@@ -231,6 +243,9 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
             minimumDistancePx = gestureThresholdPx
         )
         if (matchedTrigger != null) {
+            if (suppressDirectionalGestures) {
+                return BackgroundGestureOutcome.Moved
+            }
             bindings.invoke(matchedTrigger)
             return BackgroundGestureOutcome.Triggered
         }

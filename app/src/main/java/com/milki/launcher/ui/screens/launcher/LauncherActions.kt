@@ -93,6 +93,9 @@ data class WidgetActions(
         widgetId: String,
         visibleRows: Int
     ) -> Unit = { _, _ -> },
+    val onLaunchWidgetApp: (
+        packageName: String
+    ) -> Unit = {},
     val onWidgetDroppedToHome: (
         providerInfo: android.appwidget.AppWidgetProviderInfo,
         span: GridSpan,

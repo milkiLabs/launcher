@@ -81,6 +81,7 @@ internal fun InternalGridDragLayer(
         displayMode: WidgetDisplayMode
     ) -> Unit,
     onExpandPopupWidget: (widgetId: String, visibleRows: Int) -> Unit,
+    onLaunchWidgetApp: (packageName: String) -> Unit,
     hapticLongPress: () -> Unit,
     hapticDragActivate: () -> Unit,
     hapticConfirm: () -> Unit,
@@ -208,6 +209,9 @@ internal fun InternalGridDragLayer(
                                 }
                                 if (dragController.session == null) onItemClick(item)
                             },
+                            onSwipeUp = if (isPopupWidget) {
+                                { onLaunchWidgetApp(widgetItem.providerPackage) }
+                            } else null,
                             onLongPress = {
                                 if (isInlineWidget) return@detectDragGesture
                                 showItemMenu(item)

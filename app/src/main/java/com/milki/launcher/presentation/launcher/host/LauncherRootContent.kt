@@ -263,6 +263,13 @@ internal fun LauncherRootContent(
                         onUpdateWidgetFrame = homeController::onUpdateWidgetFrame,
                         onUpdateWidgetDisplayMode = homeController::onUpdateWidgetDisplayMode,
                         onExpandPopupWidget = homeController::onExpandPopupWidget,
+                        onLaunchWidgetApp = { packageName ->
+                            val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+                            if (intent != null) {
+                                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            }
+                        },
                         onWidgetDroppedToHome = homeController::onWidgetDroppedToHome
                     )
                 )
