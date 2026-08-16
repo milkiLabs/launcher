@@ -317,7 +317,8 @@ private fun FolderPopupItem(
                         onClick = onRemoveFromFolder,
                         isDestructive = true
                     )
-                )
+                ),
+                includeUnpin = false
             ),
             expanded = showMenu,
             onDismiss = onMenuDismiss,

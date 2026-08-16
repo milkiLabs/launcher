@@ -90,14 +90,17 @@ fun ItemContextMenu(
  * Rules:
  * - [HomeItem.PinnedApp]: widgets + quick shortcuts + app info + unpin
  * - All other items: unpin only (no parent app actions for shortcuts)
+ * - Pass [includeUnpin] = false when the item lives inside a folder, where
+ *   "Remove from folder" is the relevant action instead (see FolderPopupDialogSupport).
  */
 @Composable
 fun buildHomeItemMenuActions(
     item: HomeItem,
-    extraActions: List<MenuAction> = emptyList()
+    extraActions: List<MenuAction> = emptyList(),
+    includeUnpin: Boolean = true
 ): List<MenuAction> {
     val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-    return remember(item, extraActions, actionHandler) {
+    return remember(item, extraActions, actionHandler, includeUnpin) {
         buildList {
             if (item is HomeItem.PinnedApp) {
                 if (AppContextDataCache.hasWidgets(item.packageName)) {
@@ -107,7 +110,9 @@ fun buildHomeItemMenuActions(
                 addAll(quickActions.map { createLaunchShortcutAction(it, actionHandler) })
                 add(createAppInfoAction(item.packageName, actionHandler))
             }
-            add(createUnpinAction(item.id, actionHandler))
+            if (includeUnpin) {
+                add(createUnpinAction(item.id, actionHandler))
+            }
             addAll(extraActions)
         }
     }
