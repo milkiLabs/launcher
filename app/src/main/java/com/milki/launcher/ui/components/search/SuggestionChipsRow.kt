@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -43,7 +44,6 @@ fun SuggestionChipsRow(
     sources: List<SearchSource>,
     defaultSourceId: String?,
     actionHandler: (SearchResultAction) -> Unit,
-    isOneHanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -51,20 +51,23 @@ fun SuggestionChipsRow(
             .fillMaxWidth()
             .padding(horizontal = Spacing.mediumLarge, vertical = Spacing.smallMedium)
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = Spacing.small)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = Spacing.small),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            SuggestionFooter(suggestion)
+        }
 
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
-            reverseLayout = isOneHanded,
-            horizontalArrangement = Arrangement.spacedBy(
-                Spacing.small,
-                if (isOneHanded) Alignment.End else Alignment.Start
-            )
+            horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.Start)
         ) {
             when (suggestion) {
                 is ActionSuggestion.OpenUrl -> {
@@ -131,8 +134,6 @@ fun SuggestionChipsRow(
                 }
             }
         }
-
-        SuggestionFooter(suggestion)
     }
 }
 
@@ -206,11 +207,11 @@ private fun SuggestionFooter(suggestion: ActionSuggestion) {
 
     Text(
         text = footerText,
-        style = MaterialTheme.typography.bodySmall,
+        style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(top = Spacing.small)
+        modifier = Modifier.padding(start = Spacing.smallMedium)
     )
 }
 

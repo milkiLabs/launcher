@@ -242,7 +242,6 @@ private fun SearchSuggestion(uiState: SearchUiState) {
         suggestion = suggestion,
         sources = uiState.orderedSuggestedSources,
         defaultSourceId = uiState.defaultSearchSourceId,
-        actionHandler = actionHandler,
-        isOneHanded = uiState.searchLayout == SearchLayout.ONE_HANDED
+        actionHandler = actionHandler
     )
 }
