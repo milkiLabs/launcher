@@ -18,8 +18,9 @@
  * ICON PREVIEW LOGIC:
  * Up to 4 items from [folder.children] are rendered as mini icons.
  * - PinnedApp → uses AppIcon (loads from package manager, memory-cached)
- * - AppShortcut → uses ShortcutIcon (same artwork as top-level shortcuts)
- * - PinnedFile → uses a colored square icon matching the file MIME type
+ * - AppShortcut → app icon with a small link badge (bottom-right)
+ * - ActionShortcut → app icon with a small link badge (bottom-right)
+ * - PinnedFile → uses a colored square icon matching the file MIME type (icon + color)
  * - PinnedContact → uses a person silhouette icon
  * If there are fewer than 4 children, empty cells are left blank (transparent).
  *
@@ -60,8 +61,10 @@ import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.launcher.homeItemIconLabelLayout
 import com.milki.launcher.ui.components.launcher.FOLDER_PREVIEW_SLOT_COUNT
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.IconBadge
 import com.milki.launcher.ui.components.common.IconLabelCell
-import com.milki.launcher.ui.components.common.ShortcutIcon
+import com.milki.launcher.ui.components.launcher.ActionShortcutIcon
+import com.milki.launcher.ui.components.launcher.FILE_ICON_FOREGROUND_SCALE
 import com.milki.launcher.ui.components.launcher.resolveFileTypeVisual
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -188,9 +191,10 @@ private fun FolderMiniGrid(
  * ITEM TYPE DISPATCH:
  * - null         → blank transparent Box (empty slot)
  * - PinnedApp    → [AppIcon] at mini size
- * - AppShortcut  → [ShortcutIcon] without the browser badge at mini size
- * - PinnedFile   → small colored square derived from MIME type (inline; no code import)
+ * - AppShortcut  → app icon with a link badge at the bottom-end
+ * - PinnedFile   → MIME-category icon on a colored rounded-square background
  * - PinnedContact → Material [Icons.Default.Person] on a subtle background
+ * - ActionShortcut → resolved target app icon (browser for links) with a link badge
  *
  * @param item The home item to render, or null for an empty slot.
  */
@@ -218,11 +222,9 @@ private fun FolderMiniIconSlot(
                 )
             }
             is HomeItem.AppShortcut -> {
-                ShortcutIcon(
-                    shortcut = item,
-                    size = miniIconSize,
-                    modifier = Modifier.size(miniIconSize),
-                    showBrowserBadge = false
+                MiniShortcutIconSlot(
+                    packageName = item.packageName,
+                    miniIconSize = miniIconSize
                 )
             }
             is HomeItem.PinnedFile -> {
@@ -236,7 +238,10 @@ private fun FolderMiniIconSlot(
                 MiniContactIconSlot(miniIconSize = miniIconSize)
             }
             is HomeItem.ActionShortcut -> {
-                MiniActionShortcutIconSlot(item = item, miniIconSize = miniIconSize)
+                ActionShortcutIcon(
+                    shortcut = item,
+                    size = miniIconSize
+                )
             }
             is HomeItem.FolderItem -> {
                 // Nested FolderItems should never appear as children (the nesting
@@ -251,58 +256,70 @@ private fun FolderMiniIconSlot(
     }
 }
 
+/**
+ * MiniShortcutIconSlot renders an app shortcut preview at mini size: the target
+ * app's icon with a small link badge in the bottom-end corner, mirroring how
+ * shortcuts appear on the home screen grid.
+ */
 @Composable
-private fun MiniActionShortcutIconSlot(
-    item: HomeItem.ActionShortcut,
+private fun MiniShortcutIconSlot(
+    packageName: String,
     miniIconSize: Dp
 ) {
-    val packageName = item.packageName
-    if (packageName != null) {
+    val badgeSize = miniIconSize * 0.5f
+    val badgePadding = badgeSize * 0.15f
+
+    Box(
+        modifier = Modifier.size(miniIconSize),
+        contentAlignment = Alignment.Center
+    ) {
         AppIcon(
             packageName = packageName,
             size = miniIconSize,
-            modifier = Modifier.size(miniIconSize)
+            modifier = Modifier.matchParentSize()
         )
-        return
-    }
 
-    Surface(
-        modifier = Modifier.size(miniIconSize),
-        shape = RoundedCornerShape(CornerRadius.extraSmall),
-        color = MaterialTheme.colorScheme.tertiaryContainer
-    ) {
-        Box(contentAlignment = Alignment.Center) {
+        IconBadge(
+            iconSize = miniIconSize,
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        ) {
             Icon(
                 imageVector = Icons.Default.Link,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.size(IconSize.extraSmall)
+                modifier = Modifier.size(badgeSize - (badgePadding * 2))
             )
         }
     }
 }
 
 /**
- * MiniFileIconSlot renders a small colored file-type indicator.
- *
- * Uses a rounded square background whose color is chosen from the file's MIME type.
- * This mirrors the color scheme used in the full-size [PinnedItem] file icons,
- * providing a consistent visual language at the mini preview size.
+ * MiniFileIconSlot renders a file-type preview at mini size: the MIME category
+ * icon on a colored rounded-square background, mirroring the full-size file
+ * icons on the home screen.
  */
 @Composable
 private fun MiniFileIconSlot(
     item: HomeItem.PinnedFile,
     miniIconSize: Dp
 ) {
-    // Pick a background color that communicates the file category at a glance.
-    val backgroundColor = resolveFileTypeVisual(item.mimeType, item.name).backgroundColor
+    val visual = resolveFileTypeVisual(item.mimeType, item.name)
 
     Box(
         modifier = Modifier
             .size(miniIconSize)
             .clip(RoundedCornerShape(CornerRadius.extraSmall))
-            .background(color = backgroundColor.copy(alpha = 0.8f))
-    )
+            .background(color = visual.backgroundColor.copy(alpha = 0.8f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = visual.icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+            modifier = Modifier.size(miniIconSize * FILE_ICON_FOREGROUND_SCALE)
+        )
+    }
 }
 
 /**
