@@ -19,11 +19,19 @@ sealed class HomeItem {
 
     abstract val id: String
 
-        abstract val position: GridPosition
+    abstract val position: GridPosition
 
-        abstract fun withPosition(newPosition: GridPosition): HomeItem
+    fun withPosition(newPosition: GridPosition): HomeItem = when (this) {
+        is PinnedApp -> copy(position = newPosition)
+        is PinnedFile -> copy(position = newPosition)
+        is PinnedContact -> copy(position = newPosition)
+        is AppShortcut -> copy(position = newPosition)
+        is ActionShortcut -> copy(position = newPosition)
+        is WidgetItem -> copy(position = newPosition)
+        is FolderItem -> copy(position = newPosition)
+    }
 
-        @Serializable
+    @Serializable
     @Immutable
     data class PinnedApp(
         override val id: String,
@@ -33,11 +41,7 @@ sealed class HomeItem {
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
-                override fun withPosition(newPosition: GridPosition): PinnedApp {
-            return copy(position = newPosition)
-        }
-
-        companion object {
+                companion object {
                         fun fromAppInfo(appInfo: AppInfo): PinnedApp {
                 val id = "app:${appInfo.packageName}/${appInfo.activityName}"
                 return PinnedApp(
@@ -62,11 +66,7 @@ sealed class HomeItem {
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
-                override fun withPosition(newPosition: GridPosition): PinnedFile {
-            return copy(position = newPosition)
-        }
-
-        companion object {
+                companion object {
                         fun fromFileDocument(file: FileDocument): PinnedFile {
                 return PinnedFile(
                     id = "file:${file.uri}",
@@ -92,11 +92,7 @@ sealed class HomeItem {
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
-                override fun withPosition(newPosition: GridPosition): PinnedContact {
-            return copy(position = newPosition)
-        }
-
-        companion object {
+                companion object {
                         fun fromContact(contact: Contact): PinnedContact {
                 val contactKey = if (contact.lookupKey.isNotBlank()) contact.lookupKey else contact.id.toString()
                 return PinnedContact(
@@ -123,11 +119,7 @@ sealed class HomeItem {
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
-                override fun withPosition(newPosition: GridPosition): AppShortcut {
-            return copy(position = newPosition)
-        }
-
-        companion object {
+                companion object {
             fun fromShortcutInfo(
                 packageName: String,
                 shortcutId: String,
@@ -156,10 +148,6 @@ sealed class HomeItem {
         val packageLabel: String? = null,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
-
-        override fun withPosition(newPosition: GridPosition): ActionShortcut {
-            return copy(position = newPosition)
-        }
 
         companion object {
             val DefaultDocsShortcut = ActionShortcut(
@@ -208,10 +196,6 @@ sealed class HomeItem {
                 WidgetDisplayMode.PopupIcon -> GridSpan.SINGLE
             }
 
-                override fun withPosition(newPosition: GridPosition): WidgetItem {
-            return copy(position = newPosition)
-        }
-
                 fun withSpan(newSpan: GridSpan): WidgetItem {
             return copy(span = newSpan)
         }
@@ -253,11 +237,7 @@ sealed class HomeItem {
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
-                override fun withPosition(newPosition: GridPosition): FolderItem {
-            return copy(position = newPosition)
-        }
-
-        companion object {
+                companion object {
 
                         fun create(
                 item1: HomeItem,
