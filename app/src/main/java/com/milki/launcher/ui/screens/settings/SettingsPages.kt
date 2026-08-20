@@ -33,7 +33,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import com.milki.launcher.BuildConfig
+import com.milki.launcher.core.intent.openUrlDestination
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
@@ -243,5 +246,28 @@ internal fun AdvancedSettingsScreen(
                 showResetDialog = false
             }
         )
+    }
+}
+
+@Composable
+internal fun AboutSettingsScreen(
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+
+    SettingsPageScaffold(title = "About", onBack = onBack) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+        ) {
+            AboutSection(
+                appVersion = BuildConfig.VERSION_NAME,
+                onOpenLink = { url -> openUrlDestination(context, url) }
+            )
+
+            Spacer(modifier = Modifier.height(Spacing.extraLarge))
+        }
     }
 }

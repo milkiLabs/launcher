@@ -44,6 +44,7 @@ sealed interface SettingsRoute {
     data object HomeScreen : SettingsRoute
     data object Search : SettingsRoute
     data object Advanced : SettingsRoute
+    data object About : SettingsRoute
     data class AppPicker(
         val trigger: LauncherTrigger,
         val action: LauncherTriggerAction
@@ -90,7 +91,8 @@ fun SettingsNavHost(
                         onOpenDefaultLauncherSettings = actions.onOpenDefaultLauncherSettings,
                         onOpenHomeScreen = { backStack.add(SettingsRoute.HomeScreen) },
                         onOpenSearch = { backStack.add(SettingsRoute.Search) },
-                        onOpenAdvanced = { backStack.add(SettingsRoute.Advanced) }
+                        onOpenAdvanced = { backStack.add(SettingsRoute.Advanced) },
+                        onOpenAbout = { backStack.add(SettingsRoute.About) }
                     )
                 }
 
@@ -119,6 +121,12 @@ fun SettingsNavHost(
                         onRequestReset = actions.advanced.onResetToDefaults,
                         onRequestExport = actions.advanced.onExportBackup,
                         onRequestImport = actions.advanced.onImportBackup,
+                        onBack = { backStack.removeLastOrNull() }
+                    )
+                }
+
+                is SettingsRoute.About -> NavEntry(key) {
+                    AboutSettingsScreen(
                         onBack = { backStack.removeLastOrNull() }
                     )
                 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,7 +45,8 @@ internal fun SettingsIndexScreen(
     onOpenDefaultLauncherSettings: () -> Unit,
     onOpenHomeScreen: () -> Unit,
     onOpenSearch: () -> Unit,
-    onOpenAdvanced: () -> Unit
+    onOpenAdvanced: () -> Unit,
+    onOpenAbout: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
@@ -100,6 +102,13 @@ internal fun SettingsIndexScreen(
                 subtitle = "Backup, import, and reset",
                 icon = Icons.Default.Settings,
                 onClick = onOpenAdvanced
+            )
+
+            SettingsGroupItem(
+                title = "About",
+                subtitle = "Version and links",
+                icon = Icons.Default.Info,
+                onClick = onOpenAbout
             )
 
             Spacer(modifier = Modifier.height(Spacing.extraLarge))
