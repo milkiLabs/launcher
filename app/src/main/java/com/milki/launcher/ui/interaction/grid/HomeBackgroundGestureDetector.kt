@@ -7,9 +7,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherTrigger
-import com.milki.launcher.ui.components.launcher.findOccupantAt
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -32,12 +32,13 @@ private data class PendingTap(
 internal fun Modifier.detectHomeBackgroundGestures(
     key: Any? = null,
     items: List<HomeItem>,
+    occupancy: GridOccupancy,
     layoutMetrics: AppDragDropLayoutMetrics,
     policy: HomeBackgroundGesturePolicy,
     gestureThresholdPx: Float,
     bindings: HomeBackgroundGestureBindings
 ): Modifier {
-    return pointerInput(key, items, layoutMetrics, policy, gestureThresholdPx, bindings) {
+    return pointerInput(key, items, occupancy, layoutMetrics, policy, gestureThresholdPx, bindings) {
         coroutineScope {
             var pendingTap: PendingTap? = null
             var pendingTapJob: Job? = null
@@ -72,7 +73,7 @@ internal fun Modifier.detectHomeBackgroundGestures(
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val pressedCell = layoutMetrics.pixelToCell(down.position)
-                val occupant = items.findOccupantAt(pressedCell)
+                val occupant = occupancy.occupantAt(pressedCell)
                 val startCellOccupied = occupant != null
 
                 // Popup widget icons handle their own swipe-up gesture to launch

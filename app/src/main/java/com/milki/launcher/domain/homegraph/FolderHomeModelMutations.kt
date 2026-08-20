@@ -1,5 +1,6 @@
 package com.milki.launcher.domain.homegraph
 
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
@@ -60,15 +61,9 @@ internal fun HomeModelWriter.addItemToFolder(
         HomeModelWriter.Result.Rejected(rejection)
     } else {
         evictItemEverywhere(mutable, command.item.id)
-        val updatedFolderLookup = findFolderLookup(mutable, command.folderId)
-        if (updatedFolderLookup == null) {
+        if (!mutable.appendToFolder(command.folderId, listOf(command.item), command.targetIndex)) {
             HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
         } else {
-            val children = updatedFolderLookup.folder.children.toMutableList()
-            val insertAt = command.targetIndex?.coerceIn(0, children.size) ?: children.size
-            children.add(insertAt, command.item.withPosition(GridPosition.DEFAULT))
-
-            mutable[updatedFolderLookup.index] = updatedFolderLookup.folder.copy(children = children)
             HomeModelWriter.Result.Applied(mutable)
         }
     }
@@ -131,13 +126,9 @@ internal fun HomeModelWriter.moveItemBetweenFolders(
     } else {
         evictItemEverywhere(mutable, command.itemId)
 
-        val updatedTargetLookup = findFolderLookup(mutable, command.targetFolderId)
-        if (updatedTargetLookup == null) {
+        if (!mutable.appendToFolder(command.targetFolderId, listOf(requireNotNull(child)))) {
             HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
         } else {
-            val children = updatedTargetLookup.folder.children.toMutableList()
-            children.add(requireNotNull(child).withPosition(GridPosition.DEFAULT))
-            mutable[updatedTargetLookup.index] = updatedTargetLookup.folder.copy(children = children)
             HomeModelWriter.Result.Applied(mutable)
         }
     }
@@ -198,17 +189,14 @@ internal fun HomeModelWriter.mergeFolders(
         HomeModelWriter.Result.Rejected(rejection)
     } else {
         val targetChildIds = requireNotNull(targetLookup).folder.children.map { it.id }.toSet()
-        val merged = targetLookup.folder.children + requireNotNull(sourceLookup).folder.children
+        val sourceChildren = requireNotNull(sourceLookup).folder.children
             .filterNot { it.id in targetChildIds }
-            .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
-            .map { it.withPosition(GridPosition.DEFAULT) }
 
         mutable.removeAll { it.id == command.sourceFolderId }
-        val updatedTargetLookup = findFolderLookup(mutable, command.targetFolderId)
-        if (updatedTargetLookup == null) {
+
+        if (!mutable.appendToFolder(command.targetFolderId, sourceChildren)) {
             HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
         } else {
-            mutable[updatedTargetLookup.index] = updatedTargetLookup.folder.copy(children = merged)
             HomeModelWriter.Result.Applied(mutable)
         }
     }
@@ -232,7 +220,7 @@ internal fun HomeModelWriter.extractItemFromFolder(
     command: HomeModelWriter.ExtractItemFromFolder
 ): HomeModelWriter.Result {
     val mutable = currentItems.toMutableList()
-    val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.folderId)
+    val occupied = GridOccupancy.fromItems(mutable, excludeItemId = command.folderId)
     val child = removeChildFromFolderWithCleanup(
         items = mutable,
         folderId = command.folderId,
@@ -240,7 +228,7 @@ internal fun HomeModelWriter.extractItemFromFolder(
     )
 
     val rejection = when {
-        command.targetPosition in occupied -> HomeModelWriter.Error.TargetOccupied
+        command.targetPosition in occupied.occupiedCells() -> HomeModelWriter.Error.TargetOccupied
         child == null -> HomeModelWriter.Error.ItemNotFound
         else -> null
     }

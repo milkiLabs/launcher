@@ -16,11 +16,11 @@ import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
 import com.milki.launcher.domain.reorder.ReorderMode
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
-import com.milki.launcher.domain.model.homeGridSpan
 import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragDropItem
@@ -114,9 +114,10 @@ fun DraggablePinnedItemsGrid(
             )
         }
 
-        // Build once per item-model change so drag-time occupant lookups stay O(1).
-        val occupancyLookup = remember(items) {
-            buildHomeOccupancyLookup(items)
+        // Build once per item-model change so drag-time occupant lookups stay O(1)
+        // and the reorder engine never rebuilds its occupancy per gesture frame.
+        val occupancy = remember(items) {
+            GridOccupancy.fromItems(items)
         }
 
         // Widget preview should use the same reorder planner as commit so users
@@ -132,7 +133,7 @@ fun DraggablePinnedItemsGrid(
                 val draggedWidget = session.item as? HomeItem.WidgetItem ?: return@derivedStateOf target
 
                 val reorderPlan = reorderEngine.compute(
-                    ReorderInput(
+                    input = ReorderInput(
                         items = items,
                         preferredCell = target,
                         draggedSpan = draggedWidget.homeGridSpan,
@@ -140,14 +141,15 @@ fun DraggablePinnedItemsGrid(
                         gridRows = maxVisibleRows,
                         excludeItemId = session.itemId,
                         mode = ReorderMode.Preview
-                    )
+                    ),
+                    occupancy = occupancy
                 )
                 if (reorderPlan.isValid) reorderPlan.anchorCell else target
             }
         }
 
         val dragTargetOccupant by remember(
-            occupancyLookup,
+            occupancy,
             resolvedInternalPreviewPosition
         ) {
             derivedStateOf {
@@ -155,7 +157,7 @@ fun DraggablePinnedItemsGrid(
                 val target = resolvedInternalPreviewPosition
                     ?: dragController.targetPosition
                     ?: return@derivedStateOf null
-                occupancyLookup[target]?.takeUnless { it.id == session.itemId }
+                occupancy.occupantAt(target, excludeItemId = session.itemId)
             }
         }
 
@@ -169,6 +171,7 @@ fun DraggablePinnedItemsGrid(
             cellHeightPx = cellHeightPx,
             maxVisibleRows = maxVisibleRows,
             reorderEngine = reorderEngine,
+            occupancy = occupancy,
             widgetHostManager = widgetHostManager,
             backgroundGestures = backgroundGestures,
             onItemClick = onItemClick,
@@ -208,6 +211,7 @@ fun DraggablePinnedItemsGrid(
             cellHeightPx = cellHeightPx,
             maxVisibleRows = maxVisibleRows,
             reorderEngine = reorderEngine,
+            occupancy = occupancy,
             widgetHostManager = widgetHostManager,
             dragTargetOccupant = dragTargetOccupant,
             resolvedInternalPreviewPosition = resolvedInternalPreviewPosition,
@@ -221,6 +225,7 @@ fun DraggablePinnedItemsGrid(
             layoutMetrics = layoutMetrics,
             maxVisibleRows = maxVisibleRows,
             reorderEngine = reorderEngine,
+            occupancy = occupancy,
             widgetHostManager = widgetHostManager,
             onItemDroppedToHome = onItemDroppedToHome,
             onCreateFolder = onCreateFolder,
@@ -231,43 +236,6 @@ fun DraggablePinnedItemsGrid(
             onWidgetDroppedToHome = onWidgetDroppedToHome,
             hapticConfirm = { hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm) }
         )
-    }
-}
-
-/**
- * Shared span-aware occupant lookup used by all routing/highlight paths.
- *
- * WHY THIS EXISTS:
- * Widgets occupy multiple cells while storing only one anchor [position].
- * A top-left-only check (`item.position == dropCell`) is wrong for any
- * non-anchor cell occupied by a widget span.
- */
-internal fun List<HomeItem>.findOccupantAt(
-    position: GridPosition,
-    excludeItemId: String? = null
-): HomeItem? {
-    return firstOrNull { candidate ->
-        if (excludeItemId != null && candidate.id == excludeItemId) return@firstOrNull false
-        val candidateSpan = candidate.homeGridSpan
-        position in candidateSpan.occupiedPositions(candidate.position)
-    }
-}
-
-/**
- * Finds the first top-level item whose occupied cells intersect [draggedSpan]
- * anchored at [droppedAt].
- */
-internal fun List<HomeItem>.findOccupantForDroppedSpan(
-    excludeItemId: String,
-    draggedSpan: GridSpan,
-    droppedAt: GridPosition
-): HomeItem? {
-    val draggedTargetCells = draggedSpan.occupiedPositions(droppedAt)
-    return firstOrNull { other ->
-        if (other.id == excludeItemId) return@firstOrNull false
-        val otherSpan = other.homeGridSpan
-        val otherCells = otherSpan.occupiedPositions(other.position)
-        otherCells.any { it in draggedTargetCells }
     }
 }
 

@@ -1,5 +1,7 @@
 package com.milki.launcher.domain.homegraph
 
+import com.milki.launcher.domain.model.GridBounds
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
@@ -14,7 +16,7 @@ internal fun HomeModelWriter.addPinnedItem(
     }
 
     val mutable = currentItems.toMutableList()
-    val position = findAvailablePosition(mutable, command.maxRows, gridColumns)
+    val position = GridOccupancy.fromItems(mutable).firstFreePosition(gridColumns, command.maxRows)
     mutable.add(command.item.withPosition(position))
     return HomeModelWriter.Result.Applied(mutable)
 }
@@ -46,10 +48,10 @@ internal fun HomeModelWriter.pinOrMove(
         command.item
     }
     val span = canonicalItem.homeGridSpan
-    val occupied = HomeGraph.buildOccupiedCells(mutable)
-    val rejection = when {
-        !isWithinGrid(command.targetPosition, span, gridColumns) -> HomeModelWriter.Error.OutOfBounds
-        !isSpanFree(command.targetPosition, span, occupied) -> HomeModelWriter.Error.TargetOccupied
+    val occupied = GridOccupancy.fromItems(mutable)
+val rejection = when {
+        !GridBounds(gridColumns).fits(command.targetPosition, span) -> HomeModelWriter.Error.OutOfBounds
+        !occupied.isSpanFree(command.targetPosition, span) -> HomeModelWriter.Error.TargetOccupied
         else -> null
     }
 

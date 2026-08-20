@@ -1,6 +1,7 @@
 package com.milki.launcher.data.repository.home
 
 import android.content.Context
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
@@ -10,14 +11,13 @@ import com.milki.launcher.domain.repository.HomeRepository
  *
  * ARCHITECTURE:
  * - HomeSnapshotStore: DataStore flow + transactional read/modify/write helper.
- * - GridOccupancyPolicy: span-aware placement for utility slot lookup.
+ * - GridOccupancy: shared span-aware placement index for free-slot lookup.
  */
 class HomeRepositoryImpl(
     context: Context
 ) : HomeRepository {
 
     private val snapshotStore = HomeSnapshotStore(context)
-    private val occupancyPolicy = GridOccupancyPolicy()
 
     override val pinnedItems = snapshotStore.pinnedItems
 
@@ -34,12 +34,7 @@ class HomeRepositoryImpl(
     }
 
     override suspend fun findAvailablePosition(columns: Int, maxRows: Int): GridPosition {
-        val currentItems = readPinnedItems()
-        return occupancyPolicy.findFirstAvailableSingleCell(
-            items = currentItems,
-            columns = columns,
-            maxRows = maxRows
-        )
+        return GridOccupancy.fromItems(readPinnedItems()).firstFreePosition(columns, maxRows)
     }
 
     override suspend fun clearAll() {

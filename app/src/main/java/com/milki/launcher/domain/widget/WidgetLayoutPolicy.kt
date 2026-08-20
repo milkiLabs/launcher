@@ -1,12 +1,13 @@
 package com.milki.launcher.domain.widget
 
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 
 fun fitInlineWidgetSpanAtAnchor(
     anchor: GridPosition,
     preferredSpan: GridSpan,
-    occupiedCells: Set<GridPosition>,
+    occupancy: GridOccupancy,
     gridColumns: Int,
     visibleRows: Int
 ): GridSpan? {
@@ -33,7 +34,7 @@ fun fitInlineWidgetSpanAtAnchor(
             }
         }
         .filter { span ->
-            span.occupiedPositions(anchor).none { cell -> cell in occupiedCells }
+            occupancy.isSpanFree(anchor, span)
         }
         .maxWithOrNull(
             compareBy<GridSpan> { it.columns * it.rows }

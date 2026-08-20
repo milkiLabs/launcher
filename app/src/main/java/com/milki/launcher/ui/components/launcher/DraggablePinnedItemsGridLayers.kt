@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -67,6 +68,7 @@ internal fun InternalGridDragLayer(
     cellHeightPx: Float,
     maxVisibleRows: Int,
     reorderEngine: GridReorderEngine,
+    occupancy: GridOccupancy,
     widgetHostManager: WidgetHostManager?,
     backgroundGestures: HomeBackgroundGestureBindings,
     onItemClick: (HomeItem) -> Unit,
@@ -127,7 +129,8 @@ internal fun InternalGridDragLayer(
                 items = latestItems,
                 gridColumns = config.columns,
                 gridRows = maxVisibleRows,
-                reorderEngine = reorderEngine
+                reorderEngine = reorderEngine,
+                occupancy = occupancy
             )
             applyInternalDropAction(action, internalDropHandlers)
         }
@@ -146,6 +149,7 @@ internal fun InternalGridDragLayer(
                         .joinToString(separator = ",") { it.name }
                 }",
                 items = items,
+                occupancy = occupancy,
                 layoutMetrics = layoutMetrics,
                 policy = backgroundGesturePolicy,
                 bindings = backgroundGestures.copy(

@@ -1,32 +1,12 @@
 package com.milki.launcher.domain.homegraph
 
 import com.milki.launcher.domain.model.GridPosition
-import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-
 
 internal data class FolderLookup(
     val index: Int,
     val folder: HomeItem.FolderItem
 )
-
-internal fun isWithinGrid(
-    position: GridPosition,
-    span: GridSpan,
-    gridColumns: Int
-): Boolean {
-    return position.row >= 0 &&
-        position.column >= 0 &&
-        position.column + span.columns <= gridColumns
-}
-
-internal fun isSpanFree(
-    position: GridPosition,
-    span: GridSpan,
-    occupied: Map<GridPosition, String>
-): Boolean {
-    return span.occupiedPositions(position).none { cell -> cell in occupied }
-}
 
 internal fun evictItemEverywhere(items: MutableList<HomeItem>, itemId: String) {
     items.removeAll { it.id == itemId }
@@ -85,27 +65,33 @@ internal fun findFolderLookup(items: List<HomeItem>, folderId: String): FolderLo
     return folder?.let { FolderLookup(folderIndex, it) }
 }
 
+/**
+ * Appends [additions] to the folder [folderId], normalizing positions and
+ * dropping nested folders/widgets. Returns false when the folder does not exist.
+ */
+internal fun MutableList<HomeItem>.appendToFolder(
+    folderId: String,
+    additions: List<HomeItem>,
+    targetIndex: Int? = null
+): Boolean {
+    val folderLookup = findFolderLookup(this, folderId) ?: return false
+    val safeAdditions = additions
+        .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
+        .map { it.withPosition(GridPosition.DEFAULT) }
+
+    val children = folderLookup.folder.children.toMutableList()
+    val insertAt = targetIndex?.coerceIn(0, children.size) ?: children.size
+    children.addAll(insertAt, safeAdditions)
+
+    this[folderLookup.index] = folderLookup.folder.copy(children = children)
+    return true
+}
+
 internal fun containsItemIdAnywhere(items: List<HomeItem>, itemId: String): Boolean {
     return items.any { it.id == itemId } ||
         items.any { candidate ->
             (candidate as? HomeItem.FolderItem)?.children?.any { it.id == itemId } == true
         }
-}
-
-internal fun findAvailablePosition(
-    items: List<HomeItem>,
-    maxRows: Int,
-    gridColumns: Int
-): GridPosition {
-    val occupied = HomeGraph.buildOccupiedCells(items)
-    val firstFreePosition = (0 until maxRows)
-        .asSequence()
-        .flatMap { row ->
-            (0 until gridColumns).asSequence().map { column -> GridPosition(row, column) }
-        }
-        .firstOrNull { position -> position !in occupied }
-
-    return firstFreePosition ?: GridPosition(maxRows, 0)
 }
 
 internal fun findLiveNonFolderTarget(

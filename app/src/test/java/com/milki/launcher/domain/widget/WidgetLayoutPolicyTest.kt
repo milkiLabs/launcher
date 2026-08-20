@@ -1,7 +1,9 @@
 package com.milki.launcher.domain.widget
 
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.domain.model.HomeItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -13,7 +15,7 @@ class WidgetLayoutPolicyTest {
         val result = fitInlineWidgetSpanAtAnchor(
             anchor = GridPosition(row = 0, column = 0),
             preferredSpan = GridSpan(columns = 2, rows = 2),
-            occupiedCells = emptySet(),
+            occupancy = GridOccupancy.empty(),
             gridColumns = 5,
             visibleRows = 5
         )
@@ -26,7 +28,7 @@ class WidgetLayoutPolicyTest {
         val result = fitInlineWidgetSpanAtAnchor(
             anchor = GridPosition(row = 0, column = 4),
             preferredSpan = GridSpan(columns = 2, rows = 2),
-            occupiedCells = emptySet(),
+            occupancy = GridOccupancy.empty(),
             gridColumns = 5,
             visibleRows = 5
         )
@@ -39,7 +41,7 @@ class WidgetLayoutPolicyTest {
         val result = fitInlineWidgetSpanAtAnchor(
             anchor = GridPosition(row = 4, column = 0),
             preferredSpan = GridSpan(columns = 2, rows = 2),
-            occupiedCells = emptySet(),
+            occupancy = GridOccupancy.empty(),
             gridColumns = 5,
             visibleRows = 5
         )
@@ -50,11 +52,22 @@ class WidgetLayoutPolicyTest {
     @Test
     fun returnsNullWhenAnchorCellIsOccupied() {
         val anchor = GridPosition(row = 0, column = 0)
+        val occupancy = GridOccupancy.fromItems(
+            listOf(
+                HomeItem.PinnedApp(
+                    id = "app:occupant",
+                    packageName = "com.example.occupant",
+                    activityName = "MainActivity",
+                    label = "Occupant",
+                    position = anchor
+                )
+            )
+        )
 
         val result = fitInlineWidgetSpanAtAnchor(
             anchor = anchor,
             preferredSpan = GridSpan(columns = 2, rows = 2),
-            occupiedCells = setOf(anchor),
+            occupancy = occupancy,
             gridColumns = 5,
             visibleRows = 5
         )

@@ -6,6 +6,8 @@ import com.milki.launcher.domain.drop.RejectReason
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
 import com.milki.launcher.domain.reorder.ReorderMode
+import com.milki.launcher.domain.model.GridBounds
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -112,20 +114,23 @@ internal fun resolveExternalDropAction(
     maxVisibleRows: Int,
     widgetHostManager: WidgetHostManager? = null,
     reorderEngine: GridReorderEngine = GridReorderEngine(),
-    reorderMode: ReorderMode
+    reorderMode: ReorderMode,
+    occupancy: GridOccupancy? = null
 ): ExternalDropAction? {
     if (item == null) return null
+
+    val resolved = occupancy ?: GridOccupancy.fromItems(items)
 
     return when (item) {
         is ExternalDragItem.FolderChild -> resolveFolderChildDropAction(
             item = item,
             dropPosition = dropPosition,
-            items = items
+            occupancy = resolved
         )
         is ExternalDragItem.Widget -> resolveWidgetDropAction(
             item = item,
             dropPosition = dropPosition,
-            items = items,
+            occupancy = resolved,
             gridColumns = gridColumns,
             maxVisibleRows = maxVisibleRows,
             widgetHostManager = widgetHostManager,
@@ -135,7 +140,7 @@ internal fun resolveExternalDropAction(
         else -> resolveRegularExternalDropAction(
             item = item,
             dropPosition = dropPosition,
-            items = items
+            occupancy = resolved
         )
     }
 }
@@ -203,9 +208,9 @@ internal fun applyExternalDropAction(
 private fun resolveFolderChildDropAction(
     item: ExternalDragItem.FolderChild,
     dropPosition: GridPosition,
-    items: List<HomeItem>
+    occupancy: GridOccupancy
 ): ExternalDropAction {
-    val occupant = items.findOccupantAt(dropPosition)
+    val occupant = occupancy.occupantAt(dropPosition)
     return when {
         occupant is HomeItem.FolderItem && occupant.id == item.folderId -> {
             ExternalDropAction.Reject(
@@ -265,10 +270,10 @@ private fun resolveFolderChildDropAction(
 private fun resolveRegularExternalDropAction(
     item: ExternalDragDropItem,
     dropPosition: GridPosition,
-    items: List<HomeItem>
+    occupancy: GridOccupancy
 ): ExternalDropAction? {
     val previewHomeItem = item.toPreviewHomeItem() ?: return null
-    val occupant = items.findOccupantAt(dropPosition)
+    val occupant = occupancy.occupantAt(dropPosition)
 
     return when (occupant) {
         is HomeItem.FolderItem -> {
@@ -317,7 +322,7 @@ private fun resolveRegularExternalDropAction(
 private fun resolveWidgetDropAction(
     item: ExternalDragItem.Widget,
     dropPosition: GridPosition,
-    items: List<HomeItem>,
+    occupancy: GridOccupancy,
     gridColumns: Int,
     maxVisibleRows: Int,
     widgetHostManager: WidgetHostManager?,
@@ -332,21 +337,17 @@ private fun resolveWidgetDropAction(
         WidgetDisplayMode.Inline -> normalizedSpan
         WidgetDisplayMode.PopupIcon -> GridSpan.SINGLE
     }
-    val clampedDropPosition = clampWidgetDropPosition(
-        dropPosition = dropPosition,
-        normalizedSpan = placementSpan,
-        gridColumns = gridColumns,
-        maxVisibleRows = maxVisibleRows
-    )
+    val clampedDropPosition = GridBounds(gridColumns, maxVisibleRows).clamp(dropPosition, placementSpan)
     val reorderPlan = reorderEngine.compute(
-        ReorderInput(
-            items = items,
+        input = ReorderInput(
+            items = occupancy.items,
             preferredCell = clampedDropPosition,
             draggedSpan = placementSpan,
             gridColumns = gridColumns,
             gridRows = maxVisibleRows,
             mode = reorderMode
-        )
+        ),
+        occupancy = occupancy
     )
     val resolvedTarget = if (reorderPlan.isValid) reorderPlan.anchorCell else clampedDropPosition
     val resolvedProvider = item.providerInfo
@@ -398,23 +399,5 @@ private fun previewState(
         targetPosition = targetPosition,
         dragSpan = dragSpan,
         highlightKind = highlightKind
-    )
-}
-
-private fun clampWidgetDropPosition(
-    dropPosition: GridPosition,
-    normalizedSpan: GridSpan,
-    gridColumns: Int,
-    maxVisibleRows: Int
-): GridPosition {
-    return GridPosition(
-        row = dropPosition.row.coerceIn(
-            minimumValue = 0,
-            maximumValue = (maxVisibleRows - normalizedSpan.rows).coerceAtLeast(0)
-        ),
-        column = dropPosition.column.coerceIn(
-            minimumValue = 0,
-            maximumValue = (gridColumns - normalizedSpan.columns).coerceAtLeast(0)
-        )
     )
 }

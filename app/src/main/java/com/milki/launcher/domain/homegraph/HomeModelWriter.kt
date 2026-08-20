@@ -17,7 +17,7 @@ class HomeModelWriter(
 
     data class AddPinnedItem(
         val item: HomeItem,
-        val maxRows: Int = 100
+        val maxRows: Int = HomeGridDefaults.MAX_ROWS
     ) : Command
 
     data class MoveTopLevelItem(

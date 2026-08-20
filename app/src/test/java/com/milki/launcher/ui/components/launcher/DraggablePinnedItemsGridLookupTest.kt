@@ -1,5 +1,6 @@
 package com.milki.launcher.ui.components.launcher
 
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -11,7 +12,7 @@ import org.junit.Test
 class DraggablePinnedItemsGridLookupTest {
 
     @Test
-    fun buildOccupancyLookup_mapsWidgetOccupiedCells() {
+    fun gridOccupancy_mapsWidgetOccupiedCells() {
         val widget = HomeItem.WidgetItem(
             id = "widget:42",
             appWidgetId = 42,
@@ -30,14 +31,32 @@ class DraggablePinnedItemsGridLookupTest {
             position = GridPosition(row = 0, column = 0)
         )
 
-        val lookup = buildHomeOccupancyLookup(listOf(app, widget))
+        val occupancy = GridOccupancy.fromItems(listOf(app, widget))
 
-        assertEquals(app, lookup[GridPosition(row = 0, column = 0)])
-        assertEquals(widget, lookup[GridPosition(row = 1, column = 1)])
-        assertEquals(widget, lookup[GridPosition(row = 1, column = 2)])
-        assertEquals(widget, lookup[GridPosition(row = 2, column = 1)])
-        assertEquals(widget, lookup[GridPosition(row = 2, column = 2)])
-        assertNull(lookup[GridPosition(row = 4, column = 4)])
+        assertEquals(app, occupancy.occupantAt(GridPosition(row = 0, column = 0)))
+        assertEquals(widget, occupancy.occupantAt(GridPosition(row = 1, column = 1)))
+        assertEquals(widget, occupancy.occupantAt(GridPosition(row = 1, column = 2)))
+        assertEquals(widget, occupancy.occupantAt(GridPosition(row = 2, column = 1)))
+        assertEquals(widget, occupancy.occupantAt(GridPosition(row = 2, column = 2)))
+        assertNull(occupancy.occupantAt(GridPosition(row = 4, column = 4)))
+    }
+
+    @Test
+    fun gridOccupancy_excludeItemId_freesExcludedOwnersCells() {
+        val a = HomeItem.PinnedApp(
+            id = "app:a",
+            packageName = "com.example",
+            activityName = "Main",
+            label = "App",
+            position = GridPosition(row = 0, column = 0)
+        )
+
+        val occupancy = GridOccupancy.fromItems(listOf(a))
+
+        assertEquals(a, occupancy.occupantAt(GridPosition(row = 0, column = 0)))
+        assertNull(occupancy.occupantAt(GridPosition(row = 0, column = 0), excludeItemId = a.id))
+        assertEquals(false, occupancy.isSpanFree(GridPosition(row = 0, column = 0), GridSpan.SINGLE))
+        assertEquals(true, occupancy.isSpanFree(GridPosition(row = 0, column = 0), GridSpan.SINGLE, excludeItemId = a.id))
     }
 
     @Test

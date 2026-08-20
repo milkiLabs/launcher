@@ -4,6 +4,7 @@ import com.milki.launcher.domain.drop.RejectReason
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
 import com.milki.launcher.domain.reorder.ReorderMode
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.homeGridSpan
@@ -49,11 +50,14 @@ internal fun resolveInternalDropAction(
     items: List<HomeItem>,
     gridColumns: Int,
     gridRows: Int,
-    reorderEngine: GridReorderEngine = GridReorderEngine()
+    reorderEngine: GridReorderEngine = GridReorderEngine(),
+    occupancy: GridOccupancy? = null
 ): InternalDropAction {
+    val resolved = occupancy ?: GridOccupancy.fromItems(items)
+
     val resolvedDropPosition = if (draggedItem is HomeItem.WidgetItem) {
         val reorderPlan = reorderEngine.compute(
-            ReorderInput(
+            input = ReorderInput(
                 items = items,
                 preferredCell = dropPosition,
                 draggedSpan = draggedItem.homeGridSpan,
@@ -61,7 +65,8 @@ internal fun resolveInternalDropAction(
                 gridRows = gridRows,
                 excludeItemId = draggedItem.id,
                 mode = ReorderMode.Commit
-            )
+            ),
+            occupancy = resolved
         )
         if (!reorderPlan.isValid) {
             return InternalDropAction.Reject(RejectReason.OCCUPIED_TARGET)
@@ -71,11 +76,11 @@ internal fun resolveInternalDropAction(
         dropPosition
     }
 
-    val occupant = items.findOccupantForDroppedSpan(
-        excludeItemId = draggedItem.id,
-        draggedSpan = draggedItem.homeGridSpan,
-        droppedAt = resolvedDropPosition
-    )
+    val occupant = resolved.overlappingOccupants(
+        anchor = resolvedDropPosition,
+        span = draggedItem.homeGridSpan,
+        excludeItemId = draggedItem.id
+    ).firstOrNull()
 
     return when {
         occupant == null -> InternalDropAction.MoveItem(

@@ -33,11 +33,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import com.milki.launcher.domain.model.GridBounds
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
-import com.milki.launcher.domain.model.homeGridSpan
 import com.milki.launcher.domain.widget.WidgetFrame
 import com.milki.launcher.domain.widget.WidgetTransformHandle
 import com.milki.launcher.domain.widget.applyWidgetTransformHandle
@@ -129,16 +130,7 @@ private fun WidgetResizeOverlay(
         maxVisibleRows
     ) {
         val previewPosition = if (isPopupWidget) {
-            widgetItem.position.copy(
-                row = widgetItem.position.row.coerceIn(
-                    0,
-                    (maxVisibleRows - widgetItem.span.rows).coerceAtLeast(0)
-                ),
-                column = widgetItem.position.column.coerceIn(
-                    0,
-                    (gridColumns - widgetItem.span.columns).coerceAtLeast(0)
-                )
-            )
+            GridBounds(gridColumns, maxVisibleRows).clamp(widgetItem.position, widgetItem.span)
         } else {
             widgetItem.position
         }
@@ -174,24 +166,14 @@ private fun WidgetResizeOverlay(
     ) {
         mutableStateOf(true)
     }
-    val occupiedCells = remember(items, widgetItem.id) {
-        val cells = mutableSetOf<GridPosition>()
-        for (item in items) {
-            if (item.id == widgetItem.id) continue
-            if (item is HomeItem.WidgetItem) {
-                cells.addAll(item.homeGridSpan.occupiedPositions(item.position))
-            } else {
-                cells.add(item.position)
-            }
-        }
-        cells
+    val draftOccupancy = remember(items, widgetItem.id) {
+        GridOccupancy.fromItems(items, excludeItemId = widgetItem.id)
     }
 
     fun isFrameFree(frame: WidgetFrame): Boolean {
         if (isPopupWidget) return true
 
-        val occupiedByCandidate = frame.span.occupiedPositions(frame.position)
-        return occupiedByCandidate.none { it in occupiedCells }
+        return draftOccupancy.isSpanFree(frame.position, frame.span)
     }
 
     fun updateDraft(frame: WidgetFrame) {

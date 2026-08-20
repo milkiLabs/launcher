@@ -16,6 +16,7 @@
 
 package com.milki.launcher.domain.repository
 
+import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import kotlinx.coroutines.flow.Flow
@@ -41,7 +42,10 @@ interface HomeRepository {
     suspend fun isPinned(id: String): Boolean
 
     /** Utility placement helper retained for bootstrap/reset flows. */
-    suspend fun findAvailablePosition(columns: Int, maxRows: Int = 100): GridPosition
+    suspend fun findAvailablePosition(
+        columns: Int,
+        maxRows: Int = HomeGridDefaults.MAX_ROWS
+    ): GridPosition
 
     /** Clears all persisted home items. */
     suspend fun clearAll()

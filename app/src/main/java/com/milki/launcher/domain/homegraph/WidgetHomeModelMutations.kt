@@ -1,5 +1,7 @@
 package com.milki.launcher.domain.homegraph
 
+import com.milki.launcher.domain.model.GridBounds
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
@@ -32,11 +34,11 @@ internal fun HomeModelWriter.expandPopupWidget(
     val existing = mutable.getOrNull(index) as? HomeItem.WidgetItem
         ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
 
-    val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = command.widgetId)
+    val occupancy = GridOccupancy.fromItems(mutable, excludeItemId = command.widgetId)
     val inlineSpan = fitInlineWidgetSpanAtAnchor(
         anchor = existing.position,
         preferredSpan = existing.span,
-        occupiedCells = occupied.keys,
+        occupancy = occupancy,
         gridColumns = gridColumns,
         visibleRows = command.visibleRows
     )
@@ -62,11 +64,11 @@ internal fun HomeModelWriter.updateTopLevelItem(
 
     val updated = modification(existing) ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidWidgetOperation)
     val span = updated.homeGridSpan
-    val occupied = HomeGraph.buildOccupiedCells(mutable, excludeItemId = itemId)
+    val occupied = GridOccupancy.fromItems(mutable, excludeItemId = itemId)
 
     val rejection = when {
-        !isWithinGrid(updated.position, span, gridColumns) -> HomeModelWriter.Error.OutOfBounds
-        !isSpanFree(updated.position, span, occupied) -> HomeModelWriter.Error.TargetOccupied
+        !GridBounds(gridColumns).fits(updated.position, span) -> HomeModelWriter.Error.OutOfBounds
+        !occupied.isSpanFree(updated.position, span) -> HomeModelWriter.Error.TargetOccupied
         else -> null
     }
 

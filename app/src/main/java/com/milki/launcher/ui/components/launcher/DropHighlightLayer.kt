@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -56,6 +57,7 @@ internal fun DropHighlightLayer(
     cellHeightPx: Float,
     maxVisibleRows: Int,
     reorderEngine: GridReorderEngine,
+    occupancy: GridOccupancy,
     widgetHostManager: WidgetHostManager?,
     dragTargetOccupant: HomeItem?,
     resolvedInternalPreviewPosition: GridPosition?,
@@ -150,7 +152,8 @@ internal fun DropHighlightLayer(
                 maxVisibleRows = maxVisibleRows,
                 widgetHostManager = widgetHostManager,
                 reorderEngine = reorderEngine,
-                reorderMode = ReorderMode.Preview
+                reorderMode = ReorderMode.Preview,
+                occupancy = occupancy
             )?.previewState?.let { previewState ->
                 val highlightColor = when (previewState.highlightKind) {
                     ExternalDropHighlightKind.Primary -> MaterialTheme.colorScheme.primary

@@ -9,6 +9,7 @@ import androidx.compose.ui.zIndex
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderMode
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -28,6 +29,7 @@ internal fun ExternalDropRoutingLayer(
     layoutMetrics: AppDragDropLayoutMetrics,
     maxVisibleRows: Int,
     reorderEngine: GridReorderEngine,
+    occupancy: GridOccupancy,
     widgetHostManager: WidgetHostManager?,
     onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit,
     onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
@@ -92,7 +94,8 @@ internal fun ExternalDropRoutingLayer(
                 maxVisibleRows = maxVisibleRows,
                 widgetHostManager = widgetHostManager,
                 reorderEngine = reorderEngine,
-                reorderMode = ReorderMode.Commit
+                reorderMode = ReorderMode.Commit,
+                occupancy = occupancy
             ) ?: return@AppExternalDropTargetOverlay false
 
             return@AppExternalDropTargetOverlay applyExternalDropAction(action, handlers)
