@@ -131,7 +131,6 @@ object ExternalDragPayloadCodec {
             val id: Long,
             val displayName: String,
             val phoneNumbers: List<String>,
-            val emails: List<String>,
             val photoUri: String?,
             val lookupKey: String
         ) : ExternalPayloadDto()
@@ -312,7 +311,6 @@ object ExternalDragPayloadCodec {
                     id = contact.id,
                     displayName = contact.displayName,
                     phoneNumbers = contact.phoneNumbers,
-                    emails = contact.emails,
                     photoUri = contact.photoUri,
                     lookupKey = contact.lookupKey
                 )
@@ -431,7 +429,6 @@ object ExternalDragPayloadCodec {
                     id = payload.id,
                     displayName = payload.displayName,
                     phoneNumbers = payload.phoneNumbers,
-                    emails = payload.emails,
                     photoUri = payload.photoUri,
                     lookupKey = payload.lookupKey
                 )

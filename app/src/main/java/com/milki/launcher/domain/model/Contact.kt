@@ -3,7 +3,7 @@
  * 
  * This file defines the Contact data class which represents a single contact
  * from the device's contacts database. It includes contact details like
- * name, phone numbers, and email addresses.
+ * name and phone numbers.
  * 
  * Used by the contacts search feature to display and interact with contacts.
  */
@@ -15,10 +15,12 @@ import androidx.compose.runtime.Immutable
 /**
  * Represents a single contact from the device.
  * 
+ * Email addresses are intentionally excluded — this launcher only surfaces
+ * phone numbers for contacts.
+ * 
  * @property id Unique contact ID from the Contacts Provider
  * @property displayName The primary display name of the contact
  * @property phoneNumbers List of phone numbers associated with this contact
- * @property emails List of email addresses associated with this contact
  * @property photoUri Optional URI to the contact's photo (null if no photo)
  * @property lookupKey Lookup key for retrieving the contact later
  * 
@@ -28,7 +30,6 @@ import androidx.compose.runtime.Immutable
  *     id = 123,
  *     displayName = "John Doe",
  *     phoneNumbers = listOf("+1 555-1234"),
- *     emails = listOf("john@example.com"),
  *     lookupKey = "1234i567..."
  * )
  * ```
@@ -53,13 +54,6 @@ data class Contact(
      * Can be empty if contact has no phone numbers.
      */
     val phoneNumbers: List<String>,
-    
-    /**
-     * List of all email addresses associated with this contact.
-     * Retrieved from the Email content URI.
-     * Can be empty if contact has no emails.
-     */
-    val emails: List<String>,
     
     /**
      * Optional URI to the contact's photo.

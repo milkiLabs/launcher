@@ -11,16 +11,20 @@ import kotlinx.coroutines.flow.map
 /**
  * Generic LRU list backed by a DataStore CSV preference.
  *
- * Subclasses provide encoding/decoding for their element type and
- * configure the DataStore, preference key, and maximum size.
+ * Instances are configured with [encoder]/[decoder] lambdas for their element type plus
+ * the DataStore, preference key, and maximum size. Subclasses that need extra behavior
+ * (e.g. [RecentAppsStore]) may extend this class and override [encode]/[decode] instead
+ * of passing the lambdas.
  */
-internal abstract class RecentListStorage<T>(
+open class RecentListStorage<T>(
     protected val dataStore: DataStore<Preferences>,
     protected val key: Preferences.Key<String>,
     protected val maxSize: Int,
+    protected val encoder: (T) -> String = { item -> "${item}" },
+    protected val decoder: (String) -> T? = { null },
 ) {
-    protected abstract fun encode(item: T): String
-    protected abstract fun decode(raw: String): T?
+    protected open fun encode(item: T): String = encoder(item)
+    protected open fun decode(raw: String): T? = decoder(raw)
 
     suspend fun saveRecent(item: T) {
         val encoded = encode(item)

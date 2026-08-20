@@ -1,4 +1,3 @@
-
 package com.milki.launcher.data.repository.files
 
 import android.content.Context
@@ -6,98 +5,144 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.core.permission.PermissionChecker
+import com.milki.launcher.data.repository.common.AbstractContentResolverRecentStore
+import com.milki.launcher.data.repository.common.RecentListStorage
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.repository.FilesRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
+
+private val Context.filesRecentDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "recent_files"
+)
 
 class FilesRepositoryImpl(
-    private val context: Context
-) : FilesRepository {
+    context: Context
+) : AbstractContentResolverRecentStore<Long>(context), FilesRepository {
 
-        private val recentStorage = FilesRecentStorage(context)
+    override val recentStore: RecentListStorage<Long> = RecentListStorage(
+        dataStore = appContext.filesRecentDataStore,
+        key = stringPreferencesKey("recent_files"),
+        maxSize = 8,
+        encoder = { fileId -> fileId.toString() },
+        decoder = { raw -> raw.toLongOrNull() }
+    )
+
     private val cursorReader = MediaStoreFileCursorReader()
 
-    companion object {
-        private const val TAG = "FilesRepositoryImpl"
+    override fun hasFilesPermission(): Boolean = PermissionChecker.hasFilesPermission(appContext)
+
+    override fun hasPermission(): Boolean = hasFilesPermission()
+
+    override suspend fun saveRecentFile(fileId: Long) {
+        saveRecent(fileId)
     }
 
-        private val contentResolver = context.contentResolver
-
-        override fun hasFilesPermission(): Boolean {
-        return PermissionChecker.hasFilesPermission(context)
+    override fun getRecentFileIds(): Flow<List<Long>> {
+        return observeRecent().flowOn(Dispatchers.IO)
     }
 
-        override suspend fun searchFiles(query: String, maxItems: Int, extensionConfig: FileSearchExtensionConfig): List<FileDocument> {
-        val hasPermission = hasFilesPermission()
-        if (!hasPermission) {
-            Log.w(TAG, "searchFiles called without permission")
-        }
-
-        return if (hasPermission && maxItems > 0) {
-            withContext(Dispatchers.IO) {
-                try {
-                    val files = mutableListOf<FileDocument>()
-                    val addedFileIds = mutableSetOf<Long>()
-
-                    Log.d(TAG, "Searching files with query: $query")
-                    currentCoroutineContext().ensureActive()
-
-                    queryMediaStoreCollection(
-                        uri = MediaStore.Files.getContentUri("external"),
-                        query = query,
-                        files = files,
-                        addedFileIds = addedFileIds,
-                        maxItems = maxItems,
-                        extensionConfig = extensionConfig
-                    )
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && files.size < maxItems) {
-                        currentCoroutineContext().ensureActive()
-                        queryMediaStoreCollection(
-                            uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                            query = query,
-                            files = files,
-                            addedFileIds = addedFileIds,
-                            maxItems = maxItems,
-                            extensionConfig = extensionConfig
-                        )
-                    }
-
-                    Log.d(TAG, "Returning ${files.size} files")
-                    files
-                } catch (e: IllegalArgumentException) {
-                    Log.e(TAG, "Error searching files", e)
+    override suspend fun searchFiles(
+        query: String,
+        maxItems: Int,
+        extensionConfig: FileSearchExtensionConfig,
+    ): List<FileDocument> {
+        return withPermissionOr(
+            whenGranted = {
+                if (maxItems <= 0) {
                     emptyList()
-                } catch (e: SecurityException) {
-                    Log.e(TAG, "Error searching files", e)
-                    emptyList()
+                } else {
+                    queryMediaStore(searchQuery = query, maxItems = maxItems, extensionConfig = extensionConfig)
                 }
-            }
-        } else {
-            emptyList()
-        }
+            },
+            whenDenied = { emptyList() }
+        ) ?: emptyList()
     }
 
-        private suspend fun queryMediaStoreCollection(
+    override suspend fun getRecentFiles(
+        limit: Int,
+        extensionConfig: FileSearchExtensionConfig,
+    ): List<FileDocument> {
+        return withPermissionOr(
+            whenGranted = { queryRecentFiles(limit = limit, extensionConfig = extensionConfig) },
+            whenDenied = { emptyList() }
+        ) ?: emptyList()
+    }
+
+    override suspend fun getFilesByIds(
+        ids: List<Long>,
+        extensionConfig: FileSearchExtensionConfig,
+    ): Map<Long, FileDocument> {
+        if (ids.isEmpty()) {
+            return emptyMap()
+        }
+
+        return withPermissionOr(
+            whenGranted = { queryMediaStoreByIds(ids = ids, extensionConfig = extensionConfig) },
+            whenDenied = { emptyMap() }
+        ) ?: emptyMap()
+    }
+
+    private suspend fun queryMediaStore(
+        searchQuery: String,
+        maxItems: Int,
+        extensionConfig: FileSearchExtensionConfig,
+    ): List<FileDocument> {
+        val files = mutableListOf<FileDocument>()
+        val addedFileIds = mutableSetOf<Long>()
+
+        Log.d(TAG, "Searching files with query: $searchQuery")
+        currentCoroutineContext().ensureActive()
+
+        queryMediaStoreCollection(
+            uri = MediaStore.Files.getContentUri("external"),
+            query = searchQuery,
+            files = files,
+            addedFileIds = addedFileIds,
+            maxItems = maxItems,
+            extensionConfig = extensionConfig
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && files.size < maxItems) {
+            currentCoroutineContext().ensureActive()
+            queryMediaStoreCollection(
+                uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                query = searchQuery,
+                files = files,
+                addedFileIds = addedFileIds,
+                maxItems = maxItems,
+                extensionConfig = extensionConfig
+            )
+        }
+
+        Log.d(TAG, "Returning ${files.size} files")
+        return files
+    }
+
+    private suspend fun queryMediaStoreCollection(
         uri: Uri,
         query: String,
         files: MutableList<FileDocument>,
         addedFileIds: MutableSet<Long>,
         maxItems: Int,
-        extensionConfig: FileSearchExtensionConfig
+        extensionConfig: FileSearchExtensionConfig,
     ) {
         try {
             currentCoroutineContext().ensureActive()
             if (files.size >= maxItems) return
+
             val selection = "${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?"
             val selectionArgs = arrayOf("%$query%")
-            
+
             Log.d(TAG, "Querying URI: $uri with query: $query")
             val cursor = contentResolver.query(
                 uri,
@@ -106,7 +151,7 @@ class FilesRepositoryImpl(
                 selectionArgs,
                 "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC"
             )
-            
+
             Log.d(TAG, "Query $uri returned ${cursor?.count ?: 0} rows")
             cursor?.use {
                 val columns = cursorReader.resolveColumns(it)
@@ -135,117 +180,89 @@ class FilesRepositoryImpl(
         }
     }
 
-        override suspend fun getRecentFiles(limit: Int, extensionConfig: FileSearchExtensionConfig): List<FileDocument> {
-        if (!hasFilesPermission()) {
-            Log.w(TAG, "getRecentFiles called without permission")
-            return emptyList()
-        }
+    private suspend fun queryRecentFiles(
+        limit: Int,
+        extensionConfig: FileSearchExtensionConfig,
+    ): List<FileDocument> {
+        val files = mutableListOf<FileDocument>()
+        val addedFileIds = mutableSetOf<Long>()
 
-        return withContext(Dispatchers.IO) {
-            try {
-                val files = mutableListOf<FileDocument>()
-                val addedFileIds = mutableSetOf<Long>()
-                val cursor = contentResolver.query(
-                    MediaStore.Files.getContentUri("external"),
-                    cursorReader.projection,
-                    null,
-                    null,
-                    "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC LIMIT $limit"
+        val cursor = contentResolver.query(
+            MediaStore.Files.getContentUri("external"),
+            cursorReader.projection,
+            null,
+            null,
+            "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC LIMIT $limit"
+        )
+
+        cursor?.use {
+            val columns = cursorReader.resolveColumns(it)
+
+            while (it.moveToNext()) {
+                currentCoroutineContext().ensureActive()
+                cursorReader.addFileFromCursorRow(
+                    cursor = it,
+                    columns = columns,
+                    collectionUri = MediaStore.Files.getContentUri("external"),
+                    files = files,
+                    addedFileIds = addedFileIds,
+                    logFilteredOut = false,
+                    allowedExtensions = extensionConfig.resolveAllowedExtensions(),
+                    excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
                 )
-                
-                cursor?.use {
-                    val columns = cursorReader.resolveColumns(it)
-                    
-                    while (it.moveToNext()) {
-                        currentCoroutineContext().ensureActive()
-                        cursorReader.addFileFromCursorRow(
-                            cursor = it,
-                            columns = columns,
-                            collectionUri = MediaStore.Files.getContentUri("external"),
-                            files = files,
-                            addedFileIds = addedFileIds,
-                            logFilteredOut = false,
-                            allowedExtensions = extensionConfig.resolveAllowedExtensions(),
-                            excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
-                        )
-                    }
-                }
-                
-                files
-            } catch (e: IllegalArgumentException) {
-                Log.e(TAG, "Error getting recent files", e)
-                emptyList()
-            } catch (e: SecurityException) {
-                Log.e(TAG, "Error getting recent files", e)
-                emptyList()
             }
         }
+
+        return files
     }
 
-    override suspend fun saveRecentFile(fileId: Long) {
-        recentStorage.saveRecent(fileId)
-    }
-
-    override fun getRecentFileIds(): kotlinx.coroutines.flow.Flow<List<Long>> {
-        return recentStorage.observeRecent().flowOn(Dispatchers.IO)
-    }
-
-    override suspend fun getFilesByIds(
+    private suspend fun queryMediaStoreByIds(
         ids: List<Long>,
-        extensionConfig: FileSearchExtensionConfig
+        extensionConfig: FileSearchExtensionConfig,
     ): Map<Long, FileDocument> {
-        if (!hasFilesPermission() || ids.isEmpty()) {
-            return emptyMap()
-        }
+        val filesMap = mutableMapOf<Long, FileDocument>()
 
-        return withContext(Dispatchers.IO) {
-            try {
-                val filesMap = mutableMapOf<Long, FileDocument>()
-                val addedFileIds = mutableSetOf<Long>()
-                val chunkedIds = ids.chunked(500)
-                for (chunk in chunkedIds) {
-                    val placeholders = chunk.joinToString(",") { "?" }
-                    val selection = "${MediaStore.Files.FileColumns._ID} IN ($placeholders)"
-                    val selectionArgs = chunk.map { it.toString() }.toTypedArray()
+        for (chunk in ids.chunked(500)) {
+            val placeholders = chunk.joinToString(",") { "?" }
+            val selection = "${MediaStore.Files.FileColumns._ID} IN ($placeholders)"
+            val selectionArgs = chunk.map { it.toString() }.toTypedArray()
 
-                    val cursor = contentResolver.query(
-                        MediaStore.Files.getContentUri("external"),
-                        cursorReader.projection,
-                        selection,
-                        selectionArgs,
-                        null
+            val cursor = contentResolver.query(
+                MediaStore.Files.getContentUri("external"),
+                cursorReader.projection,
+                selection,
+                selectionArgs,
+                null
+            )
+
+            cursor?.use {
+                val columns = cursorReader.resolveColumns(it)
+
+                while (it.moveToNext()) {
+                    currentCoroutineContext().ensureActive()
+                    val tempFiles = mutableListOf<FileDocument>()
+                    cursorReader.addFileFromCursorRow(
+                        cursor = it,
+                        columns = columns,
+                        collectionUri = MediaStore.Files.getContentUri("external"),
+                        files = tempFiles,
+                        addedFileIds = mutableSetOf(),
+                        logFilteredOut = false,
+                        allowedExtensions = extensionConfig.resolveAllowedExtensions(),
+                        excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
                     )
-
-                    cursor?.use {
-                        val columns = cursorReader.resolveColumns(it)
-
-                        while (it.moveToNext()) {
-                            currentCoroutineContext().ensureActive()
-                            val tempFiles = mutableListOf<FileDocument>()
-                            cursorReader.addFileFromCursorRow(
-                                cursor = it,
-                                columns = columns,
-                                collectionUri = MediaStore.Files.getContentUri("external"),
-                                files = tempFiles,
-                                addedFileIds = addedFileIds,
-                                logFilteredOut = false,
-                                allowedExtensions = extensionConfig.resolveAllowedExtensions(),
-                                excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
-                            )
-                            if (tempFiles.isNotEmpty()) {
-                                val doc = tempFiles.first()
-                                filesMap[doc.id] = doc
-                            }
-                        }
+                    if (tempFiles.isNotEmpty()) {
+                        val doc = tempFiles.first()
+                        filesMap[doc.id] = doc
                     }
                 }
-                filesMap
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting files by ids", e)
-                emptyMap()
             }
         }
+
+        return filesMap
     }
 
-
+    private companion object {
+        const val TAG = "FilesRepositoryImpl"
+    }
 }

@@ -1,77 +1,79 @@
 package com.milki.launcher.data.repository.contacts
 
-import android.Manifest
-import android.content.ContentResolver
 import android.content.Context
-import android.content.pm.PackageManager
 import android.provider.ContactsContract
-import androidx.core.content.ContextCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.core.permission.PermissionChecker
+import com.milki.launcher.data.repository.common.AbstractContentResolverRecentStore
+import com.milki.launcher.data.repository.common.RecentListStorage
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.repository.ContactsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.withContext
+
+private val Context.contactsRecentDataStore: DataStore<Preferences> by preferencesDataStore(
+    name = "recent_contacts"
+)
 
 class ContactsRepositoryImpl(
-    private val context: Context
-) : ContactsRepository {
+    context: Context
+) : AbstractContentResolverRecentStore<String>(context), ContactsRepository {
 
-    private val contentResolver: ContentResolver = context.contentResolver
-    private val recentStorage = ContactsRecentStorage(context)
+    override val recentStore: RecentListStorage<String> = RecentListStorage(
+        dataStore = appContext.contactsRecentDataStore,
+        key = stringPreferencesKey("recent_contacts"),
+        maxSize = 8,
+        encoder = { phoneNumber -> phoneNumber },
+        decoder = { raw -> raw }
+    )
 
-    override fun hasContactsPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_CONTACTS
-        ) == PackageManager.PERMISSION_GRANTED
-    }
+    override fun hasContactsPermission(): Boolean = PermissionChecker.hasContactsPermission(appContext)
 
-    override suspend fun searchContacts(query: String, maxItems: Int): List<Contact> {
-        if (!hasContactsPermission()) {
-            throw SecurityException("READ_CONTACTS permission not granted")
-        }
-
-        if (query.isBlank()) {
-            return emptyList()
-        }
-
-        val queryLower = query.trim().lowercase()
-
-        return withContext(Dispatchers.IO) {
-            queryContactsByName(queryLower, maxItems)
-        }
-    }
+    override fun hasPermission(): Boolean = hasContactsPermission()
 
     override suspend fun saveRecentContact(phoneNumber: String) {
-        recentStorage.saveRecent(phoneNumber)
+        saveRecent(phoneNumber)
     }
 
     override fun getRecentContacts(): Flow<List<String>> {
-        return recentStorage.observeRecent().flowOn(Dispatchers.IO)
+        return observeRecent().flowOn(Dispatchers.IO)
+    }
+
+    override suspend fun searchContacts(query: String, maxItems: Int): List<Contact> {
+        if (query.isBlank()) {
+            return emptyList()
+        }
+        val queryLower = query.trim().lowercase()
+
+        return withPermissionOr(
+            whenGranted = { queryContactsByName(queryLower, maxItems) },
+            whenDenied = { emptyList() }
+        ) ?: emptyList()
     }
 
     override suspend fun getContactByPhoneNumber(phoneNumber: String): Contact? {
-        if (!hasContactsPermission()) {
-            return null
-        }
-
-        return withContext(Dispatchers.IO) {
-            queryContactByPhoneNumber(phoneNumber)
-        }
+        return withPermissionOr(
+            whenGranted = { queryContactByPhoneNumber(phoneNumber) },
+            whenDenied = { null }
+        )
     }
 
     override suspend fun getContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {
-        if (!hasContactsPermission() || phoneNumbers.isEmpty()) {
+        if (phoneNumbers.isEmpty()) {
             return emptyMap()
         }
 
-        return withContext(Dispatchers.IO) {
-            queryContactsByPhoneNumbers(phoneNumbers)
-        }
+        return withPermissionOr(
+            whenGranted = { queryContactsByPhoneNumbers(phoneNumbers) },
+            whenDenied = { emptyMap() }
+        ) ?: emptyMap()
     }
 
-    private fun queryContactsByName(queryLower: String, maxItems: Int): List<Contact> {
+    private suspend fun queryContactsByName(queryLower: String, maxItems: Int): List<Contact> {
         val contactIds = mutableListOf<Long>()
         val contactInfo = mutableMapOf<Long, ContactInfo>()
 
@@ -111,7 +113,6 @@ class ContactsRepositoryImpl(
         }
 
         val phonesByContactId = queryPhonesForContacts(contactIds)
-        val emailsByContactId = queryEmailsForContacts(contactIds)
 
         return contactIds.map { id ->
             val info = contactInfo[id]!!
@@ -119,7 +120,6 @@ class ContactsRepositoryImpl(
                 id = id,
                 displayName = info.displayName,
                 phoneNumbers = phonesByContactId[id] ?: emptyList(),
-                emails = emailsByContactId[id] ?: emptyList(),
                 photoUri = info.photoUri,
                 lookupKey = info.lookupKey
             )
@@ -133,7 +133,7 @@ class ContactsRepositoryImpl(
         }
     }
 
-    private fun queryPhonesForContacts(contactIds: List<Long>): Map<Long, List<String>> {
+    private suspend fun queryPhonesForContacts(contactIds: List<Long>): Map<Long, List<String>> {
         val result = mutableMapOf<Long, MutableList<String>>()
         val placeholders = contactIds.joinToString(",") { "?" }
         val selection = "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} IN ($placeholders)"
@@ -160,34 +160,7 @@ class ContactsRepositoryImpl(
         return result
     }
 
-    private fun queryEmailsForContacts(contactIds: List<Long>): Map<Long, List<String>> {
-        val result = mutableMapOf<Long, MutableList<String>>()
-        val placeholders = contactIds.joinToString(",") { "?" }
-        val selection = "${ContactsContract.CommonDataKinds.Email.CONTACT_ID} IN ($placeholders)"
-
-        contentResolver.query(
-            ContactsContract.CommonDataKinds.Email.CONTENT_URI,
-            arrayOf(
-                ContactsContract.CommonDataKinds.Email.CONTACT_ID,
-                ContactsContract.CommonDataKinds.Email.ADDRESS
-            ),
-            selection,
-            contactIds.map { it.toString() }.toTypedArray(),
-            null
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val contactId = cursor.getLong(0)
-                val address = cursor.getString(1)
-                if (address != null) {
-                    result.getOrPut(contactId) { mutableListOf() }.add(address)
-                }
-            }
-        }
-
-        return result
-    }
-
-    private fun queryContactByPhoneNumber(phoneNumber: String): Contact? {
+    private suspend fun queryContactByPhoneNumber(phoneNumber: String): Contact? {
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
@@ -216,7 +189,6 @@ class ContactsRepositoryImpl(
                         id = contactId,
                         displayName = displayName,
                         phoneNumbers = phones,
-                        emails = emptyList(),
                         photoUri = photoUri,
                         lookupKey = lookupKey
                     )
@@ -225,7 +197,7 @@ class ContactsRepositoryImpl(
         }
     }
 
-    private fun queryContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {
+    private suspend fun queryContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {
         val placeholders = phoneNumbers.joinToString(",") { "?" }
         val selection = "${ContactsContract.CommonDataKinds.Phone.NUMBER} IN ($placeholders)"
 
@@ -263,7 +235,6 @@ class ContactsRepositoryImpl(
                             id = contactId,
                             displayName = displayName,
                             phoneNumbers = phones,
-                            emails = emptyList(),
                             photoUri = photoUri,
                             lookupKey = lookupKey
                         )
@@ -279,7 +250,7 @@ class ContactsRepositoryImpl(
         }
     }
 
-    private fun queryPhonesForContact(contactId: Long): List<String> {
+    private suspend fun queryPhonesForContact(contactId: Long): List<String> {
         val phones = mutableListOf<String>()
         val selection = "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?"
 

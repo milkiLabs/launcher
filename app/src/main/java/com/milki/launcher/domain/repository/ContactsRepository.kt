@@ -15,7 +15,8 @@ import kotlinx.coroutines.flow.Flow
  * Interface for accessing device contacts.
  *
  * Implementations should handle:
- * - Permission checking
+ * - Permission checking (queries return empty results when permission is missing —
+ *   callers should gate on [hasContactsPermission] when they want a permission prompt)
  * - Database queries via ContentResolver
  * - Data mapping to domain models
  * - Recent contacts storage (for quick access to frequently called contacts)
@@ -29,12 +30,11 @@ interface ContactsRepository {
     fun hasContactsPermission(): Boolean
 
     /**
-     * Search contacts by name, phone, or email.
+     * Search contacts by name.
      *
      * @param query The search string
      * @param maxItems Maximum number of matching contacts to return
-     * @return List of matching contacts
-     * @throws SecurityException if permission is not granted
+     * @return List of matching contacts, or an empty list when permission is not granted
      */
     suspend fun searchContacts(query: String, maxItems: Int = 10): List<Contact>
 

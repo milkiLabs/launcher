@@ -97,7 +97,6 @@ class ContactsSearchProvider(
                 id = -1,
                 displayName = phoneNumber,
                 phoneNumbers = listOf(phoneNumber),
-                emails = emptyList(),
                 photoUri = null,
                 lookupKey = ""
             )
@@ -116,7 +115,6 @@ class ContactsSearchProvider(
                 id = -1,
                 displayName = phoneNumber,
                 phoneNumbers = listOf(phoneNumber),
-                emails = emptyList(),
                 photoUri = null,
                 lookupKey = ""
             )

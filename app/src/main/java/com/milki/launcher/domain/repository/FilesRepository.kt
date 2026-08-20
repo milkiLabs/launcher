@@ -94,8 +94,9 @@ interface FilesRepository {
      * 
      * @param query The search query (file name to search for)
      * @param maxItems Maximum number of matching documents to return
-     * @param extensionConfig Configuration for file extensions to include
-     * @return List of matching FileDocument objects, sorted by date modified (newest first)
+* @param extensionConfig Configuration for file extensions to include
+     * @return List of matching FileDocument objects, sorted by date modified (newest first),
+     *         empty when permission is not granted
      */
     suspend fun searchFiles(
         query: String,
@@ -113,7 +114,8 @@ interface FilesRepository {
      * 
      * @param limit Maximum number of files to return (default: 20)
      * @param extensionConfig Configuration for file extensions to include
-     * @return List of recent FileDocument objects, sorted by date modified
+     * @return List of recent FileDocument objects, sorted by date modified,
+     *         empty when permission is not granted
      */
     suspend fun getRecentFiles(
         limit: Int = 20,
