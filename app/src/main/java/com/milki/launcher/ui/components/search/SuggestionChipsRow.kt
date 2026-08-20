@@ -44,6 +44,7 @@ fun SuggestionChipsRow(
     sources: List<SearchSource>,
     defaultSourceId: String?,
     actionHandler: (SearchResultAction) -> Unit,
+    isOneHanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -67,7 +68,11 @@ fun SuggestionChipsRow(
 
         LazyRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.small, Alignment.Start)
+            reverseLayout = isOneHanded,
+            horizontalArrangement = Arrangement.spacedBy(
+                Spacing.small,
+                if (isOneHanded) Alignment.End else Alignment.Start
+            )
         ) {
             when (suggestion) {
                 is ActionSuggestion.OpenUrl -> {

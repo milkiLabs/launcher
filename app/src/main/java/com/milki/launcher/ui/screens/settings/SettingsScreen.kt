@@ -45,7 +45,6 @@ internal fun SettingsIndexScreen(
     onOpenDefaultLauncherSettings: () -> Unit,
     onOpenHomeScreen: () -> Unit,
     onOpenSearch: () -> Unit,
-    onOpenSupport: () -> Unit,
     onOpenAdvanced: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -95,13 +94,6 @@ internal fun SettingsIndexScreen(
                 subtitle = "Layout, sources, prefixes, and file types",
                 icon = Icons.Default.Search,
                 onClick = onOpenSearch
-            )
-
-            SettingsGroupItem(
-                title = "Support",
-                subtitle = "Donate and support development",
-                icon = Icons.Filled.Favorite,
-                onClick = onOpenSupport
             )
 
             SettingsGroupItem(
