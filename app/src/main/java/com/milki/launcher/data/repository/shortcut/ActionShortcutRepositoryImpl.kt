@@ -6,8 +6,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.milki.launcher.data.repository.common.NewlineJsonListSerializer
 import com.milki.launcher.data.repository.common.catchIoException
+import com.milki.launcher.data.repository.common.newlineJsonListSerializer
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import kotlinx.coroutines.flow.Flow
@@ -27,11 +27,9 @@ class ActionShortcutRepositoryImpl(
 ) : ActionShortcutRepository {
 
     private val dataStore = context.actionShortcutDataStore
-    private val serializer = NewlineJsonListSerializer(
+    private val serializer = newlineJsonListSerializer(
         key = ActionShortcutPreferenceKeys.SHORTCUTS,
-        json = HomeItem.json,
-        serializer = HomeItem.ActionShortcut.serializer(),
-        default = { listOf(HomeItem.ActionShortcut.DefaultDocsShortcut) }
+        serializer = HomeItem.ActionShortcut.serializer()
     )
 
     override val shortcuts: Flow<List<HomeItem.ActionShortcut>> = dataStore.data

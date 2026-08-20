@@ -1,6 +1,8 @@
 package com.milki.launcher.data.repository.home
 
-import com.milki.launcher.data.repository.common.NewlineJsonListSerializer
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
+import com.milki.launcher.data.repository.common.newlineJsonListSerializer
 import com.milki.launcher.domain.model.HomeItem
 
 /**
@@ -11,18 +13,16 @@ import com.milki.launcher.domain.model.HomeItem
  */
 internal class HomeItemSerializer {
 
-    private val delegate = NewlineJsonListSerializer(
+    private val delegate = newlineJsonListSerializer(
         key = HomePreferenceKeys.PINNED_ITEMS,
-        json = homeStorageJson,
-        serializer = HomeItem.serializer(),
-        default = { listOf(HomeItem.ActionShortcut.DefaultDocsShortcut) }
+        serializer = HomeItem.serializer()
     )
 
-    fun readFrom(preferences: androidx.datastore.preferences.core.Preferences): List<HomeItem> =
+    fun readFrom(preferences: Preferences): List<HomeItem> =
         delegate.readFrom(preferences)
 
     fun writeTo(
         items: List<HomeItem>,
-        preferences: androidx.datastore.preferences.core.MutablePreferences
+        preferences: MutablePreferences
     ) = delegate.writeTo(items, preferences)
 }

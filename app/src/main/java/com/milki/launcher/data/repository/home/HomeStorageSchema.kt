@@ -5,8 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.milki.launcher.domain.model.HomeItem
-import kotlinx.serialization.json.Json
 
 /**
  * DataStore schema primitives for home-layout persistence.
@@ -27,11 +25,3 @@ internal object HomePreferenceKeys {
      */
     val PINNED_ITEMS = stringPreferencesKey("pinned_items_ordered")
 }
-
-/**
- * Shared Json instance for HomeItem serialization.
- *
- * This intentionally reuses HomeItem.json so polymorphic behavior stays
- * identical across all home-model write paths.
- */
-internal val homeStorageJson: Json = HomeItem.json
