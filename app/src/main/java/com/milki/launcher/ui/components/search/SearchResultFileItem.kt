@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import com.milki.launcher.domain.model.FileDocumentSearchResult
-import com.milki.launcher.domain.model.formattedSize
 import com.milki.launcher.domain.model.isEpub
 import com.milki.launcher.domain.model.isExcelSpreadsheet
 import com.milki.launcher.domain.model.isPdf
@@ -61,7 +60,7 @@ fun FileDocumentSearchResultItem(
         }
         if (file.size > 0) {
             if (isNotEmpty()) append(" • ")
-            append(file.formattedSize)
+            append(formatFileSize(file.size))
         }
     }.takeIf { it.isNotEmpty() }
 
@@ -105,5 +104,22 @@ fun FileDocumentSearchResultItem(
             focusable = menuState.isMenuFocusable,
             actions = menuActions
         )
+    }
+}
+
+private const val BYTES_PER_KILOBYTE = 1024.0
+private const val KILOBYTES_PER_MEGABYTE = 1024
+private const val MEGABYTES_PER_GIGABYTE = 1024
+
+private fun formatFileSize(size: Long): String {
+    val kb = BYTES_PER_KILOBYTE
+    val mb = kb * KILOBYTES_PER_MEGABYTE
+    val gb = mb * MEGABYTES_PER_GIGABYTE
+
+    return when {
+        size >= gb -> String.format("%.1f GB", size / gb)
+        size >= mb -> String.format("%.1f MB", size / mb)
+        size >= kb -> String.format("%.1f KB", size / kb)
+        else -> "$size B"
     }
 }

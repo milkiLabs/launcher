@@ -87,33 +87,6 @@ data class FileDocument(
 )
 
 /**
- * Extension property to get a human-readable file size.
- * Uses lazy initialization to avoid recalculating the formatted string on every access.
- * Converts bytes to KB, MB, or GB as appropriate.
- *
- * Since FileDocument is immutable (all val properties), caching is safe.
- *
- * @return Formatted file size string (e.g., "1.5 MB")
- */
-private const val BYTES_PER_KILOBYTE = 1024.0
-private const val KILOBYTES_PER_MEGABYTE = 1024
-private const val MEGABYTES_PER_GIGABYTE = 1024
-
-val FileDocument.formattedSize: String
-    get() {
-        val kb = BYTES_PER_KILOBYTE
-        val mb = kb * KILOBYTES_PER_MEGABYTE
-        val gb = mb * MEGABYTES_PER_GIGABYTE
-
-        return when {
-            size >= gb -> String.format("%.1f GB", size / gb)
-            size >= mb -> String.format("%.1f MB", size / mb)
-            size >= kb -> String.format("%.1f KB", size / kb)
-            else -> "$size B"
-        }
-    }
-
-/**
  * Extension function to get the file extension from the name.
  * Returns the extension without the dot (e.g., "pdf" not ".pdf").
  *
