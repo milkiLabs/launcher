@@ -172,6 +172,19 @@ private fun AppResultsGrid(
 ) {
     val displayOrder = if (reverseOrder) appResults.asReversed() else appResults
 
+    val rows = if (reverseOrder) {
+        buildList {
+            var remaining = displayOrder
+            while (remaining.isNotEmpty()) {
+                val take = minOf(APP_RESULTS_GRID_COLUMNS, remaining.size)
+                add(0, remaining.takeLast(take))
+                remaining = remaining.dropLast(take)
+            }
+        }
+    } else {
+        displayOrder.chunked(APP_RESULTS_GRID_COLUMNS)
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -179,7 +192,7 @@ private fun AppResultsGrid(
             .padding(horizontal = Spacing.smallMedium),
         verticalArrangement = if (reverseOrder) Arrangement.Bottom else Arrangement.Top
     ) {
-        displayOrder.chunked(APP_RESULTS_GRID_COLUMNS).forEach { rowResults ->
+        rows.forEach { rowResults ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.small)
