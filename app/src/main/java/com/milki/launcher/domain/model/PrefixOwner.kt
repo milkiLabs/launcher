@@ -16,10 +16,6 @@
 
 package com.milki.launcher.domain.model
 
-import androidx.compose.runtime.Immutable
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-
 /**
  * Common contract for any entity that owns activation prefixes.
  */
@@ -38,15 +34,15 @@ interface PrefixOwner {
 
 /**
  * A local provider (Contacts, Files) as a prefix owner.
+ *
+ * Pure domain data. Visual representation (icon/color) is mapped by [id] in the
+ * presentation layer, mirroring SearchProviderConfig's semantic-only contract.
  */
-@Immutable
 data class ProviderPrefixOwner(
     override val id: String,
     override val name: String,
     override val prefixes: List<String>,
-    override val defaultPrefixes: List<String>,
-    val icon: ImageVector,
-    val accentColor: Color
+    override val defaultPrefixes: List<String>
 ) : PrefixOwner
 
 /**
@@ -54,7 +50,6 @@ data class ProviderPrefixOwner(
  *
  * Delegates to an underlying SearchSource for prefix data.
  */
-@Immutable
 data class SourcePrefixOwner(
     val source: SearchSource
 ) : PrefixOwner {

@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -23,7 +22,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
@@ -51,6 +49,7 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.ProviderId
+import com.milki.launcher.domain.model.ProviderPrefixOwner
 import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.SourcePrefixOwner
@@ -64,6 +63,8 @@ import com.milki.launcher.ui.components.settings.SettingsCardSurface
 import com.milki.launcher.ui.components.settings.SettingsCategory
 import com.milki.launcher.ui.components.settings.SwitchSettingItem
 import com.milki.launcher.ui.components.settings.XIcon
+import com.milki.launcher.ui.components.search.SearchProviderVisual
+import com.milki.launcher.ui.components.search.rememberSearchProviderVisual
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -265,8 +266,6 @@ internal fun LocalPrefixesSection(
 
     LocalProviderPrefixItem(
         name = "Contacts",
-        icon = Icons.Default.Person,
-        color = MaterialTheme.colorScheme.secondary,
         providerId = ProviderId.CONTACTS,
         settings = settings,
         actions = actions
@@ -274,8 +273,6 @@ internal fun LocalPrefixesSection(
 
     LocalProviderPrefixItem(
         name = "Files",
-        icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-        color = MaterialTheme.colorScheme.primaryContainer,
         providerId = ProviderId.FILES,
         settings = settings,
         actions = actions
@@ -285,26 +282,29 @@ internal fun LocalPrefixesSection(
 @Composable
 private fun LocalProviderPrefixItem(
     name: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
     providerId: String,
     settings: LauncherSettings,
     actions: SettingsPrefixActions
 ) {
     val defaultPrefixes = PrefixConfig.defaults[providerId]?.prefixes.orEmpty()
     val currentPrefixes = settings.prefixConfigurations[providerId]?.prefixes ?: defaultPrefixes
+    val visual = rememberSearchProviderVisual(providerId)
+        ?: SearchProviderVisual(
+            icon = Icons.Filled.Search,
+            accentColor = MaterialTheme.colorScheme.primary
+        )
 
-    val owner = object : com.milki.launcher.domain.model.PrefixOwner {
-        override val id: String = providerId
-        override val name: String = name
-        override val prefixes: List<String> = currentPrefixes
-        override val defaultPrefixes: List<String> = defaultPrefixes
-    }
+    val owner = ProviderPrefixOwner(
+        id = providerId,
+        name = name,
+        prefixes = currentPrefixes,
+        defaultPrefixes = defaultPrefixes
+    )
 
     PrefixOwnerSettingItem(
         owner = owner,
-        icon = icon,
-        accentColor = color,
+        icon = visual.icon,
+        accentColor = visual.accentColor,
         onAddPrefix = { prefix, onResult ->
             actions.onAddPrefix(providerId, prefix, onResult)
         },
