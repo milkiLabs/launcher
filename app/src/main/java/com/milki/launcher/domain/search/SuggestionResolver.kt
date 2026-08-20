@@ -1,7 +1,5 @@
 package com.milki.launcher.domain.search
 
-import android.content.ClipboardManager
-import android.content.Context
 import android.util.Patterns
 
 /**
@@ -17,7 +15,7 @@ import android.util.Patterns
  * 3) Plain text search
  */
 class SuggestionResolver(
-    private val context: Context,
+    private val clipboardReader: ClipboardReader,
     private val urlHandlerResolver: UrlHandlerResolver
 ) {
 
@@ -25,19 +23,7 @@ class SuggestionResolver(
      * Reads clipboard text and returns the best single suggestion, or null.
      */
     fun resolveFromClipboard(): ActionSuggestion? {
-        val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-            ?: return null
-
-        val primaryClip = clipboardManager.primaryClip ?: return null
-        if (primaryClip.itemCount <= 0) return null
-
-        val rawText = primaryClip
-            .getItemAt(0)
-            .coerceToText(context)
-            ?.toString()
-            ?.trim()
-            .orEmpty()
-
+        val rawText = clipboardReader.readText() ?: return null
         if (rawText.isBlank()) return null
 
         return resolveFromText(rawText)
