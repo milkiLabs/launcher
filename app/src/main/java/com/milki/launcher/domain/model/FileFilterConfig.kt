@@ -65,21 +65,19 @@ object FileFilterConfig {
         "text/xml"
     )
 
-        private val DEFAULT_ALLOWED_EXTENSIONS = setOf(
-        "pdf", "epub", "txt", "rtf", "md",
-        "doc", "docx", "odt",
-        "xls", "xlsx", "ods", "csv", "tsv",
-        "ppt", "pptx", "odp",
-        "json", "xml", "yaml", "yml", "toml", "ini", "conf",
-        "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "apk"
-    )
+        private val DEFAULT_ALLOWED_EXTENSIONS: Set<String> = buildSet {
+        addAll(FileSearchExtensionConfig.categoryExtensions[FileSearchCategory.DOCUMENTS].orEmpty())
+        addAll(FileSearchExtensionConfig.categoryExtensions[FileSearchCategory.ARCHIVES].orEmpty())
+        addAll(FileSearchExtensionConfig.categoryExtensions[FileSearchCategory.CODE].orEmpty())
+    }
         const val MIN_FILE_SIZE_BYTES: Long = 1024L
 
     /**
      * Check if a file should be included in search results.
      *
      * @param allowedExtensions Override for the allowed extensions set.
-     *        When null, uses the default hardcoded set.
+     *        When null, uses the default set derived from
+     *        [FileSearchExtensionConfig.categoryExtensions] (documents, archives, code).
      * @param excludedMimePrefixes Override for the excluded MIME prefixes.
      *        When null, uses the default set (image/, video/, audio/).
      */
@@ -116,7 +114,8 @@ object FileFilterConfig {
      * Check if a file matches a supported document type.
      *
      * @param allowedExtensions Override for the allowed extensions set.
-     *        When null, uses the default hardcoded set.
+     *        When null, uses the default set derived from
+     *        [FileSearchExtensionConfig.categoryExtensions].
      */
     fun matchesSupportedDocumentType(
         fileName: String,
