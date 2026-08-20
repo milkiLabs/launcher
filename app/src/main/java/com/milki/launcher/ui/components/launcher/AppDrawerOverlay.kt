@@ -4,17 +4,18 @@
  * PERFORMANCE DESIGN:
  * The drawer grid is the most scroll-intensive surface in the launcher.
  * Every composable created per grid cell directly impacts frame times.
- * This file uses a lightweight DrawerGridCell instead of the shared
- * AppGridItem to keep per-cell overhead minimal:
+ * Grid cells render through the shared AppGridItem with showMenu = false
+ * (see AppCellLayout) to keep per-cell overhead minimal:
  *
  * - No per-item context menu state or ItemActionMenu composable
  * - No per-item quick-actions loading
- * - Context menu is composed only for the one long-pressed item
+ * - Long-press alone does nothing; long-press + drag still starts
+ *   drag-to-homescreen via the shared gesture shell
  * - Icons are batch-preloaded when items arrive, not loaded during scroll
  *
  * FEATURE SUMMARY:
  * - Shows all installed apps in an adaptive grid
- * - Long-press shows context menu with app shortcuts and info
+ * - Tap launches the app
  * - Long-press + drag starts app drag-to-homescreen
  * - Supports swipe-down-to-close when scrolled to top
  *
@@ -27,7 +28,6 @@
 package com.milki.launcher.ui.components.launcher
 
 import android.content.res.Configuration
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.stopScroll
@@ -80,8 +80,6 @@ import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.FixedAppGrid
 
-import com.milki.launcher.ui.components.common.detectAppExternalDragGesture
-import com.milki.launcher.ui.components.common.rememberItemContextMenuState
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
@@ -433,6 +431,7 @@ private fun DrawerGridItem(
             AppGridItem(
                 appInfo = appInfo,
                 onClick = { onAppClick(appInfo) },
+                showMenu = false,
                 onExternalDragStarted = onExternalDragStarted
             )
         }
