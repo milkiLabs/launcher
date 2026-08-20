@@ -46,6 +46,8 @@ class FilesSearchProvider(
 
         if (request.query.isBlank()) {
             return resolveRecentFiles(request.fileSearchExtensionConfig)
+                .take(MAX_RESULTS)
+                .map { FileDocumentSearchResult(it) }
         }
 
         val files = filesRepository.searchFiles(
@@ -53,7 +55,7 @@ class FilesSearchProvider(
             maxItems = MAX_RESULTS,
             extensionConfig = request.fileSearchExtensionConfig
         )
-        val recentFiles = resolveRecentFilesForBoosting(request.fileSearchExtensionConfig)
+        val recentFiles = resolveRecentFiles(request.fileSearchExtensionConfig)
 
         return QueryRanker.rank(
             items = files,
@@ -88,22 +90,6 @@ class FilesSearchProvider(
     }
 
     private suspend fun resolveRecentFiles(
-        extensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
-    ): List<SearchResult> {
-        val recentIds = filesRepository.getRecentFileIds().first()
-        if (recentIds.isEmpty()) return emptyList()
-
-        val filesById = filesRepository.getFilesByIds(
-            ids = recentIds,
-            extensionConfig = extensionConfig
-        )
-
-        return recentIds.take(MAX_RESULTS).mapNotNull { id ->
-            filesById[id]?.let(::FileDocumentSearchResult)
-        }
-    }
-
-    private suspend fun resolveRecentFilesForBoosting(
         extensionConfig: FileSearchExtensionConfig
     ): List<FileDocument> {
         val recentIds = filesRepository.getRecentFileIds().first()

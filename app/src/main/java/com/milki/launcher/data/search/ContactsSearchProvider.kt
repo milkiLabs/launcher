@@ -48,10 +48,12 @@ class ContactsSearchProvider(
 
         if (request.query.isBlank()) {
             return resolveRecentContacts()
+                .take(MAX_RESULTS)
+                .map { ContactSearchResult(it) }
         }
 
         val contacts = contactsRepository.searchContacts(query = request.query, maxItems = MAX_RESULTS)
-        val recentContacts = resolveRecentContactsForBoosting()
+        val recentContacts = resolveRecentContacts()
 
         val ranked = QueryRanker.rank(
             items = contacts,
@@ -86,38 +88,24 @@ class ContactsSearchProvider(
         return digitCount >= MIN_PHONE_DIGITS && PHONE_QUERY_PATTERN.matches(query)
     }
 
-    private suspend fun resolveRecentContacts(): List<SearchResult> {
-        val recentPhones = contactsRepository.getRecentContacts().first()
-        if (recentPhones.isEmpty()) return emptyList()
-
-        val contactsByPhone = contactsRepository.getContactsByPhoneNumbers(recentPhones)
-
-        return recentPhones.take(MAX_RESULTS).map { phoneNumber ->
-            val contact = contactsByPhone[phoneNumber] ?: Contact(
-                id = -1,
-                displayName = phoneNumber,
-                phoneNumbers = listOf(phoneNumber),
-                photoUri = null,
-                lookupKey = ""
-            )
-            ContactSearchResult(contact)
-        }
-    }
-
-    private suspend fun resolveRecentContactsForBoosting(): List<Contact> {
+    private suspend fun resolveRecentContacts(): List<Contact> {
         val recentPhones = contactsRepository.getRecentContacts().first()
         if (recentPhones.isEmpty()) return emptyList()
 
         val contactsByPhone = contactsRepository.getContactsByPhoneNumbers(recentPhones)
 
         return recentPhones.mapNotNull { phoneNumber ->
-            contactsByPhone[phoneNumber] ?: Contact(
-                id = -1,
-                displayName = phoneNumber,
-                phoneNumbers = listOf(phoneNumber),
-                photoUri = null,
-                lookupKey = ""
-            )
+            contactsByPhone[phoneNumber] ?: contactFromPhoneNumber(phoneNumber)
         }
+    }
+
+    private fun contactFromPhoneNumber(phoneNumber: String): Contact {
+        return Contact(
+            id = -1,
+            displayName = phoneNumber,
+            phoneNumbers = listOf(phoneNumber),
+            photoUri = null,
+            lookupKey = ""
+        )
     }
 }
