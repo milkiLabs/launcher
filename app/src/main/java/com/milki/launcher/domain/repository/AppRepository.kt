@@ -56,7 +56,7 @@ interface AppRepository {
      * Get recently launched apps as an observable stream.
      * 
      * Returns a Flow instead because recent apps can change over time (when user launches new apps).
-     * This is used extensively in SearchViewModel and FilterAppsUseCase for filtering and
+     * This is used extensively in SearchViewModel for filtering and
      * displaying recent apps to the user.
 
      * @return Flow of the current list of recent apps

@@ -10,7 +10,6 @@ import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.ClipboardReader
-import com.milki.launcher.domain.search.FilterAppsUseCase
 import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.presentation.search.SearchViewModel
@@ -47,10 +46,6 @@ val searchModule = module {
         SearchProviderFactory { source -> ConfigurableUrlSearchProvider(source) }
     }
 
-    single {
-        FilterAppsUseCase()
-    }
-
     single<ClipboardReader> {
         AndroidClipboardReader(get())
     }
@@ -68,7 +63,6 @@ val searchModule = module {
             settingsRepository = get(),
             providerRegistry = get(),
             searchProviderFactory = get(),
-            filterAppsUseCase = get(),
             suggestionResolver = get()
         )
     }

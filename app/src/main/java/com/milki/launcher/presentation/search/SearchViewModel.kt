@@ -61,7 +61,7 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.SearchProvider
 import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.repository.SettingsReader
-import com.milki.launcher.domain.search.FilterAppsUseCase
+import com.milki.launcher.domain.search.AppQueryRanker
 import com.milki.launcher.domain.search.ParsedQuery
 import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
@@ -103,7 +103,6 @@ import kotlinx.coroutines.withContext
  * @property appRepository Repository for app data
  * @property settingsRepository Repository for settings (including prefix configs)
  * @property providerRegistry Registry of search providers
- * @property filterAppsUseCase Use case for filtering apps
  * @property suggestionResolver Resolver that classifies text into one smart action suggestion
  */
 class SearchViewModel(
@@ -111,11 +110,14 @@ class SearchViewModel(
     private val settingsRepository: SettingsReader,
     private val providerRegistry: SearchProviderRegistry,
     private val searchProviderFactory: SearchProviderFactory,
-    private val filterAppsUseCase: FilterAppsUseCase,
     private val suggestionResolver: SuggestionResolver
 ) : ViewModel() {
     private val stateHolder = SearchState(viewModelScope)
     private val searchPrefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
+
+    private companion object {
+        const val MAX_APP_SEARCH_RESULTS = 10
+    }
 
     /**
      * Shared installed-app stream scoped to this ViewModel.
@@ -344,7 +346,7 @@ class SearchViewModel(
             )
         }
 
-        val filteredApps = filterAppsUseCase(
+        val filteredApps = rankInstalledApps(
             query = parsed.query,
             installedApps = installedApps,
             recentApps = recentApps
@@ -352,6 +354,23 @@ class SearchViewModel(
 
         return filteredApps
             .map { app -> AppSearchResult(appInfo = app) }
+    }
+
+    private fun rankInstalledApps(
+        query: String,
+        installedApps: List<AppInfo>,
+        recentApps: List<AppInfo>
+    ): List<AppInfo> {
+        if (query.isBlank()) {
+            return recentApps.take(MAX_APP_SEARCH_RESULTS)
+        }
+
+        return AppQueryRanker.rank(
+            apps = installedApps,
+            query = query,
+            includePackageNameMatches = false,
+            recentApps = recentApps
+        ).take(MAX_APP_SEARCH_RESULTS)
     }
 
     private suspend fun runProviderSearch(
