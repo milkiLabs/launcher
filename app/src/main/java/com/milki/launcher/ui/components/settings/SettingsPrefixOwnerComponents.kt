@@ -55,69 +55,71 @@ fun PrefixOwnerSettingItem(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
-    SettingsContainerCard {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accentColor,
-                modifier = Modifier.size(IconSize.standard)
-            )
-            Spacer(modifier = Modifier.width(Spacing.smallMedium))
-            Text(
-                text = owner.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            if (owner.canReset) {
-                TextButton(
-                    onClick = onReset,
-                    contentPadding = PaddingValues(horizontal = Spacing.smallMedium)
-                ) {
-                    Text(
-                        text = "Reset",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(Spacing.small))
-
-        extraContent()
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            LazyRow(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small)
-            ) {
-                items(owner.prefixes) { prefix ->
-                    PrefixChip(
-                        text = prefix,
-                        onRemove = { onRemovePrefix(prefix) },
-                        color = accentColor
-                    )
-                }
-            }
-
-            IconButton(
-                onClick = { showAddDialog = true },
-                modifier = Modifier.size(IconSize.appList)
+    SettingsCardSurface {
+        Column(modifier = Modifier.padding(Spacing.medium)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add prefix",
-                    tint = MaterialTheme.colorScheme.primary
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(IconSize.standard)
                 )
+                Spacer(modifier = Modifier.width(Spacing.smallMedium))
+                Text(
+                    text = owner.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (owner.canReset) {
+                    TextButton(
+                        onClick = onReset,
+                        contentPadding = PaddingValues(horizontal = Spacing.smallMedium)
+                    ) {
+                        Text(
+                            text = "Reset",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(Spacing.small))
+
+            extraContent()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LazyRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+                ) {
+                    items(owner.prefixes) { prefix ->
+                        PrefixChip(
+                            text = prefix,
+                            onRemove = { onRemovePrefix(prefix) },
+                            color = accentColor
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.size(IconSize.appList)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "Add prefix",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
