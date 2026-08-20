@@ -31,7 +31,7 @@ internal class SettingsMutationStore {
         preferences: MutablePreferences,
         source: SearchSource
     ): PrefixMutationResult {
-        val currentSources = parseSearchSources(preferences)
+        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
         val currentPrefixConfigs = parsePrefixConfigurations(
             preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS]
         )
@@ -63,7 +63,7 @@ internal class SettingsMutationStore {
         prefixes: List<String>,
         accentColorHex: String
     ): PrefixMutationResult {
-        val currentSources = parseSearchSources(preferences)
+        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
         val currentPrefixConfigs = parsePrefixConfigurations(
             preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS]
         )
@@ -96,7 +96,7 @@ internal class SettingsMutationStore {
     }
 
     fun deleteSearchSource(preferences: MutablePreferences, sourceId: String) {
-        val currentSources = parseSearchSources(preferences)
+        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
         val updatedSources = currentSources.filterNot { it.id == sourceId }
         if (updatedSources != currentSources) {
             preferences.writeSearchSources(updatedSources)
@@ -108,7 +108,7 @@ internal class SettingsMutationStore {
         sourceId: String,
         enabled: Boolean
     ) {
-        val currentSources = parseSearchSources(preferences)
+        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
         if (currentSources.none { it.id == sourceId }) return
 
         preferences.writeSearchSources(
@@ -121,7 +121,7 @@ internal class SettingsMutationStore {
         sourceId: String,
         showAsSuggestedAction: Boolean
     ) {
-        val currentSources = parseSearchSources(preferences)
+        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
         if (currentSources.none { it.id == sourceId }) return
 
         preferences.writeSearchSources(
@@ -146,7 +146,7 @@ internal class SettingsMutationStore {
         if (normalizedPrefix.isEmpty()) return PrefixMutationResult.InvalidPrefixEmpty
         if (normalizedPrefix.contains(" ")) return PrefixMutationResult.InvalidPrefixContainsSpaces
 
-        val sources = parseSearchSources(preferences)
+        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
         val providerConfigs = parsePrefixConfigurations(
             preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS]
         )
@@ -169,7 +169,7 @@ internal class SettingsMutationStore {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
         if (normalizedPrefix.isEmpty()) return PrefixMutationResult.InvalidPrefixEmpty
 
-        val sources = parseSearchSources(preferences)
+        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
 
         return when {
             isProviderId(ownerId) -> removeProviderPrefix(preferences, ownerId, normalizedPrefix)
@@ -192,7 +192,7 @@ internal class SettingsMutationStore {
      */
     fun resetAllPrefixes(preferences: MutablePreferences) {
         preferences.remove(SettingsPreferenceKeys.PREFIX_CONFIGURATIONS)
-        val sources = parseSearchSources(preferences)
+        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
         val resetSources = sources.map { it.copy(prefixes = it.defaultPrefixes) }
         if (resetSources != sources) {
             preferences.writeSearchSources(resetSources)
@@ -328,7 +328,7 @@ internal class SettingsMutationStore {
     }
 
     private fun resetSourcePrefixes(preferences: MutablePreferences, sourceId: String) {
-        val sources = parseSearchSources(preferences)
+        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
         val targetSource = sources.firstOrNull { it.id == sourceId } ?: return
         if (targetSource.defaultPrefixes.isEmpty()) return
 
@@ -383,12 +383,5 @@ internal class SettingsMutationStore {
     ): List<String> {
         return configs[providerId]?.prefixes
             ?: PrefixConfig.defaults[providerId]?.prefixes.orEmpty()
-    }
-
-    private fun parseSearchSources(preferences: MutablePreferences): List<SearchSource> {
-        val json = preferences[SettingsPreferenceKeys.SEARCH_SOURCES]
-        val isInitialized = preferences[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] ==
-            SearchSourcesStorageState.INITIALIZED
-        return parseSearchSources(json = json, isInitialized = isInitialized)
     }
 }

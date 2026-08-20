@@ -39,7 +39,7 @@ internal object SettingsPreferenceReader {
         )
     }
 
-    private fun parseSearchSources(preferences: Preferences): List<SearchSource> {
+    internal fun parseSearchSources(preferences: Preferences): List<SearchSource> {
         val isInitialized =
             preferences[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] ==
                 SearchSourcesStorageState.INITIALIZED
@@ -96,7 +96,7 @@ internal object SettingsPreferenceReader {
         return legacyMappings
     }
 
-    private fun mergeWithDefaultTriggerActions(
+    internal fun mergeWithDefaultTriggerActions(
         overrides: Map<LauncherTrigger, LauncherTriggerAction>
     ): Map<LauncherTrigger, LauncherTriggerAction> {
         return LauncherInteractionCatalog.configurableTriggers.associateWith { trigger ->

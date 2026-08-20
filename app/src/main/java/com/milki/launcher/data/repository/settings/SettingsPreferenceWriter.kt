@@ -1,13 +1,11 @@
 package com.milki.launcher.data.repository.settings
 
 import androidx.datastore.preferences.core.MutablePreferences
-import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
-import com.milki.launcher.domain.model.SearchSource
 import kotlinx.serialization.encodeToString
 
 internal object SettingsPreferenceWriter {
@@ -72,7 +70,7 @@ internal object SettingsPreferenceWriter {
         triggerActions: Map<LauncherTrigger, LauncherTriggerAction>,
         preferences: MutablePreferences
     ) {
-        val normalized = mergeWithDefaultTriggerActions(triggerActions)
+        val normalized = SettingsPreferenceReader.mergeWithDefaultTriggerActions(triggerActions)
         val serialized: SerializedTriggerActions = normalized
             .mapKeys { (trigger, _) -> trigger.name }
             .mapValues { (_, action) -> action.name }
@@ -95,13 +93,5 @@ internal object SettingsPreferenceWriter {
 
         preferences[SettingsPreferenceKeys.TRIGGER_TARGETS] =
             settingsStorageJson.encodeToString(serialized)
-    }
-
-    private fun mergeWithDefaultTriggerActions(
-        overrides: Map<LauncherTrigger, LauncherTriggerAction>
-    ): Map<LauncherTrigger, LauncherTriggerAction> {
-        return LauncherInteractionCatalog.configurableTriggers.associateWith { trigger ->
-            overrides[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
-        }
     }
 }
