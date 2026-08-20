@@ -27,7 +27,6 @@ class ContactsSearchProvider(
 ) : SearchProvider {
 
     private companion object {
-        const val MAX_RESULTS = 10
         const val MIN_PHONE_DIGITS = 3
         val PHONE_QUERY_PATTERN = Regex("""^\+?[0-9][0-9 .()\-]{2,}$""")
     }
@@ -48,11 +47,11 @@ class ContactsSearchProvider(
 
         if (request.query.isBlank()) {
             return resolveRecentContacts()
-                .take(MAX_RESULTS)
+                .take(MAX_SEARCH_RESULTS)
                 .map { ContactSearchResult(it) }
         }
 
-        val contacts = contactsRepository.searchContacts(query = request.query, maxItems = MAX_RESULTS)
+        val contacts = contactsRepository.searchContacts(query = request.query, maxItems = MAX_SEARCH_RESULTS)
         val recentContacts = resolveRecentContacts()
 
         val ranked = QueryRanker.rank(
@@ -66,7 +65,7 @@ class ContactsSearchProvider(
         return buildList {
             typedPhoneResult?.let(::add)
             addAll(ranked.map { ContactSearchResult(it) })
-        }.take(MAX_RESULTS)
+        }.take(MAX_SEARCH_RESULTS)
     }
 
     private fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {

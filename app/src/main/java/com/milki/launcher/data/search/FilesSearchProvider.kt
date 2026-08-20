@@ -28,10 +28,6 @@ class FilesSearchProvider(
     private val filesRepository: FilesRepository
 ) : SearchProvider {
 
-    private companion object {
-        const val MAX_RESULTS = 10
-    }
-
     override val config: SearchProviderConfig = SearchProviderConfig(
         providerId = ProviderId.FILES,
         prefix = "f",
@@ -46,13 +42,13 @@ class FilesSearchProvider(
 
         if (request.query.isBlank()) {
             return resolveRecentFiles(request.fileSearchExtensionConfig)
-                .take(MAX_RESULTS)
+                .take(MAX_SEARCH_RESULTS)
                 .map { FileDocumentSearchResult(it) }
         }
 
         val files = filesRepository.searchFiles(
             query = request.query,
-            maxItems = MAX_RESULTS,
+            maxItems = MAX_SEARCH_RESULTS,
             extensionConfig = request.fileSearchExtensionConfig
         )
         val recentFiles = resolveRecentFiles(request.fileSearchExtensionConfig)
@@ -65,7 +61,7 @@ class FilesSearchProvider(
             identitySelector = { it.id.toString() },
         )
             .map { FileDocumentSearchResult(it) }
-            .take(MAX_RESULTS)
+            .take(MAX_SEARCH_RESULTS)
     }
 
     private fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
