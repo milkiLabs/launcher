@@ -74,13 +74,6 @@ data class SettingsAdvancedActions(
 )
 
 /**
- * Actions used by support settings section.
- */
-data class SettingsSupportActions(
-    val onOpenSupportLink: (String) -> Unit
-)
-
-/**
  * Root grouped action contract consumed by SettingsScreen.
  */
 data class SettingsActions(
@@ -89,6 +82,5 @@ data class SettingsActions(
     val homeScreen: SettingsHomeScreenActions,
     val sources: SettingsSourceActions,
     val fileSearch: SettingsFileSearchActions,
-    val support: SettingsSupportActions,
     val advanced: SettingsAdvancedActions
 )

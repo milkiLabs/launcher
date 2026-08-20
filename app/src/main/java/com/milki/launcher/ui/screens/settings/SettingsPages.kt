@@ -208,25 +208,6 @@ internal fun SearchSettingsScreen(
 }
 
 @Composable
-internal fun SupportSettingsScreen(
-    actions: SettingsSupportActions,
-    onBack: () -> Unit
-) {
-    SettingsPageScaffold(title = "Support", onBack = onBack) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-        ) {
-            SupportSection(actions = actions)
-
-            Spacer(modifier = Modifier.height(Spacing.extraLarge))
-        }
-    }
-}
-
-@Composable
 internal fun AdvancedSettingsScreen(
     backupStatusMessage: String?,
     onRequestReset: () -> Unit,

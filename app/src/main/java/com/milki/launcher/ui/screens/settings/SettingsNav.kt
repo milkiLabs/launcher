@@ -4,7 +4,6 @@
  * Settings are grouped into focused pages reached from a single index page:
  *  - Home Screen (trigger actions and target pickers)
  *  - Search (layout, sources, prefixes, and file types)
- *  - Support (donations)
  *  - Advanced (backup, import, and reset)
  *
  * Each page is a NavDisplay entry so the system back button and predictive
@@ -44,7 +43,6 @@ sealed interface SettingsRoute {
     data object Index : SettingsRoute
     data object HomeScreen : SettingsRoute
     data object Search : SettingsRoute
-    data object Support : SettingsRoute
     data object Advanced : SettingsRoute
     data class AppPicker(
         val trigger: LauncherTrigger,
@@ -92,7 +90,6 @@ fun SettingsNavHost(
                         onOpenDefaultLauncherSettings = actions.onOpenDefaultLauncherSettings,
                         onOpenHomeScreen = { backStack.add(SettingsRoute.HomeScreen) },
                         onOpenSearch = { backStack.add(SettingsRoute.Search) },
-                        onOpenSupport = { backStack.add(SettingsRoute.Support) },
                         onOpenAdvanced = { backStack.add(SettingsRoute.Advanced) }
                     )
                 }
@@ -112,13 +109,6 @@ fun SettingsNavHost(
                     SearchSettingsScreen(
                         settings = currentSettings,
                         actions = actions,
-                        onBack = { backStack.removeLastOrNull() }
-                    )
-                }
-
-                is SettingsRoute.Support -> NavEntry(key) {
-                    SupportSettingsScreen(
-                        actions = actions.support,
                         onBack = { backStack.removeLastOrNull() }
                     )
                 }

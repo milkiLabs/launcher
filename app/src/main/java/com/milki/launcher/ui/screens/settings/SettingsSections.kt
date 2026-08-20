@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
@@ -452,35 +451,6 @@ internal fun FileSearchExtensionsSection(
 }
 
 @Composable
-internal fun SupportSection(actions: SettingsSupportActions) {
-    SettingsCategory(title = "Support Me")
-
-    Text(
-        text = "Support development and ongoing maintenance.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(
-            horizontal = Spacing.mediumLarge,
-            vertical = Spacing.small
-        )
-    )
-
-    ActionSettingItem(
-        title = "Ko-fi",
-        subtitle = "Donate on ko-fi.com/milkilabs",
-        onClick = { actions.onOpenSupportLink(KO_FI_SUPPORT_URL) },
-        icon = Icons.Filled.Favorite
-    )
-
-    ActionSettingItem(
-        title = "Liberapay",
-        subtitle = "Donate on liberapay.com/Muhammadatef",
-        onClick = { actions.onOpenSupportLink(LIBERAPAY_SUPPORT_URL) },
-        icon = Icons.Filled.Favorite
-    )
-}
-
-@Composable
 internal fun AdvancedSection(
     backupStatusMessage: String?,
     onRequestReset: () -> Unit,
@@ -526,6 +496,3 @@ internal fun AdvancedSection(
 private val LauncherTriggerAction.requiresTargetPicker: Boolean
     get() = this == LauncherTriggerAction.OPEN_APP ||
         this == LauncherTriggerAction.OPEN_ACTION_SHORTCUT
-
-private const val KO_FI_SUPPORT_URL = "https://ko-fi.com/milkilabs"
-private const val LIBERAPAY_SUPPORT_URL = "https://liberapay.com/Muhammadatef/donate"
