@@ -63,7 +63,7 @@ import com.milki.launcher.domain.homegraph.HomeGridDefaults
 data class GridConfig(
     val columns: Int = HomeGridDefaults.COLUMNS,
     val extraRows: Int = 4,
-    val maxRows: Int = 100,
+    val maxRows: Int = HomeGridDefaults.MAX_ROWS,
     
     // Gesture thresholds
     val dragThresholdPx: Float = 20f,

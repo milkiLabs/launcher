@@ -210,7 +210,7 @@ internal fun HomeModelWriter.renameFolder(
     val mutable = currentItems.toMutableList()
     val folderLookup = findFolderLookup(mutable, command.folderId)
         ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
-    val safeName = command.newName.trim().ifBlank { "Folder" }
+    val safeName = command.newName.trim().ifBlank { HomeItem.FolderItem.DEFAULT_NAME }
     mutable[folderLookup.index] = folderLookup.folder.copy(name = safeName)
     return HomeModelWriter.Result.Applied(mutable)
 }

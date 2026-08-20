@@ -231,14 +231,16 @@ sealed class HomeItem {
     @Immutable
     data class FolderItem(
         override val id: String,
-        val name: String = "Folder",
+        val name: String = DEFAULT_NAME,
         val children: List<HomeItem> = emptyList(),
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
                 companion object {
 
-                        fun create(
+                    const val DEFAULT_NAME = "Folder"
+
+                    fun create(
                 item1: HomeItem,
                 item2: HomeItem,
                 atPosition: GridPosition
@@ -247,7 +249,7 @@ sealed class HomeItem {
 
                 return FolderItem(
                     id = id,
-                    name = "Folder",
+                    name = DEFAULT_NAME,
                     children = listOf(
                         item1.withPosition(GridPosition.DEFAULT),
                         item2.withPosition(GridPosition.DEFAULT)

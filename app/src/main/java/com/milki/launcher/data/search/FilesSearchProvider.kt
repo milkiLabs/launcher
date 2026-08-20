@@ -1,6 +1,5 @@
 package com.milki.launcher.data.search
 
-import android.Manifest
 import android.os.Build
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileDocumentSearchResult
@@ -66,9 +65,9 @@ class FilesSearchProvider(
 
     private fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            android.Manifest.permission.MANAGE_EXTERNAL_STORAGE
+            MANAGE_EXTERNAL_STORAGE_PERMISSION
         } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
+            READ_EXTERNAL_STORAGE_PERMISSION
         }
 
         val requiresSettings = state == PermissionAccessState.REQUIRES_SETTINGS

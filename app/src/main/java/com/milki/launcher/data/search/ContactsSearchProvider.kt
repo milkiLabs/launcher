@@ -71,7 +71,7 @@ class ContactsSearchProvider(
     private fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
         val requiresSettings = state == PermissionAccessState.REQUIRES_SETTINGS
         return PermissionRequestResult(
-            permission = android.Manifest.permission.READ_CONTACTS,
+            permission = READ_CONTACTS_PERMISSION,
             providerPrefix = config.prefix,
             message = if (requiresSettings) {
                 "Contacts access is blocked. Open Settings to search contacts"
