@@ -11,6 +11,7 @@ import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.ItemId
 import com.milki.launcher.domain.model.WidgetDisplayMode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -442,7 +443,7 @@ object ExternalDragPayloadCodec {
             )
             return ExternalDragItem.Shortcut(
                 HomeItem.AppShortcut(
-                    id = "shortcut:${payload.packageName}/${payload.shortcutId}",
+                    id = ItemId.shortcut(payload.packageName, payload.shortcutId),
                     packageName = payload.packageName,
                     shortcutId = payload.shortcutId,
                     shortLabel = payload.shortLabel,

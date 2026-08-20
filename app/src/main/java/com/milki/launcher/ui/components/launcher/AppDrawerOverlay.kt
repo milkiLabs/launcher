@@ -70,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppInfo
+import com.milki.launcher.domain.model.ItemId
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.drawer.DrawerAdapterItem
@@ -99,7 +100,7 @@ private const val APP_ITEM_CONTENT_TYPE = "drawer_app_item"
 internal fun drawerGridItemKey(index: Int, item: DrawerAdapterItem): String {
     return when (item) {
         is DrawerAdapterItem.SectionHeader -> "header:${item.title}:$index"
-        is DrawerAdapterItem.AppEntry -> "app:${item.app.packageName}/${item.app.activityName}"
+        is DrawerAdapterItem.AppEntry -> ItemId.app(item.app.packageName, item.app.activityName)
     }
 }
 

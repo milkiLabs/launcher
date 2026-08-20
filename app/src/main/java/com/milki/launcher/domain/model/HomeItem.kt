@@ -4,7 +4,6 @@ package com.milki.launcher.domain.model
 import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.util.UUID
 
 @Serializable
 @Immutable
@@ -43,7 +42,7 @@ sealed class HomeItem {
 
                 companion object {
                         fun fromAppInfo(appInfo: AppInfo): PinnedApp {
-                val id = "app:${appInfo.packageName}/${appInfo.activityName}"
+                val id = ItemId.app(appInfo.packageName, appInfo.activityName)
                 return PinnedApp(
                     id = id,
                     packageName = appInfo.packageName,
@@ -69,7 +68,7 @@ sealed class HomeItem {
                 companion object {
                         fun fromFileDocument(file: FileDocument): PinnedFile {
                 return PinnedFile(
-                    id = "file:${file.uri}",
+                    id = ItemId.file(file.uri.toString()),
                     uri = file.uri.toString(),
                     name = file.name,
                     mimeType = file.mimeType,
@@ -96,7 +95,7 @@ sealed class HomeItem {
                         fun fromContact(contact: Contact): PinnedContact {
                 val contactKey = if (contact.lookupKey.isNotBlank()) contact.lookupKey else contact.id.toString()
                 return PinnedContact(
-                    id = "contact:${contact.id}:$contactKey",
+                    id = ItemId.contact(contact.id, contactKey),
                     contactId = contact.id,
                     lookupKey = contact.lookupKey,
                     displayName = contact.displayName,
@@ -127,7 +126,7 @@ sealed class HomeItem {
                 longLabel: String
             ): AppShortcut {
                 return AppShortcut(
-                    id = "shortcut:$packageName/$shortcutId",
+                    id = ItemId.shortcut(packageName, shortcutId),
                     packageName = packageName,
                     shortcutId = shortcutId,
                     shortLabel = shortLabel,
@@ -151,7 +150,7 @@ sealed class HomeItem {
 
         companion object {
             val DefaultDocsShortcut = ActionShortcut(
-                id = "action:milki_docs",
+                id = ItemId.action("milki_docs"),
                 label = "Milki docs",
                 destinationUri = "https://milkilabs.github.io/launcher/guide/overview.html"
             )
@@ -166,7 +165,7 @@ sealed class HomeItem {
                 val normalizedUri = destinationUri.trim()
                 val scopedPackage = packageName?.takeIf { it.isNotBlank() }
                 return ActionShortcut(
-                    id = "action:${UUID.randomUUID()}",
+                    id = ItemId.actionRandom(),
                     label = normalizedLabel,
                     destinationUri = normalizedUri,
                     packageName = scopedPackage,
@@ -215,7 +214,7 @@ sealed class HomeItem {
                 displayMode: WidgetDisplayMode = WidgetDisplayMode.Inline
             ): WidgetItem {
                 return WidgetItem(
-                    id = "widget:$appWidgetId",
+                    id = ItemId.widget(appWidgetId),
                     appWidgetId = appWidgetId,
                     providerPackage = providerPackage,
                     providerClass = providerClass,
@@ -244,7 +243,7 @@ sealed class HomeItem {
                 item2: HomeItem,
                 atPosition: GridPosition
             ): FolderItem {
-                val id = "folder:${UUID.randomUUID()}"
+                val id = ItemId.folder()
 
                 return FolderItem(
                     id = id,

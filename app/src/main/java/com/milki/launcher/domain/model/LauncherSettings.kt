@@ -146,7 +146,7 @@ sealed class LauncherTriggerTarget {
 
         fun toHomeShortcut(): HomeItem.AppShortcut {
             return HomeItem.AppShortcut(
-                id = "shortcut:$packageName/$shortcutId",
+                id = ItemId.shortcut(packageName, shortcutId),
                 packageName = packageName,
                 shortcutId = shortcutId,
                 shortLabel = shortLabel,

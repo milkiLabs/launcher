@@ -15,6 +15,7 @@ import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.ItemId
 import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.presentation.home.prune.HomeAvailabilityPruner
@@ -482,7 +483,7 @@ class HomeViewModel(
             fallbackErrorMessage = "Could not remove widget",
             command = HomeModelWriter.RemoveItemsById(itemIds = setOf(widgetId)),
             onApplied = {
-                widgetId.substringAfter("widget:", "").toIntOrNull()?.let(widgetHostManager::deallocateWidgetId)
+                ItemId.widgetId(widgetId)?.let(widgetHostManager::deallocateWidgetId)
             }
         )
     }

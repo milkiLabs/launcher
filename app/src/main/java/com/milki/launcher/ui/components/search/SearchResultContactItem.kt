@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import com.milki.launcher.domain.model.ContactSearchResult
+import com.milki.launcher.domain.model.ItemId
 import com.milki.launcher.ui.interaction.dragdrop.startExternalContactDrag
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
@@ -62,7 +63,7 @@ fun ContactSearchResultItem(
 
     Box(
         modifier = Modifier.detectDragGesture(
-            key = "contact:${result.contact.id}:${result.contact.lookupKey}",
+            key = ItemId.contact(result.contact.id, result.contact.lookupKey),
             dragThreshold = GridConfig.Default.dragThresholdPx,
             onTap = onClick,
             onLongPress = {},
