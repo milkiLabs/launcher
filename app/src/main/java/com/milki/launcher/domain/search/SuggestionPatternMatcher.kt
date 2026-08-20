@@ -1,6 +1,7 @@
 package com.milki.launcher.domain.search
 
 import com.milki.launcher.core.url.UrlValidator
+import com.milki.launcher.data.search.UrlHandlerResolver
 import com.milki.launcher.domain.model.UrlSearchResult
 
 /**

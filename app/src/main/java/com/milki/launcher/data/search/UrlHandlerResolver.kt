@@ -1,5 +1,5 @@
 
-package com.milki.launcher.domain.search
+package com.milki.launcher.data.search
 
 import android.content.Context
 import android.content.Intent

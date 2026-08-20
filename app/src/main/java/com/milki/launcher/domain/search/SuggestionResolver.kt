@@ -1,6 +1,7 @@
 package com.milki.launcher.domain.search
 
 import android.util.Patterns
+import com.milki.launcher.data.search.UrlHandlerResolver
 
 /**
  * SuggestionResolver reads text and converts it into one actionable suggestion.

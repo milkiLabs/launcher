@@ -4,13 +4,13 @@ import com.milki.launcher.data.repository.shortcut.ActionShortcutRepositoryImpl
 import com.milki.launcher.data.repository.apps.AppRepositoryImpl
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
+import com.milki.launcher.data.search.UrlHandlerResolver
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.HomeTriggerRepository
 import com.milki.launcher.domain.repository.PrefixOwnerRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
 import com.milki.launcher.domain.repository.SettingsReader
-import com.milki.launcher.domain.search.UrlHandlerResolver
 import org.koin.dsl.module
 
 val coreModule = module {

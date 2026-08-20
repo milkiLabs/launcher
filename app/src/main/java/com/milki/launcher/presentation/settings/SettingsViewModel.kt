@@ -33,8 +33,8 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.PrefixOwnerRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
 import com.milki.launcher.domain.repository.SettingsReader
+import com.milki.launcher.data.search.UrlHandlerResolver
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
-import com.milki.launcher.domain.search.UrlHandlerResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
