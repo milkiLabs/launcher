@@ -29,7 +29,8 @@ class ActionShortcutRepositoryImpl(
     private val dataStore = context.actionShortcutDataStore
     private val serializer = newlineJsonListSerializer(
         key = ActionShortcutPreferenceKeys.SHORTCUTS,
-        serializer = HomeItem.ActionShortcut.serializer()
+        serializer = HomeItem.ActionShortcut.serializer(),
+        default = { listOf(HomeItem.ActionShortcut.DefaultDocsShortcut) }
     )
 
     override val shortcuts: Flow<List<HomeItem.ActionShortcut>> = dataStore.data

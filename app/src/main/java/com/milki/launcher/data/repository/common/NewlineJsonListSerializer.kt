@@ -15,7 +15,7 @@ import kotlinx.serialization.json.Json
 internal fun <T : HomeItem> newlineJsonListSerializer(
     key: Key<String>,
     serializer: KSerializer<T>,
-    default: () -> List<T> = { listOf(HomeItem.ActionShortcut.DefaultDocsShortcut) }
+    default: () -> List<T> = { emptyList() }
 ): NewlineJsonListSerializer<T> = NewlineJsonListSerializer(
     key = key,
     json = HomeItem.json,

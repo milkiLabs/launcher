@@ -15,7 +15,8 @@ internal class HomeItemSerializer {
 
     private val delegate = newlineJsonListSerializer(
         key = HomePreferenceKeys.PINNED_ITEMS,
-        serializer = HomeItem.serializer()
+        serializer = HomeItem.serializer(),
+        default = { listOf(HomeItem.ActionShortcut.DefaultDocsShortcut) }
     )
 
     fun readFrom(preferences: Preferences): List<HomeItem> =
