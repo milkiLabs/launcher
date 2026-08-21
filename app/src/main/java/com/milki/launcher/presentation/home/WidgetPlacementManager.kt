@@ -72,7 +72,6 @@ class WidgetPlacementManager(
         if (existingWidget != null) {
             val updatedWidget = existingWidget.withDisplayMode(displayMode).withSpan(span)
             modelMutator.mutate(
-                fallbackErrorMessage = "Target position is occupied",
                 command = HomeModelWriter.PinOrMoveToPosition(
                     item = updatedWidget,
                     targetPosition = targetPosition
@@ -177,9 +176,7 @@ class WidgetPlacementManager(
                     item = widgetItem,
                     targetPosition = pending.targetPosition
                 ),
-                fallbackErrorMessage = "Could not place widget",
                 onFailure = {
-                    modelMutator.reportMoveError("Could not place widget")
                     widgetHost.deallocateWidgetId(pending.appWidgetId)
                 }
             )

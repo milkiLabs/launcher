@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -114,15 +115,11 @@ class HomeViewModel(
 
     val isUpdatingPositions: StateFlow<Boolean> = modelMutator.isUpdatingPositions
 
-    val lastMoveErrorMessage: StateFlow<String?> = modelMutator.lastMoveErrorMessage
-
-    fun clearMoveError() {
-        modelMutator.clearMoveError()
-    }
+    /** One-shot mutation failure events; the UI owns message text. */
+    val mutationErrors = modelMutator.mutationErrors.receiveAsFlow()
 
     fun moveItemToPosition(itemId: String, newPosition: GridPosition) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Target position is occupied or item no longer exists",
             command = HomeModelWriter.MoveTopLevelItem(
                 itemId = itemId,
                 newPosition = newPosition
@@ -139,7 +136,6 @@ class HomeViewModel(
 
     fun pinOrMoveHomeItemToPosition(item: HomeItem, dropPosition: GridPosition) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Target position is occupied",
             command = HomeModelWriter.PinOrMoveToPosition(
                 item = item,
                 targetPosition = dropPosition
@@ -149,7 +145,6 @@ class HomeViewModel(
 
     internal fun pinFile(file: FileDocument) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Failed to pin file",
             command = HomeModelWriter.AddPinnedItem(
                 item = HomeItem.PinnedFile.fromFileDocument(file)
             )
@@ -158,7 +153,6 @@ class HomeViewModel(
 
     internal fun pinContact(contact: Contact) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Failed to pin contact",
             command = HomeModelWriter.AddPinnedItem(
                 item = HomeItem.PinnedContact.fromContact(contact)
             )
@@ -167,21 +161,16 @@ class HomeViewModel(
 
     fun pinAppShortcut(shortcut: HomeItem.AppShortcut) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Failed to pin shortcut",
             command = HomeModelWriter.AddPinnedItem(item = shortcut)
         )
     }
 
     internal fun unpinItem(itemId: String) {
-        mutateRemoveItemsById(setOf(itemId), fallbackErrorMessage = "Failed to remove item")
+        mutateRemoveItemsById(setOf(itemId))
     }
 
-    private fun mutateRemoveItemsById(
-        itemIds: Set<String>,
-        fallbackErrorMessage: String
-    ) {
+    private fun mutateRemoveItemsById(itemIds: Set<String>) {
         modelMutator.mutate(
-            fallbackErrorMessage = fallbackErrorMessage,
             command = HomeModelWriter.RemoveItemsById(itemIds = itemIds)
         )
     }
@@ -202,7 +191,6 @@ class HomeViewModel(
 
     fun createFolder(item1: HomeItem, item2: HomeItem, atPosition: GridPosition) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not create folder",
             command = HomeModelWriter.CreateFolder(
                 draggedItem = item1,
                 targetItemId = item2.id,
@@ -213,7 +201,6 @@ class HomeViewModel(
 
     fun addItemToFolder(folderId: String, item: HomeItem) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not add item to folder",
             command = HomeModelWriter.AddItemToFolder(
                 folderId = folderId,
                 item = item
@@ -223,7 +210,6 @@ class HomeViewModel(
 
     fun removeItemFromFolder(folderId: String, itemId: String) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not remove item from folder",
             command = HomeModelWriter.RemoveItemFromFolder(
                 folderId = folderId,
                 itemId = itemId
@@ -233,7 +219,6 @@ class HomeViewModel(
 
     fun reorderFolderItems(folderId: String, newChildren: List<HomeItem>) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not reorder folder items",
             command = HomeModelWriter.ReorderFolderItems(
                 folderId = folderId,
                 newChildren = newChildren
@@ -247,7 +232,6 @@ class HomeViewModel(
         targetFolderId: String
     ) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not move item between folders",
             command = HomeModelWriter.MoveItemBetweenFolders(
                 sourceFolderId = sourceFolderId,
                 targetFolderId = targetFolderId,
@@ -263,7 +247,6 @@ class HomeViewModel(
         atPosition: GridPosition
     ) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not create folder from drag",
             command = HomeModelWriter.ExtractFolderChildOntoItem(
                 sourceFolderId = sourceFolderId,
                 childItemId = childItem.id,
@@ -275,7 +258,6 @@ class HomeViewModel(
 
     fun mergeFolders(sourceFolderId: String, targetFolderId: String) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not merge folders",
             command = HomeModelWriter.MergeFolders(
                 sourceFolderId = sourceFolderId,
                 targetFolderId = targetFolderId
@@ -285,7 +267,6 @@ class HomeViewModel(
 
     fun renameFolder(folderId: String, newName: String) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not rename folder",
             command = HomeModelWriter.RenameFolder(
                 folderId = folderId,
                 newName = newName
@@ -295,7 +276,6 @@ class HomeViewModel(
 
     fun extractItemFromFolder(folderId: String, itemId: String, targetPosition: GridPosition) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Target position is occupied",
             command = HomeModelWriter.ExtractItemFromFolder(
                 folderId = folderId,
                 itemId = itemId,
@@ -337,7 +317,6 @@ class HomeViewModel(
 
     fun removeWidget(widgetId: String) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Could not remove widget",
             command = HomeModelWriter.RemoveItemsById(itemIds = setOf(widgetId)),
             onApplied = {
                 ItemId.widgetId(widgetId)?.let(widgetHost::deallocateWidgetId)
@@ -351,7 +330,6 @@ class HomeViewModel(
         newSpan: GridSpan
     ) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Cannot update widget - cells are occupied",
             command = HomeModelWriter.UpdateWidgetFrame(
                 widgetId = widgetId,
                 newPosition = newPosition,
@@ -365,7 +343,6 @@ class HomeViewModel(
         displayMode: WidgetDisplayMode
     ) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Cannot update widget display mode",
             command = HomeModelWriter.UpdateWidgetDisplayMode(
                 widgetId = widgetId,
                 displayMode = displayMode
@@ -378,7 +355,6 @@ class HomeViewModel(
         visibleRows: Int
     ) {
         modelMutator.mutate(
-            fallbackErrorMessage = "Cannot show full widget",
             command = HomeModelWriter.ExpandPopupWidget(
                 widgetId = widgetId,
                 visibleRows = visibleRows
