@@ -15,15 +15,14 @@
 
 package com.milki.launcher.presentation.search
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.ContactsContract
-import android.util.Log
 import android.widget.Toast
+import com.milki.launcher.core.intent.launchSafe
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ContactSearchResult
@@ -55,31 +54,34 @@ data class PendingPermissionAction(
  *
  * @property context Android context for starting activities
  * @property contactsRepository Repository for contacts
+ * @property filesRepository Repository for files
  * @property homeViewModel ViewModel for home screen mutations
  * @property scope CoroutineScope tied to the caller's lifecycle (e.g., Activity's lifecycleScope).
  *                 This ensures all coroutines are cancelled when the lifecycle owner is destroyed,
  *                 preventing memory leaks and ensuring proper structured concurrency.
+ * @property permissionRequester Requests an Android runtime permission from the host.
+ * @property closeSearch Hides the search surface.
+ * @property saveRecentApp Records a launched app component as recently used.
+ * @property openAppWidgets Opens the widget picker for the given app.
+ *
+ * All host dependencies are constructor-injected so the executor is fully
+ * functional immediately after construction; there is no late callback binding
+ * and no risk of firing into a not-yet-wired callback.
  */
 class ActionExecutor(
     private val context: Context,
     private val contactsRepository: ContactsRepository,
     private val filesRepository: com.milki.launcher.domain.repository.FilesRepository,
     private val homeViewModel: HomeViewModel,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val permissionRequester: (String) -> Unit,
+    private val closeSearch: () -> Unit,
+    private val saveRecentApp: (String) -> Unit,
+    private val openAppWidgets: (String) -> Unit
 ) {
 
-    private companion object {
-        private const val TAG = "ActionExecutor"
-    }
-    
     var pendingAction: PendingPermissionAction? = null
         private set
-    
-    var onRequestPermission: ((String) -> Unit)? = null
-    var onCloseSearch: (() -> Unit)? = null
-    var onSaveRecentApp: ((String) -> Unit)? = null
-    var onOpenAppWidgets: ((String) -> Unit)? = null
-    var shouldCloseSearchForAction: ((SearchResultAction) -> Boolean)? = null
 
     /**
      * Execute a SearchResultAction.
@@ -89,10 +91,10 @@ class ActionExecutor(
         hasPermission: (String) -> Boolean
     ) {
         val requiredPermission = action.requiredPermission()
-        
+
         if (requiredPermission != null && !hasPermission(requiredPermission)) {
             pendingAction = PendingPermissionAction(action, requiredPermission)
-            onRequestPermission?.invoke(requiredPermission)
+            permissionRequester(requiredPermission)
         } else {
             executeAction(action)
         }
@@ -126,8 +128,8 @@ class ActionExecutor(
             is SearchResultAction.RequestPermission -> handleRequestPermission(action)
         }
         
-        if (shouldCloseSearchForAction?.invoke(action) ?: action.shouldCloseSearch()) {
-            onCloseSearch?.invoke()
+        if (action.shouldCloseSearch()) {
+            closeSearch()
         }
     }
 
@@ -159,9 +161,7 @@ class ActionExecutor(
         val success = launchApp(
             context = context,
             appInfo = result.appInfo,
-            onRecentAppSaved = { componentName ->
-                onSaveRecentApp?.invoke(componentName)
-            }
+            onRecentAppSaved = saveRecentApp
         )
         
         if (!success) {
@@ -190,18 +190,12 @@ class ActionExecutor(
         val youtubePackage = resolved.firstOrNull {
             it.activityInfo.packageName.contains("youtube", ignoreCase = true)
         }?.activityInfo?.packageName
-        
+
         if (youtubePackage != null) {
             intent.setPackage(youtubePackage)
         }
-        
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No matching activity for YouTube search intent", e)
-            openUrlInBrowser(youtubeUrl)
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while opening YouTube search", e)
+
+        if (!context.launchSafe("YouTube search", intent)) {
             openUrlInBrowser(youtubeUrl)
         }
     }
@@ -228,26 +222,22 @@ class ActionExecutor(
     }
 
     private fun openUrlInExternalBrowser(url: String) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        val uri = Uri.parse(url)
+        val pinnedIntent = Intent(Intent.ACTION_VIEW, uri).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        
-        val defaultBrowser = resolveDefaultBrowser()
-        if (defaultBrowser != null) {
-            intent.setPackage(defaultBrowser)
-            try {
-                context.startActivity(intent)
-                return
-            } catch (e: ActivityNotFoundException) {
-            }
-        }
-        
-        try {
-            context.startActivity(Intent.createChooser(intent, "Open with"))
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No app available to open URL", e)
-            Toast.makeText(context, "No browser app found", Toast.LENGTH_SHORT).show()
-        }
+        resolveDefaultBrowser()?.let { pinnedIntent.setPackage(it) }
+
+        val chooserIntent = Intent.createChooser(
+            Intent(Intent.ACTION_VIEW, uri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
+            "Open with"
+        ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+
+        context.launchSafe(
+            "external browser",
+            listOf(pinnedIntent, chooserIntent),
+            failureMessage = "No browser app found"
+        )
     }
     
     private fun resolveDefaultBrowser(): String? {
@@ -270,22 +260,14 @@ class ActionExecutor(
 
     private fun callContact(result: ContactSearchResult) {
         val phone = result.contact.phoneNumbers.firstOrNull() ?: return
-        
+
         val intent = Intent(Intent.ACTION_DIAL).apply {
             data = phoneUri(phone)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No dialer app available", e)
-            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while opening dialer", e)
-            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
-        }
-        
+
+        context.launchSafe("dialer", intent, failureMessage = "No phone app found")
+
         saveRecentContact(phone)
     }
 
@@ -313,15 +295,18 @@ class ActionExecutor(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        try {
-            context.startActivity(intent)
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while placing direct call", e)
-            Toast.makeText(context, "Call permission not granted", Toast.LENGTH_SHORT).show()
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No phone app available for direct call", e)
-            Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
-        }
+        context.launchSafe(
+            "direct call",
+            intent,
+            onFailure = { error ->
+                val message = if (error is SecurityException) {
+                    "Call permission not granted"
+                } else {
+                    "No phone app found"
+                }
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+        )
 
         saveRecentContact(phoneNumber)
     }
@@ -333,15 +318,11 @@ class ActionExecutor(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No contacts app available to save phone number", e)
-            Toast.makeText(context, "No contacts app found", Toast.LENGTH_SHORT).show()
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while opening contacts insert", e)
-            Toast.makeText(context, "No contacts app found", Toast.LENGTH_SHORT).show()
-        }
+        context.launchSafe(
+            "contacts insert",
+            intent,
+            failureMessage = "No contacts app found"
+        )
     }
 
     // ========================================================================
@@ -374,12 +355,7 @@ class ActionExecutor(
         ).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "Could not open app info screen", e)
-            Toast.makeText(context, "Unable to open app info", Toast.LENGTH_SHORT).show()
-        }
+        context.launchSafe("app info screen", intent, failureMessage = "Unable to open app info")
     }
 
     private fun handleUninstallApp(action: SearchResultAction.UninstallApp) {
@@ -389,16 +365,11 @@ class ActionExecutor(
         ).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "Could not open app uninstall screen", e)
-            Toast.makeText(context, "Unable to uninstall app", Toast.LENGTH_SHORT).show()
-        }
+        context.launchSafe("app uninstall screen", intent, failureMessage = "Unable to uninstall app")
     }
 
     private fun handleOpenAppWidgets(action: SearchResultAction.OpenAppWidgets) {
-        onOpenAppWidgets?.invoke(action.appName)
+        openAppWidgets(action.appName)
     }
 
     private fun handleLaunchAppShortcut(action: SearchResultAction.LaunchAppShortcut) {
@@ -432,15 +403,7 @@ class ActionExecutor(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Log.w(TAG, "No email app available", e)
-            Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Security exception while opening email compose", e)
-            Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
-        }
+        context.launchSafe("email compose", intent, failureMessage = "No email app found")
     }
 
     // ========================================================================
@@ -448,7 +411,7 @@ class ActionExecutor(
     // ========================================================================
 
     private fun handleRequestPermission(action: SearchResultAction.RequestPermission) {
-        onRequestPermission?.invoke(action.permission)
+        permissionRequester(action.permission)
     }
 
     // ========================================================================

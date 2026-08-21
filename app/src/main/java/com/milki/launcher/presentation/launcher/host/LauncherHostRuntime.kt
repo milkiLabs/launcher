@@ -263,17 +263,32 @@ internal class LauncherHostRuntime(
 
         initializePermissionHandler()
 
+        permissionRequestCoordinator = PermissionRequestCoordinator(
+            permissionHandler = permissionHandler,
+            searchViewModel = searchViewModelProvider(),
+            onCloseSearch = {
+                if (launcherNavigator.isSearchOpen) {
+                    launcherNavigator.pop()
+                }
+            },
+            actionExecutorProvider = { actionExecutor }
+        )
+
         actionExecutor = ActionExecutor(
             activity,
             contactsRepositoryProvider(),
             filesRepositoryProvider(),
             homeViewModel,
-            activity.lifecycleScope
-        ).apply {
-            onOpenAppWidgets = { appName ->
+            activity.lifecycleScope,
+            permissionRequester = permissionRequestCoordinator::requestPermission,
+            closeSearch = permissionRequestCoordinator::closeSearch,
+            saveRecentApp = { componentName ->
+                searchViewModelProvider().saveRecentApp(componentName)
+            },
+            openAppWidgets = { appName ->
                 launcherNavigator.navigate(LauncherRoute.WidgetPicker(appName))
             }
-        }
+        )
 
         pinShortcutRequestCoordinator = PinShortcutRequestCoordinator(
             context = activity,
@@ -282,16 +297,6 @@ internal class LauncherHostRuntime(
             scope = activity.lifecycleScope
         )
 
-        permissionRequestCoordinator = PermissionRequestCoordinator(
-            permissionHandler = permissionHandler,
-            actionExecutor = actionExecutor,
-            searchViewModel = searchViewModelProvider(),
-            onCloseSearch = {
-                if (launcherNavigator.isSearchOpen) {
-                    launcherNavigator.pop()
-                }
-            }
-        )
         permissionRequestCoordinator.bind()
         permissionHandler.updateStates()
     }

@@ -16,14 +16,17 @@ import com.milki.launcher.presentation.search.SearchViewModel
  * lifecycle hosting and UI composition.
  *
  * DESIGN NOTES:
- * - This class intentionally contains orchestration side effects (callback wiring).
- * - It does not own permission launcher registration; PermissionHandler still does.
+ * - The ActionExecutor consumes [requestPermission] and [closeSearch] directly at
+ *   construction time (constructor injection), so there is no late callback binding
+ *   and no temporal coupling between construction and bind().
+ * - [bind] only wires the PermissionHandler result path, which is inherently
+ *   event-driven (Android fires it after a request).
  */
 class PermissionRequestCoordinator(
     private val permissionHandler: PermissionHandler,
-    private val actionExecutor: ActionExecutor,
     private val searchViewModel: SearchViewModel,
-    private val onCloseSearch: () -> Unit = {}
+    private val onCloseSearch: () -> Unit = {},
+    private val actionExecutorProvider: () -> ActionExecutor
 ) {
 
     /**
@@ -41,25 +44,28 @@ class PermissionRequestCoordinator(
     )
 
     /**
-     * Connects callbacks between ActionExecutor and PermissionHandler.
+     * Entry point consumed by ActionExecutor when an action needs a runtime permission.
+     */
+    fun requestPermission(permission: String) {
+        permissionOrchestrator.request(permission)
+    }
+
+    /**
+     * Entry point consumed by ActionExecutor when an action completes and the
+     * search surface should be dismissed.
+     */
+    fun closeSearch() {
+        searchViewModel.hideSearch()
+        onCloseSearch()
+    }
+
+    /**
+     * Connects the PermissionHandler result path.
      *
      * This should be called once during Activity initialization after both
      * objects are created.
      */
     fun bind() {
-        actionExecutor.onRequestPermission = { permission ->
-            permissionOrchestrator.request(permission)
-        }
-
-        actionExecutor.onCloseSearch = {
-            searchViewModel.hideSearch()
-            onCloseSearch()
-        }
-
-        actionExecutor.onSaveRecentApp = { componentName ->
-            searchViewModel.saveRecentApp(componentName)
-        }
-
         permissionHandler.onPermissionResult = { permission, granted ->
             permissionOrchestrator.onResult(permission, granted)
         }
@@ -101,7 +107,7 @@ class PermissionRequestCoordinator(
      */
     private fun deliverPermissionResultToConsumers(permission: String, granted: Boolean) {
         if (permission == android.Manifest.permission.CALL_PHONE) {
-            actionExecutor.onPermissionResult(granted)
+            actionExecutorProvider().onPermissionResult(granted)
         }
     }
 }
