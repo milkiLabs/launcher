@@ -6,6 +6,7 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
+import com.milki.launcher.domain.model.SearchSource
 import kotlinx.serialization.encodeToString
 
 internal object SettingsPreferenceWriter {
@@ -94,4 +95,20 @@ internal object SettingsPreferenceWriter {
         preferences[SettingsPreferenceKeys.TRIGGER_TARGETS] =
             settingsStorageJson.encodeToString(serialized)
     }
+}
+
+internal fun MutablePreferences.writePrefixConfigurations(configurations: ProviderPrefixConfiguration) {
+    if (configurations.isEmpty()) {
+        remove(SettingsPreferenceKeys.PREFIX_CONFIGURATIONS)
+        return
+    }
+    this[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS] =
+        serializePrefixConfigurations(configurations)
+}
+
+internal fun MutablePreferences.writeSearchSources(sources: List<SearchSource>) {
+    this[SettingsPreferenceKeys.SEARCH_SOURCES_STATE] =
+        SearchSourcesStorageState.INITIALIZED
+    this[SettingsPreferenceKeys.SEARCH_SOURCES] =
+        serializeSearchSources(sources)
 }

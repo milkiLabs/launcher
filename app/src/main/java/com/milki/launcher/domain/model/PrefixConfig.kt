@@ -76,38 +76,7 @@ data class PrefixConfig(
     val primaryPrefix: String
         get() = prefixes.firstOrNull() ?: ""
 
-    /**
-     * Check if this configuration contains the given prefix.
-     * Used when parsing user queries.
-     *
-     * @param prefix The prefix to check
-     * @return True if this provider is configured with this prefix
-     */
-    fun hasPrefix(prefix: String): Boolean = prefixes.contains(prefix)
-
-    /**
-     * Check if any of the configured prefixes match the start of the input.
-     * This is used when the user types but hasn't added a space yet.
-     *
-     * @param input The user's input text
-     * @return True if the input starts with any configured prefix (without space)
-     */
-    fun matchesPartial(input: String): Boolean {
-        return prefixes.any { prefix ->
-            input.startsWith(prefix) && input.length >= prefix.length
-        }
-    }
-
     companion object {
-        /**
-         * Create a PrefixConfig with a single prefix.
-         * Convenience factory method for common use case.
-         *
-         * @param prefix The single prefix to use
-         * @return PrefixConfig with just this prefix
-         */
-        fun single(prefix: String): PrefixConfig = PrefixConfig(listOf(prefix))
-
         /**
          * Default prefix configurations for all built-in providers.
          * These are used when the user hasn't customized any prefixes.

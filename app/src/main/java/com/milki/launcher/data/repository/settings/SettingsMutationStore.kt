@@ -36,22 +36,17 @@ internal class SettingsMutationStore {
             preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS]
         )
 
-        val normalizedSource = source.copy(
-            name = source.name.trim().ifBlank { "Source" },
-            urlTemplate = if (SearchSource.isValidUrlTemplate(source.urlTemplate)) {
-                source.urlTemplate.trim()
-            } else {
-                "https://www.google.com/search?q={query}"
-            },
-            prefixes = SearchSource.normalizePrefixes(source.prefixes),
-            accentColorHex = SearchSource.normalizeHexColor(source.accentColorHex)
-        )
-
-        if (hasPrefixConflict(normalizedSource.prefixes, ignoredOwnerId = null, sources = currentSources, providerConfigs = currentPrefixConfigs)) {
-            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner("unknown")
+        if (hasPrefixConflict(
+                SearchSource.normalizePrefixes(source.prefixes),
+                ignoredOwnerId = null,
+                sources = currentSources,
+                providerConfigs = currentPrefixConfigs
+            )
+        ) {
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner
         }
 
-        preferences.writeSearchSources(currentSources + normalizedSource)
+        preferences.writeSearchSources(currentSources + source)
         return PrefixMutationResult.Success
     }
 
@@ -75,7 +70,7 @@ internal class SettingsMutationStore {
         val normalizedPrefixes = SearchSource.normalizePrefixes(prefixes)
 
         if (hasPrefixConflict(normalizedPrefixes, ignoredOwnerId = sourceId, sources = currentSources, providerConfigs = currentPrefixConfigs)) {
-            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner("unknown")
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner
         }
 
         val updatedSources = currentSources.map { existing ->
@@ -216,7 +211,7 @@ internal class SettingsMutationStore {
         if (normalizedPrefix in currentPrefixes) return PrefixMutationResult.PrefixAlreadyExistsOnTarget
 
         if (hasPrefixConflict(listOf(normalizedPrefix), ignoredOwnerId = providerId, sources = sources, providerConfigs = providerConfigs)) {
-            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner("unknown")
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner
         }
 
         val updatedConfigs = providerConfigs.toMutableMap()
@@ -278,7 +273,7 @@ internal class SettingsMutationStore {
         if (normalizedPrefix in currentPrefixes) return PrefixMutationResult.PrefixAlreadyExistsOnTarget
 
         if (hasPrefixConflict(listOf(normalizedPrefix), ignoredOwnerId = sourceId, sources = sources, providerConfigs = providerConfigs)) {
-            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner("unknown")
+            return PrefixMutationResult.DuplicatePrefixOnAnotherOwner
         }
 
         val updatedSources = sources.map { source ->

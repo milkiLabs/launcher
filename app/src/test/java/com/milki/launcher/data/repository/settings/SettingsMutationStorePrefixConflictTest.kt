@@ -29,7 +29,7 @@ class SettingsMutationStorePrefixConflictTest {
 
         val result = store.addPrefix(prefs, ProviderId.CONTACTS, "f")
 
-        assertEquals(PrefixMutationResult.DuplicatePrefixOnAnotherOwner("unknown"), result)
+        assertEquals(PrefixMutationResult.DuplicatePrefixOnAnotherOwner, result)
     }
 
     @Test
@@ -39,7 +39,7 @@ class SettingsMutationStorePrefixConflictTest {
 
         val result = store.addPrefix(prefs, ProviderId.CONTACTS, "k")
 
-        assertEquals(PrefixMutationResult.DuplicatePrefixOnAnotherOwner("unknown"), result)
+        assertEquals(PrefixMutationResult.DuplicatePrefixOnAnotherOwner, result)
     }
 
     @Test

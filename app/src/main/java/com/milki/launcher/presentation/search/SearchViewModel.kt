@@ -237,13 +237,13 @@ class SearchViewModel(
             if (settings.contactsSearchEnabled) {
                 put(
                     ProviderId.CONTACTS,
-                    settings.prefixConfigurations[ProviderId.CONTACTS] ?: PrefixConfig.single("c")
+                    settings.prefixConfigurations[ProviderId.CONTACTS] ?: PrefixConfig(listOf("c"))
                 )
             }
             if (settings.filesSearchEnabled) {
                 put(
                     ProviderId.FILES,
-                    settings.prefixConfigurations[ProviderId.FILES] ?: PrefixConfig.single("f")
+                    settings.prefixConfigurations[ProviderId.FILES] ?: PrefixConfig(listOf("f"))
                 )
             }
         }

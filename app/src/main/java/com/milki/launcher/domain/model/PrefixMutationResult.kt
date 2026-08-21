@@ -30,12 +30,8 @@ sealed interface PrefixMutationResult {
 
     /**
      * Prefix already exists on another owner.
-     *
-     * @property ownerId The conflicting owner ID (provider or source).
      */
-    data class DuplicatePrefixOnAnotherOwner(
-        val ownerId: String
-    ) : PrefixMutationResult
+    data object DuplicatePrefixOnAnotherOwner : PrefixMutationResult
 
     /**
      * Prefix already exists on the target owner (no state change required).
