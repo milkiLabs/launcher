@@ -114,7 +114,8 @@ fun startExternalAppDrag(
 /**
  * Starts an external file drag operation.
  *
- * File rows do not have package-based icons, so we use the host view shadow.
+ * File rows do not have package-based icons, so we use a generic system icon
+ * for the shadow.
  */
 fun startExternalFileDrag(
     hostView: View,
@@ -123,7 +124,6 @@ fun startExternalFileDrag(
     hostView = hostView,
     payload = ExternalDragItem.File(fileDocument),
     dragShadowBuilder = iconDragShadowBuilder(
-        hostView = hostView,
         drawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_agenda),
         shadowSizePx = dpToPx(IconSize.appList, hostView.context)
     ),
@@ -133,8 +133,8 @@ fun startExternalFileDrag(
 /**
  * Starts an external contact drag operation.
  *
- * Contact rows also use the host view drag shadow for a lightweight, generic
- * implementation that works across all prefix result rows.
+ * Contact rows also use a generic system icon shadow for a lightweight,
+ * generic implementation that works across all prefix result rows.
  */
 fun startExternalContactDrag(
     hostView: View,
@@ -143,7 +143,6 @@ fun startExternalContactDrag(
     hostView = hostView,
     payload = ExternalDragItem.Contact(contact),
     dragShadowBuilder = iconDragShadowBuilder(
-        hostView = hostView,
         drawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_myplaces),
         shadowSizePx = dpToPx(IconSize.appList, hostView.context)
     ),
@@ -165,7 +164,6 @@ fun startExternalShortcutDrag(
         hostView = hostView,
         payload = ExternalDragItem.Shortcut(shortcut),
         dragShadowBuilder = iconDragShadowBuilder(
-            hostView = hostView,
             drawable = iconDrawable,
             shadowSizePx = dpToPx(dragShadowSize, dragHostView.context)
         ),
@@ -194,7 +192,6 @@ fun startExternalActionShortcutDrag(
         hostView = hostView,
         payload = ExternalDragItem.ActionShortcut(shortcut),
         dragShadowBuilder = iconDragShadowBuilder(
-            hostView = hostView,
             drawable = iconDrawable,
             shadowSizePx = dpToPx(dragShadowSize, dragHostView.context)
         ),
@@ -289,15 +286,8 @@ fun startExternalFolderItemDrag(
     val dragShadowBuilder: View.DragShadowBuilder = if (shadowDrawable != null) {
         AppIconDragShadowBuilder(shadowDrawable, dpToPx(dragShadowSize, hostView.context))
     } else {
-        // Last-resort fallback: an empty shadow (0×0) so at least no screen content leaks.
-        object : View.DragShadowBuilder() {
-            override fun onProvideShadowMetrics(outShadowSize: Point, outShadowTouchPoint: Point) {
-                val sizePx = dpToPx(dragShadowSize, hostView.context)
-                outShadowSize.set(sizePx, sizePx)
-                outShadowTouchPoint.set(sizePx / 2, sizePx / 2)
-            }
-            override fun onDrawShadow(canvas: Canvas) { /* intentionally blank */ }
-        }
+        // Last-resort fallback: an empty shadow so at least no screen content leaks.
+        EmptyDragShadowBuilder(dpToPx(dragShadowSize, hostView.context))
     }
 
     // Wrap the item so the drop handler knows to call extractItemFromFolder.
@@ -460,10 +450,13 @@ private fun dpToPx(value: Dp, context: Context): Int {
 
 /**
  * Builds an icon-sized drag shadow when a drawable is available; otherwise falls
- * back to rendering the host view.
+ * back to an empty shadow.
+ *
+ * IMPORTANT: never fall back to View.DragShadowBuilder(hostView) — hostView is
+ * typically LocalView.current, the full-screen Compose root, and the default
+ * builder would render the ENTIRE SCREEN as the drag shadow.
  */
 private fun iconDragShadowBuilder(
-    hostView: View,
     drawable: Drawable?,
     shadowSizePx: Int
 ): View.DragShadowBuilder {
@@ -473,8 +466,26 @@ private fun iconDragShadowBuilder(
             shadowSizePx = shadowSizePx
         )
     } else {
-        View.DragShadowBuilder(hostView)
+        EmptyDragShadowBuilder(shadowSizePx)
     }
+}
+
+/**
+ * Drag shadow builder that renders nothing but reserves icon-sized touch metrics.
+ *
+ * WHY NOT THE HOST VIEW:
+ * Some OEM drag implementations are unreliable when the shadow draws nothing,
+ * but that is still preferable to leaking full-screen content as the shadow.
+ */
+private class EmptyDragShadowBuilder(
+    private val shadowSizePx: Int
+) : View.DragShadowBuilder() {
+    override fun onProvideShadowMetrics(outShadowSize: Point, outShadowTouchPoint: Point) {
+        outShadowSize.set(shadowSizePx, shadowSizePx)
+        outShadowTouchPoint.set(shadowSizePx / 2, shadowSizePx / 2)
+    }
+
+    override fun onDrawShadow(canvas: Canvas) { /* intentionally blank */ }
 }
 
 /**
