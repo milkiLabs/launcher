@@ -1,6 +1,7 @@
 package com.milki.launcher.ui.screens.launcher
 
 import android.appwidget.AppWidgetProviderInfo
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,10 +13,12 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +30,10 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.rememberLifecycleOwner
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.ui.NavDisplay
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
@@ -36,6 +43,8 @@ import com.milki.launcher.domain.model.LauncherGestureKind
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
+import com.milki.launcher.presentation.launcher.LauncherNavigator
+import com.milki.launcher.presentation.launcher.LauncherRoute
 import com.milki.launcher.presentation.search.SearchUiState
 import com.milki.launcher.ui.components.launcher.AppDrawerOverlay
 import com.milki.launcher.ui.components.launcher.DraggablePinnedItemsGrid
@@ -59,17 +68,14 @@ import com.milki.launcher.ui.theme.Spacing
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LauncherScreen(
+    navigator: LauncherNavigator,
     searchUiState: SearchUiState,
     pinnedItems: List<HomeItem>,
     openFolderItem: HomeItem.FolderItem?,
     actions: LauncherActions = LauncherActions(),
     enabledHomeTriggers: Set<LauncherTrigger> = emptySet(),
     isHomescreenMenuOpen: Boolean = false,
-    isAppDrawerOpen: Boolean = false,
     appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
-    isWidgetPickerOpen: Boolean = false,
-    widgetPickerQuery: String = "",
-    isShortcutManagerOpen: Boolean = false,
     actionShortcuts: List<HomeItem.ActionShortcut> = emptyList(),
     installedApps: List<AppInfo> = emptyList(),
     widgetPickerCatalogStore: WidgetPickerCatalogStore? = null,
@@ -77,103 +83,155 @@ fun LauncherScreen(
     val appDrawerSheetState = rememberLauncherSheetState()
     val widgetPickerSheetState = rememberLauncherSheetState()
     val shortcutManagerSheetState = rememberLauncherSheetState()
+    val overlaySceneStrategy = remember {
+        LauncherOverlaySceneStrategy<LauncherRoute>()
+    }
     val homeSurfaceActions = actions.toHomeSurfaceActions()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
     val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
-    val shouldDismissTransientSurfaces =
-        searchUiState.isSearchVisible || openFolderItem != null
 
-    LaunchedEffect(shouldDismissTransientSurfaces, openFolderItem?.id) {
-        if (shouldDismissTransientSurfaces) {
-            actions.menu.onHomescreenMenuOpenChange(false)
-            actions.drawer.onAppDrawerOpenChange(false)
-            actions.widget.onWidgetPickerOpenChange(false)
+    val currentSearchUiState by rememberUpdatedState(searchUiState)
+    val currentPinnedItems by rememberUpdatedState(pinnedItems)
+    val currentOpenFolderItem by rememberUpdatedState(openFolderItem)
+    val currentActions by rememberUpdatedState(actions)
+    val currentEnabledHomeTriggers by rememberUpdatedState(enabledHomeTriggers)
+    val currentHomescreenMenuOpen by rememberUpdatedState(isHomescreenMenuOpen)
+    val currentAppDrawerUiState by rememberUpdatedState(appDrawerUiState)
+    val currentActionShortcuts by rememberUpdatedState(actionShortcuts)
+    val currentInstalledApps by rememberUpdatedState(installedApps)
+    val currentWidgetPickerCatalogStore by rememberUpdatedState(widgetPickerCatalogStore)
+
+    BackHandler(enabled = navigator.isAtHome) {
+        // The launcher Home root consumes back instead of finishing the activity.
+    }
+
+    NavDisplay(
+        backStack = navigator.backStack,
+        onBack = { navigator.pop() },
+        sceneStrategies = listOf(overlaySceneStrategy),
+        entryProvider = { route ->
+            when (route) {
+                LauncherRoute.Home -> NavEntry(route) {
+                    val activeHomeTriggers = selectActiveHomeTriggers(
+                        enabledHomeTriggers = currentEnabledHomeTriggers,
+                        isHomescreenMenuOpen = currentHomescreenMenuOpen,
+                        hasNavigationOverlay = !navigator.isAtHome
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Transparent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        HomeSurface(
+                            pinnedItems = currentPinnedItems,
+                            actions = homeSurfaceActions,
+                            enabledHomeTriggers = activeHomeTriggers,
+                            onMenuAnchorChanged = {
+                                homescreenMenuAnchorPx = it
+                            },
+                            onItemBoundsMeasured = { itemId, boundsInWindow ->
+                                homeItemBoundsById[itemId] = boundsInWindow
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .align(Alignment.Center)
+                        )
+
+                        HomescreenMenu(
+                            expanded = currentHomescreenMenuOpen,
+                            anchorPx = homescreenMenuAnchorPx,
+                            onDismiss = {
+                                currentActions.menu
+                                    .onHomescreenMenuOpenChange(false)
+                            },
+                            onOpenWidgets = {
+                                currentActions.menu
+                                    .onHomescreenMenuOpenChange(false)
+                                currentActions.widget
+                                    .onWidgetPickerOpenChange(true)
+                            },
+                            onOpenShortcuts = {
+                                currentActions.menu
+                                    .onHomescreenMenuOpenChange(false)
+                                currentActions.menu.onOpenShortcutManager()
+                            },
+                            onOpenSettings = {
+                                currentActions.menu
+                                    .onHomescreenMenuOpenChange(false)
+                                currentActions.menu.onOpenSettings()
+                            }
+                        )
+                    }
+                }
+
+                LauncherRoute.Search -> overlayEntry(route) {
+                    SearchOverlayHost(
+                        searchUiState = currentSearchUiState,
+                        searchActions = currentActions.search
+                    )
+                }
+
+                LauncherRoute.AppDrawer -> overlayEntry(route) {
+                    DrawerHost(
+                        appDrawerSheetState = appDrawerSheetState,
+                        appDrawerUiState = currentAppDrawerUiState,
+                        drawerActions = currentActions.drawer
+                    )
+                }
+
+                is LauncherRoute.WidgetPicker -> overlayEntry(route) {
+                    WidgetPickerHost(
+                        widgetPickerSheetState = widgetPickerSheetState,
+                        widgetPickerQuery = route.query,
+                        widgetPickerCatalogStore =
+                            currentWidgetPickerCatalogStore,
+                        widgetActions = currentActions.widget
+                    )
+                }
+
+                LauncherRoute.ShortcutManager -> overlayEntry(route) {
+                    ShortcutManagerHost(
+                        shortcutManagerSheetState = shortcutManagerSheetState,
+                        shortcuts = currentActionShortcuts,
+                        installedApps = currentInstalledApps,
+                        shortcutActions = currentActions.shortcuts
+                    )
+                }
+
+                is LauncherRoute.Folder -> overlayEntry(route) {
+                    val folder = currentOpenFolderItem
+                        ?.takeIf { it.id == route.folderId }
+
+                    FolderOverlayHost(
+                        openFolderItem = folder,
+                        folderActions = currentActions.folder,
+                        anchorBounds = folder?.let {
+                            homeItemBoundsById[it.id]
+                        }
+                    )
+                }
+            }
+        }
+    )
+}
+
+private fun overlayEntry(
+    route: LauncherRoute,
+    content: @Composable () -> Unit
+): NavEntry<LauncherRoute> {
+    return NavEntry(
+        key = route,
+        metadata = LauncherOverlaySceneStrategy.overlay()
+    ) {
+        val lifecycleOwner = rememberLifecycleOwner()
+        CompositionLocalProvider(
+            LocalLifecycleOwner provides lifecycleOwner
+        ) {
+            content()
         }
     }
-
-    val activeHomeTriggers = selectActiveHomeTriggers(
-        enabledHomeTriggers = enabledHomeTriggers,
-        isHomescreenMenuOpen = isHomescreenMenuOpen,
-        isAppDrawerOpen = isAppDrawerOpen,
-        isWidgetPickerOpen = isWidgetPickerOpen,
-        isShortcutManagerOpen = isShortcutManagerOpen,
-        isSearchVisible = searchUiState.isSearchVisible,
-        openFolderItem = openFolderItem
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Transparent),
-        contentAlignment = Alignment.Center
-    ) {
-        HomeSurface(
-            pinnedItems = pinnedItems,
-            actions = homeSurfaceActions,
-            enabledHomeTriggers = activeHomeTriggers,
-            onMenuAnchorChanged = { homescreenMenuAnchorPx = it },
-            onItemBoundsMeasured = { itemId, boundsInWindow ->
-                homeItemBoundsById[itemId] = boundsInWindow
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .align(Alignment.Center)
-        )
-
-        HomescreenMenu(
-            expanded = isHomescreenMenuOpen,
-            anchorPx = homescreenMenuAnchorPx,
-            onDismiss = { actions.menu.onHomescreenMenuOpenChange(false) },
-            onOpenWidgets = {
-                actions.menu.onHomescreenMenuOpenChange(false)
-                actions.widget.onWidgetPickerOpenChange(true)
-            },
-            onOpenShortcuts = {
-                actions.menu.onHomescreenMenuOpenChange(false)
-                actions.menu.onOpenShortcutManager()
-            },
-            onOpenSettings = {
-                actions.menu.onHomescreenMenuOpenChange(false)
-                actions.menu.onOpenSettings()
-            }
-        )
-
-        FolderOverlayHost(
-            openFolderItem = openFolderItem,
-            folderActions = actions.folder,
-            anchorBounds = openFolderItem?.let { folder ->
-                homeItemBoundsById[folder.id]
-            }
-        )
-
-        DrawerHost(
-            appDrawerSheetState = appDrawerSheetState,
-            isAppDrawerOpen = isAppDrawerOpen,
-            appDrawerUiState = appDrawerUiState,
-            drawerActions = actions.drawer
-        )
-
-        WidgetPickerHost(
-            widgetPickerSheetState = widgetPickerSheetState,
-            isWidgetPickerOpen = isWidgetPickerOpen,
-            widgetPickerQuery = widgetPickerQuery,
-            widgetPickerCatalogStore = widgetPickerCatalogStore,
-            widgetActions = actions.widget
-        )
-
-        ShortcutManagerHost(
-            shortcutManagerSheetState = shortcutManagerSheetState,
-            isShortcutManagerOpen = isShortcutManagerOpen,
-            shortcuts = actionShortcuts,
-            installedApps = installedApps,
-            shortcutActions = actions.shortcuts
-        )
-    }
-
-    SearchOverlayHost(
-        searchUiState = searchUiState,
-        searchActions = actions.search
-    )
 }
 
 @Composable
@@ -310,12 +368,11 @@ private fun FolderOverlayHost(
 @Composable
 private fun DrawerHost(
     appDrawerSheetState: LauncherSheetState,
-    isAppDrawerOpen: Boolean,
     appDrawerUiState: AppDrawerUiState,
     drawerActions: DrawerActions
 ) {
     LauncherSurfaceSheetHost(
-        isOpen = isAppDrawerOpen,
+        isOpen = true,
         sheetState = appDrawerSheetState,
         onDismissRequest = { drawerActions.onAppDrawerOpenChange(false) }
     ) { dragHandleModifier ->
@@ -335,7 +392,6 @@ private fun DrawerHost(
 @Composable
 private fun WidgetPickerHost(
     widgetPickerSheetState: LauncherSheetState,
-    isWidgetPickerOpen: Boolean,
     widgetPickerQuery: String,
     widgetPickerCatalogStore: WidgetPickerCatalogStore?,
     widgetActions: WidgetActions
@@ -343,7 +399,7 @@ private fun WidgetPickerHost(
     if (widgetPickerCatalogStore == null) return
 
     LauncherSurfaceSheetHost(
-        isOpen = isWidgetPickerOpen,
+        isOpen = true,
         sheetState = widgetPickerSheetState,
         onDismissRequest = { widgetActions.onWidgetPickerOpenChange(false) }
     ) { dragHandleModifier ->
@@ -360,13 +416,12 @@ private fun WidgetPickerHost(
 @Composable
 private fun ShortcutManagerHost(
     shortcutManagerSheetState: LauncherSheetState,
-    isShortcutManagerOpen: Boolean,
     shortcuts: List<HomeItem.ActionShortcut>,
     installedApps: List<AppInfo>,
     shortcutActions: ShortcutManagerActions
 ) {
     LauncherSurfaceSheetHost(
-        isOpen = isShortcutManagerOpen,
+        isOpen = true,
         sheetState = shortcutManagerSheetState,
         onDismissRequest = { shortcutActions.onShortcutManagerOpenChange(false) }
     ) { dragHandleModifier ->
@@ -375,6 +430,9 @@ private fun ShortcutManagerHost(
             installedApps = installedApps,
             onSaveShortcut = shortcutActions.onSaveShortcut,
             onDeleteShortcut = shortcutActions.onDeleteShortcut,
+            onDismissRequest = {
+                shortcutActions.onShortcutManagerOpenChange(false)
+            },
             onExternalDragStarted = shortcutActions.onShortcutExternalDragStarted,
             headerDragHandleModifier = dragHandleModifier
         )
@@ -398,19 +456,11 @@ private fun SearchOverlayHost(
 private fun selectActiveHomeTriggers(
     enabledHomeTriggers: Set<LauncherTrigger>,
     isHomescreenMenuOpen: Boolean,
-    isAppDrawerOpen: Boolean,
-    isWidgetPickerOpen: Boolean,
-    isShortcutManagerOpen: Boolean,
-    isSearchVisible: Boolean,
-    openFolderItem: HomeItem.FolderItem?
+    hasNavigationOverlay: Boolean
 ): Set<LauncherTrigger> {
     val isBackgroundGestureSurfaceBlocked =
         isHomescreenMenuOpen ||
-                isAppDrawerOpen ||
-                isWidgetPickerOpen ||
-                isShortcutManagerOpen ||
-                isSearchVisible ||
-                openFolderItem != null
+                hasNavigationOverlay
 
     return if (isBackgroundGestureSurfaceBlocked) {
         emptySet()

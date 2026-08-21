@@ -85,16 +85,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".app.activity.SettingsActivity"
-            android:exported="false"
-            android:label="@string/settings_title"
-            android:excludeFromRecents="false"
-            android:taskAffinity="com.milki.launcher.settings"
-            android:launchMode="singleTop"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.Launcher.Settings" />
-
         <!-- Device Admin receiver for screen lock via DevicePolicyManager.lockNow() -->
         <receiver
             android:name=".core.deviceadmin.LauncherDeviceAdminReceiver"

@@ -7,7 +7,7 @@ import androidx.compose.runtime.Immutable
  * @property name The human-readable display name (e.g., "YouTube")
  * @property packageName The unique identifier (e.g., "com.google.android.youtube")
  * @property activityName The fully qualified activity class name for uniqueness
- *                        (e.g., "com.milki.launcher.SettingsActivity")
+ *                        (e.g., "com.example.app.MainActivity")
  *                        Multiple activities can share the same packageName.
  */
 @Immutable

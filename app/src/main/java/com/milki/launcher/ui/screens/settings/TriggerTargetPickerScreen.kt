@@ -1,6 +1,5 @@
 package com.milki.launcher.ui.screens.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -168,8 +167,6 @@ private fun TriggerTargetPickerScaffold(
     emptyState: @Composable () -> Unit,
     content: @Composable () -> Unit
 ) {
-    BackHandler(onBack = onBack)
-
     Scaffold(
         topBar = {
             TopAppBar(

@@ -76,8 +76,8 @@ interface AppRepository {
      * with the updated order.
      * 
      * IMPORTANT: We save the flattened ComponentName (package/activity), not just packageName.
-     * This ensures that if an app has multiple launcher activities (e.g., MainActivity and
-     * SettingsActivity), we preserve which specific one was launched.
+     * This ensures that if an app has multiple launcher activities, we preserve
+     * which specific one was launched.
      * 
      * @param componentName The flattened ComponentName string from ComponentName.flattenToString()
      *                      Format: "com.package/.ActivityClass" or "com.package/com.package.ActivityClass"

@@ -1,6 +1,5 @@
 package com.milki.launcher.ui.screens.launcher
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,9 +34,12 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,18 +47,33 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.ui.NavDisplay
 import com.milki.launcher.core.url.UrlDestinationValidationResult
 import com.milki.launcher.core.url.UrlValidator
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
-import com.milki.launcher.ui.components.launcher.PinnedItemView
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.interaction.dragdrop.startExternalActionShortcutDrag
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+import kotlinx.serialization.Serializable
+
+@Serializable
+private sealed interface ActionShortcutManagerRoute : NavKey {
+    @Serializable
+    data object Library : ActionShortcutManagerRoute
+
+    @Serializable
+    data class Editor(val shortcutId: String?) : ActionShortcutManagerRoute
+
+    @Serializable
+    data object AppPicker : ActionShortcutManagerRoute
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,39 +82,128 @@ internal fun ActionShortcutManagerSheet(
     installedApps: List<AppInfo>,
     onSaveShortcut: (HomeItem.ActionShortcut, (Boolean) -> Unit) -> Unit,
     onDeleteShortcut: (HomeItem.ActionShortcut) -> Unit,
+    onDismissRequest: () -> Unit,
     onExternalDragStarted: () -> Unit,
     headerDragHandleModifier: Modifier = Modifier
 ) {
-    var editingShortcut by remember { mutableStateOf<HomeItem.ActionShortcut?>(null) }
-    var isCreating by remember { mutableStateOf(false) }
-
-    BackHandler(enabled = isCreating || editingShortcut != null) {
-        isCreating = false
-        editingShortcut = null
-    }
-
-    val shortcutForEditor = editingShortcut
-    if (isCreating || shortcutForEditor != null) {
-        ActionShortcutEditor(
-            installedApps = installedApps,
-            existingShortcut = shortcutForEditor,
-            onBack = {
-                isCreating = false
-                editingShortcut = null
-            },
-            onSave = { shortcut, onResult ->
-                onSaveShortcut(shortcut) { success ->
-                    if (success) {
-                        isCreating = false
-                        editingShortcut = null
-                    }
-                    onResult(success)
-                }
-            }
+    val backStack = remember {
+        mutableStateListOf<ActionShortcutManagerRoute>(
+            ActionShortcutManagerRoute.Library
         )
-        return
+    }
+    var selectedApp by remember { mutableStateOf<AppInfo?>(null) }
+
+    fun appFromShortcut(shortcut: HomeItem.ActionShortcut?): AppInfo? {
+        return shortcut?.packageName?.let { packageName ->
+            installedApps.firstOrNull { it.packageName == packageName }
+                ?: AppInfo(
+                    name = shortcut.packageLabel ?: packageName,
+                    packageName = packageName,
+                    activityName = ""
+                )
+        }
     }
 
+    fun popToLibrary() {
+        while (backStack.size > 1) {
+            backStack.removeLastOrNull()
+        }
+        selectedApp = null
+    }
+
+    fun navigateToEditor(shortcut: HomeItem.ActionShortcut?) {
+        selectedApp = appFromShortcut(shortcut)
+        backStack.add(ActionShortcutManagerRoute.Editor(shortcut?.id))
+    }
+
+    NavDisplay(
+        backStack = backStack,
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeLastOrNull()
+            } else {
+                onDismissRequest()
+            }
+        },
+        entryProvider = { route ->
+            when (route) {
+                ActionShortcutManagerRoute.Library -> NavEntry(route) {
+                    ActionShortcutLibrary(
+                        shortcuts = shortcuts,
+                        onCreateShortcut = {
+                            navigateToEditor(null)
+                        },
+                        onEditShortcut = { shortcut ->
+                            navigateToEditor(shortcut)
+                        },
+                        onDeleteShortcut = onDeleteShortcut,
+                        onExternalDragStarted = onExternalDragStarted,
+                        headerDragHandleModifier = headerDragHandleModifier
+                    )
+                }
+
+                is ActionShortcutManagerRoute.Editor -> NavEntry(route) {
+                    val existingShortcut = route.shortcutId?.let { shortcutId ->
+                        shortcuts.firstOrNull { it.id == shortcutId }
+                    }
+
+                    if (route.shortcutId != null && existingShortcut == null) {
+                        LaunchedEffect(route.shortcutId) {
+                            popToLibrary()
+                        }
+                        return@NavEntry
+                    }
+
+                    ActionShortcutEditor(
+                        existingShortcut = existingShortcut,
+                        selectedApp = selectedApp,
+                        onSelectedAppChange = { selectedApp = it },
+                        onChooseApp = {
+                            backStack.add(ActionShortcutManagerRoute.AppPicker)
+                        },
+                        onBack = { popToLibrary() },
+                        onSave = { shortcut, onResult ->
+                            onSaveShortcut(shortcut) { success ->
+                                if (success) {
+                                    popToLibrary()
+                                }
+                                onResult(success)
+                            }
+                        }
+                    )
+                }
+
+                ActionShortcutManagerRoute.AppPicker -> NavEntry(route) {
+                    ActionShortcutAppPicker(
+                        installedApps = installedApps,
+                        selectedPackageName = selectedApp?.packageName,
+                        onBack = { backStack.removeLastOrNull() },
+                        onAppSelected = { app ->
+                            selectedApp = app
+                            backStack.removeLastOrNull()
+                        },
+                        onClearApp = {
+                            selectedApp = null
+                            backStack.removeLastOrNull()
+                        }
+                    )
+                }
+
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActionShortcutLibrary(
+    shortcuts: List<HomeItem.ActionShortcut>,
+    onCreateShortcut: () -> Unit,
+    onEditShortcut: (HomeItem.ActionShortcut) -> Unit,
+    onDeleteShortcut: (HomeItem.ActionShortcut) -> Unit,
+    onExternalDragStarted: () -> Unit,
+    headerDragHandleModifier: Modifier
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -109,7 +215,7 @@ internal fun ActionShortcutManagerSheet(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { isCreating = true }) {
+                    IconButton(onClick = onCreateShortcut) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add shortcut"
@@ -137,7 +243,7 @@ internal fun ActionShortcutManagerSheet(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(Spacing.small))
-                Button(onClick = { isCreating = true }) {
+                Button(onClick = onCreateShortcut) {
                     Text("Add shortcut")
                 }
                 Spacer(modifier = Modifier.height(Spacing.medium))
@@ -166,7 +272,7 @@ internal fun ActionShortcutManagerSheet(
             ) { shortcut ->
                 ActionShortcutGridItem(
                     shortcut = shortcut,
-                    onClick = { editingShortcut = shortcut },
+                    onClick = { onEditShortcut(shortcut) },
                     onDelete = { onDeleteShortcut(shortcut) },
                     onExternalDragStarted = onExternalDragStarted
                 )
@@ -252,55 +358,29 @@ private fun ActionShortcutGridItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionShortcutEditor(
-    installedApps: List<AppInfo>,
     existingShortcut: HomeItem.ActionShortcut?,
+    selectedApp: AppInfo?,
+    onSelectedAppChange: (AppInfo?) -> Unit,
+    onChooseApp: () -> Unit,
     onBack: () -> Unit,
     onSave: (HomeItem.ActionShortcut, (Boolean) -> Unit) -> Unit
 ) {
-    var label by remember(existingShortcut?.id) {
+    var label by rememberSaveable(existingShortcut?.id) {
         mutableStateOf(existingShortcut?.label.orEmpty())
     }
-    var destination by remember(existingShortcut?.id) {
+    var destination by rememberSaveable(existingShortcut?.id) {
         mutableStateOf(existingShortcut?.destinationUri.orEmpty())
     }
-    var selectedApp by remember(existingShortcut?.id, installedApps) {
-        mutableStateOf(
-            existingShortcut?.packageName?.let { packageName ->
-                installedApps.firstOrNull { it.packageName == packageName }
-                    ?: AppInfo(
-                        name = existingShortcut.packageLabel ?: packageName,
-                        packageName = packageName,
-                        activityName = ""
-                    )
-            }
-        )
-    }
-    var choosingApp by remember { mutableStateOf(false) }
     val validationResult = remember(destination) { UrlValidator.validateUrlOrUri(destination) }
-    var showDuplicateError by remember { mutableStateOf(false) }
+    var showDuplicateError by rememberSaveable(existingShortcut?.id) {
+        mutableStateOf(false)
+    }
     val validationMessage = remember(destination, validationResult) {
         validateActionShortcutDestination(destination, validationResult)
     }
 
-    androidx.compose.runtime.LaunchedEffect(destination, selectedApp?.packageName) {
+    LaunchedEffect(destination, selectedApp?.packageName) {
         showDuplicateError = false
-    }
-
-    if (choosingApp) {
-        ActionShortcutAppPicker(
-            installedApps = installedApps,
-            selectedPackageName = selectedApp?.packageName,
-            onBack = { choosingApp = false },
-            onAppSelected = { app ->
-                selectedApp = app
-                choosingApp = false
-            },
-            onClearApp = {
-                selectedApp = null
-                choosingApp = false
-            }
-        )
-        return
     }
 
     Scaffold(
@@ -360,8 +440,8 @@ private fun ActionShortcutEditor(
             )
             ActionShortcutAppSelector(
                 selectedApp = selectedApp,
-                onChooseApp = { choosingApp = true },
-                onClearApp = { selectedApp = null }
+                onChooseApp = onChooseApp,
+                onClearApp = { onSelectedAppChange(null) }
             )
             Button(
                 onClick = {

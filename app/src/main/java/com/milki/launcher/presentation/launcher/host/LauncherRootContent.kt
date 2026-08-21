@@ -97,7 +97,7 @@ internal fun LauncherRootContent(
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val surfaceStateCoordinator = runtime.surfaceStateCoordinator
+    val navigator = runtime.launcherNavigator
     val scope = rememberCoroutineScope()
     val homeController = remember(homeViewModel, runtime.widgetPlacementCoordinator) {
         LauncherHomeController(
@@ -128,8 +128,8 @@ internal fun LauncherRootContent(
         // Before that, use safe defaults (search hidden, drawer empty).
         val resolvedSearchVm = searchViewModel
         val resolvedDrawerVm = appDrawerViewModel
-        val installedAppsFlow = remember(surfaceStateCoordinator.isShortcutManagerOpen) {
-            if (surfaceStateCoordinator.isShortcutManagerOpen) {
+        val installedAppsFlow = remember(navigator.isShortcutManagerOpen) {
+            if (navigator.isShortcutManagerOpen) {
                 appRepositoryProvider().observeInstalledApps()
             } else {
                 kotlinx.coroutines.flow.flowOf(emptyList())
@@ -147,17 +147,8 @@ internal fun LauncherRootContent(
             ?: remember { MutableStateFlow(AppDrawerUiState()) })
             .collectAsStateWithLifecycle()
 
-        LaunchedEffect(
-            searchUiState.isSearchVisible,
-            surfaceStateCoordinator.isAppDrawerOpen,
-            surfaceStateCoordinator.isWidgetPickerOpen,
-            openFolderItem?.id
-        ) {
-            val hasImeOwningSurface =
-                searchUiState.isSearchVisible ||
-                        surfaceStateCoordinator.isAppDrawerOpen ||
-                        surfaceStateCoordinator.isWidgetPickerOpen ||
-                        openFolderItem != null
+        LaunchedEffect(navigator.currentRoute) {
+            val hasImeOwningSurface = !navigator.isAtHome
             if (!hasImeOwningSurface) {
                 focusManager.clearFocus(force = true)
                 keyboardController?.hide()
@@ -188,19 +179,21 @@ internal fun LauncherRootContent(
                             resolvedSearchVm?.onQueryChange(query)
                         },
                         onDismissSearch = {
-                            surfaceStateCoordinator.dismissContextMenus()
-                            resolvedSearchVm?.hideSearch()
+                            navigator.pop()
                         }
                     ),
                     menu = MenuActions(
-                        onOpenSettings = onOpenSettings,
-                        onHomescreenMenuOpenChange = surfaceStateCoordinator::updateHomescreenMenuOpen,
+                        onOpenSettings = {
+                            navigator.clearTransientRoutes()
+                            onOpenSettings()
+                        },
+                        onHomescreenMenuOpenChange = navigator::updateHomescreenMenuOpen,
                         onOpenShortcutManager = {
-                            surfaceStateCoordinator.updateShortcutManagerOpen(true)
+                            navigator.updateShortcutManagerOpen(true)
                         }
                     ),
                     shortcuts = ShortcutManagerActions(
-                        onShortcutManagerOpenChange = surfaceStateCoordinator::updateShortcutManagerOpen,
+                        onShortcutManagerOpenChange = navigator::updateShortcutManagerOpen,
                         onSaveShortcut = { shortcut, onResult ->
                             scope.launch {
                                 val success = actionShortcutRepository.saveShortcut(shortcut)
@@ -214,11 +207,11 @@ internal fun LauncherRootContent(
                             }
                         },
                         onShortcutExternalDragStarted = {
-                            surfaceStateCoordinator.closeTransientSurfaces()
+                            navigator.clearTransientRoutes()
                         }
                     ),
                     drawer = DrawerActions(
-                        onAppDrawerOpenChange = surfaceStateCoordinator::updateAppDrawerOpen,
+                        onAppDrawerOpenChange = navigator::updateAppDrawerOpen,
                         onQueryChange = { query ->
                             resolvedDrawerVm?.updateQuery(query)
                         }
@@ -226,7 +219,7 @@ internal fun LauncherRootContent(
                     home = HomeActions(
                         onHomeTrigger = { trigger ->
                             val action = launcherSettings.actionForTrigger(trigger)
-                            surfaceStateCoordinator.handleHomeTriggerAction(
+                            navigator.handleHomeTriggerAction(
                                 action = action,
                                 onOpenAppTarget = {
                                     openTriggerLaunchTarget(
@@ -236,7 +229,14 @@ internal fun LauncherRootContent(
                                 }
                             )
                         },
-                        onPinnedItemClick = { item -> homeController.onPinnedItemClick(item, context) },
+                        onPinnedItemClick = { item ->
+                            if (item is com.milki.launcher.domain.model.HomeItem.FolderItem) {
+                                navigator.updateFolderOpen(item.id)
+                            } else {
+                                navigator.clearTransientRoutes()
+                                homeController.onPinnedItemClick(item, context)
+                            }
+                        },
                         onPinnedItemLongPress = {},
                         onPinnedItemMove = homeController::onPinnedItemMove,
                         onItemDroppedToHome = homeController::onItemDroppedToHome
@@ -245,9 +245,14 @@ internal fun LauncherRootContent(
                         onCreateFolder = homeController::onCreateFolder,
                         onAddItemToFolder = homeController::onAddItemToFolder,
                         onMergeFolders = homeController::onMergeFolders,
-                        onFolderClose = homeController::onFolderClose,
+                        onFolderClose = {
+                            navigator.updateFolderOpen(null)
+                        },
                         onFolderRename = homeController::onFolderRename,
-                        onFolderItemClick = { item -> homeController.onFolderItemClick(item, context) },
+                        onFolderItemClick = { item ->
+                            navigator.clearTransientRoutes()
+                            homeController.onFolderItemClick(item, context)
+                        },
                         onFolderItemRemove = homeController::onRemoveItemFromFolder,
                         onFolderItemReorder = homeController::onReorderFolderItems,
                         onExtractItemFromFolder = homeController::onExtractItemFromFolder,
@@ -255,10 +260,10 @@ internal fun LauncherRootContent(
                         onFolderChildDroppedOnItem = homeController::onFolderChildDroppedOnItem
                     ),
                     widget = WidgetActions(
-                        onWidgetPickerOpenChange = surfaceStateCoordinator::updateWidgetPickerOpen,
-                        onWidgetPickerQueryChange = surfaceStateCoordinator::updateWidgetPickerQuery,
+                        onWidgetPickerOpenChange = navigator::updateWidgetPickerOpen,
+                        onWidgetPickerQueryChange = navigator::updateWidgetPickerQuery,
                         onWidgetExternalDragStarted = {
-                            surfaceStateCoordinator.closeTransientSurfaces()
+                            navigator.clearTransientRoutes()
                         },
                         onRemoveWidget = { widgetId, _ -> homeController.onRemoveWidget(widgetId) },
                         onUpdateWidgetFrame = homeController::onUpdateWidgetFrame,
@@ -267,6 +272,7 @@ internal fun LauncherRootContent(
                         onLaunchWidgetApp = { packageName ->
                             val intent = context.packageManager.getLaunchIntentForPackage(packageName)
                             if (intent != null) {
+                                navigator.clearTransientRoutes()
                                 intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                                 context.startActivity(intent)
                             }
@@ -278,17 +284,14 @@ internal fun LauncherRootContent(
 
             CompositionLocalProvider(LocalWidgetHost provides widgetHost) {
                 LauncherScreen(
+                    navigator = navigator,
                     searchUiState = searchUiState,
                     pinnedItems = pinnedItems,
                     openFolderItem = openFolderItem,
                     actions = launcherActions,
                     enabledHomeTriggers = enabledHomeTriggers,
-                    isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
-                    isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
+                    isHomescreenMenuOpen = navigator.isHomescreenMenuOpen,
                     appDrawerUiState = appDrawerUiState,
-                    isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
-                    widgetPickerQuery = surfaceStateCoordinator.widgetPickerQuery,
-                    isShortcutManagerOpen = surfaceStateCoordinator.isShortcutManagerOpen,
                     actionShortcuts = actionShortcuts,
                     installedApps = installedApps,
                     widgetPickerCatalogStore = widgetPickerCatalogStore
@@ -350,7 +353,8 @@ private fun openTriggerLaunchTarget(
         is LauncherTriggerTarget.ActionShortcut -> {
             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                 data = android.net.Uri.parse(target.destinationUri)
-                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER
+                flags =
+                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER
                 target.packageName?.let { setPackage(it) }
             }
             kotlin.runCatching {

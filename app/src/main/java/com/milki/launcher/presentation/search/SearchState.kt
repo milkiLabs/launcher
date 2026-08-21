@@ -39,9 +39,9 @@ internal class SearchState(
 
     // Both stateIn flows below deliberately diverge from ViewModelSharingStarted
     // (WhileSubscribed(5_000)) by using SharingStarted.Eagerly: uiState.value is
-    // read synchronously outside any collection context (SurfaceStateCoordinator
-    // via LauncherHostRuntime checks uiState.value.isSearchVisible for back-press
-    // and onResume reconciliation). With WhileSubscribed, inputs mutated while no
+    // read synchronously outside any collection context (LauncherNavigator
+    // toggles search visibility from runtime callbacks). With WhileSubscribed,
+    // inputs mutated while no
     // collector is attached (e.g. hideSearch() when the search surface is not
     // composed) would leave .value stale until the next subscription. Every input
     // here is an in-memory MutableStateFlow, so keeping the combines hot is cheap.

@@ -17,14 +17,4 @@
         <!-- Make the window background transparent so wallpaper is visible -->
         <item name="android:windowBackground">@android:color/transparent</item>
     </style>
-
-    <!--
-      Theme for the Settings activity. Settings is an opaque surface (not the
-      launcher home) so it must NOT show the wallpaper; otherwise the wallpaper
-      flashes through during Navigation 3 transitions and activity enter/exit.
-    -->
-    <style name="Theme.Launcher.Settings">
-        <item name="android:windowShowWallpaper">false</item>
-        <item name="android:windowBackground">@color/settings_window_background</item>
-    </style>
 </resources>

@@ -22,7 +22,8 @@ import com.milki.launcher.presentation.search.SearchViewModel
 class PermissionRequestCoordinator(
     private val permissionHandler: PermissionHandler,
     private val actionExecutor: ActionExecutor,
-    private val searchViewModel: SearchViewModel
+    private val searchViewModel: SearchViewModel,
+    private val onCloseSearch: () -> Unit = {}
 ) {
 
     /**
@@ -52,6 +53,7 @@ class PermissionRequestCoordinator(
 
         actionExecutor.onCloseSearch = {
             searchViewModel.hideSearch()
+            onCloseSearch()
         }
 
         actionExecutor.onSaveRecentApp = { componentName ->

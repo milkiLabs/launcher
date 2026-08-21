@@ -3,7 +3,7 @@ package com.milki.launcher.presentation.launcher.host
 import android.content.Intent
 import android.content.pm.LauncherApps
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
+
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.core.intent.BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP
 import com.milki.launcher.core.intent.LauncherBenchmarkTarget
@@ -21,7 +21,8 @@ import com.milki.launcher.presentation.launcher.PermissionRequestCoordinator
 import com.milki.launcher.presentation.launcher.PinShortcutRequestCoordinator
 import com.milki.launcher.presentation.launcher.NotificationShadeController
 import com.milki.launcher.presentation.launcher.ScreenLockController
-import com.milki.launcher.presentation.launcher.SurfaceStateCoordinator
+import com.milki.launcher.presentation.launcher.LauncherNavigator
+import com.milki.launcher.presentation.launcher.LauncherRoute
 import com.milki.launcher.presentation.launcher.WidgetPlacementCoordinator
 import com.milki.launcher.presentation.search.ActionExecutor
 import com.milki.launcher.presentation.search.SearchResultAction
@@ -71,12 +72,11 @@ internal class LauncherHostRuntime(
 
     private val screenLockController = ScreenLockController(activity)
 
-    val surfaceStateCoordinator = SurfaceStateCoordinator(
+    val launcherNavigator = LauncherNavigator(
         showSearch = { searchViewModelProvider().showSearch() },
         hideSearch = { searchViewModelProvider().hideSearch() },
-        isSearchVisible = { searchViewModelProvider().uiState.value.isSearchVisible },
-        isFolderOpen = { homeViewModel.openFolderItem.value != null },
         closeFolder = { homeViewModel.closeFolder() },
+        openFolder = { folderId -> homeViewModel.openFolder(folderId) },
         openNotificationShade = {
             notificationShadeController.expand()
         },
@@ -100,7 +100,6 @@ internal class LauncherHostRuntime(
     fun initialize() {
         traceSection("launcher.startup.runtime.initialize") {
             initializePermissionHandler()
-            initializeBackButtonBehavior()
             widgetPlacementCoordinator.initialize()
         }
     }
@@ -140,7 +139,7 @@ internal class LauncherHostRuntime(
         if (::actionExecutor.isInitialized) {
             permissionHandler.updateStates()
         }
-        surfaceStateCoordinator.onResume()
+        launcherNavigator.onResume()
     }
 
     fun onPause() {
@@ -153,7 +152,7 @@ internal class LauncherHostRuntime(
 
     fun onStop() {
         widgetHost.updateHostState(started = false)
-        surfaceStateCoordinator.onStop()
+        launcherNavigator.onStop()
     }
 
     fun handleInitialIntent(intent: Intent) {
@@ -177,7 +176,7 @@ internal class LauncherHostRuntime(
         }
 
         when {
-            isLauncherHomeIntent(intent) -> surfaceStateCoordinator.handleHomeIntent()
+            isLauncherHomeIntent(intent) -> launcherNavigator.handleHomeIntent()
         }
     }
 
@@ -223,7 +222,7 @@ internal class LauncherHostRuntime(
         }
 
         if (target == LauncherBenchmarkTarget.DRAWER) {
-            surfaceStateCoordinator.updateAppDrawerOpen(true)
+            launcherNavigator.navigate(LauncherRoute.AppDrawer)
             if (drawerQuery != null) {
                 appDrawerViewModelProvider().updateQuery(drawerQuery)
             }
@@ -272,8 +271,7 @@ internal class LauncherHostRuntime(
             activity.lifecycleScope
         ).apply {
             onOpenAppWidgets = { appName ->
-                surfaceStateCoordinator.updateWidgetPickerOpen(true)
-                surfaceStateCoordinator.updateWidgetPickerQuery(appName)
+                launcherNavigator.navigate(LauncherRoute.WidgetPicker(appName))
             }
         }
 
@@ -287,34 +285,24 @@ internal class LauncherHostRuntime(
         permissionRequestCoordinator = PermissionRequestCoordinator(
             permissionHandler = permissionHandler,
             actionExecutor = actionExecutor,
-            searchViewModel = searchViewModelProvider()
+            searchViewModel = searchViewModelProvider(),
+            onCloseSearch = {
+                if (launcherNavigator.isSearchOpen) {
+                    launcherNavigator.pop()
+                }
+            }
         )
         permissionRequestCoordinator.bind()
         permissionHandler.updateStates()
     }
 
-    private fun initializeBackButtonBehavior() {
-        activity.onBackPressedDispatcher.addCallback(
-            activity,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    surfaceStateCoordinator.handleBackPressed()
-                }
-            }
-        )
-    }
 
     private fun isLauncherHomeIntent(intent: Intent): Boolean {
         return intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
     }
 
     private fun resetTransientSurfacesForBenchmark() {
-        surfaceStateCoordinator.dismissContextMenus()
-        surfaceStateCoordinator.updateAppDrawerOpen(false)
-        surfaceStateCoordinator.updateHomescreenMenuOpen(false)
-        surfaceStateCoordinator.updateWidgetPickerOpen(false)
+        launcherNavigator.clearTransientRoutes()
         appDrawerViewModelProvider().updateQuery("")
-        searchViewModelProvider().hideSearch()
-        homeViewModel.closeFolder()
     }
 }
