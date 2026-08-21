@@ -49,9 +49,9 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.model.PermissionAccessState
-import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.PrefixConfig
+import com.milki.launcher.domain.search.PrefixConfigurationMerger
 import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
@@ -73,6 +73,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transformLatest
@@ -125,6 +126,7 @@ class SearchViewModel(
 
     private companion object {
         const val MAX_APP_SEARCH_RESULTS = 10
+        const val QUERY_SUGGESTION_DEBOUNCE_MS = 150L
     }
 
     // ========================================================================
@@ -158,8 +160,9 @@ class SearchViewModel(
             isSearchVisible.collect { isVisible ->
                 when {
                     isVisible && !wasVisible -> {
-                        stateHolder.clipboardSuggestion.value =
+                        stateHolder.clipboardSuggestion.value = withContext(Dispatchers.IO) {
                             suggestionResolver.resolveFromClipboard()
+                        }
                     }
 
                     !isVisible && wasVisible -> {
@@ -230,23 +233,13 @@ class SearchViewModel(
             source.id to PrefixConfig(source.prefixes)
         }
 
-        val fixedProviderConfigurations = buildMap {
-            if (settings.contactsSearchEnabled) {
-                put(
-                    ProviderId.CONTACTS,
-                    settings.prefixConfigurations[ProviderId.CONTACTS] ?: PrefixConfig(listOf("c"))
-                )
-            }
-            if (settings.filesSearchEnabled) {
-                put(
-                    ProviderId.FILES,
-                    settings.prefixConfigurations[ProviderId.FILES] ?: PrefixConfig(listOf("f"))
-                )
-            }
-        }
-
         val mergedConfigurations: ProviderPrefixConfiguration =
-            fixedProviderConfigurations + sourcePrefixConfigurations
+            PrefixConfigurationMerger.merge(
+                prefixConfigurations = settings.prefixConfigurations,
+                contactsSearchEnabled = settings.contactsSearchEnabled,
+                filesSearchEnabled = settings.filesSearchEnabled,
+                sourcePrefixConfigurations = sourcePrefixConfigurations
+            )
 
         providerRegistry.updatePrefixConfigurations(mergedConfigurations)
         stateHolder.runtimeSettings.value = SearchRuntimeSettings(
@@ -344,15 +337,17 @@ class SearchViewModel(
 
     private fun observeQuerySuggestions() {
         viewModelScope.launch {
-            stateHolder.query.collectLatest { currentQuery ->
-                stateHolder.querySuggestion.value = if (currentQuery.isNotBlank()) {
-                    withContext(Dispatchers.IO) {
-                        suggestionResolver.resolveFromText(currentQuery)
+            stateHolder.query
+                .debounce(QUERY_SUGGESTION_DEBOUNCE_MS)
+                .collectLatest { currentQuery ->
+                    stateHolder.querySuggestion.value = if (currentQuery.isNotBlank()) {
+                        withContext(Dispatchers.IO) {
+                            suggestionResolver.resolveFromText(currentQuery)
+                        }
+                    } else {
+                        null
                     }
-                } else {
-                    null
                 }
-            }
         }
     }
 
