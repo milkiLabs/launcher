@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.core.util.lenientJson
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import kotlinx.serialization.json.Json
@@ -93,13 +94,10 @@ internal object SearchSourcesStorageState {
 /**
  * Shared Json instance for settings serialization/deserialization.
  *
- * CONFIGURATION CHOICES:
+ * Derived from the lenient baseline (core/util JsonHelpers):
  * - ignoreUnknownKeys = true:
  *   Allows forward compatibility if a future version adds extra fields.
  * - encodeDefaults = true:
  *   Keeps output deterministic when defaultable values are introduced later.
  */
-internal val settingsStorageJson: Json = Json {
-    ignoreUnknownKeys = true
-    encodeDefaults = true
-}
+internal val settingsStorageJson: Json = lenientJson()

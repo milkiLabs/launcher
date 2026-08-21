@@ -2,6 +2,7 @@
 package com.milki.launcher.domain.model
 
 import androidx.compose.runtime.Immutable
+import com.milki.launcher.core.util.strictJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -261,10 +262,7 @@ sealed class HomeItem {
     }
 
     companion object {
-                val json: Json = Json {
-            classDiscriminator = "type"
-            encodeDefaults = true
-        }
+                val json: Json = strictJson { classDiscriminator = "type" }
     }
 }
 

@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.net.Uri
 import android.view.DragEvent
 import android.appwidget.AppWidgetProviderInfo
+import com.milki.launcher.core.util.lenientJson
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
@@ -15,7 +16,6 @@ import com.milki.launcher.domain.model.ItemId
 import com.milki.launcher.domain.model.WidgetDisplayMode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -166,10 +166,7 @@ object ExternalDragPayloadCodec {
         ) : ExternalPayloadDto()
     }
 
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
+    private val json = lenientJson()
 
     /**
      * Creates ClipData for platform drag transfer from any supported drag item.

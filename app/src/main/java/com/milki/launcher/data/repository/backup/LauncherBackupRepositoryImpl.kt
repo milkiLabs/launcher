@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import com.milki.launcher.core.file.ContentUriFailurePolicy
 import com.milki.launcher.core.file.PinnedFileAvailability
+import com.milki.launcher.core.util.lenientJson
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.backup.LauncherBackupFile
@@ -22,7 +23,6 @@ import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 class LauncherBackupRepositoryImpl(
     private val appContext: Context,
@@ -35,11 +35,7 @@ class LauncherBackupRepositoryImpl(
 
     private val importSanitizer = LauncherBackupImportSanitizer(appContext, widgetHostManager)
 
-    private val backupJson = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-        prettyPrint = true
-    }
+    private val backupJson = lenientJson { prettyPrint = true }
 
     override suspend fun exportToUri(uri: Uri): LauncherBackupResult {
         return runCatching {
