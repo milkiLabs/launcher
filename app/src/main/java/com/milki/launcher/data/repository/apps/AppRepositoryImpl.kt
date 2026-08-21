@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
@@ -40,9 +41,8 @@ class AppRepositoryImpl(
     private val installedAppsCatalog = InstalledAppsCatalog(application)
     private val recentAppsStore = RecentAppsStore(application)
 
-    private val installedAppsSnapshot = MutableStateFlow<List<AppInfo>>(emptyList())
-    @Volatile
-    private var latestInstalledApps: List<AppInfo>? = null
+    // Single source of truth for installed apps. Null means "not loaded yet".
+    private val installedAppsSnapshot = MutableStateFlow<List<AppInfo>?>(null)
 
     private val recentApps = combine(
         recentAppsStore.observeRecent(),
@@ -50,7 +50,7 @@ class AppRepositoryImpl(
     ) { recentComponentNames, installedApps ->
         resolveRecentApps(
             recentComponentNames = recentComponentNames,
-            installedApps = installedApps
+            installedApps = installedApps.orEmpty()
         )
     }
         .stateIn(
@@ -80,16 +80,15 @@ class AppRepositoryImpl(
     }
 
     override fun observeInstalledApps(): Flow<List<AppInfo>> {
-        return installedAppsSnapshot
+        return installedAppsSnapshot.map { it.orEmpty() }
     }
 
     override suspend fun getInstalledApps(): List<AppInfo> {
-        latestInstalledApps?.let { apps ->
+        installedAppsSnapshot.value?.let { apps ->
             return apps
         }
 
         return installedAppsCatalog.loadInstalledApps().also { apps ->
-            latestInstalledApps = apps
             installedAppsSnapshot.value = apps
         }
     }
@@ -157,7 +156,6 @@ class AppRepositoryImpl(
     private suspend fun refreshInstalledAppsSnapshot(event: PackageChangeEvent) {
         invalidatePackageScopedCaches(event)
         val latestApps = installedAppsCatalog.loadInstalledApps()
-        latestInstalledApps = latestApps
         installedAppsSnapshot.value = latestApps
         recentAppsStore.pruneUnavailable(latestApps)
         AppContextDataCache.refreshAll(application)
