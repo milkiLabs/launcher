@@ -9,14 +9,12 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.ui.components.launcher.PopupOffsetPositionProvider
 
 @Composable
 fun PopupWidgetView(
     expanded: Boolean,
     appWidgetId: Int,
-    widgetHostManager: WidgetHostManager,
     widthPx: Int,
     heightPx: Int,
     width: Dp,
@@ -50,7 +48,6 @@ fun PopupWidgetView(
     ) {
         HomeScreenWidgetView(
             appWidgetId = appWidgetId,
-            widgetHostManager = widgetHostManager,
             widthPx = widthPx,
             heightPx = heightPx,
             modifier = modifier

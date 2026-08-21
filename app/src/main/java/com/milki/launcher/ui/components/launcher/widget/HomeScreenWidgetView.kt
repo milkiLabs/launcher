@@ -43,7 +43,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -270,14 +270,13 @@ private data class GestureReleaseState(
  * [appWidgetId] and sizes it to fill [widthPx] × [heightPx] pixels.
  *
  * LIFECYCLE:
- * - The AppWidgetHostView is created once via [WidgetHostManager.createHostView]
+ * - The AppWidgetHostView is created once via [LocalWidgetHost]'s WidgetHostPort.createHostView
  *   and cached via `remember(appWidgetId)`.
  * - When the widget is removed from the Compose tree (e.g. scrolled off-screen
  *   or deleted), the DisposableEffect removes the view from its parent to prevent
  *   "View already has a parent" crashes if it's re-added later.
  *
  * @param appWidgetId       The bound widget ID from AppWidgetHost
- * @param widgetHostManager The manager that created and owns the host
  * @param widthPx           The desired width in pixels (typically span.columns × cellWidthPx)
  * @param heightPx          The desired height in pixels (typically span.rows × cellHeightPx)
  * @param onWidgetLongPress Called when the user long-presses anywhere on the widget view.
@@ -288,7 +287,6 @@ private data class GestureReleaseState(
 @Composable
 fun HomeScreenWidgetView(
     appWidgetId: Int,
-    widgetHostManager: WidgetHostManager,
     widthPx: Int,
     heightPx: Int,
     dragStartThresholdPx: Float = 0f,
@@ -307,10 +305,12 @@ fun HomeScreenWidgetView(
     val currentOnWidgetDragEnd = rememberUpdatedState(onWidgetDragEnd)
     val currentOnWidgetDragCancel = rememberUpdatedState(onWidgetDragCancel)
 
+    val widgetHost = LocalWidgetHost.current ?: return
+
     // Create the AppWidgetHostView once for this widget ID.
     // If the widget's provider is uninstalled, getProviderInfo returns null
     // and we can't create a view — show nothing in that case.
-    val hostView = rememberHostView(appWidgetId = appWidgetId, widgetHostManager = widgetHostManager)
+    val hostView = rememberHostView(appWidgetId = appWidgetId, widgetHost = widgetHost)
 
     if (hostView == null) return
 
@@ -318,7 +318,7 @@ fun HomeScreenWidgetView(
         factory = { context -> createWidgetFrameLayout(context, hostView, widthPx, heightPx) },
         update = { frameLayout ->
             updateHostViewLayout(hostView = hostView, widthPx = widthPx, heightPx = heightPx)
-            widgetHostManager.updateWidgetSize(hostView = hostView, widthPx = widthPx, heightPx = heightPx)
+            widgetHost.updateWidgetSize(hostView = hostView, widthPx = widthPx, heightPx = heightPx)
             frameLayout.bindWidgetCallbacks(
                 dragStartThresholdPx = dragStartThresholdPx,
                 onWidgetLongPress = currentOnWidgetLongPress.value,
@@ -344,22 +344,22 @@ fun HomeScreenWidgetView(
 @Composable
 private fun rememberHostView(
     appWidgetId: Int,
-    widgetHostManager: WidgetHostManager
+    widgetHost: WidgetHostPort
 ): AppWidgetHostView? {
     return remember(appWidgetId) {
-        tryCreateHostView(appWidgetId = appWidgetId, widgetHostManager = widgetHostManager)
+        tryCreateHostView(appWidgetId = appWidgetId, widgetHost = widgetHost)
     }
 }
 
 private fun tryCreateHostView(
     appWidgetId: Int,
-    widgetHostManager: WidgetHostManager
+    widgetHost: WidgetHostPort
 ): AppWidgetHostView? {
-    val providerInfo = widgetHostManager.getProviderInfo(appWidgetId)
+    val providerInfo = widgetHost.getProviderInfo(appWidgetId)
 
     return if (providerInfo != null) {
         try {
-            widgetHostManager.createHostView(appWidgetId, providerInfo)
+            widgetHost.createHostView(appWidgetId, providerInfo)
         } catch (e: IllegalStateException) {
             Log.e(
                 HOME_SCREEN_WIDGET_VIEW_TAG,

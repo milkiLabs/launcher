@@ -4,6 +4,11 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
+import com.milki.launcher.domain.model.GridSpan
+import com.milki.launcher.domain.widget.WidgetHostPort
+import com.milki.launcher.domain.widget.calculateMinWidgetSpan
+import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
+import com.milki.launcher.ui.interaction.grid.GridConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,12 +24,12 @@ import kotlinx.coroutines.withContext
  * Process-wide widget picker catalog cache.
  *
  * This keeps picker-specific catalog assembly and package-change invalidation
- * out of [WidgetHostManager], which stays focused on Android widget-host
- * framework operations.
+ * out of [WidgetHostPort] implementations, which stay focused on Android
+ * widget-host framework operations.
  */
 class WidgetPickerCatalogStore(
     context: Context,
-    private val widgetHostManager: WidgetHostManager,
+    private val widgetHost: WidgetHostPort,
     packageChangeMonitor: PackageChangeMonitor
 ) {
     companion object {
@@ -79,10 +84,14 @@ class WidgetPickerCatalogStore(
     }
 
     private fun buildCatalog(): List<WidgetAppGroup> {
-        return widgetHostManager.getInstalledProviders()
+        return widgetHost.getInstalledProviders()
             .map { info ->
-                val recommendedSpan = widgetHostManager.calculateRecommendedPlacementSpan(info)
-                val widgetLabel = widgetHostManager.loadProviderLabel(info)
+                val (minCols, minRows) = calculateMinWidgetSpan(info)
+                val recommendedSpan = recommendWidgetPlacementSpan(
+                    rawSpan = GridSpan(columns = minCols, rows = minRows),
+                    gridColumns = GridConfig.Default.columns
+                )
+                val widgetLabel = widgetHost.loadProviderLabel(info)
                 val appLabel = try {
                     val appInfo = packageManager.getApplicationInfo(info.provider.packageName, 0)
                     packageManager.getApplicationLabel(appInfo).toString()

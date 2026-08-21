@@ -7,7 +7,8 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.presentation.common.ViewModelSharingStarted
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
+import com.milki.launcher.domain.widget.needsInitialWidgetConfigure
 import com.milki.launcher.domain.homegraph.HomeModelWriter
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.Contact
@@ -46,7 +47,7 @@ class HomeViewModel(
     private val homeRepository: HomeRepository,
     private val availabilityPruner: HomeAvailabilityPruner,
     private val iconWarmupCoordinator: HomeIconWarmupCoordinator,
-    private val widgetHostManager: WidgetHostManager
+    private val widgetHost: WidgetHostPort
 ) : ViewModel() {
 
     private companion object {
@@ -420,18 +421,18 @@ class HomeViewModel(
             return WidgetPlacementCommand.NoOp
         }
 
-        val appWidgetId = widgetHostManager.allocateWidgetId()
-        val bindOptions = widgetHostManager.createBindOptions(span)
+        val appWidgetId = widgetHost.allocateWidgetId()
+        val bindOptions = widgetHost.createBindOptions(span)
         pendingWidgets[appWidgetId] = PendingWidget(
             appWidgetId = appWidgetId,
             providerComponent = providerInfo.provider,
-            providerLabel = widgetHostManager.loadProviderLabel(providerInfo),
+            providerLabel = widgetHost.loadProviderLabel(providerInfo),
             targetPosition = targetPosition,
             span = span,
             displayMode = displayMode
         )
 
-        val boundImmediately = widgetHostManager.bindWidget(
+        val boundImmediately = widgetHost.bindWidget(
             appWidgetId = appWidgetId,
             providerInfo = providerInfo,
             options = bindOptions
@@ -442,7 +443,7 @@ class HomeViewModel(
         } else {
             WidgetPlacementCommand.LaunchBindPermission(
                 appWidgetId = appWidgetId,
-                intent = widgetHostManager.createBindPermissionIntent(
+                intent = widgetHost.createBindPermissionIntent(
                     appWidgetId = appWidgetId,
                     providerInfo = providerInfo,
                     options = bindOptions
@@ -483,7 +484,7 @@ class HomeViewModel(
             fallbackErrorMessage = "Could not remove widget",
             command = HomeModelWriter.RemoveItemsById(itemIds = setOf(widgetId)),
             onApplied = {
-                ItemId.widgetId(widgetId)?.let(widgetHostManager::deallocateWidgetId)
+                ItemId.widgetId(widgetId)?.let(widgetHost::deallocateWidgetId)
             }
         )
     }
@@ -531,13 +532,13 @@ class HomeViewModel(
 
     private fun resolvePostBindCommand(appWidgetId: Int): WidgetPlacementCommand {
         val pending = pendingWidgets[appWidgetId] ?: return WidgetPlacementCommand.NoOp
-        val boundProviderInfo = widgetHostManager.getProviderInfo(appWidgetId)
+        val boundProviderInfo = widgetHost.getProviderInfo(appWidgetId)
         if (boundProviderInfo == null) {
             cancelPendingWidget(pending)
             return WidgetPlacementCommand.NoOp
         }
 
-        return if (widgetHostManager.needsConfigure(appWidgetId)) {
+        return if (needsInitialWidgetConfigure(boundProviderInfo)) {
             WidgetPlacementCommand.LaunchConfigure(appWidgetId = appWidgetId)
         } else {
             persistPendingWidget(appWidgetId, pending)
@@ -582,7 +583,7 @@ class HomeViewModel(
                 }
             } finally {
                 if (shouldDeallocate) {
-                    widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+                    widgetHost.deallocateWidgetId(pending.appWidgetId)
                 }
                 pendingMutationCount.update { current -> (current - 1).coerceAtLeast(0) }
             }
@@ -590,7 +591,7 @@ class HomeViewModel(
     }
 
     private fun cancelPendingWidget(pending: PendingWidget) {
-        widgetHostManager.deallocateWidgetId(pending.appWidgetId)
+        widgetHost.deallocateWidgetId(pending.appWidgetId)
         pendingWidgets.remove(pending.appWidgetId)
     }
 }

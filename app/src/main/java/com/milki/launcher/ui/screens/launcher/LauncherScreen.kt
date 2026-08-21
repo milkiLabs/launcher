@@ -27,7 +27,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
@@ -73,7 +72,6 @@ fun LauncherScreen(
     isShortcutManagerOpen: Boolean = false,
     actionShortcuts: List<HomeItem.ActionShortcut> = emptyList(),
     installedApps: List<AppInfo> = emptyList(),
-    widgetHostManager: WidgetHostManager? = null,
     widgetPickerCatalogStore: WidgetPickerCatalogStore? = null,
 ) {
     val appDrawerSheetState = rememberLauncherSheetState()
@@ -117,7 +115,6 @@ fun LauncherScreen(
             onItemBoundsMeasured = { itemId, boundsInWindow ->
                 homeItemBoundsById[itemId] = boundsInWindow
             },
-            widgetHostManager = widgetHostManager,
             modifier = Modifier
                 .fillMaxSize()
                 .align(Alignment.Center)
@@ -239,7 +236,6 @@ private fun HomeSurface(
     enabledHomeTriggers: Set<LauncherTrigger>,
     onMenuAnchorChanged: (Offset) -> Unit,
     onItemBoundsMeasured: (String, Rect) -> Unit,
-    widgetHostManager: WidgetHostManager?,
     modifier: Modifier = Modifier
 ) {
     val backgroundGestures = buildHomeBackgroundGestures(
@@ -264,7 +260,6 @@ private fun HomeSurface(
         onFolderItemExtracted = actions.onExtractItemFromFolder,
         onMoveFolderItemToFolder = actions.onMoveFolderItemToFolder,
         onFolderChildDroppedOnItem = actions.onFolderChildDroppedOnItem,
-        widgetHostManager = widgetHostManager,
         onRemoveWidget = actions.onRemoveWidget,
         onUpdateWidgetFrame = actions.onUpdateWidgetFrame,
         onUpdateWidgetDisplayMode = actions.onUpdateWidgetDisplayMode,

@@ -26,7 +26,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
@@ -43,6 +42,7 @@ import com.milki.launcher.ui.interaction.grid.animateDragVisuals
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.interaction.grid.detectHomeBackgroundGestures
 import com.milki.launcher.ui.components.launcher.widget.HomeScreenWidgetView
+import com.milki.launcher.ui.components.launcher.widget.LocalWidgetHost
 import com.milki.launcher.ui.components.launcher.widget.PopupWidgetView
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
@@ -69,7 +69,6 @@ internal fun InternalGridDragLayer(
     maxVisibleRows: Int,
     reorderEngine: GridReorderEngine,
     occupancy: GridOccupancy,
-    widgetHostManager: WidgetHostManager?,
     backgroundGestures: HomeBackgroundGestureBindings,
     onItemClick: (HomeItem) -> Unit,
     onItemLongPress: (HomeItem) -> Unit,
@@ -89,6 +88,7 @@ internal fun InternalGridDragLayer(
     hapticConfirm: () -> Unit,
     onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit
 ) {
+    val widgetHost = LocalWidgetHost.current
     val latestItems by rememberUpdatedState(items)
     val internalDropHandlers = InternalDropHandlers(
         onItemMove = onItemMove,
@@ -242,10 +242,9 @@ internal fun InternalGridDragLayer(
                             }
                         )
                 ) {
-                    if (isInlineWidget && widgetHostManager != null) {
+                    if (isInlineWidget && widgetHost != null) {
                         HomeScreenWidgetView(
                             appWidgetId = widgetItem.appWidgetId,
-                            widgetHostManager = widgetHostManager,
                             widthPx = (cellWidthPx * widgetItem.span.columns).toInt(),
                             heightPx = (cellHeightPx * widgetItem.span.rows).toInt(),
                             dragStartThresholdPx = config.dragThresholdPx,
@@ -302,12 +301,11 @@ internal fun InternalGridDragLayer(
                             )
                         }
 
-                        if (isPopupWidget && widgetHostManager != null) {
+                        if (isPopupWidget && widgetHost != null) {
                             PopupWidgetView(
                                 expanded = interactionController.widgetPopupShownForItemId == widgetItem.id,
                                 appWidgetId = widgetItem.appWidgetId,
-                                widgetHostManager = widgetHostManager,
-                                widthPx = (cellWidthPx * widgetItem.span.columns).toInt(),
+                                    widthPx = (cellWidthPx * widgetItem.span.columns).toInt(),
                                 heightPx = (cellHeightPx * widgetItem.span.rows).toInt(),
                                 width = with(LocalDensity.current) { (cellWidthPx * widgetItem.span.columns).toDp() },
                                 height = with(LocalDensity.current) { (cellHeightPx * widgetItem.span.rows).toDp() },

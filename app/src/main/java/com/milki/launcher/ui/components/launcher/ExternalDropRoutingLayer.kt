@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
+import com.milki.launcher.ui.components.launcher.widget.LocalWidgetHost
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -29,7 +29,6 @@ internal fun ExternalDropRoutingLayer(
     maxVisibleRows: Int,
     reorderEngine: GridReorderEngine,
     occupancy: GridOccupancy,
-    widgetHostManager: WidgetHostManager?,
     onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit,
     onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
     onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
@@ -44,6 +43,7 @@ internal fun ExternalDropRoutingLayer(
     ) -> Unit,
     hapticConfirm: () -> Unit
 ) {
+    val widgetHost = LocalWidgetHost.current
     val latestItems by rememberUpdatedState(items)
     val handlers = ExternalDropHandlers(
         onItemDroppedToHome = onItemDroppedToHome,
@@ -91,7 +91,7 @@ internal fun ExternalDropRoutingLayer(
                 items = latestItems,
                 gridColumns = config.columns,
                 maxVisibleRows = maxVisibleRows,
-                widgetHostManager = widgetHostManager,
+                widgetHost = widgetHost,
                 reorderEngine = reorderEngine,
                 occupancy = occupancy
             ) ?: return@AppExternalDropTargetOverlay false

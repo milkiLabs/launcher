@@ -16,6 +16,11 @@
  * - Provides helper methods for the common operations (allocate, bind, create view)
  * - Makes it easy to inject via Koin and test in isolation
  *
+ * LAYERING:
+ * UI/presentation code depends on the [WidgetHostPort] interface (domain layer),
+ * not on this class directly. Data-layer collaborators (backup sanitizer, widget
+ * picker catalog) may keep depending on this concretion.
+ *
  * LIFECYCLE REQUIREMENTS:
  * The launcher must start listening while its main surface is visible/resumed and
  * stop listening when it is not. This tells Android when to deliver widget updates.
@@ -39,10 +44,6 @@ import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
-import android.appwidget.AppWidgetProviderInfo.RESIZE_HORIZONTAL
-import android.appwidget.AppWidgetProviderInfo.RESIZE_VERTICAL
-import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL
-import android.appwidget.AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -52,12 +53,11 @@ import android.os.Bundle
 import android.util.Log
 import android.util.SizeF
 import com.milki.launcher.domain.model.GridSpan
-import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
-import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.domain.widget.WidgetHostPort
 
 class WidgetHostManager(
     private val context: Context
-) {
+) : WidgetHostPort {
     companion object {
         /**
          * Unique host ID for this launcher's AppWidgetHost.
@@ -118,14 +118,14 @@ class WidgetHostManager(
      * This keeps PackageManager usage encapsulated inside WidgetHostManager so
      * callers do not need direct access to packageManager internals.
      */
-    fun loadProviderLabel(providerInfo: AppWidgetProviderInfo): String {
+    override fun loadProviderLabel(providerInfo: AppWidgetProviderInfo): String {
         return providerInfo.loadLabel(packageManager) ?: providerInfo.provider.shortClassName
     }
 
-    fun updateHostState(
-        started: Boolean? = null,
-        resumed: Boolean? = null,
-        isNormal: Boolean? = null
+    override fun updateHostState(
+        started: Boolean?,
+        resumed: Boolean?,
+        isNormal: Boolean?
     ) {
         started?.let { activityStarted = it }
         resumed?.let { activityResumed = it }
@@ -175,7 +175,7 @@ class WidgetHostManager(
      *
      * @return A new unique integer widget ID.
      */
-    fun allocateWidgetId(): Int {
+    override fun allocateWidgetId(): Int {
         return appWidgetHost.allocateAppWidgetId()
     }
 
@@ -187,7 +187,7 @@ class WidgetHostManager(
      *
      * @param widgetId The widget ID to release.
      */
-    fun deallocateWidgetId(widgetId: Int) {
+    override fun deallocateWidgetId(widgetId: Int) {
         try {
             appWidgetHost.deleteAppWidgetId(widgetId)
         } catch (e: IllegalArgumentException) {
@@ -195,10 +195,10 @@ class WidgetHostManager(
         }
     }
 
-    fun bindWidget(
+    override fun bindWidget(
         appWidgetId: Int,
         providerInfo: AppWidgetProviderInfo,
-        options: Bundle? = null
+        options: Bundle?
     ): Boolean {
         return try {
             appWidgetManager.bindAppWidgetIdIfAllowed(
@@ -233,10 +233,10 @@ class WidgetHostManager(
      * @param providerInfo  The provider to bind.
      * @return An Intent ready to be launched.
      */
-    fun createBindPermissionIntent(
+    override fun createBindPermissionIntent(
         appWidgetId: Int,
         providerInfo: AppWidgetProviderInfo,
-        options: Bundle? = null
+        options: Bundle?
     ): Intent {
         return Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -248,22 +248,17 @@ class WidgetHostManager(
         }
     }
 
-    fun needsConfigure(appWidgetId: Int): Boolean {
-        val providerInfo = getProviderInfo(appWidgetId) ?: return false
-        return needsInitialWidgetConfigure(providerInfo)
-    }
-
     /**
      * Starts the provider's configuration Activity using the host helper.
      *
      * This mirrors Launcher3's approach and is more reliable than launching the
      * configure Activity directly, especially for cross-profile or restricted providers.
      */
-    fun startConfigureActivityForResult(
+    override fun startConfigureActivityForResult(
         activity: Activity,
         appWidgetId: Int,
         requestCode: Int,
-        options: Bundle? = null
+        options: Bundle?
     ) {
         appWidgetHost.startAppWidgetConfigureActivityForResult(
             activity,
@@ -288,7 +283,7 @@ class WidgetHostManager(
      * @param providerInfo The AppWidgetProviderInfo for this widget (from getProviderInfo).
      * @return An AppWidgetHostView ready to be displayed.
      */
-    fun createHostView(widgetId: Int, providerInfo: AppWidgetProviderInfo): AppWidgetHostView {
+    override fun createHostView(widgetId: Int, providerInfo: AppWidgetProviderInfo): AppWidgetHostView {
         return appWidgetHost.createView(context, widgetId, providerInfo)
     }
 
@@ -302,7 +297,7 @@ class WidgetHostManager(
      * @return The provider info, or null if the widget ID is not bound or the provider
      *         app was uninstalled.
      */
-    fun getProviderInfo(widgetId: Int): AppWidgetProviderInfo? {
+    override fun getProviderInfo(widgetId: Int): AppWidgetProviderInfo? {
         return appWidgetManager.getAppWidgetInfo(widgetId)
     }
 
@@ -318,7 +313,7 @@ class WidgetHostManager(
      *
      * @return List of all installed AppWidgetProviderInfo objects.
      */
-    fun getInstalledProviders(): List<AppWidgetProviderInfo> {
+    override fun getInstalledProviders(): List<AppWidgetProviderInfo> {
         return appWidgetManager.installedProviders
     }
 
@@ -329,7 +324,7 @@ class WidgetHostManager(
      * where we only have the provider component and must re-resolve full
      * AppWidgetProviderInfo at drop time.
      */
-    fun findInstalledProvider(provider: ComponentName): AppWidgetProviderInfo? {
+    override fun findInstalledProvider(provider: ComponentName): AppWidgetProviderInfo? {
         return appWidgetManager.installedProviders.firstOrNull { it.provider == provider }
     }
 
@@ -339,7 +334,7 @@ class WidgetHostManager(
      * This gives providers accurate size information from the start instead of
      * waiting for the first host-view layout pass.
      */
-    fun createBindOptions(span: GridSpan): Bundle {
+    override fun createBindOptions(span: GridSpan): Bundle {
         val (widthPx, heightPx) = estimateWidgetSizePx(context, span)
         return createWidgetSizeOptions(context, widthPx = widthPx, heightPx = heightPx)
     }
@@ -347,7 +342,7 @@ class WidgetHostManager(
     /**
      * Updates a hosted widget with its exact rendered size.
      */
-    fun updateWidgetSize(
+    override fun updateWidgetSize(
         hostView: AppWidgetHostView,
         widthPx: Int,
         heightPx: Int
@@ -370,92 +365,5 @@ class WidgetHostManager(
                 heightDp
             )
         }
-    }
-
-    /**
-     * Calculates the minimum span (in grid cells) for a widget provider.
-     *
-     * Android widget providers specify their minimum size in dp (density-independent pixels).
-     * We convert that to grid cell counts by dividing by the approximate cell size.
-     *
-     * The calculation uses the formula from Android's own launcher:
-     *   cells = ceil((minSizeDp - 2 * cellPaddingDp) / cellSizeDp)
-     *
-     * We use an approximation where each cell is roughly 70dp wide (for 4 columns
-     * on a typical 280dp-wide usable area). This matches how most launchers calculate
-     * widget cell counts.
-     *
-     * @param providerInfo The widget's provider info containing minWidth/minHeight.
-     * @return A Pair of (minColumns, minRows) representing the minimum grid span.
-     */
-    fun calculateMinSpan(providerInfo: AppWidgetProviderInfo): Pair<Int, Int> {
-        return calculateMinWidgetSpan(providerInfo)
-    }
-
-    /**
-     * Calculates the minimum resize span for a widget that supports resizing.
-     *
-     * Some widgets can be resized smaller than their default size. The minimum
-     * resize dimensions define how small the user can make the widget.
-     *
-     * If the widget doesn't support resizing, this returns the same as calculateMinSpan().
-     *
-     * @param providerInfo The widget's provider info.
-     * @return A Pair of (minResizeColumns, minResizeRows).
-     */
-    fun calculateMinResizeSpan(providerInfo: AppWidgetProviderInfo): Pair<Int, Int> {
-        return calculateMinWidgetResizeSpan(providerInfo)
-    }
-
-    /**
-     * Calculates the recommended placement span for a new widget.
-     *
-     * This intentionally differs from the provider's raw minimum/default size:
-     * very large widgets are shrunk to a practical first placement so users do
-     * not need to clear an oversized area before they can drop them.
-     */
-    fun calculateRecommendedPlacementSpan(
-        providerInfo: AppWidgetProviderInfo,
-        gridColumns: Int = GridConfig.Default.columns
-    ): GridSpan {
-        val (minCols, minRows) = calculateMinSpan(providerInfo)
-        return recommendWidgetPlacementSpan(
-            rawSpan = GridSpan(columns = minCols, rows = minRows),
-            gridColumns = gridColumns
-        )
-    }
-
-    /**
-     * Clamps a requested widget resize to the provider's supported axes, minimum
-     * size, and the currently visible home-grid bounds.
-     */
-    fun clampResizeSpan(
-        providerInfo: AppWidgetProviderInfo?,
-        currentSpan: GridSpan,
-        requestedSpan: GridSpan,
-        gridColumns: Int,
-        maxRows: Int
-    ): GridSpan {
-        val supportsHorizontalResize = providerInfo != null &&
-            (providerInfo.resizeMode and RESIZE_HORIZONTAL) != 0
-        val supportsVerticalResize = providerInfo != null &&
-            (providerInfo.resizeMode and RESIZE_VERTICAL) != 0
-
-        val (minResizeCols, minResizeRows) = providerInfo?.let(::calculateMinResizeSpan)
-            ?: (1 to 1)
-
-        val targetColumns = if (supportsHorizontalResize) {
-            requestedSpan.columns.coerceIn(minResizeCols, gridColumns.coerceAtLeast(minResizeCols))
-        } else {
-            currentSpan.columns
-        }
-
-        val targetRows = if (supportsVerticalResize) {
-            requestedSpan.rows.coerceIn(minResizeRows, maxRows.coerceAtLeast(minResizeRows))
-        } else {
-            currentSpan.rows
-        }
-
-        return GridSpan(columns = targetColumns, rows = targetRows)
     }
 }

@@ -4,7 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import com.milki.launcher.core.file.ContentUriFailurePolicy
 import com.milki.launcher.core.file.PinnedFileAvailability
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
 import com.milki.launcher.domain.model.backup.SkippedImportReason
@@ -13,7 +13,7 @@ import com.milki.launcher.domain.repository.WidgetBindRequest
 
 internal class LauncherBackupImportSanitizer(
     private val appContext: Context,
-    private val widgetHostManager: WidgetHostManager
+    private val widgetHost: WidgetHostPort
 ) {
     suspend fun sanitizeTopLevelItems(
         items: List<HomeItem>,
@@ -161,29 +161,29 @@ internal class LauncherBackupImportSanitizer(
                 message = "Invalid widget provider component ${item.providerPackage}/${item.providerClass}"
             )
 
-        val providerInfo = widgetHostManager.findInstalledProvider(providerComponent)
+        val providerInfo = widgetHost.findInstalledProvider(providerComponent)
             ?: return skipWidget(
                 context = context,
                 message = "Widget provider not installed ${item.providerPackage}/${item.providerClass}"
             )
 
-        val appWidgetId = widgetHostManager.allocateWidgetId()
+        val appWidgetId = widgetHost.allocateWidgetId()
         val isBound = bindWidgetForImport(
             appWidgetId = appWidgetId,
             providerInfo = providerInfo,
             context = context
         )
         if (!isBound) {
-            widgetHostManager.deallocateWidgetId(appWidgetId)
+            widgetHost.deallocateWidgetId(appWidgetId)
             return skipWidget(
                 context = context,
                 message = "Widget permission not granted for ${item.label}"
             )
         }
 
-        val needsConfiguration = widgetHostManager.getProviderInfo(appWidgetId)?.configure != null
+        val needsConfiguration = widgetHost.getProviderInfo(appWidgetId)?.configure != null
         if (needsConfiguration) {
-            widgetHostManager.deallocateWidgetId(appWidgetId)
+            widgetHost.deallocateWidgetId(appWidgetId)
             context.skip(
                 category = SkippedImportCategory.WIDGET,
                 message = "Widget ${item.label} requires configuration; skipped in batch import"
@@ -228,7 +228,7 @@ internal class LauncherBackupImportSanitizer(
         providerInfo: android.appwidget.AppWidgetProviderInfo,
         context: ImportContext
     ): Boolean {
-        if (widgetHostManager.bindWidget(appWidgetId, providerInfo)) {
+        if (widgetHost.bindWidget(appWidgetId, providerInfo)) {
             return true
         }
 

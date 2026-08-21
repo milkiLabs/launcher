@@ -10,7 +10,7 @@ import com.milki.launcher.core.intent.LauncherBenchmarkTarget
 import com.milki.launcher.core.intent.toLauncherBenchmarkRequestOrNull
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.core.permission.PermissionHandler
 import com.milki.launcher.domain.repository.ContactsRepository
 import com.milki.launcher.domain.repository.HomeRepository
@@ -35,7 +35,7 @@ import kotlinx.coroutines.runBlocking
  * STARTUP OPTIMIZATION:
  * Dependencies not needed for the first visible frame are accepted as provider
  * functions (lazy lambdas) so that Koin construction is deferred until actual use.
- * Only homeViewModel and widgetHostManager are resolved eagerly because they feed
+ * Only homeViewModel and widgetHost are resolved eagerly because they feed
  * the first frame and widget host lifecycle.
  */
 internal class LauncherHostRuntime(
@@ -47,7 +47,7 @@ internal class LauncherHostRuntime(
     private val contactsRepositoryProvider: () -> ContactsRepository,
     private val filesRepositoryProvider: () -> com.milki.launcher.domain.repository.FilesRepository,
     private val homeRepository: HomeRepository,
-    private val widgetHostManager: WidgetHostManager
+    private val widgetHost: WidgetHostPort
 ) {
     @Volatile
     private var deferredStartupCompleted = false
@@ -91,7 +91,7 @@ internal class LauncherHostRuntime(
     val widgetPlacementCoordinator: WidgetPlacementCoordinator = WidgetPlacementCoordinator(
         activity = activity,
         homeViewModel = homeViewModel,
-        widgetHostManager = widgetHostManager
+        widgetHost = widgetHost
     )
 
     /**
@@ -136,7 +136,7 @@ internal class LauncherHostRuntime(
     }
 
     fun onResume() {
-        widgetHostManager.updateHostState(resumed = true, isNormal = true)
+        widgetHost.updateHostState(resumed = true, isNormal = true)
         if (::actionExecutor.isInitialized) {
             permissionHandler.updateStates()
         }
@@ -144,15 +144,15 @@ internal class LauncherHostRuntime(
     }
 
     fun onPause() {
-        widgetHostManager.updateHostState(resumed = false)
+        widgetHost.updateHostState(resumed = false)
     }
 
     fun onStart() {
-        widgetHostManager.updateHostState(started = true)
+        widgetHost.updateHostState(started = true)
     }
 
     fun onStop() {
-        widgetHostManager.updateHostState(started = false)
+        widgetHost.updateHostState(started = false)
         surfaceStateCoordinator.onStop()
     }
 

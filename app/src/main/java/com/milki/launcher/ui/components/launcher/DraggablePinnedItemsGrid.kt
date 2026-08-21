@@ -12,7 +12,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
 import com.milki.launcher.domain.model.GridOccupancy
@@ -55,7 +54,6 @@ fun DraggablePinnedItemsGrid(
     onFolderItemExtracted: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
     onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit = { _, _, _ -> },
     onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> },
-    widgetHostManager: WidgetHostManager? = null,
     onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
     onUpdateWidgetFrame: (
         widgetId: String,
@@ -170,7 +168,6 @@ fun DraggablePinnedItemsGrid(
             maxVisibleRows = maxVisibleRows,
             reorderEngine = reorderEngine,
             occupancy = occupancy,
-            widgetHostManager = widgetHostManager,
             backgroundGestures = backgroundGestures,
             onItemClick = onItemClick,
             onItemLongPress = onItemLongPress,
@@ -210,7 +207,6 @@ fun DraggablePinnedItemsGrid(
             maxVisibleRows = maxVisibleRows,
             reorderEngine = reorderEngine,
             occupancy = occupancy,
-            widgetHostManager = widgetHostManager,
             dragTargetOccupant = dragTargetOccupant,
             resolvedInternalPreviewPosition = resolvedInternalPreviewPosition,
             externalDragState = interactionController.externalDragState
@@ -224,7 +220,6 @@ fun DraggablePinnedItemsGrid(
             maxVisibleRows = maxVisibleRows,
             reorderEngine = reorderEngine,
             occupancy = occupancy,
-            widgetHostManager = widgetHostManager,
             onItemDroppedToHome = onItemDroppedToHome,
             onCreateFolder = onCreateFolder,
             onAddItemToFolder = onAddItemToFolder,

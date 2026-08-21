@@ -6,7 +6,7 @@ import android.net.Uri
 import com.milki.launcher.core.file.ContentUriFailurePolicy
 import com.milki.launcher.core.file.PinnedFileAvailability
 import com.milki.launcher.core.util.lenientJson
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.backup.LauncherBackupFile
 import com.milki.launcher.domain.model.backup.LauncherBackupResult
@@ -29,11 +29,11 @@ class LauncherBackupRepositoryImpl(
     private val settingsRepository: SettingsReader,
     private val homeRepository: HomeRepository,
     private val appRepository: AppRepository,
-    private val widgetHostManager: WidgetHostManager,
+    private val widgetHost: WidgetHostPort,
     private val actionShortcutRepository: ActionShortcutRepository
 ) : LauncherBackupRepository {
 
-    private val importSanitizer = LauncherBackupImportSanitizer(appContext, widgetHostManager)
+    private val importSanitizer = LauncherBackupImportSanitizer(appContext, widgetHost)
 
     private val backupJson = lenientJson { prettyPrint = true }
 
@@ -115,7 +115,7 @@ class LauncherBackupRepositoryImpl(
             )
 
             val existingHomeItems = homeRepository.readPinnedItems()
-            collectWidgetIds(existingHomeItems).forEach(widgetHostManager::deallocateWidgetId)
+            collectWidgetIds(existingHomeItems).forEach(widgetHost::deallocateWidgetId)
 
             val sanitizedActionShortcuts = importSanitizer.sanitizeActionShortcuts(
                 items = snapshot.actionShortcuts,

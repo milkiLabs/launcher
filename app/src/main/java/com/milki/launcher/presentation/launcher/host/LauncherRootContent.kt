@@ -19,8 +19,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.core.intent.launchApp
 import com.milki.launcher.core.intent.launchAppShortcut
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
@@ -44,6 +44,7 @@ import com.milki.launcher.ui.screens.launcher.FolderActions
 import com.milki.launcher.ui.screens.launcher.HomeActions
 import com.milki.launcher.ui.screens.launcher.LauncherActions
 import com.milki.launcher.ui.screens.launcher.LauncherScreen
+import com.milki.launcher.ui.components.launcher.widget.LocalWidgetHost
 import com.milki.launcher.ui.screens.launcher.MenuActions
 import com.milki.launcher.ui.screens.launcher.SearchActions
 import com.milki.launcher.ui.screens.launcher.ShortcutManagerActions
@@ -76,7 +77,7 @@ internal fun LauncherRootContent(
     settingsRepository: SettingsReader,
     appRepositoryProvider: () -> AppRepository,
     actionShortcutRepository: ActionShortcutRepository,
-    widgetHostManager: WidgetHostManager,
+    widgetHost: WidgetHostPort,
     obtainWidgetPickerCatalogStore: () -> WidgetPickerCatalogStore
 ) {
     val pinnedItems by homeViewModel.pinnedItems.collectAsStateWithLifecycle()
@@ -275,23 +276,24 @@ internal fun LauncherRootContent(
                 )
             }
 
-            LauncherScreen(
-                searchUiState = searchUiState,
-                pinnedItems = pinnedItems,
-                openFolderItem = openFolderItem,
-                actions = launcherActions,
-                enabledHomeTriggers = enabledHomeTriggers,
-                isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
-                isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
-                appDrawerUiState = appDrawerUiState,
-                isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
-                widgetPickerQuery = surfaceStateCoordinator.widgetPickerQuery,
-                isShortcutManagerOpen = surfaceStateCoordinator.isShortcutManagerOpen,
-                actionShortcuts = actionShortcuts,
-                installedApps = installedApps,
-                widgetHostManager = widgetHostManager,
-                widgetPickerCatalogStore = widgetPickerCatalogStore
-            )
+            CompositionLocalProvider(LocalWidgetHost provides widgetHost) {
+                LauncherScreen(
+                    searchUiState = searchUiState,
+                    pinnedItems = pinnedItems,
+                    openFolderItem = openFolderItem,
+                    actions = launcherActions,
+                    enabledHomeTriggers = enabledHomeTriggers,
+                    isHomescreenMenuOpen = surfaceStateCoordinator.isHomescreenMenuOpen,
+                    isAppDrawerOpen = surfaceStateCoordinator.isAppDrawerOpen,
+                    appDrawerUiState = appDrawerUiState,
+                    isWidgetPickerOpen = surfaceStateCoordinator.isWidgetPickerOpen,
+                    widgetPickerQuery = surfaceStateCoordinator.widgetPickerQuery,
+                    isShortcutManagerOpen = surfaceStateCoordinator.isShortcutManagerOpen,
+                    actionShortcuts = actionShortcuts,
+                    installedApps = installedApps,
+                    widgetPickerCatalogStore = widgetPickerCatalogStore
+                )
+            }
 
             if (showSetDefaultLauncherPrompt) {
                 AlertDialog(

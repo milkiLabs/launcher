@@ -13,7 +13,7 @@ import com.milki.launcher.core.launcher.isAppDefaultLauncher
 import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
 import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
 import com.milki.launcher.core.perf.traceSection
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
@@ -33,7 +33,7 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
  *
  * STARTUP OPTIMIZATION:
  * Only dependencies that feed the first visible frame are resolved eagerly
- * (HomeViewModel, HomeRepository, WidgetHostManager). Everything else is wrapped
+ * (HomeViewModel, HomeRepository, WidgetHostPort). Everything else is wrapped
  * in provider lambdas so Koin construction is deferred until first actual use.
  *
  * Architecture split:
@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
     private val homeRepository: HomeRepository by inject()
     private val settingsRepository: SettingsReader by inject()
     private val actionShortcutRepository: ActionShortcutRepository by inject()
-    private val widgetHostManager: WidgetHostManager by inject()
+    private val widgetHost: WidgetHostPort by inject()
 
     // ── Lazily resolved: not needed for the first frame ───────────────
     private val searchViewModel: SearchViewModel by viewModel()
@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
                     contactsRepositoryProvider = { contactsRepository },
                     filesRepositoryProvider = { filesRepository },
                     homeRepository = homeRepository,
-                    widgetHostManager = widgetHostManager
+                    widgetHost = widgetHost
                 )
                 runtime.initialize()
                 runtime.handleInitialIntent(intent)
@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
                         settingsRepository = settingsRepository,
                         appRepositoryProvider = { appRepository },
                         actionShortcutRepository = actionShortcutRepository,
-                        widgetHostManager = widgetHostManager,
+                        widgetHost = widgetHost,
                         obtainWidgetPickerCatalogStore = { widgetPickerCatalogStore }
                     )
                 }

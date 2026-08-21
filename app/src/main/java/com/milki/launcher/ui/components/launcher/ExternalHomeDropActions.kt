@@ -1,7 +1,7 @@
 package com.milki.launcher.ui.components.launcher
 
 import android.appwidget.AppWidgetProviderInfo
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.domain.drop.RejectReason
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
@@ -111,7 +111,7 @@ internal fun resolveExternalDropAction(
     items: List<HomeItem>,
     gridColumns: Int,
     maxVisibleRows: Int,
-    widgetHostManager: WidgetHostManager? = null,
+    widgetHost: WidgetHostPort? = null,
     reorderEngine: GridReorderEngine = GridReorderEngine(),
     occupancy: GridOccupancy? = null
 ): ExternalDropAction? {
@@ -131,7 +131,7 @@ internal fun resolveExternalDropAction(
             occupancy = resolved,
             gridColumns = gridColumns,
             maxVisibleRows = maxVisibleRows,
-            widgetHostManager = widgetHostManager,
+            widgetHost = widgetHost,
             reorderEngine = reorderEngine
         )
         else -> resolveRegularExternalDropAction(
@@ -322,7 +322,7 @@ private fun resolveWidgetDropAction(
     occupancy: GridOccupancy,
     gridColumns: Int,
     maxVisibleRows: Int,
-    widgetHostManager: WidgetHostManager?,
+    widgetHost: WidgetHostPort?,
     reorderEngine: GridReorderEngine
 ): ExternalDropAction {
     val normalizedSpan = normalizeWidgetSpanForHomeGrid(
@@ -345,7 +345,7 @@ private fun resolveWidgetDropAction(
         occupancy = occupancy
     )
     val resolvedProvider = item.providerInfo
-        ?: widgetHostManager?.findInstalledProvider(item.providerComponent)
+        ?: widgetHost?.findInstalledProvider(item.providerComponent)
 
     return when {
         resolvedAnchor == null -> {

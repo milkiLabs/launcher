@@ -21,8 +21,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
-import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
+import com.milki.launcher.ui.components.launcher.widget.LocalWidgetHost
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -57,11 +57,11 @@ internal fun DropHighlightLayer(
     maxVisibleRows: Int,
     reorderEngine: GridReorderEngine,
     occupancy: GridOccupancy,
-    widgetHostManager: WidgetHostManager?,
     dragTargetOccupant: HomeItem?,
     resolvedInternalPreviewPosition: GridPosition?,
     externalDragState: HomeSurfaceExternalDragState
 ) {
+    val widgetHost = LocalWidgetHost.current
     // Internal drag highlight + floating preview.
     dragController.session?.let { activeSession ->
         val target = resolvedInternalPreviewPosition
@@ -149,7 +149,7 @@ internal fun DropHighlightLayer(
                 items = items,
                 gridColumns = config.columns,
                 maxVisibleRows = maxVisibleRows,
-                widgetHostManager = widgetHostManager,
+                widgetHost = widgetHost,
                 reorderEngine = reorderEngine,
                 occupancy = occupancy
             )?.previewState?.let { previewState ->

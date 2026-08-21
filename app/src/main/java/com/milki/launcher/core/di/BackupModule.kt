@@ -15,7 +15,7 @@ val backupModule = module {
             settingsRepository = get(),
             homeRepository = get(),
             appRepository = get(),
-            widgetHostManager = get(),
+            widgetHost = get(),
             actionShortcutRepository = get()
         )
     }

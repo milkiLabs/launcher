@@ -6,13 +6,13 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import com.milki.launcher.data.widget.WidgetHostManager
+import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.presentation.home.HomeViewModel
 
 class WidgetPlacementCoordinator(
     private val activity: ComponentActivity,
     private val homeViewModel: HomeViewModel,
-    private val widgetHostManager: WidgetHostManager
+    private val widgetHost: WidgetHostPort
 ) {
 
     companion object {
@@ -83,7 +83,7 @@ class WidgetPlacementCoordinator(
     private fun launchConfigure(command: HomeViewModel.WidgetPlacementCommand.LaunchConfigure) {
         runCatching {
             pendingConfigureAppWidgetId = command.appWidgetId
-            widgetHostManager.startConfigureActivityForResult(
+            widgetHost.startConfigureActivityForResult(
                 activity = activity,
                 appWidgetId = command.appWidgetId,
                 requestCode = REQUEST_CONFIGURE_APPWIDGET

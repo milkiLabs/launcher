@@ -33,7 +33,7 @@ val homeModule = module {
             homeRepository = get(),
             availabilityPruner = get(),
             iconWarmupCoordinator = get(),
-            widgetHostManager = get()
+            widgetHost = get()
         )
     }
 }
