@@ -23,10 +23,6 @@ package com.milki.launcher.core.intent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
-import android.widget.Toast
-
-private const val FILE_OPENER_TAG = "FileOpener"
 
 /**
  * Opens a file with an external app, showing a chooser dialog.
@@ -72,15 +68,10 @@ fun openFile(
         // Also add NEW_TASK to the chooser for consistency
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
-    
-    runCatching {
-        context.startActivity(chooserIntent)
-    }.onFailure { throwable ->
-        Log.w(FILE_OPENER_TAG, "Unable to open file with chooser: $fileName", throwable)
-        Toast.makeText(
-            context,
-            "No app found to open $fileName",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
+
+    context.launchSafe(
+        "file $fileName",
+        chooserIntent,
+        failureMessage = "No app found to open $fileName"
+    )
 }

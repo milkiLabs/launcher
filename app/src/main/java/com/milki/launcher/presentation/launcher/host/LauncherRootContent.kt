@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.core.intent.launchApp
 import com.milki.launcher.core.intent.launchAppShortcut
+import com.milki.launcher.core.intent.launchSafe
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.domain.model.AppInfo
@@ -352,24 +353,22 @@ private fun openTriggerLaunchTarget(
         }
 
         is LauncherTriggerTarget.ActionShortcut -> {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                data = android.net.Uri.parse(target.destinationUri)
+            val uri = android.net.Uri.parse(target.destinationUri)
+            val nonBrowserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                data = uri
                 flags =
                     android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER
                 target.packageName?.let { setPackage(it) }
             }
-            kotlin.runCatching {
-                context.startActivity(intent)
-            }.onFailure {
-                val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                    data = android.net.Uri.parse(target.destinationUri)
-                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                    target.packageName?.let { setPackage(it) }
-                }
-                kotlin.runCatching {
-                    context.startActivity(fallbackIntent)
-                }
+            val plainIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                data = uri
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                target.packageName?.let { setPackage(it) }
             }
+            context.launchSafe(
+                "trigger action shortcut ${target.destinationUri}",
+                listOf(nonBrowserIntent, plainIntent)
+            )
         }
 
         null -> Unit

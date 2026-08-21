@@ -1,12 +1,8 @@
 package com.milki.launcher.core.intent
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
-
-private const val URL_OPENER_TAG = "UrlOpener"
 
 fun openUrlDestination(
     context: Context,
@@ -14,22 +10,12 @@ fun openUrlDestination(
     preferredPackageName: String? = null,
     onFailure: (() -> Unit)? = null
 ): Boolean {
-    val preferredIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-        preferredPackageName?.let(::setPackage)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    if (tryStartUrlIntent(context, preferredIntent)) {
+    if (tryStartUrlIntent(context, url, preferredPackageName)) {
         return true
     }
 
-    if (preferredPackageName != null) {
-        val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        if (tryStartUrlIntent(context, fallbackIntent)) {
-            return true
-        }
+    if (preferredPackageName != null && tryStartUrlIntent(context, url, null)) {
+        return true
     }
 
     onFailure?.invoke()
@@ -38,16 +24,12 @@ fun openUrlDestination(
 
 private fun tryStartUrlIntent(
     context: Context,
-    intent: Intent
+    url: String,
+    packageName: String?
 ): Boolean {
-    return try {
-        context.startActivity(intent)
-        true
-    } catch (e: ActivityNotFoundException) {
-        Log.w(URL_OPENER_TAG, "No activity available for URL intent", e)
-        false
-    } catch (e: SecurityException) {
-        Log.w(URL_OPENER_TAG, "Security exception while opening URL", e)
-        false
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        packageName?.let(::setPackage)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
+    return context.launchSafe("URL destination $url", intent)
 }

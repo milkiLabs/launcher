@@ -7,6 +7,7 @@ import android.widget.Toast
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.core.intent.launchAppShortcut
 import com.milki.launcher.core.intent.launchPinnedApp
+import com.milki.launcher.core.intent.launchSafe
 import com.milki.launcher.core.intent.openFile
 import com.milki.launcher.core.intent.openUrlDestination
 
@@ -71,11 +72,7 @@ private fun openPinnedContact(item: HomeItem.PinnedContact, context: Context) {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
-    try {
-        context.startActivity(dialIntent)
-    } catch (_: Exception) {
-        Toast.makeText(context, "No phone app found", Toast.LENGTH_SHORT).show()
-    }
+    context.launchSafe("pinned contact dialer", dialIntent, failureMessage = "No phone app found")
 }
 
 /**
