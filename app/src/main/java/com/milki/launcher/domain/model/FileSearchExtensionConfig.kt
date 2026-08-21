@@ -1,6 +1,5 @@
 package com.milki.launcher.domain.model
 
-import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
 
 /**
@@ -36,7 +35,6 @@ enum class FileSearchCategory(val displayName: String) {
     CODE("Code & Config")
 }
 
-@Immutable
 @Serializable
 data class FileSearchExtensionConfig(
     val enabledCategories: Set<FileSearchCategory> = DEFAULT_ENABLED_CATEGORIES,

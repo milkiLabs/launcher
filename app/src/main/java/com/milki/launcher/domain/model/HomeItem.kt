@@ -1,20 +1,17 @@
 
 package com.milki.launcher.domain.model
 
-import androidx.compose.runtime.Immutable
 import com.milki.launcher.core.util.strictJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 @Serializable
-@Immutable
 enum class WidgetDisplayMode {
     Inline,
     PopupIcon
 }
 
 @Serializable
-@Immutable
 sealed class HomeItem {
 
     abstract val id: String
@@ -32,7 +29,6 @@ sealed class HomeItem {
     }
 
     @Serializable
-    @Immutable
     data class PinnedApp(
         override val id: String,
         val packageName: String,
@@ -56,7 +52,6 @@ sealed class HomeItem {
     }
 
         @Serializable
-    @Immutable
     data class PinnedFile(
         override val id: String,
         val uri: String,
@@ -81,7 +76,6 @@ sealed class HomeItem {
     }
 
         @Serializable
-    @Immutable
     data class PinnedContact(
         override val id: String,
         val contactId: Long,
@@ -109,7 +103,6 @@ sealed class HomeItem {
     }
 
         @Serializable
-    @Immutable
     data class AppShortcut(
         override val id: String,
         val packageName: String,
@@ -139,7 +132,6 @@ sealed class HomeItem {
     }
 
         @Serializable
-    @Immutable
     data class ActionShortcut(
         override val id: String,
         val label: String,
@@ -178,7 +170,6 @@ sealed class HomeItem {
     }
 
         @Serializable
-    @Immutable
     data class WidgetItem(
         override val id: String,
         val appWidgetId: Int,
@@ -229,7 +220,6 @@ sealed class HomeItem {
     }
 
         @Serializable
-    @Immutable
     data class FolderItem(
         override val id: String,
         val name: String = DEFAULT_NAME,

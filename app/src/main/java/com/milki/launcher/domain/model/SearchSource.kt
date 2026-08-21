@@ -1,6 +1,5 @@
 package com.milki.launcher.domain.model
 
-import androidx.compose.runtime.Immutable
 import java.util.UUID
 import kotlinx.serialization.Serializable
 
@@ -11,7 +10,6 @@ import kotlinx.serialization.Serializable
  * launcher's unified external search system.
  */
 
-@Immutable
 @Serializable
 data class SearchSource(
     val id: String,

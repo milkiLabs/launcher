@@ -10,7 +10,6 @@
 
 package com.milki.launcher.domain.model
 
-import androidx.compose.runtime.Immutable
 
 /**
  * Sealed class representing different types of search results.
@@ -19,7 +18,6 @@ import androidx.compose.runtime.Immutable
  * but NO callbacks. Click handling is done via the SearchResultAction
  * sealed class and ActionExecutor.
  */
-@Immutable
 sealed class SearchResult {
     /**
      * Unique identifier for this result.
@@ -41,7 +39,6 @@ sealed class SearchResult {
  *
  * @property appInfo The complete app information including name, package, and launch intent
  */
-@Immutable
 data class AppSearchResult(
     val appInfo: AppInfo
 ) : SearchResult() {
@@ -59,7 +56,6 @@ data class AppSearchResult(
  * @property engine The display name of the search engine (e.g., "Google", "Kagi")  
  * @property query The original search query that will be searched
  */
-@Immutable
 data class WebSearchResult(
     override val title: String,
     val url: String,
@@ -78,7 +74,6 @@ data class WebSearchResult(
  *
  * @property contact The complete contact information
  */
-@Immutable
 data class ContactSearchResult(
     val contact: Contact
 ) : SearchResult() {
@@ -92,7 +87,6 @@ data class ContactSearchResult(
  * This is shown when the user enters a phone-like query with the contacts prefix
  * so they can call the number or hand it to the system contacts app to save it.
  */
-@Immutable
 data class PhoneNumberSearchResult(
     val phoneNumber: String
 ) : SearchResult() {
@@ -113,7 +107,6 @@ data class PhoneNumberSearchResult(
  * @property message Human-readable explanation of why permission is needed
  * @property buttonText Text for the action button
  */
-@Immutable
 data class PermissionRequestResult(
     val permission: String,
     val providerPrefix: String,
@@ -132,7 +125,6 @@ data class PermissionRequestResult(
  *
  * @property query The search query for YouTube
  */
-@Immutable
 data class YouTubeSearchResult(
     val query: String
 ) : SearchResult() {
@@ -164,7 +156,6 @@ data class YouTubeSearchResult(
  * @property label The human-readable app name (e.g., "YouTube")
  * @property isDefault Whether this app is the system's default handler for the URL
  */
-@Immutable
 data class UrlHandlerApp(
     val packageName: String,
     val activityName: String,
@@ -214,7 +205,6 @@ data class UrlHandlerApp(
  * @property handlerApp The non-browser app that will open the URL (null = browser fallback)
  * @property browserFallback Always true - browser is always an option
  */
-@Immutable
 data class UrlSearchResult(
     val url: String,
     val displayUrl: String,
@@ -246,7 +236,6 @@ data class UrlSearchResult(
  *
  * @property file The complete file information including name, type, size, and URI
  */
-@Immutable
 data class FileDocumentSearchResult(
     val file: FileDocument
 ) : SearchResult() {

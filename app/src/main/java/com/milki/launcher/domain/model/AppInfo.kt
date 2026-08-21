@@ -1,6 +1,5 @@
 package com.milki.launcher.domain.model
 
-import androidx.compose.runtime.Immutable
 
 /**
  * AppInfo represents a single installed application.
@@ -10,7 +9,6 @@ import androidx.compose.runtime.Immutable
  *                        (e.g., "com.example.app.MainActivity")
  *                        Multiple activities can share the same packageName.
  */
-@Immutable
 data class AppInfo(
     val name: String,
     val packageName: String,

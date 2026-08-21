@@ -10,7 +10,6 @@
 
 package com.milki.launcher.domain.model
 
-import androidx.compose.runtime.Immutable
 
 /**
  * Represents a single contact from the device.
@@ -34,7 +33,6 @@ import androidx.compose.runtime.Immutable
  * )
  * ```
  */
-@Immutable
 data class Contact(
     /**
      * Unique contact ID from the Contacts Provider (_ID column).
