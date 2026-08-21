@@ -40,38 +40,4 @@ internal class HomeSnapshotStore(
             preferences.remove(HomePreferenceKeys.PINNED_ITEMS)
         }
     }
-
-    suspend fun <T> edit(transform: (MutableList<HomeItem>) -> EditDecision<T>): T {
-        var result: EditDecision<T>? = null
-
-        dataStore.edit { preferences ->
-            val mutableItems = serializer.readFrom(preferences).toMutableList()
-            val decision = transform(mutableItems)
-
-            if (decision.shouldPersist) {
-                serializer.writeTo(mutableItems, preferences)
-            }
-
-            result = decision
-        }
-
-        return checkNotNull(result).value
-    }
-
-    data class EditDecision<out T>(
-        val shouldPersist: Boolean,
-        val value: T
-    ) {
-        companion object {
-            fun <T> persist(value: T): EditDecision<T> = EditDecision(
-                shouldPersist = true,
-                value = value
-            )
-
-            fun <T> noChange(value: T): EditDecision<T> = EditDecision(
-                shouldPersist = false,
-                value = value
-            )
-        }
-    }
 }
