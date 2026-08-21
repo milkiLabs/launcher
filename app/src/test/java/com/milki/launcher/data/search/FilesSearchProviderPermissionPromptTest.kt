@@ -41,11 +41,6 @@ class FilesSearchProviderPermissionPromptTest {
             extensionConfig: FileSearchExtensionConfig
         ): List<FileDocument> = emptyList()
 
-        override suspend fun getRecentFiles(
-            limit: Int,
-            extensionConfig: FileSearchExtensionConfig
-        ): List<FileDocument> = emptyList()
-
         override suspend fun saveRecentFile(fileId: Long): Unit {}
 
         override fun getRecentFileIds(): Flow<List<Long>> = flowOf(emptyList())

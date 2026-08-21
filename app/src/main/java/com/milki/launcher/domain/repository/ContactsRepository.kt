@@ -58,29 +58,12 @@ interface ContactsRepository {
      * Returns a list of phone numbers that were recently called,
      * ordered by most recent first. Max 8 items.
      *
-     * The caller is responsible for looking up contact names
-     * using getContactByPhoneNumber() if needed.
-     *
      * @return Flow emitting list of recent phone numbers
      */
     fun getRecentContacts(): Flow<List<String>>
 
     /**
-     * Get a contact by phone number.
-     *
-     * This is used to look up contact names for recent contacts.
-     * Returns null if no contact matches the phone number.
-     *
-     * @param phoneNumber The phone number to look up
-     * @return Contact if found, null otherwise
-     */
-    suspend fun getContactByPhoneNumber(phoneNumber: String): Contact?
-
-    /**
      * Get contacts by multiple phone numbers in a single query.
-     *
-     * This is more efficient than calling getContactByPhoneNumber()
-     * multiple times when you need to look up several contacts at once.
      *
      * PERFORMANCE:
      * Instead of N queries for N phone numbers, this makes a single

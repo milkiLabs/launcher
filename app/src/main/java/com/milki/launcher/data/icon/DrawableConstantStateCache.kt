@@ -61,10 +61,4 @@ internal class DrawableConstantStateCache(
     fun evictAll() {
         synchronized(lock) { cache.evictAll() }
     }
-
-    /**
-     * Returns a snapshot of current keys.
-     */
-    fun keys(): Set<String> =
-        synchronized(lock) { cache.snapshot().keys }
 }

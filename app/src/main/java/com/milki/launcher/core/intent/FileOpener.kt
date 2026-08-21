@@ -15,9 +15,6 @@
  * ```kotlin
  * // Open with chooser (user picks app)
  * FileOpener.openFile(context, uri, mimeType, fileName)
- *
- * // Open directly (system picks default app)
- * FileOpener.openFileDirect(context, uri, mimeType)
  * ```
  */
 
@@ -83,51 +80,6 @@ fun openFile(
         Toast.makeText(
             context,
             "No app found to open $fileName",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-}
-
-/**
- * Opens a file directly without showing a chooser.
- *
- * This function is similar to openFile() but uses the system's default handler
- * for the file type instead of showing a chooser dialog. If no default is set,
- * the system will still show a chooser.
- *
- * @param context The Android context
- * @param uri The content URI of the file to open
- * @param mimeType The MIME type of the file
- *
- * Example:
- * ```kotlin
- * // Opens PDF directly in default PDF viewer
- * FileOpener.openFileDirect(context, uri, "application/pdf")
- * ```
- */
-fun openFileDirect(
-    context: Context,
-    uri: Uri,
-    mimeType: String
-) {
-    // Create an ACTION_VIEW intent with the file's URI and MIME type
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        setDataAndType(uri, mimeType.ifBlank { "application/octet-stream" })
-        
-        // Grant temporary read permission to the receiving app
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        
-        // New task required because we're not in an Activity context
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    
-    runCatching {
-        context.startActivity(intent)
-    }.onFailure { throwable ->
-        Log.w(FILE_OPENER_TAG, "Unable to open file directly for uri=$uri", throwable)
-        Toast.makeText(
-            context,
-            "No app found to open this file",
             Toast.LENGTH_SHORT
         ).show()
     }

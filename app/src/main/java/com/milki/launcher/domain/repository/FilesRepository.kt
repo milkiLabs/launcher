@@ -103,24 +103,6 @@ interface FilesRepository {
         maxItems: Int = 10,
         extensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
     ): List<FileDocument>
-    
-    /**
-     * Get recently modified document files.
-     * 
-     * Returns the most recently modified documents, useful for showing
-     * recent files when the search query is empty.
-     * 
-     * The same FileFilterConfig filtering rules apply as searchFiles().
-     * 
-     * @param limit Maximum number of files to return (default: 20)
-     * @param extensionConfig Configuration for file extensions to include
-     * @return List of recent FileDocument objects, sorted by date modified,
-     *         empty when permission is not granted
-     */
-    suspend fun getRecentFiles(
-        limit: Int = 20,
-        extensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
-    ): List<FileDocument>
 
     /**
      * Stores one file ID in recent-file history.

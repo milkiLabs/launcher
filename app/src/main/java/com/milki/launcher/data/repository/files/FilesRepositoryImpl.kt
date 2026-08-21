@@ -68,16 +68,6 @@ class FilesRepositoryImpl(
         ) ?: emptyList()
     }
 
-    override suspend fun getRecentFiles(
-        limit: Int,
-        extensionConfig: FileSearchExtensionConfig,
-    ): List<FileDocument> {
-        return withPermissionOr(
-            whenGranted = { queryRecentFiles(limit = limit, extensionConfig = extensionConfig) },
-            whenDenied = { emptyList() }
-        ) ?: emptyList()
-    }
-
     override suspend fun getFilesByIds(
         ids: List<Long>,
         extensionConfig: FileSearchExtensionConfig,
@@ -178,42 +168,6 @@ class FilesRepositoryImpl(
         } catch (e: SecurityException) {
             Log.e(TAG, "Error querying URI: $uri", e)
         }
-    }
-
-    private suspend fun queryRecentFiles(
-        limit: Int,
-        extensionConfig: FileSearchExtensionConfig,
-    ): List<FileDocument> {
-        val files = mutableListOf<FileDocument>()
-        val addedFileIds = mutableSetOf<Long>()
-
-        val cursor = contentResolver.query(
-            MediaStore.Files.getContentUri("external"),
-            cursorReader.projection,
-            null,
-            null,
-            "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC LIMIT $limit"
-        )
-
-        cursor?.use {
-            val columns = cursorReader.resolveColumns(it)
-
-            while (it.moveToNext()) {
-                currentCoroutineContext().ensureActive()
-                cursorReader.addFileFromCursorRow(
-                    cursor = it,
-                    columns = columns,
-                    collectionUri = MediaStore.Files.getContentUri("external"),
-                    files = files,
-                    addedFileIds = addedFileIds,
-                    logFilteredOut = false,
-                    allowedExtensions = extensionConfig.resolveAllowedExtensions(),
-                    excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
-                )
-            }
-        }
-
-        return files
     }
 
     private suspend fun queryMediaStoreByIds(

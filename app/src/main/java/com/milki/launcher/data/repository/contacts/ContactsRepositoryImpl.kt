@@ -55,13 +55,6 @@ class ContactsRepositoryImpl(
         ) ?: emptyList()
     }
 
-    override suspend fun getContactByPhoneNumber(phoneNumber: String): Contact? {
-        return withPermissionOr(
-            whenGranted = { queryContactByPhoneNumber(phoneNumber) },
-            whenDenied = { null }
-        )
-    }
-
     override suspend fun getContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {
         if (phoneNumbers.isEmpty()) {
             return emptyMap()
@@ -158,43 +151,6 @@ class ContactsRepositoryImpl(
         }
 
         return result
-    }
-
-    private suspend fun queryContactByPhoneNumber(phoneNumber: String): Contact? {
-        val projection = arrayOf(
-            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
-            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-            ContactsContract.CommonDataKinds.Phone.PHOTO_URI,
-            ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY
-        )
-
-        val selection = "${ContactsContract.CommonDataKinds.Phone.NUMBER} = ?"
-
-        return contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            projection,
-            selection,
-            arrayOf(phoneNumber),
-            null
-        )?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val contactId = cursor.getLong(0)
-                val displayName = cursor.getString(1)
-                val photoUri = cursor.getString(2)
-                val lookupKey = cursor.getString(3)
-
-                if (displayName != null && lookupKey != null) {
-                    val phones = queryPhonesForContact(contactId)
-                    Contact(
-                        id = contactId,
-                        displayName = displayName,
-                        phoneNumbers = phones,
-                        photoUri = photoUri,
-                        lookupKey = lookupKey
-                    )
-                } else null
-            } else null
-        }
     }
 
     private suspend fun queryContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {

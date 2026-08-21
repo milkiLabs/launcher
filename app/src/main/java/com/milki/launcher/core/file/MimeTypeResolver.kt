@@ -193,28 +193,4 @@ object MimeTypeResolver {
         return normalizedMimeType.startsWith("text/") ||
                 extension in listOf("txt", "rtf", "md", "json", "xml")
     }
-
-    /**
-     * Check if a file is a ZIP archive.
-     *
-     * @param mimeType The file's MIME type (may be blank)
-     * @param fileName The file name with extension
-     * @return True if the file is a ZIP archive
-     */
-    fun isZip(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        return normalizeMimeType(fileName, mimeType) == MIME_ZIP || extension == "zip"
-    }
-
-    /**
-     * Check if a file is an Android APK package.
-     *
-     * @param mimeType The file's MIME type (may be blank)
-     * @param fileName The file name with extension
-     * @return True if the file is an APK
-     */
-    fun isApk(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        return normalizeMimeType(fileName, mimeType) == MIME_APK || extension == "apk"
-    }
 }

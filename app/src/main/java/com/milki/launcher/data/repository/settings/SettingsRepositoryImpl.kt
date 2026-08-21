@@ -182,17 +182,4 @@ class SettingsRepositoryImpl(
             mutationStore.resetAllPrefixes(preferences)
         }
     }
-
-    // ========================================================================
-    // Private helpers
-    // ========================================================================
-
-    private suspend fun writeBooleanSetting(
-        key: Preferences.Key<Boolean>,
-        value: Boolean
-    ) {
-        context.settingsDataStore.edit { preferences ->
-            preferences[key] = value
-        }
-    }
 }

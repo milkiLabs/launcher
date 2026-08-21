@@ -66,7 +66,6 @@ class ContactsSearchProviderPermissionPromptTest {
         override suspend fun searchContacts(query: String, maxItems: Int) = emptyList<com.milki.launcher.domain.model.Contact>()
         override suspend fun saveRecentContact(phoneNumber: String) = Unit
         override fun getRecentContacts(): Flow<List<String>> = flowOf(emptyList())
-        override suspend fun getContactByPhoneNumber(phoneNumber: String) = null
         override suspend fun getContactsByPhoneNumbers(phoneNumbers: List<String>) = emptyMap<String, com.milki.launcher.domain.model.Contact>()
     }
 }
