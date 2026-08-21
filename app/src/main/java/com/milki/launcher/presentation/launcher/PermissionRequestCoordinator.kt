@@ -2,7 +2,6 @@ package com.milki.launcher.presentation.launcher
 
 import com.milki.launcher.core.permission.PermissionHandler
 import com.milki.launcher.presentation.search.ActionExecutor
-import com.milki.launcher.presentation.search.SearchViewModel
 
 /**
  * PermissionRequestCoordinator.kt - Wires ActionExecutor permission requests to PermissionHandler.
@@ -24,7 +23,6 @@ import com.milki.launcher.presentation.search.SearchViewModel
  */
 class PermissionRequestCoordinator(
     private val permissionHandler: PermissionHandler,
-    private val searchViewModel: SearchViewModel,
     private val onCloseSearch: () -> Unit = {},
     private val actionExecutorProvider: () -> ActionExecutor
 ) {
@@ -53,9 +51,11 @@ class PermissionRequestCoordinator(
     /**
      * Entry point consumed by ActionExecutor when an action completes and the
      * search surface should be dismissed.
+     *
+     * The [LauncherNavigator] is the single owner of search visibility: this
+     * only pops the route, whose closeRoute(Search) invokes hideSearch().
      */
     fun closeSearch() {
-        searchViewModel.hideSearch()
         onCloseSearch()
     }
 

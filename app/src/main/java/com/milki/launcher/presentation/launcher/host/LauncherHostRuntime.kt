@@ -265,7 +265,6 @@ internal class LauncherHostRuntime(
 
         permissionRequestCoordinator = PermissionRequestCoordinator(
             permissionHandler = permissionHandler,
-            searchViewModel = searchViewModelProvider(),
             onCloseSearch = {
                 if (launcherNavigator.isSearchOpen) {
                     launcherNavigator.pop()
