@@ -46,8 +46,6 @@ import com.milki.launcher.data.icon.ShortcutIconLoader
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.theme.IconSize
 
-typealias AppExternalDragDropPayload = ExternalDragPayloadCodec
-
 /**
  * Generic alias for the shared external drag payload item type.
  */
@@ -364,7 +362,7 @@ private fun startExternalDrag(
     failureLogLabel: String
 ): Boolean {
     ExternalDragItemCache.currentItem = payload
-    val clipData = AppExternalDragDropPayload.createClipData(payload)
+    val clipData = ExternalDragPayloadCodec.createClipData(payload)
     return startExternalDragWithFallbackHosts(
         hostView = hostView,
         clipData = clipData,

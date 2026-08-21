@@ -175,11 +175,6 @@ object ExternalDragPayloadCodec {
     }
 
     /**
-     * Convenience overload retained for app-only call sites.
-     */
-    fun createClipData(appInfo: AppInfo): ClipData = createClipData(ExternalDragItem.App(appInfo))
-
-    /**
      * Returns true when this drag event is likely a launcher payload.
      *
      * This is intentionally tolerant for ACTION_DRAG_STARTED to avoid rejecting
@@ -197,11 +192,6 @@ object ExternalDragPayloadCodec {
     }
 
     /**
-     * App-only compatibility helper.
-     */
-    fun isLikelyAppPayload(dragEvent: DragEvent): Boolean = isLikelyLauncherPayload(dragEvent)
-
-    /**
      * Decodes any supported drag payload from localState or ClipData JSON.
      */
     fun decodeDragItem(dragEvent: DragEvent): ExternalDragItem? {
@@ -210,13 +200,6 @@ object ExternalDragPayloadCodec {
 
         return CodecSupport.decodeLocalStateItem(dragEvent.localState)
             ?: CodecSupport.decodeClipPayload(descriptionLabel = descriptionLabel, rawText = rawText)
-    }
-
-    /**
-     * App-only compatibility decode helper.
-     */
-    fun decodeAppInfo(dragEvent: DragEvent): AppInfo? {
-        return (decodeDragItem(dragEvent) as? ExternalDragItem.App)?.appInfo
     }
 
     private object CodecSupport {
