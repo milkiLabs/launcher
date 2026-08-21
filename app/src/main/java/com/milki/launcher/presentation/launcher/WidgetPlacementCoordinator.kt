@@ -8,6 +8,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.presentation.home.HomeViewModel
+import com.milki.launcher.presentation.home.WidgetPlacementCommand
 
 class WidgetPlacementCoordinator(
     private val activity: ComponentActivity,
@@ -41,11 +42,11 @@ class WidgetPlacementCoordinator(
         }
     }
 
-    fun execute(command: HomeViewModel.WidgetPlacementCommand) {
+    fun execute(command: WidgetPlacementCommand) {
         when (command) {
-            is HomeViewModel.WidgetPlacementCommand.LaunchBindPermission -> launchBindPermission(command)
-            is HomeViewModel.WidgetPlacementCommand.LaunchConfigure -> launchConfigure(command)
-            HomeViewModel.WidgetPlacementCommand.NoOp -> Unit
+            is WidgetPlacementCommand.LaunchBindPermission -> launchBindPermission(command)
+            is WidgetPlacementCommand.LaunchConfigure -> launchConfigure(command)
+            WidgetPlacementCommand.NoOp -> Unit
         }
     }
 
@@ -65,7 +66,7 @@ class WidgetPlacementCoordinator(
         return true
     }
 
-    private fun launchBindPermission(command: HomeViewModel.WidgetPlacementCommand.LaunchBindPermission) {
+    private fun launchBindPermission(command: WidgetPlacementCommand.LaunchBindPermission) {
         runCatching {
             pendingBindAppWidgetId = command.appWidgetId
             widgetBindLauncher.launch(command.intent)
@@ -80,7 +81,7 @@ class WidgetPlacementCoordinator(
         }
     }
 
-    private fun launchConfigure(command: HomeViewModel.WidgetPlacementCommand.LaunchConfigure) {
+    private fun launchConfigure(command: WidgetPlacementCommand.LaunchConfigure) {
         runCatching {
             pendingConfigureAppWidgetId = command.appWidgetId
             widgetHost.startConfigureActivityForResult(
