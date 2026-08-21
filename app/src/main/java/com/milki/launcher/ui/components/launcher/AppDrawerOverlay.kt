@@ -4,18 +4,14 @@
  * PERFORMANCE DESIGN:
  * The drawer grid is the most scroll-intensive surface in the launcher.
  * Every composable created per grid cell directly impacts frame times.
- * Grid cells render through the shared AppGridItem with showMenu = false
- * (see AppCellLayout) to keep per-cell overhead minimal:
+ * Grid cells render through the shared AppGridItem/AppCellLayout shell:
  *
- * - No per-item context menu state or ItemActionMenu composable
- * - No per-item quick-actions loading
- * - Long-press alone does nothing; long-press + drag still starts
- *   drag-to-homescreen via the shared gesture shell
  * - Icons are batch-preloaded when items arrive, not loaded during scroll
  *
  * FEATURE SUMMARY:
  * - Shows all installed apps in an adaptive grid
  * - Tap launches the app
+ * - Long-press shows the context menu (shortcuts, app info, uninstall)
  * - Long-press + drag starts app drag-to-homescreen
  * - Supports swipe-down-to-close when scrolled to top
  *
@@ -431,7 +427,6 @@ private fun DrawerGridItem(
             AppGridItem(
                 appInfo = appInfo,
                 onClick = { onAppClick(appInfo) },
-                showMenu = false,
                 onExternalDragStarted = onExternalDragStarted
             )
         }

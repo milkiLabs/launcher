@@ -9,10 +9,10 @@
  * - Long-press: shows the app context menu when [showMenu] is true
  *
  * MENU VISIBILITY AS A PARAMETER:
- * Perf-sensitive surfaces (e.g. the drawer grid) pass showMenu = false.
- * In that mode no ItemContextMenuState is allocated and no menu composable
- * is composed for the cell; long-press alone is a no-op while long-press +
- * drag still works. See AppDrawerOverlay.kt for the rationale.
+ * Perf-sensitive surfaces may pass showMenu = false. In that mode no
+ * ItemContextMenuState is allocated and no menu composable is composed
+ * for the cell; long-press alone is a no-op while long-press + drag
+ * still works.
  */
 
 package com.milki.launcher.ui.components.common

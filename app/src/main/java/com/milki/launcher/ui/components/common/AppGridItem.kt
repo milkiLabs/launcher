@@ -38,7 +38,7 @@ import com.milki.launcher.ui.theme.Spacing
  * @param appInfo The app to display
  * @param onClick Called when user taps this item
  * @param modifier Optional modifier
- * @param showMenu Set false to skip per-item menu state/composition (drawer grid)
+ * @param showMenu Set false to skip per-item menu state/composition
  * @param onExternalDragStarted Called when an external drag starts (dismisses search dialog)
  * @param contentPadding Padding around the icon+label content
  */
