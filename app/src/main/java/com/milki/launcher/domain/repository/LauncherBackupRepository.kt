@@ -1,6 +1,5 @@
 package com.milki.launcher.domain.repository
 
-import android.net.Uri
 import com.milki.launcher.domain.model.backup.LauncherBackupResult
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 
@@ -13,9 +12,9 @@ data class WidgetBindRequest(
 typealias WidgetBindPermissionRequester = suspend (WidgetBindRequest) -> Boolean
 
 interface LauncherBackupRepository {
-    suspend fun exportToUri(uri: Uri): LauncherBackupResult
+    suspend fun exportToUri(uri: String): LauncherBackupResult
     suspend fun importFromUri(
-        uri: Uri,
+        uri: String,
         requestWidgetBindPermission: WidgetBindPermissionRequester
     ): LauncherImportResult
 }

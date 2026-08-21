@@ -291,7 +291,7 @@ class ActionExecutor(
 
     private fun openFile(result: FileDocumentSearchResult) {
         val file = result.file
-        openFile(context, file.uri, file.mimeType, file.name)
+        openFile(context, Uri.parse(file.uri), file.mimeType, file.name)
         saveRecentFile(file.id)
     }
 

@@ -3,7 +3,6 @@ package com.milki.launcher.ui.interaction.dragdrop
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ComponentName
-import android.net.Uri
 import android.view.DragEvent
 import android.appwidget.AppWidgetProviderInfo
 import com.milki.launcher.core.util.lenientJson
@@ -297,7 +296,7 @@ object ExternalDragPayloadCodec {
                     mimeType = file.mimeType,
                     size = file.size,
                     dateModified = file.dateModified,
-                    uri = file.uri.toString(),
+                    uri = file.uri,
                     folderPath = file.folderPath
                 )
             )
@@ -411,7 +410,7 @@ object ExternalDragPayloadCodec {
                     mimeType = payload.mimeType,
                     size = payload.size,
                     dateModified = payload.dateModified,
-                    uri = Uri.parse(payload.uri),
+                    uri = payload.uri,
                     folderPath = payload.folderPath
                 )
             )

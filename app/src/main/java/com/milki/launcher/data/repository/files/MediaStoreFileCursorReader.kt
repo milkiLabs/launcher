@@ -130,7 +130,7 @@ private fun readCursorRow(
                 mimeType = normalizedMimeType,
                 size = size,
                 dateModified = dateModified,
-                uri = Uri.withAppendedPath(collectionUri, id.toString()),
+                uri = Uri.withAppendedPath(collectionUri, id.toString()).toString(),
                 folderPath = folderPath
             ),
             normalizedMimeType = normalizedMimeType

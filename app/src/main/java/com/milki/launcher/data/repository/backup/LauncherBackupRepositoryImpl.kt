@@ -37,8 +37,9 @@ class LauncherBackupRepositoryImpl(
 
     private val backupJson = lenientJson { prettyPrint = true }
 
-    override suspend fun exportToUri(uri: Uri): LauncherBackupResult {
+    override suspend fun exportToUri(uri: String): LauncherBackupResult {
         return runCatching {
+            val targetUri = Uri.parse(uri)
             val settings = settingsRepository.settings.first()
             val homeItems = homeRepository.readPinnedItems()
             val actionShortcuts = actionShortcutRepository.readShortcuts()
@@ -56,7 +57,7 @@ class LauncherBackupRepositoryImpl(
                 LauncherBackupFile(snapshot = snapshot)
             )
 
-            appContext.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use { writer ->
+            appContext.contentResolver.openOutputStream(targetUri, "wt")?.bufferedWriter()?.use { writer ->
                 writer.write(payload)
             } ?: error("Could not open output stream")
 
@@ -73,11 +74,12 @@ class LauncherBackupRepositoryImpl(
     }
 
     override suspend fun importFromUri(
-        uri: Uri,
+        uri: String,
         requestWidgetBindPermission: WidgetBindPermissionRequester
     ): LauncherImportResult {
         return runCatching {
-            val filePayload = appContext.contentResolver.openInputStream(uri)
+            val sourceUri = Uri.parse(uri)
+            val filePayload = appContext.contentResolver.openInputStream(sourceUri)
                 ?.bufferedReader()
                 ?.use { it.readText() }
                 ?: error("Could not open input stream")

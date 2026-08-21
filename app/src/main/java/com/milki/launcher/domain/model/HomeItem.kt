@@ -69,8 +69,8 @@ sealed class HomeItem {
                 companion object {
                         fun fromFileDocument(file: FileDocument): PinnedFile {
                 return PinnedFile(
-                    id = ItemId.file(file.uri.toString()),
-                    uri = file.uri.toString(),
+                    id = ItemId.file(file.uri),
+                    uri = file.uri,
                     name = file.name,
                     mimeType = file.mimeType,
                     size = file.size,

@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.CreateDocument("application/json")
         ) { uri ->
             if (uri != null) {
-                settingsViewModel.exportBackup(uri)
+                settingsViewModel.exportBackup(uri.toString())
             }
         }
 
@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                settingsViewModel.importBackup(uri) { bindRequest ->
+                settingsViewModel.importBackup(uri.toString()) { bindRequest ->
                     val bindIntent =
                         Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
                             putExtra(

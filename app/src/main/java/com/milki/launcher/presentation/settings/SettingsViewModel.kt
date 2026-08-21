@@ -9,7 +9,6 @@
 
 package com.milki.launcher.presentation.settings
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.milki.launcher.presentation.common.ViewModelSharingStarted
@@ -293,7 +292,7 @@ class SettingsViewModel(
         }
     }
 
-    fun exportBackup(targetUri: Uri) {
+    fun exportBackup(targetUri: String) {
         viewModelScope.launch {
             val result = launcherBackupRepository().exportToUri(targetUri)
             _backupStatusMessage.value = result.message
@@ -301,7 +300,7 @@ class SettingsViewModel(
     }
 
     fun importBackup(
-        sourceUri: Uri,
+        sourceUri: String,
         requestWidgetBindPermission: WidgetBindPermissionRequester
     ) {
         viewModelScope.launch {

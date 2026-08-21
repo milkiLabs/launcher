@@ -1,6 +1,6 @@
 package com.milki.launcher.domain.search
 
-import android.util.Patterns
+import com.milki.launcher.core.util.TextPatterns
 
 /**
  * SuggestionResolver reads text and converts it into one actionable suggestion.
@@ -36,7 +36,7 @@ class SuggestionResolver(
         val urlSuggestion = resolveUrlSuggestion(rawText)
         if (urlSuggestion != null) return urlSuggestion
 
-        if (Patterns.EMAIL_ADDRESS.matcher(rawText).matches()) {
+        if (TextPatterns.EMAIL_ADDRESS.matches(rawText)) {
             return ActionSuggestion.ComposeEmail(
                 emailAddress = rawText,
                 rawText = rawText

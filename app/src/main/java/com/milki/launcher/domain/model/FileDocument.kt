@@ -9,7 +9,6 @@
 
 package com.milki.launcher.domain.model
 
-import android.net.Uri
 import androidx.compose.runtime.Immutable
 import com.milki.launcher.core.file.MimeTypeResolver
 
@@ -35,7 +34,7 @@ import com.milki.launcher.core.file.MimeTypeResolver
  *     mimeType = "application/pdf",
  *     size = 1024000,
  *     dateModified = System.currentTimeMillis(),
- *     uri = Uri.parse("content://media/external/downloads/123"),
+ *     uri = "content://media/external/downloads/123",
  *     folderPath = "Documents"
  * )
  * ```
@@ -73,10 +72,10 @@ data class FileDocument(
     val dateModified: Long,
 
     /**
-     * Content URI for accessing this file.
-     * This URI can be used with an Intent to open the file in an appropriate app.
+     * Content URI string for accessing this file.
+     * This URI can be parsed and used with an Intent to open the file in an appropriate app.
      */
-    val uri: Uri,
+    val uri: String,
 
     /**
      * The folder name or path where this file is located.
