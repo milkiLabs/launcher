@@ -62,6 +62,54 @@ fun rememberItemContextMenuState(): ItemContextMenuState {
 }
 
 /**
+ * Keyed variant of [ItemContextMenuState] for surfaces where only one menu can
+ * be open at a time but the owner is identified by id (home grid, folder popup).
+ *
+ * Delegates the long-press → menu → gesture-active protocol to a single
+ * [ItemContextMenuState], so all surfaces share identical lifecycle semantics.
+ */
+@Stable
+class ItemContextMenuRegistry {
+    var shownForItemId: String? by mutableStateOf(null)
+        private set
+
+    val isOpen: Boolean
+        get() = shownForItemId != null
+
+    val isGestureActive: Boolean
+        get() = state.isGestureActive
+
+    val isMenuFocusable: Boolean
+        get() = state.isMenuFocusable
+
+    private val state = ItemContextMenuState()
+
+    fun show(itemId: String): Boolean {
+        shownForItemId = itemId
+        state.onLongPress()
+        return true
+    }
+
+    fun endLongPressGesture() {
+        state.onLongPressRelease()
+    }
+
+    fun onInternalDragStarted() {
+        state.onDragStart()
+        shownForItemId = null
+    }
+
+    fun cancelGesture() {
+        state.onDragCancel()
+    }
+
+    fun dismiss() {
+        state.dismiss()
+        shownForItemId = null
+    }
+}
+
+/**
  * Simple context menu that displays a list of actions.
  * Callers are responsible for building the correct actions for their item type.
  */

@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import android.view.View
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
 import com.milki.launcher.ui.interaction.dragdrop.startExternalFolderItemDrag
 import kotlinx.coroutines.delay
 
@@ -48,7 +49,7 @@ fun FolderPopupDialog(
     var isDraggingInternally by remember { mutableStateOf(false) }
     var editingName by remember(folder.id) { mutableStateOf(folder.name) }
     var isEditingName by remember { mutableStateOf(false) }
-    var menuShownForItemId by remember { mutableStateOf<String?>(null) }
+    val menuRegistry = remember { ItemContextMenuRegistry() }
 
     val reorderEngine = remember { FolderReorderEngine() }
     val dragState = reorderEngine.state
@@ -180,7 +181,7 @@ fun FolderPopupDialog(
                                 metrics = metrics,
                                 pagerState = pagerState,
                                 reorderEngine = reorderEngine,
-                                menuShownForItemId = menuShownForItemId,
+                                menuRegistry = menuRegistry,
                                 density = density,
                                 hapticFeedback = hapticFeedback,
                                 hostView = hostView,
@@ -191,7 +192,6 @@ fun FolderPopupDialog(
                                     localChildren = reordered
                                     onReorderFolderItems(reordered)
                                 },
-                                onMenuShownForItemIdChange = { menuShownForItemId = it },
                                 onDraggingInternallyChange = { isDraggingInternally = it }
                             )
                         }
@@ -224,7 +224,7 @@ private fun FolderPagerPage(
     metrics: FolderSurfaceMetrics,
     pagerState: PagerState,
     reorderEngine: FolderReorderEngine,
-    menuShownForItemId: String?,
+    menuRegistry: ItemContextMenuRegistry,
     density: Density,
     hapticFeedback: HapticFeedback,
     hostView: View,
@@ -232,7 +232,6 @@ private fun FolderPagerPage(
     onItemClick: (HomeItem) -> Unit,
     onRemoveItemFromFolder: (String) -> Unit,
     onReorderFolderItems: (List<HomeItem>) -> Unit,
-    onMenuShownForItemIdChange: (String?) -> Unit,
     onDraggingInternallyChange: (Boolean) -> Unit
 ) {
     val dragState = reorderEngine.state
@@ -246,25 +245,25 @@ private fun FolderPagerPage(
         cellSpacing = metrics.cellSpacing,
         draggedItemId = dragState.draggedItemId,
         hoveredSlot = dragState.hoveredSlot,
-        menuShownForItemId = menuShownForItemId,
+        menuRegistry = menuRegistry,
         onGridBoundsMeasured = { pageBounds ->
             if (page == pagerState.currentPage) {
                 dragState.gridWindowRect = pageBounds
             }
         },
-        onMenuDismiss = { onMenuShownForItemIdChange(null) },
         onTap = onItemClick,
         onLongPress = { itemId ->
-            onMenuShownForItemIdChange(itemId)
+            menuRegistry.show(itemId)
             hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
         },
         onRemoveFromFolder = { itemId ->
-            onMenuShownForItemIdChange(null)
+            menuRegistry.dismiss()
             onRemoveItemFromFolder(itemId)
         },
         onExternalDragStarted = onClose,
         onDragStart = { item, itemWindowTopLeft ->
             onDraggingInternallyChange(true)
+            menuRegistry.onInternalDragStarted()
             dragState.startInternalDrag(
                 item = item,
                 page = page,
@@ -273,7 +272,6 @@ private fun FolderPagerPage(
                 metrics = metrics,
                 density = density
             )
-            onMenuShownForItemIdChange(null)
             hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
         },
         onDragDelta = { delta ->

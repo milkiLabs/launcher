@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.ItemContextMenu
+import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
 import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.components.launcher.PinnedItem
@@ -139,9 +140,8 @@ internal fun FolderGridPage(
     cellSpacing: Dp,
     draggedItemId: String?,
     hoveredSlot: FolderDropSlot?,
-    menuShownForItemId: String?,
+    menuRegistry: ItemContextMenuRegistry,
     onGridBoundsMeasured: (Rect) -> Unit,
-    onMenuDismiss: () -> Unit,
     onTap: (HomeItem) -> Unit,
     onLongPress: (String) -> Unit,
     onRemoveFromFolder: (String) -> Unit,
@@ -199,8 +199,7 @@ internal fun FolderGridPage(
                                 FolderPopupItem(
                                     item = item,
                                     isDragged = item.id == draggedItemId,
-                                    showMenu = menuShownForItemId == item.id,
-                                    onMenuDismiss = onMenuDismiss,
+                                    menuRegistry = menuRegistry,
                                     onTap = { onTap(item) },
                                     onLongPress = { onLongPress(item.id) },
                                     onRemoveFromFolder = { onRemoveFromFolder(item.id) },
@@ -254,8 +253,7 @@ internal fun FolderPagerIndicator(
 private fun FolderPopupItem(
     item: HomeItem,
     isDragged: Boolean,
-    showMenu: Boolean,
-    onMenuDismiss: () -> Unit,
+    menuRegistry: ItemContextMenuRegistry,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onRemoveFromFolder: () -> Unit,
@@ -266,7 +264,6 @@ private fun FolderPopupItem(
     onDragCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isLongPressGestureActive by remember { mutableStateOf(false) }
     var windowTopLeft by remember { mutableStateOf(Offset.Zero) }
 
     Box(
@@ -280,14 +277,14 @@ private fun FolderPopupItem(
                 dragThreshold = FOLDER_DRAG_THRESHOLD_PX,
                 onTap = { onTap() },
                 onLongPress = {
-                    isLongPressGestureActive = true
+                    menuRegistry.show(item.id)
                     onLongPress()
                 },
                 onLongPressRelease = {
-                    isLongPressGestureActive = false
+                    menuRegistry.endLongPressGesture()
                 },
                 onDragStart = {
-                    isLongPressGestureActive = false
+                    menuRegistry.onInternalDragStarted()
                     onDragStart(windowTopLeft)
                 },
                 onDrag = { change, dragAmount ->
@@ -296,7 +293,7 @@ private fun FolderPopupItem(
                 },
                 onDragEnd = onDragEnd,
                 onDragCancel = {
-                    isLongPressGestureActive = false
+                    menuRegistry.cancelGesture()
                     onDragCancel()
                 }
             )
@@ -316,9 +313,9 @@ private fun FolderPopupItem(
                 ),
                 includeUnpin = false
             ),
-            expanded = showMenu,
-            onDismiss = onMenuDismiss,
-            focusable = !isLongPressGestureActive,
+            expanded = menuRegistry.shownForItemId == item.id,
+            onDismiss = menuRegistry::dismiss,
+            focusable = menuRegistry.isMenuFocusable,
             onExternalDragStarted = onExternalDragStarted,
         )
     }

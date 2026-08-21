@@ -10,6 +10,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropResult
@@ -53,13 +54,15 @@ internal fun HomeSurfaceInteractionSnapshot.toBackgroundGesturePolicy(
 internal class HomeSurfaceInteractionController(
     private val dragController: AppDragDropController<HomeItem>
 ) {
-    var menuShownForItemId: String? by mutableStateOf(null)
-        private set
+    private val menuRegistry = ItemContextMenuRegistry()
+
+    val menuShownForItemId: String?
+        get() = menuRegistry.shownForItemId
+
+    val isMenuGestureActive: Boolean
+        get() = menuRegistry.isGestureActive
 
     var widgetPopupShownForItemId: String? by mutableStateOf(null)
-        private set
-
-    var isMenuGestureActive: Boolean by mutableStateOf(false)
         private set
 
     var widgetTransformSession: HomeWidgetTransformSession? by mutableStateOf(null)
@@ -84,15 +87,12 @@ internal class HomeSurfaceInteractionController(
     fun showItemMenu(itemId: String): Boolean {
         if (dragController.session != null || widgetTransformSession != null) return false
         widgetPopupShownForItemId = null
-        menuShownForItemId = itemId
-        isMenuGestureActive = true
-        return true
+        return menuRegistry.show(itemId)
     }
 
     fun showWidgetPopup(itemId: String) {
         if (dragController.session != null || widgetTransformSession != null) return
-        menuShownForItemId = null
-        isMenuGestureActive = false
+        menuRegistry.dismiss()
         widgetPopupShownForItemId = itemId
     }
 
@@ -101,12 +101,11 @@ internal class HomeSurfaceInteractionController(
     }
 
     fun dismissMenu() {
-        menuShownForItemId = null
-        isMenuGestureActive = false
+        menuRegistry.dismiss()
     }
 
     fun updateMenuGestureState(isActive: Boolean) {
-        isMenuGestureActive = isActive
+        if (!isActive) menuRegistry.endLongPressGesture()
     }
 
     fun startWidgetTransform(widgetId: String) {
@@ -151,13 +150,13 @@ internal class HomeSurfaceInteractionController(
         layoutMetrics: AppDragDropLayoutMetrics
     ): AppDragDropResult<HomeItem>? {
         if (!dragController.isDraggingItem(item.id)) return null
-        isMenuGestureActive = false
+        menuRegistry.endLongPressGesture()
         return dragController.endDrag(layoutMetrics)
     }
 
     fun cancelInternalDrag() {
         dragController.cancelDrag()
-        isMenuGestureActive = false
+        menuRegistry.cancelGesture()
     }
 
     fun onExternalDragStarted() {
