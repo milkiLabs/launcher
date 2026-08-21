@@ -39,8 +39,8 @@ class HomeViewModel(
     private val availabilityPruner: HomeAvailabilityPruner,
     private val iconWarmupCoordinator: HomeIconWarmupCoordinator,
     private val widgetHost: WidgetHostPort
-) : ViewModel() {
-
+) : ViewModel(),
+    HomePinningController {
     private companion object {
         private const val AVAILABILITY_PRUNE_START_DELAY_MS = 1_500L
     }
@@ -143,7 +143,7 @@ class HomeViewModel(
         )
     }
 
-    internal fun pinFile(file: FileDocument) {
+    override fun pinFile(file: FileDocument) {
         modelMutator.mutate(
             command = HomeModelWriter.AddPinnedItem(
                 item = HomeItem.PinnedFile.fromFileDocument(file)
@@ -151,7 +151,7 @@ class HomeViewModel(
         )
     }
 
-    internal fun pinContact(contact: Contact) {
+    override fun pinContact(contact: Contact) {
         modelMutator.mutate(
             command = HomeModelWriter.AddPinnedItem(
                 item = HomeItem.PinnedContact.fromContact(contact)
@@ -159,14 +159,18 @@ class HomeViewModel(
         )
     }
 
-    fun pinAppShortcut(shortcut: HomeItem.AppShortcut) {
+    override fun pinAppShortcut(shortcut: HomeItem.AppShortcut) {
         modelMutator.mutate(
             command = HomeModelWriter.AddPinnedItem(item = shortcut)
         )
     }
 
-    internal fun unpinItem(itemId: String) {
+    override fun unpinItem(itemId: String) {
         mutateRemoveItemsById(setOf(itemId))
+    }
+
+    override suspend fun isPinned(itemId: String): Boolean {
+        return homeRepository.isPinned(itemId)
     }
 
     private fun mutateRemoveItemsById(itemIds: Set<String>) {

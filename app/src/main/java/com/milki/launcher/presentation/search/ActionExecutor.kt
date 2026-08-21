@@ -33,7 +33,7 @@ import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.model.WebSearchResult
 import com.milki.launcher.domain.model.YouTubeSearchResult
-import com.milki.launcher.presentation.home.HomeViewModel
+import com.milki.launcher.presentation.home.HomePinningController
 import com.milki.launcher.core.intent.openFile
 import com.milki.launcher.core.intent.launchApp
 import com.milki.launcher.core.intent.launchAppShortcut
@@ -55,7 +55,7 @@ data class PendingPermissionAction(
  * @property context Android context for starting activities
  * @property contactsRepository Repository for contacts
  * @property filesRepository Repository for files
- * @property homeViewModel ViewModel for home screen mutations
+ * @property homePinning Controller for pinning/unpinning items on the home grid
  * @property scope CoroutineScope tied to the caller's lifecycle (e.g., Activity's lifecycleScope).
  *                 This ensures all coroutines are cancelled when the lifecycle owner is destroyed,
  *                 preventing memory leaks and ensuring proper structured concurrency.
@@ -72,7 +72,7 @@ class ActionExecutor(
     private val context: Context,
     private val contactsRepository: ContactsRepository,
     private val filesRepository: com.milki.launcher.domain.repository.FilesRepository,
-    private val homeViewModel: HomeViewModel,
+    private val homePinning: HomePinningController,
     private val scope: CoroutineScope,
     private val permissionRequester: (String) -> Unit,
     private val closeSearch: () -> Unit,
@@ -330,17 +330,17 @@ class ActionExecutor(
     // ========================================================================
 
     private fun handlePinFile(action: SearchResultAction.PinFile) {
-        homeViewModel.pinFile(action.file)
+        homePinning.pinFile(action.file)
         Toast.makeText(context, "${action.file.name} pinned to home", Toast.LENGTH_SHORT).show()
     }
 
     private fun handlePinContact(action: SearchResultAction.PinContact) {
-        homeViewModel.pinContact(action.contact)
+        homePinning.pinContact(action.contact)
         Toast.makeText(context, "${action.contact.displayName} pinned to home", Toast.LENGTH_SHORT).show()
     }
 
     private fun handleUnpinItem(action: SearchResultAction.UnpinItem) {
-        homeViewModel.unpinItem(action.itemId)
+        homePinning.unpinItem(action.itemId)
         Toast.makeText(context, "Removed from home screen", Toast.LENGTH_SHORT).show()
     }
 

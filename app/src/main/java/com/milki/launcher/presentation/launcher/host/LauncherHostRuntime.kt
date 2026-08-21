@@ -292,8 +292,7 @@ internal class LauncherHostRuntime(
 
         pinShortcutRequestCoordinator = PinShortcutRequestCoordinator(
             context = activity,
-            homeRepository = homeRepository,
-            homeViewModel = homeViewModel,
+            homePinning = homeViewModel,
             scope = activity.lifecycleScope
         )
 

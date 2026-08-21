@@ -6,8 +6,7 @@ import android.content.pm.LauncherApps
 import android.os.Build
 import android.widget.Toast
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.domain.repository.HomeRepository
-import com.milki.launcher.presentation.home.HomeViewModel
+import com.milki.launcher.presentation.home.HomePinningController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -17,8 +16,7 @@ import kotlinx.coroutines.launch
  */
 internal class PinShortcutRequestCoordinator(
     private val context: Context,
-    private val homeRepository: HomeRepository,
-    private val homeViewModel: HomeViewModel,
+    private val homePinning: HomePinningController,
     private val scope: CoroutineScope
 ) {
     fun handleIntent(intent: Intent): Boolean {
@@ -46,7 +44,7 @@ internal class PinShortcutRequestCoordinator(
         )
         
         scope.launch {
-            val alreadyPinned = homeRepository.isPinned(homeShortcut.id)
+            val alreadyPinned = homePinning.isPinned(homeShortcut.id)
             val accepted = runCatching { request.accept() }.getOrDefault(false)
             if (!accepted) {
                 Toast.makeText(context, "Couldn't add shortcut to home screen", Toast.LENGTH_SHORT).show()
@@ -54,7 +52,7 @@ internal class PinShortcutRequestCoordinator(
             }
 
             if (!alreadyPinned) {
-                homeViewModel.pinAppShortcut(homeShortcut)
+                homePinning.pinAppShortcut(homeShortcut)
             }
 
             val label = homeShortcut.shortLabel.ifBlank { shortcutInfo.shortLabel?.toString().orEmpty() }
