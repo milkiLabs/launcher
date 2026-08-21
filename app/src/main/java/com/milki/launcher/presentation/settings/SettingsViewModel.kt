@@ -33,7 +33,6 @@ import com.milki.launcher.domain.repository.AppRepository
 import com.milki.launcher.domain.repository.PrefixOwnerRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
 import com.milki.launcher.domain.repository.SettingsReader
-import com.milki.launcher.data.search.UrlHandlerResolver
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,8 +49,7 @@ class SettingsViewModel(
     private val homeTriggerRepository: HomeTriggerRepository,
     appRepository: AppRepository,
     private val actionShortcutRepository: ActionShortcutRepository,
-    private val launcherBackupRepository: LauncherBackupRepository,
-    private val urlHandlerResolver: UrlHandlerResolver
+    private val launcherBackupRepository: () -> LauncherBackupRepository
 ) : ViewModel() {
 
     companion object {
@@ -297,7 +295,7 @@ class SettingsViewModel(
 
     fun exportBackup(targetUri: Uri) {
         viewModelScope.launch {
-            val result = launcherBackupRepository.exportToUri(targetUri)
+            val result = launcherBackupRepository().exportToUri(targetUri)
             _backupStatusMessage.value = result.message
         }
     }
@@ -307,7 +305,7 @@ class SettingsViewModel(
         requestWidgetBindPermission: WidgetBindPermissionRequester
     ) {
         viewModelScope.launch {
-            val result = launcherBackupRepository.importFromUri(
+            val result = launcherBackupRepository().importFromUri(
                 uri = sourceUri,
                 requestWidgetBindPermission = requestWidgetBindPermission
             )

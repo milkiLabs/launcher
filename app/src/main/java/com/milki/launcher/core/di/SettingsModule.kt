@@ -13,8 +13,9 @@ val settingsModule = module {
             homeTriggerRepository = get(),
             appRepository = get(),
             actionShortcutRepository = get(),
-            launcherBackupRepository = get(),
-            urlHandlerResolver = get()
+            // Resolved lazily on first export/import so opening Settings does
+            // not instantiate the backup graph (WidgetHostManager, etc.).
+            launcherBackupRepository = { get() }
         )
     }
 }
