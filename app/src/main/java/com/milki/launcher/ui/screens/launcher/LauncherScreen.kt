@@ -1,6 +1,5 @@
 package com.milki.launcher.ui.screens.launcher
 
-import android.appwidget.AppWidgetProviderInfo
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -36,12 +35,9 @@ import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.model.AppInfo
-import com.milki.launcher.domain.model.GridPosition
-import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherGestureKind
 import com.milki.launcher.domain.model.LauncherTrigger
-import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.presentation.drawer.AppDrawerUiState
 import com.milki.launcher.presentation.launcher.LauncherNavigator
 import com.milki.launcher.presentation.launcher.LauncherRoute
@@ -89,7 +85,6 @@ fun LauncherScreen(
     val overlaySceneStrategy = remember {
         LauncherOverlaySceneStrategy<LauncherRoute>()
     }
-    val homeSurfaceActions = actions.toHomeSurfaceActions()
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
     val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
 
@@ -129,7 +124,7 @@ fun LauncherScreen(
                     ) {
                         HomeSurface(
                             pinnedItems = currentPinnedItems,
-                            actions = homeSurfaceActions,
+                            actions = actions,
                             enabledHomeTriggers = activeHomeTriggers,
                             onMenuAnchorChanged = {
                                 homescreenMenuAnchorPx = it
@@ -294,7 +289,7 @@ private fun HomescreenMenu(
 @Composable
 private fun HomeSurface(
     pinnedItems: List<HomeItem>,
-    actions: HomeSurfaceActions,
+    actions: LauncherActions,
     enabledHomeTriggers: Set<LauncherTrigger>,
     onMenuAnchorChanged: (Offset) -> Unit,
     onItemBoundsMeasured: (String, Rect) -> Unit,
@@ -303,31 +298,21 @@ private fun HomeSurface(
     val backgroundGestures = buildHomeBackgroundGestures(
         enabledHomeTriggers = enabledHomeTriggers,
         onMenuAnchorChanged = onMenuAnchorChanged,
-        actions = actions
+        onHomeTrigger = actions.home.onHomeTrigger,
+        onHomescreenMenuOpenChange = actions.menu.onHomescreenMenuOpenChange
     )
 
     DraggablePinnedItemsGrid(
         items = pinnedItems,
-        onItemClick = actions.onPinnedItemClick,
-        onItemLongPress = actions.onPinnedItemLongPress,
-        onItemMove = actions.onPinnedItemMove,
+        home = actions.home.copy(
+            onItemDroppedToHome = { item, position ->
+                actions.home.onItemDroppedToHome(item, position)
+                actions.search.onDismissSearch()
+            }
+        ),
+        folder = actions.folder,
+        widget = actions.widget,
         backgroundGestures = backgroundGestures,
-        onItemDroppedToHome = { item, position ->
-            actions.onItemDroppedToHome(item, position)
-            actions.onDismissSearch()
-        },
-        onCreateFolder = actions.onCreateFolder,
-        onAddItemToFolder = actions.onAddItemToFolder,
-        onMergeFolders = actions.onMergeFolders,
-        onFolderItemExtracted = actions.onExtractItemFromFolder,
-        onMoveFolderItemToFolder = actions.onMoveFolderItemToFolder,
-        onFolderChildDroppedOnItem = actions.onFolderChildDroppedOnItem,
-        onRemoveWidget = actions.onRemoveWidget,
-        onUpdateWidgetFrame = actions.onUpdateWidgetFrame,
-        onUpdateWidgetDisplayMode = actions.onUpdateWidgetDisplayMode,
-        onExpandPopupWidget = actions.onExpandPopupWidget,
-        onLaunchWidgetApp = actions.onLaunchWidgetApp,
-        onWidgetDroppedToHome = actions.onWidgetDroppedToHome,
         onItemBoundsMeasured = onItemBoundsMeasured,
         modifier = modifier.padding(
             horizontal = Spacing.mediumLarge,
@@ -478,7 +463,8 @@ private fun selectActiveHomeTriggers(
 private fun buildHomeBackgroundGestures(
     enabledHomeTriggers: Set<LauncherTrigger>,
     onMenuAnchorChanged: (Offset) -> Unit,
-    actions: HomeSurfaceActions
+    onHomeTrigger: (LauncherTrigger) -> Unit,
+    onHomescreenMenuOpenChange: (Boolean) -> Unit
 ): HomeBackgroundGestureBindings {
     val hasDirectionalTrigger = enabledHomeTriggers.any { trigger ->
         trigger.metadata.kind == LauncherGestureKind.SWIPE
@@ -487,75 +473,18 @@ private fun buildHomeBackgroundGestures(
     return HomeBackgroundGestureBindings(
         configuredTriggers = enabledHomeTriggers,
         onEmptyAreaTap = enabledHomeTriggers.takeIf { LauncherTrigger.HOME_TAP in it }?.let {
-            { actions.onHomeTrigger(LauncherTrigger.HOME_TAP) }
+            { onHomeTrigger(LauncherTrigger.HOME_TAP) }
         },
         onEmptyAreaDoubleTap = enabledHomeTriggers
             .takeIf { LauncherTrigger.HOME_DOUBLE_TAP in it }
             ?.let {
-                { actions.onHomeTrigger(LauncherTrigger.HOME_DOUBLE_TAP) }
+                { onHomeTrigger(LauncherTrigger.HOME_DOUBLE_TAP) }
             },
         onEmptyAreaLongPress = { touchOffset ->
             onMenuAnchorChanged(touchOffset)
-            actions.onHomescreenMenuOpenChange(true)
+            onHomescreenMenuOpenChange(true)
         },
-        onTrigger = if (hasDirectionalTrigger) actions.onHomeTrigger else null
+        onTrigger = if (hasDirectionalTrigger) onHomeTrigger else null
     )
 }
 
-private data class HomeSurfaceActions(
-    val onPinnedItemClick: (HomeItem) -> Unit,
-    val onPinnedItemLongPress: (HomeItem) -> Unit,
-    val onPinnedItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    val onItemDroppedToHome: (HomeItem, GridPosition) -> Unit,
-    val onHomeTrigger: (LauncherTrigger) -> Unit,
-    val onCreateFolder: CreateFolderAction,
-    val onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
-    val onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit,
-    val onExtractItemFromFolder: ExtractItemFromFolderAction,
-    val onMoveFolderItemToFolder: MoveFolderItemToFolderAction,
-    val onFolderChildDroppedOnItem: FolderChildDroppedOnItemAction,
-    val onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit,
-    val onUpdateWidgetFrame: (
-        widgetId: String,
-        newPosition: GridPosition,
-        newSpan: GridSpan
-    ) -> Unit,
-    val onUpdateWidgetDisplayMode: (
-        widgetId: String,
-        displayMode: WidgetDisplayMode
-    ) -> Unit,
-    val onExpandPopupWidget: (widgetId: String, visibleRows: Int) -> Unit,
-    val onLaunchWidgetApp: (packageName: String) -> Unit,
-    val onWidgetDroppedToHome: (
-        providerInfo: AppWidgetProviderInfo,
-        span: GridSpan,
-        dropPosition: GridPosition,
-        displayMode: WidgetDisplayMode
-    ) -> Unit,
-    val onDismissSearch: () -> Unit,
-    val onHomescreenMenuOpenChange: (Boolean) -> Unit
-)
-
-private fun LauncherActions.toHomeSurfaceActions(): HomeSurfaceActions {
-    return HomeSurfaceActions(
-        onPinnedItemClick = home.onPinnedItemClick,
-        onPinnedItemLongPress = home.onPinnedItemLongPress,
-        onPinnedItemMove = home.onPinnedItemMove,
-        onItemDroppedToHome = home.onItemDroppedToHome,
-        onHomeTrigger = home.onHomeTrigger,
-        onCreateFolder = folder.onCreateFolder,
-        onAddItemToFolder = folder.onAddItemToFolder,
-        onMergeFolders = folder.onMergeFolders,
-        onExtractItemFromFolder = folder.onExtractItemFromFolder,
-        onMoveFolderItemToFolder = folder.onMoveFolderItemToFolder,
-        onFolderChildDroppedOnItem = folder.onFolderChildDroppedOnItem,
-        onRemoveWidget = widget.onRemoveWidget,
-        onUpdateWidgetFrame = widget.onUpdateWidgetFrame,
-        onUpdateWidgetDisplayMode = widget.onUpdateWidgetDisplayMode,
-        onExpandPopupWidget = widget.onExpandPopupWidget,
-        onLaunchWidgetApp = widget.onLaunchWidgetApp,
-        onWidgetDroppedToHome = widget.onWidgetDroppedToHome,
-        onDismissSearch = search.onDismissSearch,
-        onHomescreenMenuOpenChange = menu.onHomescreenMenuOpenChange
-    )
-}

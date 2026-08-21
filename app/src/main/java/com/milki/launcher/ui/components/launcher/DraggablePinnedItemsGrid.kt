@@ -15,10 +15,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
 import com.milki.launcher.domain.model.GridOccupancy
-import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.domain.widget.recommendWidgetPlacementSpan
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragDropItem
@@ -26,6 +24,9 @@ import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.Exter
 import com.milki.launcher.ui.interaction.dragdrop.rememberAppDragDropController
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
+import com.milki.launcher.ui.screens.launcher.FolderActions
+import com.milki.launcher.ui.screens.launcher.HomeActions
+import com.milki.launcher.ui.screens.launcher.WidgetActions
 
 /**
  * DraggablePinnedItemsGrid now acts as a composition/wiring root.
@@ -43,40 +44,10 @@ import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 fun DraggablePinnedItemsGrid(
     items: List<HomeItem>,
     config: GridConfig = GridConfig.Default,
-    onItemClick: (HomeItem) -> Unit,
-    onItemLongPress: (HomeItem) -> Unit,
-    onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
+    home: HomeActions = HomeActions(),
+    folder: FolderActions = FolderActions(),
+    widget: WidgetActions = WidgetActions(),
     backgroundGestures: HomeBackgroundGestureBindings = HomeBackgroundGestureBindings(),
-    onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit = { _, _ -> },
-    onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit = { _, _, _ -> },
-    onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit = { _, _ -> },
-    onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit = { _, _ -> },
-    onFolderItemExtracted: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit = { _, _, _ -> },
-    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit = { _, _, _ -> },
-    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit = { _, _, _, _ -> },
-    onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit = { _, _ -> },
-    onUpdateWidgetFrame: (
-        widgetId: String,
-        newPosition: GridPosition,
-        newSpan: GridSpan
-    ) -> Unit = { _, _, _ -> },
-    onUpdateWidgetDisplayMode: (
-        widgetId: String,
-        displayMode: WidgetDisplayMode
-    ) -> Unit = { _, _ -> },
-    onExpandPopupWidget: (
-        widgetId: String,
-        visibleRows: Int
-    ) -> Unit = { _, _ -> },
-    onLaunchWidgetApp: (
-        packageName: String
-    ) -> Unit = {},
-    onWidgetDroppedToHome: (
-        providerInfo: android.appwidget.AppWidgetProviderInfo,
-        span: GridSpan,
-        dropPosition: GridPosition,
-        displayMode: WidgetDisplayMode
-    ) -> Unit = { _, _, _, _ -> },
     onItemBoundsMeasured: (itemId: String, boundsInWindow: Rect) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -169,16 +140,9 @@ fun DraggablePinnedItemsGrid(
             reorderEngine = reorderEngine,
             occupancy = occupancy,
             backgroundGestures = backgroundGestures,
-            onItemClick = onItemClick,
-            onItemLongPress = onItemLongPress,
-            onItemMove = onItemMove,
-            onCreateFolder = onCreateFolder,
-            onAddItemToFolder = onAddItemToFolder,
-            onMergeFolders = onMergeFolders,
-            onRemoveWidget = onRemoveWidget,
-            onUpdateWidgetDisplayMode = onUpdateWidgetDisplayMode,
-            onExpandPopupWidget = onExpandPopupWidget,
-            onLaunchWidgetApp = onLaunchWidgetApp,
+            home = home,
+            folder = folder,
+            widget = widget,
             hapticLongPress = { hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress) },
             hapticDragActivate = { hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) },
             hapticConfirm = { hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm) },
@@ -194,7 +158,7 @@ fun DraggablePinnedItemsGrid(
             cellHeightPx = cellHeightPx,
             gridColumns = config.columns,
             maxVisibleRows = maxVisibleRows,
-            onUpdateWidgetFrame = onUpdateWidgetFrame
+            onUpdateWidgetFrame = widget.onUpdateWidgetFrame
         )
 
         DropHighlightLayer(
@@ -220,13 +184,9 @@ fun DraggablePinnedItemsGrid(
             maxVisibleRows = maxVisibleRows,
             reorderEngine = reorderEngine,
             occupancy = occupancy,
-            onItemDroppedToHome = onItemDroppedToHome,
-            onCreateFolder = onCreateFolder,
-            onAddItemToFolder = onAddItemToFolder,
-            onFolderItemExtracted = onFolderItemExtracted,
-            onMoveFolderItemToFolder = onMoveFolderItemToFolder,
-            onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
-            onWidgetDroppedToHome = onWidgetDroppedToHome,
+            home = home,
+            folder = folder,
+            widget = widget,
             hapticConfirm = { hapticFeedback.performHapticFeedback(HapticFeedbackType.Confirm) }
         )
     }

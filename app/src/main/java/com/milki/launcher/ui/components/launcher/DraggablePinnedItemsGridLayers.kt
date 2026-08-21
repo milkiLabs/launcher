@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.model.GridOccupancy
-import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.WidgetDisplayMode
@@ -47,6 +46,9 @@ import com.milki.launcher.ui.components.launcher.widget.PopupWidgetView
 import com.milki.launcher.ui.theme.Spacing
 import kotlin.math.roundToInt
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
+import com.milki.launcher.ui.screens.launcher.FolderActions
+import com.milki.launcher.ui.screens.launcher.HomeActions
+import com.milki.launcher.ui.screens.launcher.WidgetActions
 
 /**
  * InternalGridDragLayer owns on-grid item rendering and internal drag gesture handling.
@@ -70,19 +72,9 @@ internal fun InternalGridDragLayer(
     reorderEngine: GridReorderEngine,
     occupancy: GridOccupancy,
     backgroundGestures: HomeBackgroundGestureBindings,
-    onItemClick: (HomeItem) -> Unit,
-    onItemLongPress: (HomeItem) -> Unit,
-    onItemMove: (itemId: String, newPosition: GridPosition) -> Unit,
-    onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
-    onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
-    onMergeFolders: (sourceFolderId: String, targetFolderId: String) -> Unit,
-    onRemoveWidget: (widgetId: String, appWidgetId: Int) -> Unit,
-    onUpdateWidgetDisplayMode: (
-        widgetId: String,
-        displayMode: WidgetDisplayMode
-    ) -> Unit,
-    onExpandPopupWidget: (widgetId: String, visibleRows: Int) -> Unit,
-    onLaunchWidgetApp: (packageName: String) -> Unit,
+    home: HomeActions,
+    folder: FolderActions,
+    widget: WidgetActions,
     hapticLongPress: () -> Unit,
     hapticDragActivate: () -> Unit,
     hapticConfirm: () -> Unit,
@@ -91,10 +83,10 @@ internal fun InternalGridDragLayer(
     val widgetHost = LocalWidgetHost.current
     val latestItems by rememberUpdatedState(items)
     val internalDropHandlers = InternalDropHandlers(
-        onItemMove = onItemMove,
-        onCreateFolder = onCreateFolder,
-        onAddItemToFolder = onAddItemToFolder,
-        onMergeFolders = onMergeFolders,
+        onItemMove = home.onPinnedItemMove,
+        onCreateFolder = folder.onCreateFolder,
+        onAddItemToFolder = folder.onAddItemToFolder,
+        onMergeFolders = folder.onMergeFolders,
         onConfirmDrop = hapticConfirm
     )
 
@@ -103,7 +95,7 @@ internal fun InternalGridDragLayer(
     fun showItemMenu(item: HomeItem) {
         if (!interactionController.showItemMenu(item.id)) return
         hapticLongPress()
-        onItemLongPress(item)
+        home.onPinnedItemLongPress(item)
     }
 
     fun startItemDrag(item: HomeItem) {
@@ -211,10 +203,10 @@ internal fun InternalGridDragLayer(
                                     interactionController.showWidgetPopup(item.id)
                                     return@detectDragGesture
                                 }
-                                if (dragController.session == null) onItemClick(item)
+                                if (dragController.session == null) home.onPinnedItemClick(item)
                             },
                             onSwipeUp = if (isPopupWidget) {
-                                { onLaunchWidgetApp(widgetItem.providerPackage) }
+                                { widget.onLaunchWidgetApp(widgetItem.providerPackage) }
                             } else null,
                             onLongPress = {
                                 if (isInlineWidget) return@detectDragGesture
@@ -281,11 +273,11 @@ internal fun InternalGridDragLayer(
                             },
                             onModeAction = {
                                 interactionController.dismissMenu()
-                                onUpdateWidgetDisplayMode(widgetItem.id, WidgetDisplayMode.PopupIcon)
+                                widget.onUpdateWidgetDisplayMode(widgetItem.id, WidgetDisplayMode.PopupIcon)
                             },
                             onRemove = {
                                 interactionController.dismissMenu()
-                                onRemoveWidget(widgetItem.id, widgetItem.appWidgetId)
+                                widget.onRemoveWidget(widgetItem.id, widgetItem.appWidgetId)
                             }
                         )
                     } else {
@@ -326,12 +318,12 @@ internal fun InternalGridDragLayer(
                                 onModeAction = {
                                     interactionController.dismissMenu()
                                     interactionController.dismissWidgetPopup()
-                                    onExpandPopupWidget(widgetItem.id, maxVisibleRows)
+                                    widget.onExpandPopupWidget(widgetItem.id, maxVisibleRows)
                                 },
                                 onRemove = {
                                     interactionController.dismissMenu()
                                     interactionController.dismissWidgetPopup()
-                                    onRemoveWidget(widgetItem.id, widgetItem.appWidgetId)
+                                    widget.onRemoveWidget(widgetItem.id, widgetItem.appWidgetId)
                                 }
                             )
                         }

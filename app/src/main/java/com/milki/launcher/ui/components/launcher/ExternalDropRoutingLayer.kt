@@ -9,13 +9,13 @@ import androidx.compose.ui.zIndex
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.ui.components.launcher.widget.LocalWidgetHost
 import com.milki.launcher.domain.model.GridOccupancy
-import com.milki.launcher.domain.model.GridPosition
-import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.AppExternalDropTargetOverlay
 import com.milki.launcher.ui.interaction.grid.GridConfig
+import com.milki.launcher.ui.screens.launcher.FolderActions
+import com.milki.launcher.ui.screens.launcher.HomeActions
+import com.milki.launcher.ui.screens.launcher.WidgetActions
 
 /**
  * ExternalDropRoutingLayer isolates platform drag callbacks and routing decisions.
@@ -29,30 +29,21 @@ internal fun ExternalDropRoutingLayer(
     maxVisibleRows: Int,
     reorderEngine: GridReorderEngine,
     occupancy: GridOccupancy,
-    onItemDroppedToHome: (item: HomeItem, position: GridPosition) -> Unit,
-    onCreateFolder: (item1: HomeItem, item2: HomeItem, position: GridPosition) -> Unit,
-    onAddItemToFolder: (folderId: String, item: HomeItem) -> Unit,
-    onFolderItemExtracted: (folderId: String, itemId: String, targetPosition: GridPosition) -> Unit,
-    onMoveFolderItemToFolder: (sourceFolderId: String, itemId: String, targetFolderId: String) -> Unit,
-    onFolderChildDroppedOnItem: (sourceFolderId: String, childItem: HomeItem, occupantItem: HomeItem, atPosition: GridPosition) -> Unit,
-    onWidgetDroppedToHome: (
-        providerInfo: android.appwidget.AppWidgetProviderInfo,
-        span: GridSpan,
-        dropPosition: GridPosition,
-        displayMode: WidgetDisplayMode
-    ) -> Unit,
+    home: HomeActions,
+    folder: FolderActions,
+    widget: WidgetActions,
     hapticConfirm: () -> Unit
 ) {
     val widgetHost = LocalWidgetHost.current
     val latestItems by rememberUpdatedState(items)
     val handlers = ExternalDropHandlers(
-        onItemDroppedToHome = onItemDroppedToHome,
-        onCreateFolder = onCreateFolder,
-        onAddItemToFolder = onAddItemToFolder,
-        onFolderItemExtracted = onFolderItemExtracted,
-        onMoveFolderItemToFolder = onMoveFolderItemToFolder,
-        onFolderChildDroppedOnItem = onFolderChildDroppedOnItem,
-        onWidgetDroppedToHome = onWidgetDroppedToHome,
+        onItemDroppedToHome = home.onItemDroppedToHome,
+        onCreateFolder = folder.onCreateFolder,
+        onAddItemToFolder = folder.onAddItemToFolder,
+        onFolderItemExtracted = folder.onExtractItemFromFolder,
+        onMoveFolderItemToFolder = folder.onMoveFolderItemToFolder,
+        onFolderChildDroppedOnItem = folder.onFolderChildDroppedOnItem,
+        onWidgetDroppedToHome = widget.onWidgetDroppedToHome,
         onConfirmDrop = hapticConfirm
     )
 
