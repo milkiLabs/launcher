@@ -28,7 +28,7 @@
  *     (combined into stateHolder.backgroundState)
  *
  *   LAYER 3 — Search pipeline output (async, may be slow):
- *     stateHolder.searchOutput (results, provider config, loading flag)
+ *     searchOutput (derived flow: results, provider config, loading flag)
  *
  *   LAYER 4 — Final UI state (combines all layers for Compose):
  *     uiState: StateFlow<SearchUiState>
@@ -74,7 +74,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -134,14 +134,11 @@ class SearchViewModel(
         initialValue = emptyList()
     )
 
-    val uiState = stateHolder.uiState
-
     // ========================================================================
     // INITIALIZATION
     // ========================================================================
 
     init {
-        bindSearchPipeline()
         observeInstalledApps()
         observeRecentApps()
         observeSearchSettings()
@@ -263,54 +260,87 @@ class SearchViewModel(
         stateHolder.providerAccentColorById.value = settings.searchSources.associate { it.id to it.accentColorHex }
     }
 
-    private fun bindSearchPipeline() {
-        viewModelScope.launch {
-            combine(
-                stateHolder.query,
-                stateHolder.isSearchVisible,
-                stateHolder.backgroundState,
-                stateHolder.runtimeSettings,
-                searchPrefixConfigurations
-            ) { currentQuery, visible, background, runtimeSettings, _ ->
-                SearchPipelineInput(
-                    query = currentQuery,
-                    visible = visible,
-                    background = background,
-                    runtimeSettings = runtimeSettings
-                )
-            }
-                .collectLatest { input ->
-                    if (!input.visible) {
-                        stateHolder.searchOutput.value = SearchPipelineOutput()
-                        return@collectLatest
-                    }
+    /**
+     * Layer 3 — the search pipeline as a DERIVED flow.
+     *
+     * There is no mutable output field: every input change cancels any in-flight
+     * search (transformLatest), emits a loading state, then emits the final
+     * results. Hiding the search simply emits an empty output.
+     */
+    private val searchOutput: StateFlow<SearchPipelineOutput> =
+        combine(
+            stateHolder.query,
+            stateHolder.isSearchVisible,
+            stateHolder.backgroundState,
+            stateHolder.runtimeSettings,
+            searchPrefixConfigurations
+        ) { currentQuery, visible, background, runtimeSettings, _ ->
+            SearchPipelineInput(
+                query = currentQuery,
+                visible = visible,
+                background = background,
+                runtimeSettings = runtimeSettings
+            )
+        }
+            .transformLatest { input ->
+                if (!input.visible) {
+                    emit(SearchPipelineOutput())
+                    return@transformLatest
+                }
 
-                    val parsed = parseSearchQuery(input.query, providerRegistry)
+                val parsed = parseSearchQuery(input.query, providerRegistry)
 
-                    stateHolder.searchOutput.update { current ->
-                        current.copy(
-                            isLoading = true,
-                            activeProviderConfig = parsed.config
-                        )
-                    }
-
-                    val results = executeSearch(
-                        parsed = parsed,
-                        installedApps = input.background.installedApps,
-                        recentApps = input.background.recentApps,
-                        contactsPermissionState = input.background.contactsPermissionState,
-                        filesPermissionState = input.background.filesPermissionState,
-                        settings = input.runtimeSettings
+                emit(
+                    SearchPipelineOutput(
+                        isLoading = true,
+                        activeProviderConfig = parsed.config
                     )
+                )
 
-                    stateHolder.searchOutput.value = SearchPipelineOutput(
+                val results = executeSearch(
+                    parsed = parsed,
+                    installedApps = input.background.installedApps,
+                    recentApps = input.background.recentApps,
+                    contactsPermissionState = input.background.contactsPermissionState,
+                    filesPermissionState = input.background.filesPermissionState,
+                    settings = input.runtimeSettings
+                )
+
+                emit(
+                    SearchPipelineOutput(
                         results = results,
                         activeProviderConfig = parsed.config,
                         isLoading = false
                     )
-                }
-        }
-    }
+                )
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, SearchPipelineOutput())
+
+    val uiState: StateFlow<SearchUiState> = combine(
+        stateHolder.visibilityInput,
+        searchOutput,
+        stateHolder.clipboardSuggestion,
+        stateHolder.querySuggestion,
+        stateHolder.config
+    ) { input, output, clipSuggestion, qSuggestion, cfg ->
+        val settings = cfg.settings
+        val visible = input.visible
+        val isSearchVisible = visible && settings.isSettingsLoaded
+
+        SearchUiState(
+            query = input.query,
+            isSearchVisible = isSearchVisible,
+            searchLayout = settings.searchLayout,
+            results = if (visible) output.results else emptyList(),
+            activeProviderConfig = if (visible) output.activeProviderConfig else null,
+            isLoading = visible && output.isLoading,
+            clipboardSuggestion = if (visible) clipSuggestion else null,
+            querySuggestion = if (isSearchVisible) qSuggestion else null,
+            providerAccentColorById = cfg.providerAccentColorById,
+            suggestedActionSources = if (visible) settings.searchSources else emptyList(),
+            defaultSearchSourceId = settings.defaultSearchSourceId
+        )
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchUiState())
 
     private fun observeQuerySuggestions() {
         viewModelScope.launch {
@@ -402,12 +432,6 @@ class SearchViewModel(
      * 3. Compose shows the AppSearchDialog
      */
     fun showSearch() {
-        stateHolder.searchOutput.update { currentOutput ->
-            currentOutput.copy(
-                results = emptyList(),
-                isLoading = true
-            )
-        }
         stateHolder.isSearchVisible.value = true
         stateHolder.clipboardSuggestion.value = suggestionResolver.resolveFromClipboard()
     }
@@ -437,7 +461,7 @@ class SearchViewModel(
      *
      * RACE CONDITION — WHY THIS IS SAFE:
         * The query goes into stateHolder.query (Layer 1) and the search pipeline
-        * reads it as INPUT. The pipeline writes to stateHolder.searchOutput
+        * reads it as INPUT. The pipeline emits into the derived searchOutput flow
         * (Layer 3), which does NOT contain the query. The final uiState.query
         * always comes from stateHolder.query,
      * never from the pipeline output. So a slow search can never overwrite
