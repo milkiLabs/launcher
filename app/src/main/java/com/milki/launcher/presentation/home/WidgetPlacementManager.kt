@@ -24,12 +24,17 @@ sealed interface WidgetPlacementCommand {
 /**
  * Owns the widget placement state machine: pending widget bookkeeping,
  * bind/configure result resolution, and [WidgetHostPort] interactions.
+ *
+ * Note: if the process dies between [startWidgetPlacement] (which allocates an
+ * AppWidget id) and persistence, that id is orphaned — Android only reclaims
+ * allocated ids on uninstall. [releasePendingWidgets] covers the
+ * ViewModel-cleared case; process death cannot be intercepted.
  */
 class WidgetPlacementManager(
     private val modelMutator: HomeModelMutator,
     private val widgetHost: WidgetHostPort,
     private val scope: CoroutineScope,
-    private val pinnedItemsProvider: () -> List<HomeItem>
+    private val pinnedItemsProvider: suspend () -> List<HomeItem>
 ) {
 
     private data class PendingWidget(
@@ -43,7 +48,17 @@ class WidgetPlacementManager(
 
     private val pendingWidgets = linkedMapOf<Int, PendingWidget>()
 
-    fun startWidgetPlacement(
+    /**
+     * Deallocates AppWidget ids for widgets that never finished
+     * binding/configuring. Call from ViewModel.onCleared.
+     */
+    fun releasePendingWidgets() {
+        val pending = pendingWidgets.values.toList()
+        pendingWidgets.clear()
+        pending.forEach { widgetHost.deallocateWidgetId(it.appWidgetId) }
+    }
+
+    suspend fun startWidgetPlacement(
         providerInfo: AppWidgetProviderInfo,
         targetPosition: GridPosition,
         span: GridSpan,
@@ -157,26 +172,17 @@ class WidgetPlacementManager(
         pendingWidgets.remove(appWidgetId)
 
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
-            var shouldDeallocate = true
-
-            try {
-                val wasApplied = modelMutator.applyTracked(
-                    command = HomeModelWriter.PinOrMoveToPosition(
-                        item = widgetItem,
-                        targetPosition = pending.targetPosition
-                    ),
-                    fallbackErrorMessage = "Could not place widget"
-                )
-
-                shouldDeallocate = !wasApplied
-                if (!wasApplied) {
+            modelMutator.applyTracked(
+                command = HomeModelWriter.PinOrMoveToPosition(
+                    item = widgetItem,
+                    targetPosition = pending.targetPosition
+                ),
+                fallbackErrorMessage = "Could not place widget",
+                onFailure = {
                     modelMutator.reportMoveError("Could not place widget")
-                }
-            } finally {
-                if (shouldDeallocate) {
                     widgetHost.deallocateWidgetId(pending.appWidgetId)
                 }
-            }
+            )
         }
     }
 

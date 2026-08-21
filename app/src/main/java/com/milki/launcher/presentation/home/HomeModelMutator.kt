@@ -65,12 +65,15 @@ class HomeModelMutator(
 
     /**
      * Applies a command with mutation-count tracking and error reporting.
-     * Returns whether the command was applied.
+     * Returns whether the command was applied. [onFailure] runs whenever the
+     * command was not applied, letting callers attach cleanup (e.g. resource
+     * deallocation) without re-implementing bookkeeping.
      */
     suspend fun applyTracked(
         command: HomeModelWriter.Command,
         fallbackErrorMessage: String,
-        onApplied: suspend (items: List<HomeItem>) -> Unit = {}
+        onApplied: suspend (items: List<HomeItem>) -> Unit = {},
+        onFailure: suspend () -> Unit = {}
     ): Boolean {
         pendingMutationCount.update { it + 1 }
 
@@ -79,8 +82,11 @@ class HomeModelMutator(
 
             val wasApplied = tryApply(command, fallbackErrorMessage, onApplied)
 
-            if (!wasApplied && _lastMoveErrorMessage.value == null) {
-                _lastMoveErrorMessage.value = fallbackErrorMessage
+            if (!wasApplied) {
+                if (_lastMoveErrorMessage.value == null) {
+                    _lastMoveErrorMessage.value = fallbackErrorMessage
+                }
+                onFailure()
             }
 
             return wasApplied

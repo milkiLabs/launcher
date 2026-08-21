@@ -8,6 +8,8 @@ import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.presentation.home.HomeViewModel
 import com.milki.launcher.presentation.launcher.WidgetPlacementCoordinator
 import com.milki.launcher.ui.screens.launcher.openPinnedItem
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Straightforward homescreen interaction handler.
@@ -17,7 +19,8 @@ import com.milki.launcher.ui.screens.launcher.openPinnedItem
  */
 internal class LauncherHomeController(
     private val homeViewModel: HomeViewModel,
-    private val widgetPlacementCoordinator: WidgetPlacementCoordinator
+    private val widgetPlacementCoordinator: WidgetPlacementCoordinator,
+    private val scope: CoroutineScope
 ) {
 
     fun onPinnedItemClick(item: HomeItem, context: Context) {
@@ -121,12 +124,14 @@ internal class LauncherHomeController(
         dropPosition: GridPosition,
         displayMode: WidgetDisplayMode
     ) {
-        val command = homeViewModel.startWidgetPlacement(
-            providerInfo = providerInfo,
-            targetPosition = dropPosition,
-            span = span,
-            displayMode = displayMode
-        )
-        widgetPlacementCoordinator.execute(command)
+        scope.launch {
+            val command = homeViewModel.startWidgetPlacement(
+                providerInfo = providerInfo,
+                targetPosition = dropPosition,
+                span = span,
+                displayMode = displayMode
+            )
+            widgetPlacementCoordinator.execute(command)
+        }
     }
 }

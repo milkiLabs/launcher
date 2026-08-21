@@ -102,7 +102,8 @@ internal fun LauncherRootContent(
     val homeController = remember(homeViewModel, runtime.widgetPlacementCoordinator) {
         LauncherHomeController(
             homeViewModel = homeViewModel,
-            widgetPlacementCoordinator = runtime.widgetPlacementCoordinator
+            widgetPlacementCoordinator = runtime.widgetPlacementCoordinator,
+            scope = scope
         )
     }
     var widgetPickerCatalogStore by remember { mutableStateOf<WidgetPickerCatalogStore?>(null) }

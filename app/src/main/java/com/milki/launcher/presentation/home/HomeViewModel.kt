@@ -56,7 +56,7 @@ class HomeViewModel(
         modelMutator = modelMutator,
         widgetHost = widgetHost,
         scope = viewModelScope,
-        pinnedItemsProvider = { pinnedItems.value }
+        pinnedItemsProvider = homeRepository::readPinnedItems
     )
 
     private var deferredStartupJob: Job? = null
@@ -70,6 +70,7 @@ class HomeViewModel(
     override fun onCleared() {
         deferredStartupJob?.cancel()
         availabilityPruner.stop()
+        widgetPlacementManager.releasePendingWidgets()
         super.onCleared()
     }
 
@@ -306,7 +307,7 @@ class HomeViewModel(
         )
     }
 
-    fun startWidgetPlacement(
+    suspend fun startWidgetPlacement(
         providerInfo: AppWidgetProviderInfo,
         targetPosition: GridPosition,
         span: GridSpan,
