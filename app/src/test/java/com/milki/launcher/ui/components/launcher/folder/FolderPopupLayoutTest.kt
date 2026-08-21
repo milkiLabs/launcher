@@ -48,18 +48,6 @@ class FolderPopupLayoutTest {
     }
 
     @Test
-    fun `insertion index appends within partially filled last page`() {
-        val insertionIndex = resolveFolderInsertionIndex(
-            totalItemsWithoutDragged = 9,
-            targetPage = 1,
-            slotIndex = 4,
-            pageSize = 9
-        )
-
-        assertEquals(9, insertionIndex)
-    }
-
-    @Test
     fun `drop on occupied slot swaps dragged item with target item`() {
         val reordered = reorderFolderItemsForDrop(
             items = listOf("A", "B", "C", "D"),

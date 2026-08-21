@@ -49,22 +49,6 @@ internal fun folderGridLayoutForItemCount(itemCount: Int): FolderGridLayout {
     }
 }
 
-internal fun resolveFolderInsertionIndex(
-    totalItemsWithoutDragged: Int,
-    targetPage: Int,
-    slotIndex: Int,
-    pageSize: Int
-): Int {
-    val safePageSize = pageSize.coerceAtLeast(SINGLE_ITEM_COUNT)
-    val pageStart = (targetPage.coerceAtLeast(0) * safePageSize)
-    val itemsOnPage = (totalItemsWithoutDragged - pageStart)
-        .coerceAtLeast(0)
-        .coerceAtMost(safePageSize)
-    val boundedSlotIndex = slotIndex.coerceIn(0, itemsOnPage)
-
-    return (pageStart + boundedSlotIndex).coerceIn(0, totalItemsWithoutDragged)
-}
-
 internal fun resolveFolderDropIndex(
     targetPage: Int,
     slotIndex: Int,

@@ -145,9 +145,8 @@ internal fun FolderGridPage(
     onTap: (HomeItem) -> Unit,
     onLongPress: (String) -> Unit,
     onRemoveFromFolder: (String) -> Unit,
-    onWindowPositionMeasured: (String, Offset) -> Unit,
     onExternalDragStarted: () -> Unit,
-    onDragStart: (HomeItem) -> Unit,
+    onDragStart: (item: HomeItem, itemWindowTopLeft: Offset) -> Unit,
     onDragDelta: (Offset) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit
@@ -205,11 +204,8 @@ internal fun FolderGridPage(
                                     onTap = { onTap(item) },
                                     onLongPress = { onLongPress(item.id) },
                                     onRemoveFromFolder = { onRemoveFromFolder(item.id) },
-                                    onWindowPositionMeasured = { offset ->
-                                        onWindowPositionMeasured(item.id, offset)
-                                    },
                                     onExternalDragStarted = onExternalDragStarted,
-                                    onDragStart = { onDragStart(item) },
+                                    onDragStart = { onDragStart(item, it) },
                                     onDragDelta = onDragDelta,
                                     onDragEnd = onDragEnd,
                                     onDragCancel = onDragCancel,
@@ -263,20 +259,20 @@ private fun FolderPopupItem(
     onTap: () -> Unit,
     onLongPress: () -> Unit,
     onRemoveFromFolder: () -> Unit,
-    onWindowPositionMeasured: (Offset) -> Unit,
     onExternalDragStarted: () -> Unit,
-    onDragStart: () -> Unit,
+    onDragStart: (itemWindowTopLeft: Offset) -> Unit,
     onDragDelta: (Offset) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isLongPressGestureActive by remember { mutableStateOf(false) }
+    var windowTopLeft by remember { mutableStateOf(Offset.Zero) }
 
     Box(
         modifier = modifier
             .onGloballyPositioned { coords ->
-                onWindowPositionMeasured(coords.localToWindow(Offset.Zero))
+                windowTopLeft = coords.localToWindow(Offset.Zero)
             }
             .alpha(if (isDragged) FOLDER_DRAG_GHOST_ALPHA else 1f)
             .detectDragGesture(
@@ -292,7 +288,7 @@ private fun FolderPopupItem(
                 },
                 onDragStart = {
                     isLongPressGestureActive = false
-                    onDragStart()
+                    onDragStart(windowTopLeft)
                 },
                 onDrag = { change, dragAmount ->
                     change.consume()
