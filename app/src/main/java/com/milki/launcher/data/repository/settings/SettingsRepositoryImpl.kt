@@ -19,7 +19,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * DataStore-backed implementation of all focused settings interfaces.
+ * DataStore-backed implementation of all focused settings interfaces
+ * ([SettingsReader], [SearchSourceRepository], [PrefixOwnerRepository],
+ * [HomeTriggerRepository]).
+ *
+ * DI intentionally binds this single instance under each interface separately
+ * (see coreModule) so consumers depend only on the focused surface they need.
  *
  * Persistence mapping, diff writing, and mutation rules
  * live in focused collaborators.
