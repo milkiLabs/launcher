@@ -270,7 +270,7 @@ class SearchViewModel(
     private val searchOutput: StateFlow<SearchPipelineOutput> =
         combine(
             stateHolder.query,
-            stateHolder.isSearchVisible,
+            isSearchVisible,
             stateHolder.backgroundState,
             stateHolder.runtimeSettings,
             searchPrefixConfigurations
