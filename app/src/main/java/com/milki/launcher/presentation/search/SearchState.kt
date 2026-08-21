@@ -60,38 +60,49 @@ internal class SearchState(
         )
     }.stateIn(scope, SharingStarted.Eagerly, SearchBackgroundState())
 
+    // Grouped intermediate flows keep the final combine fully typed (max 5 args),
+    // avoiding the vararg Array<Any?> + unchecked-cast version.
+    private val visibilityInput = combine(query, isSearchVisible) { currentQuery, visible ->
+        VisibilityInput(currentQuery, visible)
+    }
+
+    private val config = combine(runtimeSettings, providerAccentColorById) { settings, colorMap ->
+        SearchConfig(settings, colorMap)
+    }
+
     val uiState: StateFlow<SearchUiState> = combine(
-        query,
-        isSearchVisible,
+        visibilityInput,
         searchOutput,
-        runtimeSettings,
         clipboardSuggestion,
         querySuggestion,
-        providerAccentColorById
-    ) { flows ->
-        val currentQuery = flows[0] as String
-        val visible = flows[1] as Boolean
-        val output = flows[2] as SearchPipelineOutput
-        val runtimeSettings = flows[3] as SearchRuntimeSettings
-        val clipSuggestion = flows[4] as ActionSuggestion?
-        val qSuggestion = flows[5] as ActionSuggestion?
-        @Suppress("UNCHECKED_CAST")
-        val colorMap = flows[6] as Map<String, String>
-
-        val isSearchVisible = visible && runtimeSettings.isSettingsLoaded
+        config
+    ) { input, output, clipSuggestion, qSuggestion, cfg ->
+        val settings = cfg.settings
+        val visible = input.visible
+        val isSearchVisible = visible && settings.isSettingsLoaded
 
         SearchUiState(
-            query = currentQuery,
+            query = input.query,
             isSearchVisible = isSearchVisible,
-            searchLayout = runtimeSettings.searchLayout,
+            searchLayout = settings.searchLayout,
             results = if (visible) output.results else emptyList(),
             activeProviderConfig = if (visible) output.activeProviderConfig else null,
             isLoading = visible && output.isLoading,
             clipboardSuggestion = if (visible) clipSuggestion else null,
             querySuggestion = if (isSearchVisible) qSuggestion else null,
-            providerAccentColorById = colorMap,
-            suggestedActionSources = if (visible) runtimeSettings.searchSources else emptyList(),
-            defaultSearchSourceId = runtimeSettings.defaultSearchSourceId
+            providerAccentColorById = cfg.providerAccentColorById,
+            suggestedActionSources = if (visible) settings.searchSources else emptyList(),
+            defaultSearchSourceId = settings.defaultSearchSourceId
         )
     }.stateIn(scope, SharingStarted.Eagerly, SearchUiState())
+
+    private data class VisibilityInput(
+        val query: String,
+        val visible: Boolean
+    )
+
+    private data class SearchConfig(
+        val settings: SearchRuntimeSettings,
+        val providerAccentColorById: Map<String, String>
+    )
 }
