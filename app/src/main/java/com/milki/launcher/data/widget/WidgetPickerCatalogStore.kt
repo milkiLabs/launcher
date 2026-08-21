@@ -2,13 +2,18 @@ package com.milki.launcher.data.widget
 
 import android.content.Context
 import android.content.pm.PackageManager
-import com.milki.launcher.data.cache.AsyncSnapshotCache
+import android.util.Log
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Process-wide widget picker catalog cache.
@@ -28,33 +33,49 @@ class WidgetPickerCatalogStore(
 
     private val packageManager: PackageManager = context.packageManager
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val catalogCache = AsyncSnapshotCache(
-        scope = scope,
-        tag = TAG,
-        emptySnapshot = emptyList(),
-        loader = ::buildCatalog
-    )
+    private val loadMutex = Mutex()
+
+    // Single source of truth. Null means "not loaded yet".
+    private val catalog = MutableStateFlow<List<WidgetAppGroup>?>(null)
 
     init {
         scope.launch {
             packageChangeMonitor.events.collectLatest {
-                invalidate(prewarmAfterInvalidation = true)
+                refresh()
             }
         }
     }
 
-    fun peek(): List<WidgetAppGroup>? = catalogCache.peek()
+    fun peek(): List<WidgetAppGroup>? = catalog.value
 
     fun prewarm() {
-        catalogCache.prewarm()
+        scope.launch { getOrLoad() }
     }
 
-    suspend fun await(): List<WidgetAppGroup> {
-        return catalogCache.await()
+    suspend fun await(): List<WidgetAppGroup> = getOrLoad()
+
+    private suspend fun getOrLoad(): List<WidgetAppGroup> {
+        catalog.value?.let { cached -> return cached }
+        return loadMutex.withLock {
+            catalog.value ?: loadCatalog().also { loaded -> catalog.value = loaded }
+        }
     }
 
-    fun invalidate(prewarmAfterInvalidation: Boolean = false) {
-        catalogCache.invalidate(prewarmAfterInvalidation = prewarmAfterInvalidation)
+    private suspend fun refresh() {
+        loadMutex.withLock {
+            catalog.value = loadCatalog()
+        }
+    }
+
+    private suspend fun loadCatalog(): List<WidgetAppGroup> = withContext(Dispatchers.IO) {
+        try {
+            buildCatalog()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (throwable: Throwable) {
+            Log.e(TAG, "Failed to build widget picker catalog", throwable)
+            emptyList()
+        }
     }
 
     private fun buildCatalog(): List<WidgetAppGroup> {
