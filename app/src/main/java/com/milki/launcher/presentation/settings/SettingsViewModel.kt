@@ -34,12 +34,27 @@ import com.milki.launcher.domain.repository.SearchSourceRepository
 import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.repository.WidgetBindPermissionRequester
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/**
+ * One-shot backup operation feedback. The UI owns presentation and lifetime;
+ * events are delivered exactly once via a buffered channel.
+ */
+sealed interface BackupStatusEvent {
+    val message: String
+
+    data class ExportCompleted(override val message: String) : BackupStatusEvent
+
+    data class ImportCompleted(override val message: String) : BackupStatusEvent
+}
 
 class SettingsViewModel(
     private val settingsReader: SettingsReader,
@@ -80,8 +95,8 @@ class SettingsViewModel(
             initialValue = emptyList()
         )
 
-    private val _backupStatusMessage = MutableStateFlow<String?>(null)
-    val backupStatusMessage: StateFlow<String?> = _backupStatusMessage
+    private val _backupStatusEvents = Channel<BackupStatusEvent>(Channel.BUFFERED)
+    val backupStatusEvents: Flow<BackupStatusEvent> = _backupStatusEvents.receiveAsFlow()
 
     private val _lastImportReport = MutableStateFlow<LauncherImportResult?>(null)
     val lastImportReport: StateFlow<LauncherImportResult?> = _lastImportReport
@@ -295,7 +310,7 @@ class SettingsViewModel(
     fun exportBackup(targetUri: String) {
         viewModelScope.launch {
             val result = launcherBackupRepository().exportToUri(targetUri)
-            _backupStatusMessage.value = result.message
+            _backupStatusEvents.send(BackupStatusEvent.ExportCompleted(result.message))
         }
     }
 
@@ -309,12 +324,8 @@ class SettingsViewModel(
                 requestWidgetBindPermission = requestWidgetBindPermission
             )
             _lastImportReport.value = result
-            _backupStatusMessage.value = result.message
+            _backupStatusEvents.send(BackupStatusEvent.ImportCompleted(result.message))
         }
-    }
-
-    fun clearBackupStatusMessage() {
-        _backupStatusMessage.value = null
     }
 
     fun clearLastImportReport() {

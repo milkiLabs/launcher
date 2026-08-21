@@ -20,11 +20,11 @@
  * are managed separately:
  *
  *   LAYER 1 — Input state (written directly from UI/Activity, instant):
- *     stateHolder.query, stateHolder.isSearchVisible,
- *     stateHolder.hasContactsPermission, stateHolder.hasFilesPermission
+ *     stateHolder.query, navigator-owned search visibility,
+ *     stateHolder.contactsPermissionState, stateHolder.filesPermissionState
  *
  *   LAYER 2 — Background data (loaded async, changes infrequently):
- *     stateHolder.installedApps, stateHolder.recentApps
+ *     repository installed-apps stream, stateHolder.recentApps
  *     (combined into stateHolder.backgroundState)
  *
  *   LAYER 3 — Search pipeline output (async, may be slow):
@@ -66,15 +66,16 @@ import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.parseSearchQuery
+import com.milki.launcher.presentation.common.ViewModelSharingStarted
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transformLatest
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -104,17 +105,21 @@ import kotlinx.coroutines.withContext
  * @property settingsRepository Repository for settings (including prefix configs)
  * @property providerRegistry Registry of search providers
  * @property suggestionResolver Resolver that classifies text into one smart action suggestion
+ * @property isSearchVisible Visibility stream owned by the launcher navigator
+ * ([com.milki.launcher.presentation.launcher.LauncherNavigator.searchVisibilityFlow]).
  */
 class SearchViewModel(
     private val appRepository: AppRepository,
     private val settingsRepository: SettingsReader,
     private val providerRegistry: SearchProviderRegistry,
     private val searchProviderFactory: SearchProviderFactory,
-    private val suggestionResolver: SuggestionResolver
+    private val suggestionResolver: SuggestionResolver,
+    private val isSearchVisible: Flow<Boolean>
 ) : ViewModel() {
     private val stateHolder = SearchState(
         scope = viewModelScope,
-        installedApps = appRepository.observeInstalledApps()
+        installedApps = appRepository.observeInstalledApps(),
+        isSearchVisible = isSearchVisible
     )
     private val searchPrefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
 
@@ -127,6 +132,7 @@ class SearchViewModel(
     // ========================================================================
 
     init {
+        observeSearchVisibilityEffects()
         observeRecentApps()
         observeSearchSettings()
         observeQuerySuggestions()
@@ -135,6 +141,37 @@ class SearchViewModel(
     // ========================================================================
     // DATA LOADING
     // ========================================================================
+
+    /**
+     * Reacts to navigator-owned visibility transitions.
+     *
+     * OPEN: resolves the clipboard suggestion so it is ready when the dialog
+     * renders.
+     *
+     * CLOSE: resets query and suggestions so the next open starts fresh. The
+     * pipeline emits an empty output when hidden, so a slow in-flight search
+     * can never surface stale results afterwards.
+     */
+    private fun observeSearchVisibilityEffects() {
+        viewModelScope.launch {
+            var wasVisible = false
+            isSearchVisible.collect { isVisible ->
+                when {
+                    isVisible && !wasVisible -> {
+                        stateHolder.clipboardSuggestion.value =
+                            suggestionResolver.resolveFromClipboard()
+                    }
+
+                    !isVisible && wasVisible -> {
+                        stateHolder.query.value = ""
+                        stateHolder.clipboardSuggestion.value = null
+                        stateHolder.querySuggestion.value = null
+                    }
+                }
+                wasVisible = isVisible
+            }
+        }
+    }
 
     /**
      * Observe recent apps from the repository.
@@ -277,7 +314,7 @@ class SearchViewModel(
                     )
                 )
             }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, SearchPipelineOutput())
+            .stateIn(viewModelScope, ViewModelSharingStarted, SearchPipelineOutput())
 
     val uiState: StateFlow<SearchUiState> = combine(
         stateHolder.visibilityInput,
@@ -303,7 +340,7 @@ class SearchViewModel(
             suggestedActionSources = if (visible) settings.searchSources else emptyList(),
             defaultSearchSourceId = settings.defaultSearchSourceId
         )
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, SearchUiState())
+    }.stateIn(viewModelScope, ViewModelSharingStarted, SearchUiState())
 
     private fun observeQuerySuggestions() {
         viewModelScope.launch {
@@ -384,35 +421,6 @@ class SearchViewModel(
     // ========================================================================
     // PUBLIC API - Called from UI
     // ========================================================================
-
-    /**
-     * Show the search dialog.
-     *
-        * Setting stateHolder.isSearchVisible to true triggers:
-     * 1. The search pipeline re-runs (via combine), producing results for
-     *    the current query (which is "" after hideSearch)
-     * 2. The uiState combine emits a new state with isSearchVisible=true
-     * 3. Compose shows the AppSearchDialog
-     */
-    fun showSearch() {
-        stateHolder.isSearchVisible.value = true
-        stateHolder.clipboardSuggestion.value = suggestionResolver.resolveFromClipboard()
-    }
-
-    /**
-     * Hide the search dialog and reset query text.
-     *
-     * WHY WE RESET THE QUERY:
-     * Clearing the query ensures the next open starts fresh (no leftover text).
-     * Setting visibility to false causes the pipeline to emit SearchOutput()
-     * (empty), and the uiState combine to emit a hidden state.
-     */
-    fun hideSearch() {
-        stateHolder.isSearchVisible.value = false
-        stateHolder.query.value = ""
-        stateHolder.clipboardSuggestion.value = null
-        stateHolder.querySuggestion.value = null
-    }
 
     /**
      * Update the search query.

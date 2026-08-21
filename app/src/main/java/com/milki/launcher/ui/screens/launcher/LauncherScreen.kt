@@ -57,6 +57,8 @@ import com.milki.launcher.ui.components.launcher.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.search.AppSearchDialog
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.theme.Spacing
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * Main launcher surface.
@@ -76,6 +78,7 @@ fun LauncherScreen(
     enabledHomeTriggers: Set<LauncherTrigger> = emptySet(),
     isHomescreenMenuOpen: Boolean = false,
     appDrawerUiState: AppDrawerUiState = AppDrawerUiState(),
+    drawerBenchmarkScrollEvents: Flow<Unit> = emptyFlow(),
     actionShortcuts: List<HomeItem.ActionShortcut> = emptyList(),
     installedApps: List<AppInfo> = emptyList(),
     widgetPickerCatalogStore: WidgetPickerCatalogStore? = null,
@@ -177,6 +180,7 @@ fun LauncherScreen(
                     DrawerHost(
                         appDrawerSheetState = appDrawerSheetState,
                         appDrawerUiState = currentAppDrawerUiState,
+                        benchmarkScrollEvents = drawerBenchmarkScrollEvents,
                         drawerActions = currentActions.drawer
                     )
                 }
@@ -369,6 +373,7 @@ private fun FolderOverlayHost(
 private fun DrawerHost(
     appDrawerSheetState: LauncherSheetState,
     appDrawerUiState: AppDrawerUiState,
+    benchmarkScrollEvents: Flow<Unit>,
     drawerActions: DrawerActions
 ) {
     LauncherSurfaceSheetHost(
@@ -381,7 +386,8 @@ private fun DrawerHost(
             onQueryChange = drawerActions.onQueryChange,
             onDismiss = { drawerActions.onAppDrawerOpenChange(false) },
             headerDragHandleModifier = dragHandleModifier,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            benchmarkScrollEvents = benchmarkScrollEvents
         )
     }
 }

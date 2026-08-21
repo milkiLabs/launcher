@@ -294,7 +294,9 @@ internal fun LauncherRootContent(
                     enabledHomeTriggers = enabledHomeTriggers,
                     isHomescreenMenuOpen = navigator.isHomescreenMenuOpen,
                     appDrawerUiState = appDrawerUiState,
-                    actionShortcuts = actionShortcuts,
+                    drawerBenchmarkScrollEvents =
+                        resolvedDrawerVm?.benchmarkScrollEvents
+                            ?: kotlinx.coroutines.flow.emptyFlow(),                    actionShortcuts = actionShortcuts,
                     installedApps = installedApps,
                     widgetPickerCatalogStore = widgetPickerCatalogStore
                 )

@@ -11,11 +11,15 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,8 +30,7 @@ data class AppDrawerUiState(
     val isLoading: Boolean = true,
     val adapterItems: List<DrawerAdapterItem> = emptyList(),
     val recentlyChangedApps: List<AppInfo> = emptyList(),
-    val query: String = "",
-    val benchmarkScrollSequenceToken: Long = 0L
+    val query: String = ""
 )
 
 /**
@@ -49,7 +52,7 @@ class AppDrawerViewModel(
 
     private val isLoading = MutableStateFlow(true)
     private val query = MutableStateFlow("")
-    private val benchmarkScrollSequenceToken = MutableStateFlow(0L)
+    private val benchmarkScrollEventsChannel = Channel<Unit>(Channel.BUFFERED)
     private val visibleApps = MutableStateFlow<List<AppInfo>>(emptyList())
 
     private var isDrawerVisible = false
@@ -98,21 +101,27 @@ class AppDrawerViewModel(
         isLoading,
         visibleAssemblyItems,
         recentlyChangedApps,
-        query,
-        benchmarkScrollSequenceToken
-    ) { loading, assemblyItems, recencyApps, searchQuery, scrollToken ->
+        query
+    ) { loading, assemblyItems, recencyApps, searchQuery ->
         AppDrawerUiState(
             isLoading = loading,
             adapterItems = assemblyItems,
             recentlyChangedApps = recencyApps,
-            query = searchQuery,
-            benchmarkScrollSequenceToken = scrollToken
+            query = searchQuery
         )
     }.stateIn(
         scope = viewModelScope,
         started = ViewModelSharingStarted,
         initialValue = AppDrawerUiState(isLoading = true)
     )
+
+    /**
+     * Benchmark-only scroll trigger, kept outside [uiState] so production UI
+     * state never carries test scaffolding. Emits one event per benchmark
+     * trigger; buffered so no trigger is lost before the UI collects.
+     */
+    val benchmarkScrollEvents: Flow<Unit> =
+        benchmarkScrollEventsChannel.receiveAsFlow()
 
     init {
         observeInstalledApps()
@@ -147,7 +156,7 @@ class AppDrawerViewModel(
     }
 
     fun triggerBenchmarkScrollSequenceDownUp() {
-        benchmarkScrollSequenceToken.value += 1L
+        benchmarkScrollEventsChannel.trySend(Unit)
     }
 
     private fun observeInstalledApps() {

@@ -1,6 +1,8 @@
 package com.milki.launcher.presentation.launcher
 
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,16 +28,15 @@ class LauncherNavigatorTest {
     }
 
     @Test
-    fun pop_closes_current_overlay_and_returns_home() {
-        var hideSearchCalls = 0
-        val navigator = navigator(hideSearch = { hideSearchCalls++ })
+    fun pop_closes_current_overlay_and_returns_home() = runBlocking {
+        val navigator = navigator()
 
         navigator.navigate(LauncherRoute.Search)
         val consumed = navigator.pop()
 
         assertTrue(consumed)
         assertTrue(navigator.isAtHome)
-        assertEquals(1, hideSearchCalls)
+        assertFalse(navigator.searchVisibilityFlow.first())
     }
 
     @Test
@@ -47,46 +48,38 @@ class LauncherNavigatorTest {
     }
 
     @Test
-    fun home_intent_opens_search_when_resumed_at_home() {
-        var showSearchCalls = 0
-        val navigator = navigator(showSearch = { showSearchCalls++ })
+    fun home_intent_opens_search_when_resumed_at_home() = runBlocking {
+        val navigator = navigator()
 
         navigator.onResume()
         navigator.handleHomeIntent()
 
         assertEquals(LauncherRoute.Search, navigator.currentRoute)
-        assertEquals(1, showSearchCalls)
+        assertTrue(navigator.searchVisibilityFlow.first())
     }
 
     @Test
-    fun home_intent_closes_current_overlay() {
-        var hideSearchCalls = 0
-        val navigator = navigator(hideSearch = { hideSearchCalls++ })
+    fun home_intent_closes_current_overlay() = runBlocking {
+        val navigator = navigator()
 
         navigator.onResume()
         navigator.navigate(LauncherRoute.Search)
         navigator.handleHomeIntent()
 
         assertTrue(navigator.isAtHome)
-        assertEquals(1, hideSearchCalls)
+        assertFalse(navigator.searchVisibilityFlow.first())
     }
 
     @Test
-    fun first_home_intent_after_stop_does_not_reopen_search() {
-        var showSearchCalls = 0
-        var hideSearchCalls = 0
-        val navigator = navigator(
-            showSearch = { showSearchCalls++ },
-            hideSearch = { hideSearchCalls++ }
-        )
+    fun first_home_intent_after_stop_does_not_reopen_search() = runBlocking {
+        val navigator = navigator()
 
         navigator.navigate(LauncherRoute.Search)
         navigator.onStop()
         navigator.handleHomeIntent()
 
         assertTrue(navigator.isAtHome)
-        assertEquals(1, hideSearchCalls)
-        assertEquals(1, showSearchCalls)
+        assertFalse(navigator.searchVisibilityFlow.first())
     }
 
     @Test
@@ -100,11 +93,9 @@ class LauncherNavigatorTest {
     }
 
     @Test
-    fun external_trigger_clears_overlay_before_running_action() {
+    fun external_trigger_clears_overlay_before_running_action() = runBlocking {
         var shadeCalls = 0
-        var hideSearchCalls = 0
         val navigator = navigator(
-            hideSearch = { hideSearchCalls++ },
             openNotificationShade = { shadeCalls++ }
         )
 
@@ -114,13 +105,11 @@ class LauncherNavigatorTest {
         )
 
         assertTrue(navigator.isAtHome)
-        assertEquals(1, hideSearchCalls)
+        assertFalse(navigator.searchVisibilityFlow.first())
         assertEquals(1, shadeCalls)
     }
 
     private fun navigator(
-        showSearch: () -> Unit = {},
-        hideSearch: () -> Unit = {},
         closeFolder: () -> Unit = {},
         openFolder: (String) -> Unit = {},
         openNotificationShade: () -> Unit = {},
@@ -128,8 +117,6 @@ class LauncherNavigatorTest {
         onAppDrawerVisibilityChanged: (Boolean) -> Unit = {}
     ): LauncherNavigator {
         return LauncherNavigator(
-            showSearch = showSearch,
-            hideSearch = hideSearch,
             closeFolder = closeFolder,
             openFolder = openFolder,
             openNotificationShade = openNotificationShade,

@@ -53,7 +53,7 @@ class PermissionRequestCoordinator(
      * search surface should be dismissed.
      *
      * The [LauncherNavigator] is the single owner of search visibility: this
-     * only pops the route, whose closeRoute(Search) invokes hideSearch().
+     * only pops the route, whose closeRoute(Search) clears the visibility flow.
      */
     fun closeSearch() {
         onCloseSearch()

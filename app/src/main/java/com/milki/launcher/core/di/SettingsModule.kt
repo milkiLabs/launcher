@@ -1,10 +1,15 @@
 package com.milki.launcher.core.di
 
+import com.milki.launcher.presentation.settings.DefaultLauncherPromoter
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val settingsModule = module {
+    viewModel {
+        DefaultLauncherPromoter(appContext = get())
+    }
+
     viewModel {
         SettingsViewModel(
             settingsReader = get(),

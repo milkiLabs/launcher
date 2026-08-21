@@ -73,8 +73,6 @@ internal class LauncherHostRuntime(
     private val screenLockController = ScreenLockController(activity)
 
     val launcherNavigator = LauncherNavigator(
-        showSearch = { searchViewModelProvider().showSearch() },
-        hideSearch = { searchViewModelProvider().hideSearch() },
         closeFolder = { homeViewModel.closeFolder() },
         openFolder = { folderId -> homeViewModel.openFolder(folderId) },
         openNotificationShade = {

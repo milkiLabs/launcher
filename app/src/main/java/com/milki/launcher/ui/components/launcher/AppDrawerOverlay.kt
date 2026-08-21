@@ -79,6 +79,8 @@ import com.milki.launcher.ui.components.common.FixedAppGrid
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -111,7 +113,8 @@ fun AppDrawerOverlay(
     onQueryChange: (String) -> Unit,
     onDismiss: () -> Unit,
     headerDragHandleModifier: Modifier = Modifier,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    benchmarkScrollEvents: Flow<Unit> = emptyFlow()
 ) {
     val actionHandler = LocalSearchActionHandler.current
     val gridState = rememberLazyGridState()
@@ -131,11 +134,18 @@ fun AppDrawerOverlay(
         hasItems = uiState.adapterItems.isNotEmpty(),
         gridState = gridState
     )
-    HandleBenchmarkScrollSequence(
-        benchmarkScrollSequenceToken = uiState.benchmarkScrollSequenceToken,
-        itemCount = uiState.adapterItems.size,
-        gridState = gridState
-    )
+    LaunchedEffect(benchmarkScrollEvents) {
+        benchmarkScrollEvents.collect {
+            val lastIndex = uiState.adapterItems.size - 1
+            if (lastIndex <= 0) return@collect
+
+            val downIndex =
+                ((lastIndex * BENCHMARK_SCROLL_DOWN_FRACTION).toInt()).coerceIn(1, lastIndex)
+            gridState.animateScrollToItem(downIndex)
+            gridState.animateScrollToItem(lastIndex)
+            gridState.animateScrollToItem(0)
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -244,25 +254,6 @@ private fun HandleDrawerQueryScroll(
         if (hasItems) {
             gridState.scrollToItem(0)
         }
-    }
-}
-
-@Composable
-private fun HandleBenchmarkScrollSequence(
-    benchmarkScrollSequenceToken: Long,
-    itemCount: Int,
-    gridState: androidx.compose.foundation.lazy.grid.LazyGridState
-) {
-    LaunchedEffect(benchmarkScrollSequenceToken) {
-        if (benchmarkScrollSequenceToken == 0L) return@LaunchedEffect
-
-        val lastIndex = itemCount - 1
-        if (lastIndex <= 0) return@LaunchedEffect
-
-        val downIndex = ((lastIndex * BENCHMARK_SCROLL_DOWN_FRACTION).toInt()).coerceIn(1, lastIndex)
-        gridState.animateScrollToItem(downIndex)
-        gridState.animateScrollToItem(lastIndex)
-        gridState.animateScrollToItem(0)
     }
 }
 

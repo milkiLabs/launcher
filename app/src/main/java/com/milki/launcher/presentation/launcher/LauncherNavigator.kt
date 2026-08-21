@@ -6,6 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavKey
 import com.milki.launcher.domain.model.LauncherTriggerAction
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 
 /**
@@ -39,10 +42,13 @@ sealed interface LauncherRoute : NavKey {
  * [backStack] is authoritative for search, drawer, widget picker, shortcut
  * manager, and folder visibility. Only the homescreen context menu remains
  * local because menus are not navigation destinations.
+ *
+ * SEARCH VISIBILITY:
+ * The navigator is the single owner of search visibility. [searchVisibility]
+ * projects the back-stack state as a hot flow so consumers (e.g.
+ * SearchViewModel) can observe it without keeping their own mirror copy.
  */
 class LauncherNavigator(
-    private val showSearch: () -> Unit,
-    private val hideSearch: () -> Unit,
     private val closeFolder: () -> Unit,
     private val openFolder: (String) -> Unit = {},
     private val openNotificationShade: () -> Unit = {},
@@ -52,6 +58,13 @@ class LauncherNavigator(
     val backStack = mutableStateListOf<LauncherRoute>(LauncherRoute.Home)
 
     private var wasResumed = false
+
+    /**
+     * Hot projection of "is the search route open". Updated only from
+     * [openRoute]/[closeRoute] so it can never diverge from [backStack].
+     */
+    private val searchVisibility = MutableStateFlow(false)
+    val searchVisibilityFlow: StateFlow<Boolean> = searchVisibility.asStateFlow()
 
     var isHomescreenMenuOpen by mutableStateOf(false)
         private set
@@ -213,7 +226,7 @@ class LauncherNavigator(
 
     private fun openRoute(route: LauncherRoute) {
         when (route) {
-            LauncherRoute.Search -> showSearch()
+            LauncherRoute.Search -> searchVisibility.value = true
             LauncherRoute.AppDrawer -> onAppDrawerVisibilityChanged(true)
             is LauncherRoute.Folder -> openFolder(route.folderId)
             LauncherRoute.Home,
@@ -224,7 +237,7 @@ class LauncherNavigator(
 
     private fun closeRoute(route: LauncherRoute) {
         when (route) {
-            LauncherRoute.Search -> hideSearch()
+            LauncherRoute.Search -> searchVisibility.value = false
             LauncherRoute.AppDrawer -> onAppDrawerVisibilityChanged(false)
             is LauncherRoute.Folder -> closeFolder()
             LauncherRoute.Home,

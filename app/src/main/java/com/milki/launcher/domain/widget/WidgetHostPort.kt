@@ -72,6 +72,17 @@ interface WidgetHostPort {
         options: Bundle? = null
     ): Intent
 
+    /**
+     * Creates the same "Allow this widget?" Intent for a provider that is only
+     * known by its component parts (e.g. restored from a backup), targeting the
+     * calling user's profile.
+     */
+    fun createBindPermissionIntent(
+        appWidgetId: Int,
+        providerPackage: String,
+        providerClass: String
+    ): Intent
+
     /** Starts the provider's configuration activity for a result. */
     fun startConfigureActivityForResult(
         activity: Activity,

@@ -50,6 +50,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
 import android.util.Log
 import android.util.SizeF
 import com.milki.launcher.domain.model.GridSpan
@@ -245,6 +246,24 @@ class WidgetHostManager(
             if (options != null) {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_OPTIONS, options)
             }
+        }
+    }
+
+    override fun createBindPermissionIntent(
+        appWidgetId: Int,
+        providerPackage: String,
+        providerClass: String
+    ): Intent {
+        return Intent(AppWidgetManager.ACTION_APPWIDGET_BIND).apply {
+            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            putExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_PROVIDER,
+                ComponentName(providerPackage, providerClass)
+            )
+            putExtra(
+                AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE,
+                Process.myUserHandle()
+            )
         }
     }
 
