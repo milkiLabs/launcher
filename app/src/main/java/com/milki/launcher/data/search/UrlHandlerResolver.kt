@@ -11,6 +11,7 @@ import android.util.Log
 import com.milki.launcher.data.cache.SnapshotCache
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.domain.model.UrlHandlerApp
+import com.milki.launcher.domain.search.UrlHandlerPort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,7 +23,7 @@ private const val URL_HANDLER_RESOLVER_TAG = "UrlHandlerResolver"
 class UrlHandlerResolver(
     private val context: Context,
     packageChangeMonitor: PackageChangeMonitor
-) {
+) : UrlHandlerPort {
         private val packageManager: PackageManager = context.packageManager
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -62,7 +63,7 @@ class UrlHandlerResolver(
         }.getOrNull()
     }
 
-        fun resolveNonBrowserUrlHandler(url: String): UrlHandlerApp? {
+        override fun resolveNonBrowserUrlHandler(url: String): UrlHandlerApp? {
         val handler = resolveUrlHandler(url) ?: return null
         return handler.takeUnless { isBrowserPackage(it.packageName) }
     }

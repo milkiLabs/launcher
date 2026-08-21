@@ -1,7 +1,6 @@
 package com.milki.launcher.domain.search
 
 import com.milki.launcher.core.url.UrlValidator
-import com.milki.launcher.data.search.UrlHandlerResolver
 import com.milki.launcher.domain.model.UrlSearchResult
 
 /**
@@ -11,10 +10,10 @@ internal object SuggestionPatternMatcher {
 
     fun resolveUrlResult(
         rawText: String,
-        urlHandlerResolver: UrlHandlerResolver
+        urlHandlerPort: UrlHandlerPort
     ): UrlSearchResult? {
         val validationResult = UrlValidator.validateUrl(rawText) ?: return null
-        val handlerApp = urlHandlerResolver.resolveNonBrowserUrlHandler(validationResult.url)
+        val handlerApp = urlHandlerPort.resolveNonBrowserUrlHandler(validationResult.url)
 
         return UrlSearchResult(
             url = validationResult.url,

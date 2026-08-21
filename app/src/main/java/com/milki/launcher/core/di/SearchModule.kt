@@ -12,6 +12,7 @@ import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.ClipboardReader
 import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
+import com.milki.launcher.domain.search.UrlHandlerPort
 import com.milki.launcher.presentation.search.SearchViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -53,7 +54,7 @@ val searchModule = module {
     single {
         SuggestionResolver(
             clipboardReader = get(),
-            urlHandlerResolver = get()
+            urlHandlerPort = get<UrlHandlerPort>()
         )
     }
 

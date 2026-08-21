@@ -11,6 +11,7 @@ import com.milki.launcher.domain.repository.HomeTriggerRepository
 import com.milki.launcher.domain.repository.PrefixOwnerRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
 import com.milki.launcher.domain.repository.SettingsReader
+import com.milki.launcher.domain.search.UrlHandlerPort
 import org.koin.dsl.module
 
 val coreModule = module {
@@ -43,4 +44,6 @@ val coreModule = module {
             packageChangeMonitor = get()
         )
     }
+
+    single<UrlHandlerPort> { get<UrlHandlerResolver>() }
 }

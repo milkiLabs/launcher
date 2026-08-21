@@ -1,7 +1,6 @@
 package com.milki.launcher.domain.search
 
 import android.util.Patterns
-import com.milki.launcher.data.search.UrlHandlerResolver
 
 /**
  * SuggestionResolver reads text and converts it into one actionable suggestion.
@@ -17,7 +16,7 @@ import com.milki.launcher.data.search.UrlHandlerResolver
  */
 class SuggestionResolver(
     private val clipboardReader: ClipboardReader,
-    private val urlHandlerResolver: UrlHandlerResolver
+    private val urlHandlerPort: UrlHandlerPort
 ) {
 
     /**
@@ -54,7 +53,7 @@ class SuggestionResolver(
      * Attempts to parse the text as URL and resolve an app handler.
      */
     private fun resolveUrlSuggestion(rawText: String): ActionSuggestion.OpenUrl? {
-        val result = SuggestionPatternMatcher.resolveUrlResult(rawText, urlHandlerResolver) ?: return null
+        val result = SuggestionPatternMatcher.resolveUrlResult(rawText, urlHandlerPort) ?: return null
 
         return ActionSuggestion.OpenUrl(
             urlResult = result,
