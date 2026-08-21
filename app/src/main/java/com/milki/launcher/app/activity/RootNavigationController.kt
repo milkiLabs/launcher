@@ -1,40 +1,59 @@
 package com.milki.launcher.app.activity
 
+import androidx.navigation3.runtime.NavBackStack
+
 /**
- * Seam between the composition-owned root back stack and intent handling
- * (`onNewIntent`) that runs outside composition.
+ * Seam between the root back stack and intent handling (`onNewIntent`) that
+ * runs outside composition.
  *
- * Implemented by a holder bound while the root navigation composable is
- * alive; defaults are no-ops so intent handling never dereferences nulls
- * when the UI is not composed yet (or already disposed).
+ * Unlike a composition-bound holder, this owns the [NavBackStack] eagerly
+ * (created in `onCreate`), so home intents delivered before the first
+ * composition — or after disposal during recreation — are still handled.
+ *
+ * @param onResetExtras invoked after non-home entries are popped; used to
+ *   clear transient launcher routes owned by the host runtime.
  */
-interface RootNavigationController {
+internal class RootNavigationController(
+    initial: MainRoute,
+    private val onResetExtras: () -> Unit
+) {
+    val backStack: NavBackStack<MainRoute> = NavBackStack(initial)
+
     /** Whether the root back stack currently shows the home entry. */
-    fun isAtHome(): Boolean
+    fun isAtHome(): Boolean = backStack.lastOrNull() == MainRoute.Home
 
     /** Pops any non-home entries and clears transient launcher routes. */
-    fun resetToHome()
+    fun resetToHome() {
+        while (backStack.size > 1) {
+            backStack.removeLastOrNull()
+        }
+        onResetExtras()
+    }
+
+    /** Pushes [route] unless it is already the current entry. */
+    fun pushIfAbsent(route: MainRoute) {
+        if (backStack.lastOrNull() != route) {
+            backStack.add(route)
+        }
+    }
+
+    /** Pops the current entry unless only home remains. */
+    fun pop() {
+        if (backStack.size > 1) {
+            backStack.removeLastOrNull()
+        }
+    }
 }
 
-/**
- * Default implementation whose behavior is bound from composition via
- * [bind] and released on dispose.
- */
-class BindableRootNavigationController : RootNavigationController {
-    private var isAtHomeCheck: () -> Boolean = { true }
-    private var resetToHomeAction: () -> Unit = {}
-
-    fun bind(isAtHome: () -> Boolean, resetToHome: () -> Unit) {
-        isAtHomeCheck = isAtHome
-        resetToHomeAction = resetToHome
+/** Stable string keys used to persist the stack across process death. */
+internal val MainRoute.routeKey: String
+    get() = when (this) {
+        MainRoute.Home -> "home"
+        MainRoute.Settings -> "settings"
     }
 
-    fun unbind() {
-        isAtHomeCheck = { true }
-        resetToHomeAction = {}
-    }
-
-    override fun isAtHome(): Boolean = isAtHomeCheck()
-
-    override fun resetToHome() = resetToHomeAction()
+internal fun mainRouteFromKey(key: String): MainRoute? = when (key) {
+    "home" -> MainRoute.Home
+    "settings" -> MainRoute.Settings
+    else -> null
 }

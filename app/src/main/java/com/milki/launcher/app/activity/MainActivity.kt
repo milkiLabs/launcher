@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,7 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.milki.launcher.core.intent.isHomeIntent
 import com.milki.launcher.core.intent.shouldNormalizeRootToHome
@@ -47,7 +45,7 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
 
 @Serializable
-private sealed interface MainRoute : NavKey {
+internal sealed interface MainRoute : NavKey {
     @Serializable
     data object Home : MainRoute
 
@@ -89,8 +87,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var runtime: LauncherHostRuntime
     private lateinit var backupCoordinator: BackupImportExportCoordinator
-
-    private val rootNavigation = BindableRootNavigationController()
+    private lateinit var rootNavigation: RootNavigationController
 
     private val requestHomeRoleLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -129,6 +126,11 @@ class MainActivity : ComponentActivity() {
                         widgetHost = widgetHost
                     )
                 runtime.initialize()
+                rootNavigation = RootNavigationController(
+                    initial = MainRoute.Home,
+                    onResetExtras = { runtime.launcherNavigator.clearTransientRoutes() }
+                )
+                restoreRootBackStack(savedInstanceState)
                 runtime.handleInitialIntent(intent)
             }
 
@@ -142,34 +144,14 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun MainNavigationRoot() {
-        val rootBackStack = rememberNavBackStack(MainRoute.Home)
+        val rootBackStack = rootNavigation.backStack
         val showSetDefaultLauncherPrompt by
         defaultLauncherPromoter.showSetDefaultLauncherPrompt
             .collectAsStateWithLifecycle()
 
-        DisposableEffect(rootBackStack) {
-            rootNavigation.bind(
-                isAtHome = { rootBackStack.lastOrNull() == MainRoute.Home },
-                resetToHome = {
-                    while (rootBackStack.size > 1) {
-                        rootBackStack.removeLastOrNull()
-                    }
-                    runtime.launcherNavigator.clearTransientRoutes()
-                }
-            )
-
-            onDispose {
-                rootNavigation.unbind()
-            }
-        }
-
         NavDisplay(
             backStack = rootBackStack,
-            onBack = {
-                if (rootBackStack.size > 1) {
-                    rootBackStack.removeLastOrNull()
-                }
-            },
+            onBack = { rootNavigation.pop() },
             entryProvider = { route ->
                 when (route) {
                     MainRoute.Home ->
@@ -178,9 +160,7 @@ class MainActivity : ComponentActivity() {
                                 runtime = runtime,
                                 onOpenSettings = {
                                     runtime.launcherNavigator.clearTransientRoutes()
-                                    if (rootBackStack.lastOrNull() != MainRoute.Settings) {
-                                        rootBackStack.add(MainRoute.Settings)
-                                    }
+                                    rootNavigation.pushIfAbsent(MainRoute.Settings)
                                 },
                                 showSetDefaultLauncherPrompt =
                                     showSetDefaultLauncherPrompt,
@@ -204,9 +184,7 @@ class MainActivity : ComponentActivity() {
                     MainRoute.Settings ->
                         NavEntry(route) {
                             SettingsRootContent(
-                                onExitSettings = {
-                                    rootBackStack.removeLastOrNull()
-                                }
+                                onExitSettings = { rootNavigation.pop() }
                             )
                         }
 
@@ -257,6 +235,21 @@ class MainActivity : ComponentActivity() {
                 onExitSettings = onExitSettings
             )
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putStringArrayList(
+            KEY_ROOT_BACK_STACK,
+            ArrayList(rootNavigation.backStack.map { it.routeKey })
+        )
+    }
+
+    private fun restoreRootBackStack(savedInstanceState: Bundle?) {
+        val keys = savedInstanceState?.getStringArrayList(KEY_ROOT_BACK_STACK) ?: return
+        val restored = keys.mapNotNull(::mainRouteFromKey)
+        rootNavigation.backStack.clear()
+        rootNavigation.backStack.addAll(restored.ifEmpty { listOf(MainRoute.Home) })
     }
 
     override fun onResume() {
@@ -328,5 +321,9 @@ class MainActivity : ComponentActivity() {
         }
 
         openDefaultLauncherSettingsFallback()
+    }
+
+    private companion object {
+        const val KEY_ROOT_BACK_STACK = "root_back_stack"
     }
 }
