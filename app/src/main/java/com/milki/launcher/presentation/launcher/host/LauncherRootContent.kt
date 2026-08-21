@@ -51,8 +51,16 @@ import com.milki.launcher.ui.screens.launcher.SearchActions
 import com.milki.launcher.ui.screens.launcher.ShortcutManagerActions
 import com.milki.launcher.ui.screens.launcher.WidgetActions
 import com.milki.launcher.ui.theme.LauncherTheme
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
+
+/**
+ * Shared pre-VM defaults. Used only while the lazily-resolved ViewModels are
+ * still null (first frame); not backed by any Flow so there are no throwaway
+ * placeholder streams and no forked "default state" definitions.
+ */
+private val PreVmSearchUiState = SearchUiState()
+private val PreVmAppDrawerUiState = AppDrawerUiState()
 
 /**
  * Composable root for launcher home.
@@ -127,7 +135,8 @@ internal fun LauncherRootContent(
         }
 
         // Collect search/drawer state only after VMs are resolved.
-        // Before that, use safe defaults (search hidden, drawer empty).
+        // Before that, the null VM makes "not yet loaded" visible in types and
+        // we render shared pre-VM defaults (search hidden, drawer empty).
         val resolvedSearchVm = searchViewModel
         val resolvedDrawerVm = appDrawerViewModel
         val installedAppsFlow = remember(navigator.isShortcutManagerOpen) {
@@ -138,16 +147,16 @@ internal fun LauncherRootContent(
             }
         }
 
-        val searchUiState by (resolvedSearchVm?.uiState
-            ?: remember { MutableStateFlow(SearchUiState()) })
-            .collectAsStateWithLifecycle()
+        val searchUiState: SearchUiState = resolvedSearchVm?.uiState
+            ?.collectAsStateWithLifecycle()?.value
+            ?: PreVmSearchUiState
         val installedApps by installedAppsFlow.collectAsStateWithLifecycle(
             initialValue = emptyList()
         )
 
-        val appDrawerUiState by (resolvedDrawerVm?.uiState
-            ?: remember { MutableStateFlow(AppDrawerUiState()) })
-            .collectAsStateWithLifecycle()
+        val appDrawerUiState: AppDrawerUiState = resolvedDrawerVm?.uiState
+            ?.collectAsStateWithLifecycle()?.value
+            ?: PreVmAppDrawerUiState
 
         LaunchedEffect(navigator.currentRoute) {
             val hasImeOwningSurface = !navigator.isAtHome
@@ -295,8 +304,8 @@ internal fun LauncherRootContent(
                     isHomescreenMenuOpen = navigator.isHomescreenMenuOpen,
                     appDrawerUiState = appDrawerUiState,
                     drawerBenchmarkScrollEvents =
-                        resolvedDrawerVm?.benchmarkScrollEvents
-                            ?: kotlinx.coroutines.flow.emptyFlow(),                    actionShortcuts = actionShortcuts,
+                        resolvedDrawerVm?.benchmarkScrollEvents ?: emptyFlow(),
+                    actionShortcuts = actionShortcuts,
                     installedApps = installedApps,
                     widgetPickerCatalogStore = widgetPickerCatalogStore
                 )
