@@ -17,17 +17,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.milki.launcher.core.intent.launchApp
-import com.milki.launcher.core.intent.launchAppShortcut
-import com.milki.launcher.core.intent.launchSafe
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.widget.WidgetHostPort
-import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
-import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
-import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.model.targetForTrigger
 import com.milki.launcher.domain.repository.SettingsReader
@@ -116,6 +110,7 @@ internal fun LauncherRootContent(
         )
     }
     var widgetPickerCatalogStore by remember { mutableStateOf<WidgetPickerCatalogStore?>(null) }
+    val triggerLaunchController = remember { TriggerLaunchController() }
 
     CompositionLocalProvider(
         LocalSearchActionHandler provides runtime::dispatchSearchResultAction
@@ -175,121 +170,154 @@ internal fun LauncherRootContent(
         }
 
         LauncherTheme {
-            val launcherActions = remember(
-                context,
-                launcherSettings,
-                onOpenSettings,
-                resolvedSearchVm,
-                resolvedDrawerVm,
+            // Per-group remembers: each action group only rebuilds when one of
+            // its actual dependencies changes, instead of all groups rebuilding
+            // whenever any of the seven shared keys change.
+            val searchActions = remember(resolvedSearchVm, navigator) {
+                SearchActions(
+                    onQueryChange = { query ->
+                        resolvedSearchVm?.onQueryChange(query)
+                    },
+                    onDismissSearch = navigator::pop
+                )
+            }
+            val menuActions = remember(navigator, onOpenSettings) {
+                MenuActions(
+                    onOpenSettings = {
+                        navigator.clearTransientRoutes()
+                        onOpenSettings()
+                    },
+                    onHomescreenMenuOpenChange = navigator::updateHomescreenMenuOpen,
+                    onOpenShortcutManager = {
+                        navigator.updateShortcutManagerOpen(true)
+                    }
+                )
+            }
+            val shortcutManagerActions = remember(
+                navigator,
                 actionShortcutRepository,
+                homeViewModel,
                 scope
             ) {
+                ShortcutManagerActions(
+                    onShortcutManagerOpenChange = navigator::updateShortcutManagerOpen,
+                    onSaveShortcut = { shortcut, onResult ->
+                        scope.launch {
+                            val success = actionShortcutRepository.saveShortcut(shortcut)
+                            onResult(success)
+                        }
+                    },
+                    onDeleteShortcut = { shortcut ->
+                        scope.launch {
+                            actionShortcutRepository.deleteShortcut(shortcut.id)
+                            homeViewModel.unpinItem(shortcut.id)
+                        }
+                    },
+                    onShortcutExternalDragStarted = {
+                        navigator.clearTransientRoutes()
+                    }
+                )
+            }
+            val drawerActions = remember(resolvedDrawerVm, navigator) {
+                DrawerActions(
+                    onAppDrawerOpenChange = navigator::updateAppDrawerOpen,
+                    onQueryChange = { query ->
+                        resolvedDrawerVm?.updateQuery(query)
+                    }
+                )
+            }
+            val homeActions = remember(
+                launcherSettings,
+                navigator,
+                homeController,
+                triggerLaunchController,
+                context
+            ) {
+                HomeActions(
+                    onHomeTrigger = { trigger ->
+                        val action = launcherSettings.actionForTrigger(trigger)
+                        navigator.handleHomeTriggerAction(
+                            action = action,
+                            onOpenAppTarget = {
+                                triggerLaunchController.launch(
+                                    context = context,
+                                    target = launcherSettings.targetForTrigger(trigger)
+                                )
+                            }
+                        )
+                    },
+                    onPinnedItemClick = { item ->
+                        if (item is com.milki.launcher.domain.model.HomeItem.FolderItem) {
+                            navigator.updateFolderOpen(item.id)
+                        } else {
+                            navigator.clearTransientRoutes()
+                            homeController.onPinnedItemClick(item, context)
+                        }
+                    },
+                    onPinnedItemLongPress = {},
+                    onPinnedItemMove = homeController::onPinnedItemMove,
+                    onItemDroppedToHome = homeController::onItemDroppedToHome
+                )
+            }
+            val folderActions = remember(homeController, navigator) {
+                FolderActions(
+                    onCreateFolder = homeController::onCreateFolder,
+                    onAddItemToFolder = homeController::onAddItemToFolder,
+                    onMergeFolders = homeController::onMergeFolders,
+                    onFolderClose = {
+                        navigator.updateFolderOpen(null)
+                    },
+                    onFolderRename = homeController::onFolderRename,
+                    onFolderItemClick = { item ->
+                        navigator.clearTransientRoutes()
+                        homeController.onFolderItemClick(item, context)
+                    },
+                    onFolderItemRemove = homeController::onRemoveItemFromFolder,
+                    onFolderItemReorder = homeController::onReorderFolderItems,
+                    onExtractItemFromFolder = homeController::onExtractItemFromFolder,
+                    onMoveFolderItemToFolder = homeController::onMoveFolderItemToFolder,
+                    onFolderChildDroppedOnItem = homeController::onFolderChildDroppedOnItem
+                )
+            }
+            val widgetActions = remember(homeController, navigator, context) {
+                WidgetActions(
+                    onWidgetPickerOpenChange = navigator::updateWidgetPickerOpen,
+                    onWidgetPickerQueryChange = navigator::updateWidgetPickerQuery,
+                    onWidgetExternalDragStarted = {
+                        navigator.clearTransientRoutes()
+                    },
+                    onRemoveWidget = { widgetId, _ -> homeController.onRemoveWidget(widgetId) },
+                    onUpdateWidgetFrame = homeController::onUpdateWidgetFrame,
+                    onUpdateWidgetDisplayMode = homeController::onUpdateWidgetDisplayMode,
+                    onExpandPopupWidget = homeController::onExpandPopupWidget,
+                    onLaunchWidgetApp = { packageName ->
+                        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+                        if (intent != null) {
+                            navigator.clearTransientRoutes()
+                            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        }
+                    },
+                    onWidgetDroppedToHome = homeController::onWidgetDroppedToHome
+                )
+            }
+            val launcherActions = remember(
+                searchActions,
+                menuActions,
+                shortcutManagerActions,
+                drawerActions,
+                homeActions,
+                folderActions,
+                widgetActions
+            ) {
                 LauncherActions(
-                    search = SearchActions(
-                        onQueryChange = { query ->
-                            resolvedSearchVm?.onQueryChange(query)
-                        },
-                        onDismissSearch = {
-                            navigator.pop()
-                        }
-                    ),
-                    menu = MenuActions(
-                        onOpenSettings = {
-                            navigator.clearTransientRoutes()
-                            onOpenSettings()
-                        },
-                        onHomescreenMenuOpenChange = navigator::updateHomescreenMenuOpen,
-                        onOpenShortcutManager = {
-                            navigator.updateShortcutManagerOpen(true)
-                        }
-                    ),
-                    shortcuts = ShortcutManagerActions(
-                        onShortcutManagerOpenChange = navigator::updateShortcutManagerOpen,
-                        onSaveShortcut = { shortcut, onResult ->
-                            scope.launch {
-                                val success = actionShortcutRepository.saveShortcut(shortcut)
-                                onResult(success)
-                            }
-                        },
-                        onDeleteShortcut = { shortcut ->
-                            scope.launch {
-                                actionShortcutRepository.deleteShortcut(shortcut.id)
-                                homeViewModel.unpinItem(shortcut.id)
-                            }
-                        },
-                        onShortcutExternalDragStarted = {
-                            navigator.clearTransientRoutes()
-                        }
-                    ),
-                    drawer = DrawerActions(
-                        onAppDrawerOpenChange = navigator::updateAppDrawerOpen,
-                        onQueryChange = { query ->
-                            resolvedDrawerVm?.updateQuery(query)
-                        }
-                    ),
-                    home = HomeActions(
-                        onHomeTrigger = { trigger ->
-                            val action = launcherSettings.actionForTrigger(trigger)
-                            navigator.handleHomeTriggerAction(
-                                action = action,
-                                onOpenAppTarget = {
-                                    openTriggerLaunchTarget(
-                                        context = context,
-                                        target = launcherSettings.targetForTrigger(trigger)
-                                    )
-                                }
-                            )
-                        },
-                        onPinnedItemClick = { item ->
-                            if (item is com.milki.launcher.domain.model.HomeItem.FolderItem) {
-                                navigator.updateFolderOpen(item.id)
-                            } else {
-                                navigator.clearTransientRoutes()
-                                homeController.onPinnedItemClick(item, context)
-                            }
-                        },
-                        onPinnedItemLongPress = {},
-                        onPinnedItemMove = homeController::onPinnedItemMove,
-                        onItemDroppedToHome = homeController::onItemDroppedToHome
-                    ),
-                    folder = FolderActions(
-                        onCreateFolder = homeController::onCreateFolder,
-                        onAddItemToFolder = homeController::onAddItemToFolder,
-                        onMergeFolders = homeController::onMergeFolders,
-                        onFolderClose = {
-                            navigator.updateFolderOpen(null)
-                        },
-                        onFolderRename = homeController::onFolderRename,
-                        onFolderItemClick = { item ->
-                            navigator.clearTransientRoutes()
-                            homeController.onFolderItemClick(item, context)
-                        },
-                        onFolderItemRemove = homeController::onRemoveItemFromFolder,
-                        onFolderItemReorder = homeController::onReorderFolderItems,
-                        onExtractItemFromFolder = homeController::onExtractItemFromFolder,
-                        onMoveFolderItemToFolder = homeController::onMoveFolderItemToFolder,
-                        onFolderChildDroppedOnItem = homeController::onFolderChildDroppedOnItem
-                    ),
-                    widget = WidgetActions(
-                        onWidgetPickerOpenChange = navigator::updateWidgetPickerOpen,
-                        onWidgetPickerQueryChange = navigator::updateWidgetPickerQuery,
-                        onWidgetExternalDragStarted = {
-                            navigator.clearTransientRoutes()
-                        },
-                        onRemoveWidget = { widgetId, _ -> homeController.onRemoveWidget(widgetId) },
-                        onUpdateWidgetFrame = homeController::onUpdateWidgetFrame,
-                        onUpdateWidgetDisplayMode = homeController::onUpdateWidgetDisplayMode,
-                        onExpandPopupWidget = homeController::onExpandPopupWidget,
-                        onLaunchWidgetApp = { packageName ->
-                            val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-                            if (intent != null) {
-                                navigator.clearTransientRoutes()
-                                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                context.startActivity(intent)
-                            }
-                        },
-                        onWidgetDroppedToHome = homeController::onWidgetDroppedToHome
-                    )
+                    search = searchActions,
+                    menu = menuActions,
+                    shortcuts = shortcutManagerActions,
+                    drawer = drawerActions,
+                    home = homeActions,
+                    folder = folderActions,
+                    widget = widgetActions
                 )
             }
 
@@ -340,48 +368,3 @@ internal fun LauncherRootContent(
     }
 }
 
-private fun openTriggerLaunchTarget(
-    context: android.content.Context,
-    target: LauncherTriggerTarget?
-) {
-    when (target) {
-        is LauncherTriggerTarget.App -> {
-            launchApp(
-                context = context,
-                appInfo = AppInfo(
-                    name = target.displayName,
-                    packageName = target.packageName,
-                    activityName = target.activityName
-                )
-            )
-        }
-
-        is LauncherTriggerTarget.AppShortcut -> {
-            launchAppShortcut(
-                context = context,
-                appShortcut = target.toHomeShortcut()
-            )
-        }
-
-        is LauncherTriggerTarget.ActionShortcut -> {
-            val uri = android.net.Uri.parse(target.destinationUri)
-            val nonBrowserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                data = uri
-                flags =
-                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_REQUIRE_NON_BROWSER
-                target.packageName?.let { setPackage(it) }
-            }
-            val plainIntent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                data = uri
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                target.packageName?.let { setPackage(it) }
-            }
-            context.launchSafe(
-                "trigger action shortcut ${target.destinationUri}",
-                listOf(nonBrowserIntent, plainIntent)
-            )
-        }
-
-        null -> Unit
-    }
-}
