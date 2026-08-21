@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -88,16 +89,21 @@ fun LauncherScreen(
     var homescreenMenuAnchorPx by remember { mutableStateOf(Offset.Zero) }
     val homeItemBoundsById = remember { mutableStateMapOf<String, Rect>() }
 
-    val currentSearchUiState by rememberUpdatedState(searchUiState)
-    val currentPinnedItems by rememberUpdatedState(pinnedItems)
-    val currentOpenFolderItem by rememberUpdatedState(openFolderItem)
-    val currentActions by rememberUpdatedState(actions)
-    val currentEnabledHomeTriggers by rememberUpdatedState(enabledHomeTriggers)
-    val currentHomescreenMenuOpen by rememberUpdatedState(isHomescreenMenuOpen)
-    val currentAppDrawerUiState by rememberUpdatedState(appDrawerUiState)
-    val currentActionShortcuts by rememberUpdatedState(actionShortcuts)
-    val currentInstalledApps by rememberUpdatedState(installedApps)
-    val currentWidgetPickerCatalogStore by rememberUpdatedState(widgetPickerCatalogStore)
+    val current by rememberUpdatedState(
+        LauncherScreenParams(
+            searchUiState = searchUiState,
+            pinnedItems = pinnedItems,
+            openFolderItem = openFolderItem,
+            actions = actions,
+            enabledHomeTriggers = enabledHomeTriggers,
+            isHomescreenMenuOpen = isHomescreenMenuOpen,
+            appDrawerUiState = appDrawerUiState,
+            drawerBenchmarkScrollEvents = drawerBenchmarkScrollEvents,
+            actionShortcuts = actionShortcuts,
+            installedApps = installedApps,
+            widgetPickerCatalogStore = widgetPickerCatalogStore
+        )
+    )
 
     BackHandler(enabled = navigator.isAtHome) {
         // The launcher Home root consumes back instead of finishing the activity.
@@ -111,8 +117,8 @@ fun LauncherScreen(
             when (route) {
                 LauncherRoute.Home -> NavEntry(route) {
                     val activeHomeTriggers = selectActiveHomeTriggers(
-                        enabledHomeTriggers = currentEnabledHomeTriggers,
-                        isHomescreenMenuOpen = currentHomescreenMenuOpen,
+                        enabledHomeTriggers = current.enabledHomeTriggers,
+                        isHomescreenMenuOpen = current.isHomescreenMenuOpen,
                         hasNavigationOverlay = !navigator.isAtHome
                     )
 
@@ -123,7 +129,7 @@ fun LauncherScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         HomeSurface(
-                            pinnedItems = currentPinnedItems,
+                            pinnedItems = current.pinnedItems,
                             actions = actions,
                             enabledHomeTriggers = activeHomeTriggers,
                             onMenuAnchorChanged = {
@@ -138,27 +144,27 @@ fun LauncherScreen(
                         )
 
                         HomescreenMenu(
-                            expanded = currentHomescreenMenuOpen,
+                            expanded = current.isHomescreenMenuOpen,
                             anchorPx = homescreenMenuAnchorPx,
                             onDismiss = {
-                                currentActions.menu
+                                current.actions.menu
                                     .onHomescreenMenuOpenChange(false)
                             },
                             onOpenWidgets = {
-                                currentActions.menu
+                                current.actions.menu
                                     .onHomescreenMenuOpenChange(false)
-                                currentActions.widget
+                                current.actions.widget
                                     .onWidgetPickerOpenChange(true)
                             },
                             onOpenShortcuts = {
-                                currentActions.menu
+                                current.actions.menu
                                     .onHomescreenMenuOpenChange(false)
-                                currentActions.menu.onOpenShortcutManager()
+                                current.actions.menu.onOpenShortcutManager()
                             },
                             onOpenSettings = {
-                                currentActions.menu
+                                current.actions.menu
                                     .onHomescreenMenuOpenChange(false)
-                                currentActions.menu.onOpenSettings()
+                                current.actions.menu.onOpenSettings()
                             }
                         )
                     }
@@ -166,17 +172,17 @@ fun LauncherScreen(
 
                 LauncherRoute.Search -> overlayEntry(route) {
                     SearchOverlayHost(
-                        searchUiState = currentSearchUiState,
-                        searchActions = currentActions.search
+                        searchUiState = current.searchUiState,
+                        searchActions = current.actions.search
                     )
                 }
 
                 LauncherRoute.AppDrawer -> overlayEntry(route) {
                     DrawerHost(
                         appDrawerSheetState = appDrawerSheetState,
-                        appDrawerUiState = currentAppDrawerUiState,
-                        benchmarkScrollEvents = drawerBenchmarkScrollEvents,
-                        drawerActions = currentActions.drawer
+                        appDrawerUiState = current.appDrawerUiState,
+                        benchmarkScrollEvents = current.drawerBenchmarkScrollEvents,
+                        drawerActions = current.actions.drawer
                     )
                 }
 
@@ -185,27 +191,27 @@ fun LauncherScreen(
                         widgetPickerSheetState = widgetPickerSheetState,
                         widgetPickerQuery = route.query,
                         widgetPickerCatalogStore =
-                            currentWidgetPickerCatalogStore,
-                        widgetActions = currentActions.widget
+                            current.widgetPickerCatalogStore,
+                        widgetActions = current.actions.widget
                     )
                 }
 
                 LauncherRoute.ShortcutManager -> overlayEntry(route) {
                     ShortcutManagerHost(
                         shortcutManagerSheetState = shortcutManagerSheetState,
-                        shortcuts = currentActionShortcuts,
-                        installedApps = currentInstalledApps,
-                        shortcutActions = currentActions.shortcuts
+                        shortcuts = current.actionShortcuts,
+                        installedApps = current.installedApps,
+                        shortcutActions = current.actions.shortcuts
                     )
                 }
 
                 is LauncherRoute.Folder -> overlayEntry(route) {
-                    val folder = currentOpenFolderItem
+                    val folder = current.openFolderItem
                         ?.takeIf { it.id == route.folderId }
 
                     FolderOverlayHost(
                         openFolderItem = folder,
-                        folderActions = currentActions.folder,
+                        folderActions = current.actions.folder,
                         anchorBounds = folder?.let {
                             homeItemBoundsById[it.id]
                         }
@@ -215,6 +221,29 @@ fun LauncherScreen(
         }
     )
 }
+
+/**
+ * Immutable snapshot of [LauncherScreen]'s parameters.
+ *
+ * NavEntry content lambdas registered with [NavDisplay] may execute long
+ * after the recomposition that created them; reading through this hoisted
+ * snapshot keeps those captures current without one rememberUpdatedState
+ * declaration per parameter.
+ */
+@Immutable
+private data class LauncherScreenParams(
+    val searchUiState: SearchUiState,
+    val pinnedItems: List<HomeItem>,
+    val openFolderItem: HomeItem.FolderItem?,
+    val actions: LauncherActions,
+    val enabledHomeTriggers: Set<LauncherTrigger>,
+    val isHomescreenMenuOpen: Boolean,
+    val appDrawerUiState: AppDrawerUiState,
+    val drawerBenchmarkScrollEvents: Flow<Unit>,
+    val actionShortcuts: List<HomeItem.ActionShortcut>,
+    val installedApps: List<AppInfo>,
+    val widgetPickerCatalogStore: WidgetPickerCatalogStore?
+)
 
 private fun overlayEntry(
     route: LauncherRoute,

@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -83,20 +84,23 @@ fun SettingsNavHost(
 ) {
     val backStack = rememberNavBackStack(SettingsRoute.Index)
 
-    val currentSettings by rememberUpdatedState(settings)
-    val currentInstalledApps by rememberUpdatedState(installedApps)
-    val currentActionShortcuts by rememberUpdatedState(actionShortcuts)
-    val currentShowSetDefaultLauncherOption by
-    rememberUpdatedState(showSetDefaultLauncherOption)
-    val currentBackupStatusMessage by rememberUpdatedState(backupStatusMessage)
-    val currentActions by rememberUpdatedState(actions)
-    val currentOnExitSettings by rememberUpdatedState(onExitSettings)
+    val current by rememberUpdatedState(
+        SettingsNavParams(
+            settings = settings,
+            installedApps = installedApps,
+            actionShortcuts = actionShortcuts,
+            showSetDefaultLauncherOption = showSetDefaultLauncherOption,
+            backupStatusMessage = backupStatusMessage,
+            actions = actions,
+            onExitSettings = onExitSettings
+        )
+    )
 
     val navigateBack: () -> Unit = {
         if (backStack.size > 1) {
             backStack.removeLastOrNull()
         } else {
-            currentOnExitSettings()
+            current.onExitSettings()
         }
     }
 
@@ -111,9 +115,9 @@ fun SettingsNavHost(
                 SettingsRoute.Index -> NavEntry(key) {
                     SettingsIndexScreen(
                         showSetDefaultLauncherOption =
-                            currentShowSetDefaultLauncherOption,
+                            current.showSetDefaultLauncherOption,
                         onOpenDefaultLauncherSettings =
-                            currentActions.onOpenDefaultLauncherSettings,
+                            current.actions.onOpenDefaultLauncherSettings,
                         onOpenHomeScreen = {
                             backStack.add(SettingsRoute.HomeScreen)
                         },
@@ -131,8 +135,8 @@ fun SettingsNavHost(
 
                 SettingsRoute.HomeScreen -> NavEntry(key) {
                     HomeScreenSettingsScreen(
-                        settings = currentSettings,
-                        actions = currentActions.homeScreen,
+                        settings = current.settings,
+                        actions = current.actions.homeScreen,
                         onSelectOpenAppAction = { trigger, action ->
                             backStack.add(
                                 SettingsRoute.AppPicker(trigger, action)
@@ -144,21 +148,21 @@ fun SettingsNavHost(
 
                 SettingsRoute.Search -> NavEntry(key) {
                     SearchSettingsScreen(
-                        settings = currentSettings,
-                        actions = currentActions,
+                        settings = current.settings,
+                        actions = current.actions,
                         onBack = navigateBack
                     )
                 }
 
                 SettingsRoute.Advanced -> NavEntry(key) {
                     AdvancedSettingsScreen(
-                        backupStatusMessage = currentBackupStatusMessage,
+                        backupStatusMessage = current.backupStatusMessage,
                         onRequestReset =
-                            currentActions.advanced.onResetToDefaults,
+                            current.actions.advanced.onResetToDefaults,
                         onRequestExport =
-                            currentActions.advanced.onExportBackup,
+                            current.actions.advanced.onExportBackup,
                         onRequestImport =
-                            currentActions.advanced.onImportBackup,
+                            current.actions.advanced.onImportBackup,
                         onBack = navigateBack
                     )
                 }
@@ -170,7 +174,7 @@ fun SettingsNavHost(
                 is SettingsRoute.AppPicker -> NavEntry(key) {
                     val onTargetSelected: (LauncherTriggerTarget) -> Unit =
                         { target ->
-                            currentActions.homeScreen
+                            current.actions.homeScreen
                                 .onSetTriggerOpenAppTarget(key.trigger, target)
                             backStack.removeLastOrNull()
                         }
@@ -181,18 +185,18 @@ fun SettingsNavHost(
                     ) {
                         TriggerActionShortcutPickerScreen(
                             trigger = key.trigger,
-                            actionShortcuts = currentActionShortcuts,
+                            actionShortcuts = current.actionShortcuts,
                             currentTarget =
-                                currentSettings.targetForTrigger(key.trigger),
+                                current.settings.targetForTrigger(key.trigger),
                             onBack = navigateBack,
                             onTargetSelected = onTargetSelected
                         )
                     } else {
                         TriggerAppPickerScreen(
                             trigger = key.trigger,
-                            installedApps = currentInstalledApps,
+                            installedApps = current.installedApps,
                             currentTarget =
-                                currentSettings.targetForTrigger(key.trigger),
+                                current.settings.targetForTrigger(key.trigger),
                             onBack = navigateBack,
                             onTargetSelected = onTargetSelected
                         )
@@ -211,3 +215,22 @@ fun SettingsNavHost(
         )
     }
 }
+
+/**
+ * Immutable snapshot of [SettingsNavHost]'s parameters.
+ *
+ * NavEntry content lambdas registered with [NavDisplay] may execute long
+ * after the recomposition that created them; reading through this hoisted
+ * snapshot keeps those captures current without one rememberUpdatedState
+ * declaration per parameter.
+ */
+@Immutable
+private data class SettingsNavParams(
+    val settings: LauncherSettings,
+    val installedApps: List<AppInfo>,
+    val actionShortcuts: List<HomeItem.ActionShortcut>,
+    val showSetDefaultLauncherOption: Boolean,
+    val backupStatusMessage: String?,
+    val actions: SettingsActions,
+    val onExitSettings: () -> Unit
+)
