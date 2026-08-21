@@ -32,7 +32,6 @@ import com.milki.launcher.domain.model.homeGridSpan
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
-import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
@@ -152,7 +151,6 @@ internal fun DropHighlightLayer(
                 maxVisibleRows = maxVisibleRows,
                 widgetHostManager = widgetHostManager,
                 reorderEngine = reorderEngine,
-                reorderMode = ReorderMode.Preview,
                 occupancy = occupancy
             )?.previewState?.let { previewState ->
                 val highlightColor = when (previewState.highlightKind) {

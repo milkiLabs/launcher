@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
-import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -132,19 +131,18 @@ fun DraggablePinnedItemsGrid(
                 val target = dragController.targetPosition ?: return@derivedStateOf null
                 val draggedWidget = session.item as? HomeItem.WidgetItem ?: return@derivedStateOf target
 
-                val reorderPlan = reorderEngine.compute(
+                val resolvedAnchor = reorderEngine.compute(
                     input = ReorderInput(
                         items = items,
                         preferredCell = target,
                         draggedSpan = draggedWidget.homeGridSpan,
                         gridColumns = config.columns,
                         gridRows = maxVisibleRows,
-                        excludeItemId = session.itemId,
-                        mode = ReorderMode.Preview
+                        excludeItemId = session.itemId
                     ),
                     occupancy = occupancy
                 )
-                if (reorderPlan.isValid) reorderPlan.anchorCell else target
+                resolvedAnchor ?: target
             }
         }
 

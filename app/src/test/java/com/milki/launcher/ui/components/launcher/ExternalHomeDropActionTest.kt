@@ -3,7 +3,6 @@ package com.milki.launcher.ui.components.launcher
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
 import com.milki.launcher.domain.drop.RejectReason
-import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -29,8 +28,7 @@ class ExternalHomeDropActionTest {
             dropPosition = folder.position,
             items = listOf(folder),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Commit
+            maxVisibleRows = 4
         )
 
         assertTrue(action is ExternalDropAction.AddToFolder)
@@ -54,8 +52,7 @@ class ExternalHomeDropActionTest {
             dropPosition = folder.position,
             items = listOf(folder),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Commit
+            maxVisibleRows = 4
         )
 
         assertTrue(action is ExternalDropAction.Reject)
@@ -110,8 +107,7 @@ class ExternalHomeDropActionTest {
             dropPosition = GridPosition(row = 0, column = 0),
             items = listOf(pinnedApp("app:home", position = GridPosition(row = 0, column = 0))),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Commit
+            maxVisibleRows = 4
         )
 
         assertTrue(action is ExternalDropAction.PlaceWidget)
@@ -133,8 +129,7 @@ class ExternalHomeDropActionTest {
             dropPosition = GridPosition(row = 0, column = 0),
             items = listOf(pinnedApp("app:blocker", position = GridPosition(row = 1, column = 1))),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Commit
+            maxVisibleRows = 4
         )
 
         assertTrue(action is ExternalDropAction.PlaceWidget)

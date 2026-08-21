@@ -5,7 +5,6 @@ import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.drop.RejectReason
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
-import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridBounds
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
@@ -114,7 +113,6 @@ internal fun resolveExternalDropAction(
     maxVisibleRows: Int,
     widgetHostManager: WidgetHostManager? = null,
     reorderEngine: GridReorderEngine = GridReorderEngine(),
-    reorderMode: ReorderMode,
     occupancy: GridOccupancy? = null
 ): ExternalDropAction? {
     if (item == null) return null
@@ -134,8 +132,7 @@ internal fun resolveExternalDropAction(
             gridColumns = gridColumns,
             maxVisibleRows = maxVisibleRows,
             widgetHostManager = widgetHostManager,
-            reorderEngine = reorderEngine,
-            reorderMode = reorderMode
+            reorderEngine = reorderEngine
         )
         else -> resolveRegularExternalDropAction(
             item = item,
@@ -326,8 +323,7 @@ private fun resolveWidgetDropAction(
     gridColumns: Int,
     maxVisibleRows: Int,
     widgetHostManager: WidgetHostManager?,
-    reorderEngine: GridReorderEngine,
-    reorderMode: ReorderMode
+    reorderEngine: GridReorderEngine
 ): ExternalDropAction {
     val normalizedSpan = normalizeWidgetSpanForHomeGrid(
         rawSpan = item.span,
@@ -338,27 +334,25 @@ private fun resolveWidgetDropAction(
         WidgetDisplayMode.PopupIcon -> GridSpan.SINGLE
     }
     val clampedDropPosition = GridBounds(gridColumns, maxVisibleRows).clamp(dropPosition, placementSpan)
-    val reorderPlan = reorderEngine.compute(
+    val resolvedAnchor = reorderEngine.compute(
         input = ReorderInput(
             items = occupancy.items,
             preferredCell = clampedDropPosition,
             draggedSpan = placementSpan,
             gridColumns = gridColumns,
-            gridRows = maxVisibleRows,
-            mode = reorderMode
+            gridRows = maxVisibleRows
         ),
         occupancy = occupancy
     )
-    val resolvedTarget = if (reorderPlan.isValid) reorderPlan.anchorCell else clampedDropPosition
     val resolvedProvider = item.providerInfo
         ?: widgetHostManager?.findInstalledProvider(item.providerComponent)
 
     return when {
-        !reorderPlan.isValid -> {
+        resolvedAnchor == null -> {
             ExternalDropAction.Reject(
                 reason = RejectReason.OCCUPIED_TARGET,
                 previewState = previewState(
-                    targetPosition = resolvedTarget,
+                    targetPosition = clampedDropPosition,
                     dragSpan = placementSpan,
                     highlightKind = ExternalDropHighlightKind.Error
                 )
@@ -368,7 +362,7 @@ private fun resolveWidgetDropAction(
             ExternalDropAction.Reject(
                 reason = RejectReason.PAYLOAD_UNSUPPORTED,
                 previewState = previewState(
-                    targetPosition = resolvedTarget,
+                    targetPosition = resolvedAnchor,
                     dragSpan = placementSpan,
                     highlightKind = ExternalDropHighlightKind.Error
                 )
@@ -378,10 +372,10 @@ private fun resolveWidgetDropAction(
             ExternalDropAction.PlaceWidget(
                 providerInfo = resolvedProvider,
                 span = normalizedSpan,
-                position = reorderPlan.anchorCell,
+                position = resolvedAnchor,
                 displayMode = item.displayMode,
                 previewState = previewState(
-                    targetPosition = reorderPlan.anchorCell,
+                    targetPosition = resolvedAnchor,
                     dragSpan = placementSpan,
                     highlightKind = ExternalDropHighlightKind.Primary
                 )

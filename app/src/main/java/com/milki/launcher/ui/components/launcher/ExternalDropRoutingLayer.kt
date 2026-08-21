@@ -8,7 +8,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.zIndex
 import com.milki.launcher.data.widget.WidgetHostManager
 import com.milki.launcher.domain.reorder.GridReorderEngine
-import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -94,7 +93,6 @@ internal fun ExternalDropRoutingLayer(
                 maxVisibleRows = maxVisibleRows,
                 widgetHostManager = widgetHostManager,
                 reorderEngine = reorderEngine,
-                reorderMode = ReorderMode.Commit,
                 occupancy = occupancy
             ) ?: return@AppExternalDropTargetOverlay false
 

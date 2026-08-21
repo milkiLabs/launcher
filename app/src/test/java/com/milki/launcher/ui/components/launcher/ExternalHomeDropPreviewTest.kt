@@ -2,7 +2,6 @@ package com.milki.launcher.ui.components.launcher
 
 import android.appwidget.AppWidgetProviderInfo
 import android.content.ComponentName
-import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
@@ -23,8 +22,7 @@ class ExternalHomeDropPreviewTest {
             dropPosition = occupant.position,
             items = listOf(occupant),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Preview
+            maxVisibleRows = 4
         )?.previewState
 
         assertNotNull(preview)
@@ -44,8 +42,7 @@ class ExternalHomeDropPreviewTest {
             dropPosition = folder.position,
             items = listOf(folder),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Preview
+            maxVisibleRows = 4
         )?.previewState
 
         assertNotNull(preview)
@@ -68,8 +65,7 @@ class ExternalHomeDropPreviewTest {
             dropPosition = GridPosition(row = 1, column = 1),
             items = listOf(widget),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Preview
+            maxVisibleRows = 4
         )?.previewState
 
         assertNotNull(preview)
@@ -91,8 +87,7 @@ class ExternalHomeDropPreviewTest {
             dropPosition = GridPosition(row = 0, column = 0),
             items = listOf(occupant),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Preview
+            maxVisibleRows = 4
         )?.previewState
 
         assertNotNull(preview)
@@ -115,8 +110,7 @@ class ExternalHomeDropPreviewTest {
             dropPosition = GridPosition(row = 0, column = 0),
             items = emptyList(),
             gridColumns = 4,
-            maxVisibleRows = 4,
-            reorderMode = ReorderMode.Preview
+            maxVisibleRows = 4
         )?.previewState
 
         assertNotNull(preview)

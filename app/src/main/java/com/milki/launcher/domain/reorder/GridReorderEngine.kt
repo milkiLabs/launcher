@@ -4,48 +4,41 @@ import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import kotlin.math.abs
 
-class GridReorderEngine(
-    private val strategies: List<ReorderStrategy> = listOf(NearestFitStrategy, RejectStrategy)
-) {
-    fun compute(input: ReorderInput, occupancy: GridOccupancy? = null): ReorderPlan {
-        val resolved = occupancy ?: GridOccupancy.fromItems(input.items, excludeItemId = input.excludeItemId)
-        for (strategy in strategies) {
-            val result = strategy.attempt(input, resolved)
-            if (result != null) return result
-        }
+/**
+ * Resolves the nearest placeable anchor for a dragged span.
+ *
+ * Candidates are scanned once, row-major over the valid anchor area, ranked by
+ * (Chebyshev radius, Manhattan distance) from [ReorderInput.preferredCell].
+ * Row-major visitation breaks remaining ties by row then column, so the scan
+ * order is a deterministic total order: repeated runs on the same input always
+ * resolve the same anchor.
+ */
+class GridReorderEngine {
 
-        return ReorderPlan(
-            anchorCell = input.preferredCell,
-            isValid = false,
-            strategyId = ReorderStrategyId.REJECT,
-            rejectReason = ReorderRejectReason.NO_SPACE
-        )
-    }
-}
+    /** Nearest free anchor for [ReorderInput.draggedSpan], or null when no space exists. */
+    fun compute(input: ReorderInput, occupancy: GridOccupancy? = null): GridPosition? {
+        val resolved = occupancy
+            ?: GridOccupancy.fromItems(input.items, excludeItemId = input.excludeItemId)
 
-private object NearestFitStrategy : ReorderStrategy {
-    override val id: ReorderStrategyId = ReorderStrategyId.NEAREST_FIT
+        val preferred = input.preferredCell
+        val span = input.draggedSpan
 
-    // Precomputed ring offsets (radius -> sorted candidates relative to the center).
-    // Candidate order is deterministic: by Manhattan distance, then row, then column,
-    // which mirrors the previous per-frame `sortedWith` pass without allocating
-    // a set plus a sorted list on every gesture frame.
-    private val ringOffsets = mutableMapOf<Int, List<Pair<Int, Int>>>()
+        var best: GridPosition? = null
+        var bestRadius = Int.MAX_VALUE
+        var bestDistance = Int.MAX_VALUE
 
-    override fun attempt(input: ReorderInput, occupancy: GridOccupancy): ReorderPlan? {
-        val maxRadius = maxOf(input.gridColumns, input.gridRows)
-        var checked = 0
+        for (row in 0..input.gridRows - span.rows) {
+            for (column in 0..input.gridColumns - span.columns) {
+                val rowDelta = row - preferred.row
+                val columnDelta = column - preferred.column
+                val radius = maxOf(abs(rowDelta), abs(columnDelta))
+                if (radius > bestRadius) continue
+                val distance = abs(rowDelta) + abs(columnDelta)
+                if (radius == bestRadius && distance >= bestDistance) continue
 
-        for (radius in 0..maxRadius) {
-            for ((dr, dc) in ring(radius)) {
-                checked += 1
-                val candidate = GridPosition(
-                    row = input.preferredCell.row + dr,
-                    column = input.preferredCell.column + dc
-                )
-                if (!occupancy.canPlace(
-                        anchor = candidate,
-                        span = input.draggedSpan,
+                if (!resolved.canPlace(
+                        anchor = GridPosition(row, column),
+                        span = span,
                         gridColumns = input.gridColumns,
                         gridRows = input.gridRows,
                         excludeItemId = input.excludeItemId
@@ -53,52 +46,11 @@ private object NearestFitStrategy : ReorderStrategy {
                 ) {
                     continue
                 }
-                return ReorderPlan(
-                    anchorCell = candidate,
-                    isValid = true,
-                    strategyId = id,
-                    diagnostics = ReorderDiagnostics(checkedCells = checked, searchRadius = radius)
-                )
+                best = GridPosition(row, column)
+                bestRadius = radius
+                bestDistance = distance
             }
         }
-
-        return null
-    }
-
-    private fun ring(radius: Int): List<Pair<Int, Int>> {
-        return ringOffsets.getOrPut(radius) {
-            if (radius == 0) {
-                listOf(0 to 0)
-            } else {
-                val cells = ArrayList<Pair<Int, Int>>((radius * 8).coerceAtLeast(4))
-                for (dr in -radius..radius) {
-                    for (dc in -radius..radius) {
-                        if (abs(dr) != radius && abs(dc) != radius) continue
-                        cells.add(dr to dc)
-                    }
-                }
-                cells.distinct()
-                    .sortedWith(
-                        compareBy(
-                            { abs(it.first) + abs(it.second) },
-                            { it.first },
-                            { it.second }
-                        )
-                    )
-            }
-        }
-    }
-}
-
-private object RejectStrategy : ReorderStrategy {
-    override val id: ReorderStrategyId = ReorderStrategyId.REJECT
-
-    override fun attempt(input: ReorderInput, occupancy: GridOccupancy): ReorderPlan {
-        return ReorderPlan(
-            anchorCell = input.preferredCell,
-            isValid = false,
-            strategyId = id,
-            rejectReason = ReorderRejectReason.NO_SPACE
-        )
+        return best
     }
 }

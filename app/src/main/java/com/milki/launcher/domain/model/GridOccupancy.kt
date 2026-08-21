@@ -9,8 +9,8 @@
  *
  * Build once per item list change and reuse it for binary occupancy checks,
  * occupant lookups, first-free-slot scans, and prebuilt reorder inputs. All
- * span loops below iterate the span ranges in place instead of calling
- * [GridSpan.occupiedPositions], which allocates a fresh set on every call.
+ * span loops below iterate the span ranges in place to avoid per-call set
+ * allocations on hot paths.
  *
  * Collision semantics: when two items share a cell (an invalid layout), the
  * first item in the input list wins, matching the drag-preview behavior of

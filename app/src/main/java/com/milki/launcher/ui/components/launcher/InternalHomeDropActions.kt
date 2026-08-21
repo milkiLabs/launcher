@@ -3,7 +3,6 @@ package com.milki.launcher.ui.components.launcher
 import com.milki.launcher.domain.drop.RejectReason
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
-import com.milki.launcher.domain.reorder.ReorderMode
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
@@ -56,22 +55,17 @@ internal fun resolveInternalDropAction(
     val resolved = occupancy ?: GridOccupancy.fromItems(items)
 
     val resolvedDropPosition = if (draggedItem is HomeItem.WidgetItem) {
-        val reorderPlan = reorderEngine.compute(
+        reorderEngine.compute(
             input = ReorderInput(
                 items = items,
                 preferredCell = dropPosition,
                 draggedSpan = draggedItem.homeGridSpan,
                 gridColumns = gridColumns,
                 gridRows = gridRows,
-                excludeItemId = draggedItem.id,
-                mode = ReorderMode.Commit
+                excludeItemId = draggedItem.id
             ),
             occupancy = resolved
-        )
-        if (!reorderPlan.isValid) {
-            return InternalDropAction.Reject(RejectReason.OCCUPIED_TARGET)
-        }
-        reorderPlan.anchorCell
+        ) ?: return InternalDropAction.Reject(RejectReason.OCCUPIED_TARGET)
     } else {
         dropPosition
     }
