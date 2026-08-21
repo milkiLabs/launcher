@@ -95,29 +95,18 @@ fun startExternalAppDrag(
     appInfo: AppInfo,
     dragShadowSize: Dp = IconSize.appList
 ): Boolean {
-    val dragItem = ExternalDragItem.App(appInfo)
-    ExternalDragItemCache.currentItem = dragItem
-
     val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
-    val packageManager = hostView.context.packageManager
     val iconDrawable = AppIconMemoryCache.getOrLoad(
         packageName = appInfo.packageName,
-        packageManager = packageManager
+        packageManager = hostView.context.packageManager
     )
-    val density = dragHostView.context.resources.displayMetrics.density
-    val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
-
-    val clipData = AppExternalDragDropPayload.createClipData(dragItem)
-    val dragShadowBuilder = AppIconDragShadowBuilder(
-        iconDrawable = iconDrawable,
-        shadowSizePx = shadowSizePx
-    )
-
-    return startExternalDragWithFallbackHosts(
+    return startExternalDrag(
         hostView = hostView,
-        clipData = clipData,
-        localState = dragItem,
-        dragShadowBuilder = dragShadowBuilder,
+        payload = ExternalDragItem.App(appInfo),
+        dragShadowBuilder = AppIconDragShadowBuilder(
+            iconDrawable = iconDrawable,
+            shadowSizePx = dpToPx(dragShadowSize, dragHostView.context)
+        ),
         failureLogLabel = "app:${appInfo.packageName}/${appInfo.activityName}"
     )
 }
@@ -130,30 +119,16 @@ fun startExternalAppDrag(
 fun startExternalFileDrag(
     hostView: View,
     fileDocument: FileDocument
-): Boolean {
-    val dragItem = ExternalDragItem.File(fileDocument)
-    ExternalDragItemCache.currentItem = dragItem
-
-    val density = hostView.context.resources.displayMetrics.density
-    val shadowSizePx = (IconSize.appList.value * density).toInt().coerceAtLeast(1)
-    val clipData = AppExternalDragDropPayload.createClipData(dragItem)
-    val fileDrawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_agenda)
-    val dragShadowBuilder = if (fileDrawable != null) {
-        AppIconDragShadowBuilder(
-            iconDrawable = fileDrawable,
-            shadowSizePx = shadowSizePx
-        )
-    } else {
-        View.DragShadowBuilder(hostView)
-    }
-    return startExternalDragWithFallbackHosts(
+): Boolean = startExternalDrag(
+    hostView = hostView,
+    payload = ExternalDragItem.File(fileDocument),
+    dragShadowBuilder = iconDragShadowBuilder(
         hostView = hostView,
-        clipData = clipData,
-        localState = dragItem,
-        dragShadowBuilder = dragShadowBuilder,
-        failureLogLabel = "file:${fileDocument.name}"
-    )
-}
+        drawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_agenda),
+        shadowSizePx = dpToPx(IconSize.appList, hostView.context)
+    ),
+    failureLogLabel = "file:${fileDocument.name}"
+)
 
 /**
  * Starts an external contact drag operation.
@@ -164,30 +139,16 @@ fun startExternalFileDrag(
 fun startExternalContactDrag(
     hostView: View,
     contact: Contact
-): Boolean {
-    val dragItem = ExternalDragItem.Contact(contact)
-    ExternalDragItemCache.currentItem = dragItem
-
-    val density = hostView.context.resources.displayMetrics.density
-    val shadowSizePx = (IconSize.appList.value * density).toInt().coerceAtLeast(1)
-    val clipData = AppExternalDragDropPayload.createClipData(dragItem)
-    val contactDrawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_myplaces)
-    val dragShadowBuilder = if (contactDrawable != null) {
-        AppIconDragShadowBuilder(
-            iconDrawable = contactDrawable,
-            shadowSizePx = shadowSizePx
-        )
-    } else {
-        View.DragShadowBuilder(hostView)
-    }
-    return startExternalDragWithFallbackHosts(
+): Boolean = startExternalDrag(
+    hostView = hostView,
+    payload = ExternalDragItem.Contact(contact),
+    dragShadowBuilder = iconDragShadowBuilder(
         hostView = hostView,
-        clipData = clipData,
-        localState = dragItem,
-        dragShadowBuilder = dragShadowBuilder,
-        failureLogLabel = "contact:${contact.id}/${contact.displayName}"
-    )
-}
+        drawable = ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_myplaces),
+        shadowSizePx = dpToPx(IconSize.appList, hostView.context)
+    ),
+    failureLogLabel = "contact:${contact.id}/${contact.displayName}"
+)
 
 /**
  * Starts an external app-shortcut drag operation.
@@ -197,30 +158,17 @@ fun startExternalShortcutDrag(
     shortcut: HomeItem.AppShortcut,
     dragShadowSize: Dp = IconSize.appList
 ): Boolean {
-    val dragItem = ExternalDragItem.Shortcut(shortcut)
-    ExternalDragItemCache.currentItem = dragItem
-
     val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
-    val density = dragHostView.context.resources.displayMetrics.density
-    val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
-    val shortcutIcon = ShortcutIconLoader.getCached(shortcut)
-    val fallbackIcon = ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
-    val iconDrawable = shortcutIcon ?: fallbackIcon
-    val clipData = AppExternalDragDropPayload.createClipData(dragItem)
-    val dragShadowBuilder = if (iconDrawable != null) {
-        AppIconDragShadowBuilder(
-            iconDrawable = iconDrawable,
-            shadowSizePx = shadowSizePx
-        )
-    } else {
-        View.DragShadowBuilder(hostView)
-    }
-
-    return startExternalDragWithFallbackHosts(
+    val iconDrawable = ShortcutIconLoader.getCached(shortcut)
+        ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
+    return startExternalDrag(
         hostView = hostView,
-        clipData = clipData,
-        localState = dragItem,
-        dragShadowBuilder = dragShadowBuilder,
+        payload = ExternalDragItem.Shortcut(shortcut),
+        dragShadowBuilder = iconDragShadowBuilder(
+            hostView = hostView,
+            drawable = iconDrawable,
+            shadowSizePx = dpToPx(dragShadowSize, dragHostView.context)
+        ),
         failureLogLabel = "shortcut:${shortcut.packageName}/${shortcut.shortcutId}"
     )
 }
@@ -233,12 +181,7 @@ fun startExternalActionShortcutDrag(
     shortcut: HomeItem.ActionShortcut,
     dragShadowSize: Dp = IconSize.appList
 ): Boolean {
-    val dragItem = ExternalDragItem.ActionShortcut(shortcut)
-    ExternalDragItemCache.currentItem = dragItem
-
     val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
-    val density = dragHostView.context.resources.displayMetrics.density
-    val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
     val iconDrawable = shortcut.packageName
         ?.let { packageName ->
             AppIconMemoryCache.getOrLoad(
@@ -247,21 +190,14 @@ fun startExternalActionShortcutDrag(
             )
         }
         ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_compass)
-    val clipData = AppExternalDragDropPayload.createClipData(dragItem)
-    val dragShadowBuilder = if (iconDrawable != null) {
-        AppIconDragShadowBuilder(
-            iconDrawable = iconDrawable,
-            shadowSizePx = shadowSizePx
-        )
-    } else {
-        View.DragShadowBuilder(hostView)
-    }
-
-    return startExternalDragWithFallbackHosts(
+    return startExternalDrag(
         hostView = hostView,
-        clipData = clipData,
-        localState = dragItem,
-        dragShadowBuilder = dragShadowBuilder,
+        payload = ExternalDragItem.ActionShortcut(shortcut),
+        dragShadowBuilder = iconDragShadowBuilder(
+            hostView = hostView,
+            drawable = iconDrawable,
+            shadowSizePx = dpToPx(dragShadowSize, dragHostView.context)
+        ),
         failureLogLabel = "action:${shortcut.destinationUri}"
     )
 }
@@ -306,17 +242,6 @@ fun startExternalFolderItemDrag(
     item: com.milki.launcher.domain.model.HomeItem,
     dragShadowSize: Dp = IconSize.appList
 ): Boolean {
-    // ClipData is required by the platform API but we don't actually decode it —
-    // we always read localState first in ExternalDragPayloadCodec.decodeDragItem.
-    // We still provide a minimal plain-text clip so older API levels are happy.
-    val clipData = android.content.ClipData.newPlainText(
-        ExternalDragPayloadCodec.DRAG_CLIP_LABEL,
-        item.id
-    )
-
-    val density = hostView.context.resources.displayMetrics.density
-    val shadowSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
-
     // Choose an appropriate drag shadow drawable based on the item type.
     //
     // IMPORTANT: Never use View.DragShadowBuilder(hostView) here.
@@ -362,26 +287,23 @@ fun startExternalFolderItemDrag(
     }
 
     val dragShadowBuilder: View.DragShadowBuilder = if (shadowDrawable != null) {
-        AppIconDragShadowBuilder(shadowDrawable, shadowSizePx)
+        AppIconDragShadowBuilder(shadowDrawable, dpToPx(dragShadowSize, hostView.context))
     } else {
         // Last-resort fallback: an empty shadow (0×0) so at least no screen content leaks.
         object : View.DragShadowBuilder() {
-            override fun onProvideShadowMetrics(outShadowSize: android.graphics.Point, outShadowTouchPoint: android.graphics.Point) {
-                outShadowSize.set(shadowSizePx, shadowSizePx)
-                outShadowTouchPoint.set(shadowSizePx / 2, shadowSizePx / 2)
+            override fun onProvideShadowMetrics(outShadowSize: Point, outShadowTouchPoint: Point) {
+                val sizePx = dpToPx(dragShadowSize, hostView.context)
+                outShadowSize.set(sizePx, sizePx)
+                outShadowTouchPoint.set(sizePx / 2, sizePx / 2)
             }
-            override fun onDrawShadow(canvas: android.graphics.Canvas) { /* intentionally blank */ }
+            override fun onDrawShadow(canvas: Canvas) { /* intentionally blank */ }
         }
     }
 
     // Wrap the item so the drop handler knows to call extractItemFromFolder.
-    val payload = ExternalDragItem.FolderChild(folderId = folderId, childItem = item)
-    ExternalDragItemCache.currentItem = payload
-
-    return startExternalDragWithFallbackHosts(
+    return startExternalDrag(
         hostView = hostView,
-        clipData = clipData,
-        localState = payload,
+        payload = ExternalDragItem.FolderChild(folderId = folderId, childItem = item),
         dragShadowBuilder = dragShadowBuilder,
         failureLogLabel = "folder-child:${folderId}/${item.id}"
     )
@@ -415,11 +337,8 @@ fun startExternalWidgetDrag(
     displayMode: WidgetDisplayMode = WidgetDisplayMode.Inline,
     dragShadowSize: Dp = IconSize.appHomeCompact
 ): Boolean {
-    val density = hostView.context.resources.displayMetrics.density
-    val shadowCellSizePx = (dragShadowSize.value * density).toInt().coerceAtLeast(1)
+    val shadowCellSizePx = dpToPx(dragShadowSize, hostView.context)
     val shadowSpan = if (displayMode == WidgetDisplayMode.PopupIcon) GridSpan.SINGLE else span
-    val shadowWidthPx = (shadowCellSizePx * shadowSpan.columns).coerceAtLeast(1)
-    val shadowHeightPx = (shadowCellSizePx * shadowSpan.rows).coerceAtLeast(1)
 
     val payload = ExternalDragItem.Widget(
         providerInfo = providerInfo,
@@ -427,23 +346,41 @@ fun startExternalWidgetDrag(
         span = span,
         displayMode = displayMode
     )
-    ExternalDragItemCache.currentItem = payload
 
-    val clipData = AppExternalDragDropPayload.createClipData(payload)
     // Use a simple rectangle shadow for widgets (no stretched widget image).
     // This keeps startDragAndDrop reliable on OEM variants while preserving
     // the "box-like" drag visual requested by product UX.
-    val dragShadowBuilder = AppPlainRectDragShadowBuilder(
-        shadowWidthPx = shadowWidthPx,
-        shadowHeightPx = shadowHeightPx
+    return startExternalDrag(
+        hostView = hostView,
+        payload = payload,
+        dragShadowBuilder = AppPlainRectDragShadowBuilder(
+            shadowWidthPx = (shadowCellSizePx * shadowSpan.columns).coerceAtLeast(1),
+            shadowHeightPx = (shadowCellSizePx * shadowSpan.rows).coerceAtLeast(1)
+        ),
+        failureLogLabel = "widget:${providerInfo.provider.flattenToShortString()}"
     )
+}
 
+/**
+ * Core external-drag starter shared by all public startExternal*Drag functions.
+ *
+ * Caches the payload for same-process ACTION_DRAG_LOCATION fallback, builds the
+ * ClipData JSON contract, and delegates to [startExternalDragWithFallbackHosts].
+ */
+private fun startExternalDrag(
+    hostView: View,
+    payload: ExternalDragItem,
+    dragShadowBuilder: View.DragShadowBuilder,
+    failureLogLabel: String
+): Boolean {
+    ExternalDragItemCache.currentItem = payload
+    val clipData = AppExternalDragDropPayload.createClipData(payload)
     return startExternalDragWithFallbackHosts(
         hostView = hostView,
         clipData = clipData,
         localState = payload,
         dragShadowBuilder = dragShadowBuilder,
-        failureLogLabel = "widget:${providerInfo.provider.flattenToShortString()}"
+        failureLogLabel = failureLogLabel
     )
 }
 
@@ -511,6 +448,32 @@ private tailrec fun Context.findActivity(): Activity? {
         is Activity -> this
         is ContextWrapper -> baseContext.findActivity()
         else -> null
+    }
+}
+
+/**
+ * Converts a [Dp] value to whole pixels, clamped to at least 1px.
+ */
+private fun dpToPx(value: Dp, context: Context): Int {
+    return (value.value * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+}
+
+/**
+ * Builds an icon-sized drag shadow when a drawable is available; otherwise falls
+ * back to rendering the host view.
+ */
+private fun iconDragShadowBuilder(
+    hostView: View,
+    drawable: Drawable?,
+    shadowSizePx: Int
+): View.DragShadowBuilder {
+    return if (drawable != null) {
+        AppIconDragShadowBuilder(
+            iconDrawable = drawable,
+            shadowSizePx = shadowSizePx
+        )
+    } else {
+        View.DragShadowBuilder(hostView)
     }
 }
 
