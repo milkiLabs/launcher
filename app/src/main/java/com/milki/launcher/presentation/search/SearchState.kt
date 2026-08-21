@@ -5,6 +5,7 @@ import com.milki.launcher.domain.model.PermissionAccessState
 
 import com.milki.launcher.domain.search.ActionSuggestion
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,8 @@ import kotlinx.coroutines.flow.stateIn
  * no repository calls, no side effects beyond in-memory state updates).
  */
 internal class SearchState(
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    installedApps: Flow<List<AppInfo>>
 ) {
 
     val query = MutableStateFlow("")
@@ -28,7 +30,6 @@ internal class SearchState(
     val contactsPermissionState = MutableStateFlow(PermissionAccessState.CAN_REQUEST)
     val filesPermissionState = MutableStateFlow(PermissionAccessState.CAN_REQUEST)
 
-    val installedApps = MutableStateFlow<List<AppInfo>>(emptyList())
     val recentApps = MutableStateFlow<List<AppInfo>>(emptyList())
 
     val runtimeSettings = MutableStateFlow(SearchRuntimeSettings())
@@ -40,8 +41,9 @@ internal class SearchState(
     // (WhileSubscribed(5_000)) by using SharingStarted.Eagerly: backgroundState.value
     // is read synchronously by the search pipeline outside any collection context.
     // With WhileSubscribed, inputs mutated while no collector is attached would
-    // leave .value stale until the next subscription. Every input here is an
-    // in-memory MutableStateFlow, so keeping the combine hot is cheap.
+    // leave .value stale until the next subscription. The installed-apps input is
+    // the repository's hot snapshot flow; the rest are in-memory MutableStateFlows,
+    // so keeping the combine hot is cheap.
 
     val backgroundState: StateFlow<SearchBackgroundState> = combine(
         installedApps,
