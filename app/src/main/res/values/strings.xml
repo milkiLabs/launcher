@@ -1,3 +1,37 @@
 <resources>
     <string name="app_name">Milki Launcher</string>
+
+    <!-- Homescreen long-press menu -->
+    <string name="menu_widgets">Widgets</string>
+    <string name="menu_shortcuts">Shortcuts</string>
+    <string name="menu_settings">Settings</string>
+
+    <!-- Widget picker sheet -->
+    <string name="widget_picker_title">Widgets</string>
+    <string name="widget_picker_subtitle">Long-press and drag a widget onto the home screen.</string>
+    <string name="widget_picker_search_placeholder">Search apps or widgets</string>
+    <string name="widget_picker_stats_idle">%1$d apps • %2$d widgets</string>
+    <string name="widget_picker_stats_filtered">%1$d apps • %2$d matches</string>
+    <string name="widget_picker_loading_title">Loading widgets</string>
+    <string name="widget_picker_loading_subtitle">Preparing your installed widget list in the background.</string>
+    <string name="widget_picker_empty_title">No widgets found</string>
+    <string name="widget_picker_empty_hint">Try a different app or widget name for \"%1$s\".</string>
+    <string name="widget_group_expand">Expand %1$s widgets</string>
+    <string name="widget_group_collapse">Collapse %1$s widgets</string>
+
+    <plurals name="widget_count">
+        <item quantity="one">%d widget</item>
+        <item quantity="other">%d widgets</item>
+    </plurals>
+    <plurals name="tap_to_reveal_widgets">
+        <item quantity="one">Tap to reveal %d widget</item>
+        <item quantity="other">Tap to reveal %d widgets</item>
+    </plurals>
+
+    <!-- Folder popup -->
+    <plurals name="folder_item_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+    <string name="folder_action_remove_item">Remove from folder</string>
 </resources>

@@ -39,10 +39,13 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.ItemContextMenu
 import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
@@ -92,7 +95,7 @@ internal fun FolderNameHeader(
                     ),
                     singleLine = true,
                     modifier = Modifier
-                        .widthIn(max = 220.dp)
+                        .widthIn(max = FOLDER_NAME_MAX_WIDTH)
                         .focusRequester(focusRequester)
                         .onFocusChanged { focusState ->
                             onEditingChanged(focusState.isFocused)
@@ -103,7 +106,7 @@ internal fun FolderNameHeader(
 
             Spacer(modifier = Modifier.width(Spacing.extraSmall))
             Text(
-                text = if (itemCount == 1) "1 item" else "$itemCount items",
+                text = pluralStringResource(R.plurals.folder_item_count, itemCount, itemCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
             )
@@ -113,7 +116,7 @@ internal fun FolderNameHeader(
             Spacer(modifier = Modifier.height(Spacing.extraSmall))
             Box(
                 modifier = Modifier
-                    .widthIn(max = 140.dp)
+                    .widthIn(max = FOLDER_NAME_UNDERLINE_MAX_WIDTH)
                     .fillMaxWidth(0.45f)
                     .height(Spacing.hairline)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.65f))
@@ -303,7 +306,7 @@ private fun FolderPopupItem(
                 item = item,
                 extraActions = listOf(
                     MenuAction(
-                        label = "Remove from folder",
+                        label = stringResource(R.string.folder_action_remove_item),
                         icon = Icons.Filled.Delete,
                         onClick = onRemoveFromFolder,
                         isDestructive = true
@@ -321,3 +324,12 @@ private fun FolderPopupItem(
 
 private const val FOLDER_DRAG_THRESHOLD_PX = 20f
 private const val FOLDER_DRAG_GHOST_ALPHA = 0.18f
+
+/** Max width of the folder name text field before it wraps into the item count. */
+private val FOLDER_NAME_MAX_WIDTH: Dp = 220.dp
+
+/** Max width of the underline shown under the folder name while editing. */
+private val FOLDER_NAME_UNDERLINE_MAX_WIDTH: Dp = 140.dp
+
+/** Width of the selected page-indicator dot (elongated pill). */
+private val FOLDER_INDICATOR_ACTIVE_DOT_WIDTH: Dp = 18.dp

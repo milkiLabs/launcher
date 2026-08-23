@@ -29,11 +29,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.rememberLifecycleOwner
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
+import com.milki.launcher.R
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
@@ -278,17 +280,17 @@ private fun HomescreenMenu(
     val yOffset = with(density) { anchorPx.y.toDp() }
     val actions = listOf(
         MenuAction(
-            label = "Widgets",
+            label = stringResource(R.string.menu_widgets),
             icon = Icons.Filled.Widgets,
             onClick = onOpenWidgets
         ),
         MenuAction(
-            label = "Shortcuts",
+            label = stringResource(R.string.menu_shortcuts),
             icon = Icons.Filled.Link,
             onClick = onOpenShortcuts
         ),
         MenuAction(
-            label = "Settings",
+            label = stringResource(R.string.menu_settings),
             icon = Icons.Filled.Settings,
             onClick = onOpenSettings
         )

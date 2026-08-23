@@ -44,7 +44,10 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.milki.launcher.R
 import com.milki.launcher.data.widget.WidgetAppGroup
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.search.QueryTextMatcher
@@ -193,12 +196,12 @@ private fun WidgetPickerHeader(
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
             ) {
                 Text(
-                    text = "Widgets",
+                    text = stringResource(R.string.widget_picker_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Long-press and drag a widget onto the home screen.",
+                    text = stringResource(R.string.widget_picker_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -206,9 +209,9 @@ private fun WidgetPickerHeader(
 
             StatPill(
                 label = if (searchQuery.isBlank()) {
-                    "$totalApps apps • $totalWidgets widgets"
+                    stringResource(R.string.widget_picker_stats_idle, totalApps, totalWidgets)
                 } else {
-                    "$visibleApps apps • $visibleWidgets matches"
+                    stringResource(R.string.widget_picker_stats_filtered, visibleApps, visibleWidgets)
                 }
             )
         }
@@ -222,7 +225,7 @@ private fun WidgetPickerHeader(
             UnifiedSearchInputField(
                 query = searchQuery,
                 onQueryChange = onSearchQueryChange,
-                placeholderText = "Search apps or widgets",
+                placeholderText = stringResource(R.string.widget_picker_search_placeholder),
                 modifier = Modifier.fillMaxWidth(),
                 onClear = onClearSearch,
                 indicatorColor = MaterialTheme.colorScheme.primary
@@ -291,12 +294,12 @@ private fun LoadingWidgetCatalogState() {
                 verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
             ) {
                 Text(
-                    text = "Loading widgets",
+                    text = stringResource(R.string.widget_picker_loading_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Preparing your installed widget list in the background.",
+                    text = stringResource(R.string.widget_picker_loading_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -366,9 +369,13 @@ private fun AppGroupCard(
                     )
                     Text(
                         text = if (expanded) {
-                            "${group.widgets.size} widget${if (group.widgets.size == 1) "" else "s"}"
+                            pluralStringResource(R.plurals.widget_count, group.widgets.size, group.widgets.size)
                         } else {
-                            "Tap to reveal ${group.widgets.size} widget${if (group.widgets.size == 1) "" else "s"}"
+                            pluralStringResource(
+                                R.plurals.tap_to_reveal_widgets,
+                                group.widgets.size,
+                                group.widgets.size
+                            )
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -381,7 +388,11 @@ private fun AppGroupCard(
 
                 Icon(
                     imageVector = Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Collapse ${group.appLabel}" else "Expand ${group.appLabel}",
+                    contentDescription = if (expanded) {
+                        stringResource(R.string.widget_group_collapse, group.appLabel)
+                    } else {
+                        stringResource(R.string.widget_group_expand, group.appLabel)
+                    },
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.graphicsLayer { rotationZ = rotation }
                 )
@@ -440,12 +451,12 @@ private fun EmptyWidgetSearchState(searchQuery: String) {
                 modifier = Modifier.size(IconSize.large)
             )
             Text(
-                text = "No widgets found",
+                text = stringResource(R.string.widget_picker_empty_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Try a different app or widget name for \"$searchQuery\".",
+                text = stringResource(R.string.widget_picker_empty_hint, searchQuery),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
