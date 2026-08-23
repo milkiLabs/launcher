@@ -2,24 +2,16 @@ package com.milki.launcher.data.repository.contacts
 
 import android.content.Context
 import android.provider.ContactsContract
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.core.content.forEachRow
 import com.milki.launcher.core.content.sqlInSelection
 import com.milki.launcher.core.permission.PermissionChecker
 import com.milki.launcher.data.repository.common.AbstractContentResolverRecentStore
 import com.milki.launcher.data.repository.common.RecentListStorage
+import com.milki.launcher.data.repository.common.contactsRecentDataStore
 import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.repository.ContactsRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
-
-private val Context.contactsRecentDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "recent_contacts"
-)
 
 class ContactsRepositoryImpl(
     context: Context
@@ -42,7 +34,7 @@ class ContactsRepositoryImpl(
     }
 
     override fun getRecentContacts(): Flow<List<String>> {
-        return observeRecent().flowOn(Dispatchers.IO)
+        return observeRecent()
     }
 
     override suspend fun searchContacts(query: String, maxItems: Int): List<Contact> {

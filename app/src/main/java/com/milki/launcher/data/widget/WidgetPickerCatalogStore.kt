@@ -12,7 +12,6 @@ import com.milki.launcher.ui.interaction.grid.GridConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -31,7 +30,8 @@ import kotlinx.coroutines.withContext
 class WidgetPickerCatalogStore(
     context: Context,
     private val widgetHost: WidgetHostPort,
-    packageChangeMonitor: PackageChangeMonitor
+    packageChangeMonitor: PackageChangeMonitor,
+    applicationScope: CoroutineScope
 ) {
     companion object {
         private const val TAG = "WidgetPickerCatalog"
@@ -45,7 +45,7 @@ class WidgetPickerCatalogStore(
     }
 
     private val packageManager: PackageManager = context.packageManager
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = applicationScope
     private val loadMutex = Mutex()
 
     // Single source of truth. Null means "not loaded yet".

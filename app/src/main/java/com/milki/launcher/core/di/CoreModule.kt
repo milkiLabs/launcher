@@ -12,9 +12,24 @@ import com.milki.launcher.domain.repository.PrefixOwnerRepository
 import com.milki.launcher.domain.repository.SearchSourceRepository
 import com.milki.launcher.domain.repository.SettingsReader
 import com.milki.launcher.domain.search.UrlHandlerPort
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
+val ApplicationScope = named("applicationScope")
+val IoDispatcher = named("ioDispatcher")
+
 val coreModule = module {
+    single(IoDispatcher) { Dispatchers.IO }
+
+    single(ApplicationScope) {
+        val ioDispatcher = get<CoroutineDispatcher>(IoDispatcher)
+        CoroutineScope(SupervisorJob() + ioDispatcher)
+    }
+
     single {
         PackageChangeMonitor(get())
     }
@@ -22,7 +37,10 @@ val coreModule = module {
     single<AppRepository> {
         AppRepositoryImpl(
             application = get(),
-            packageChangeMonitor = get()
+            packageChangeMonitor = get(),
+            appIconMemoryCache = get(),
+            contextDataCache = get(),
+            applicationScope = get(ApplicationScope)
         )
     }
 
@@ -41,7 +59,8 @@ val coreModule = module {
     single {
         UrlHandlerResolver(
             context = get(),
-            packageChangeMonitor = get()
+            packageChangeMonitor = get(),
+            applicationScope = get(ApplicationScope)
         )
     }
 

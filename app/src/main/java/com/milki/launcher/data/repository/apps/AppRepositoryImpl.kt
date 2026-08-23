@@ -11,8 +11,6 @@ import com.milki.launcher.data.icon.ShortcutIconMemoryCache
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.repository.AppRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,10 +32,13 @@ import kotlinx.coroutines.launch
  */
 class AppRepositoryImpl(
     private val application: Application,
-    private val packageChangeMonitor: PackageChangeMonitor
+    private val packageChangeMonitor: PackageChangeMonitor,
+    private val appIconMemoryCache: AppIconMemoryCache,
+    private val contextDataCache: AppContextDataCache,
+    applicationScope: CoroutineScope
 ) : AppRepository {
 
-    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val repositoryScope = applicationScope
 
     private val installedAppsCatalog = InstalledAppsCatalog(application)
     private val recentAppsStore = RecentAppsStore(application)
@@ -159,7 +160,7 @@ class AppRepositoryImpl(
         val latestApps = installedAppsCatalog.loadInstalledApps()
         installedAppsSnapshot.value = latestApps
         recentAppsStore.pruneUnavailable(latestApps)
-        AppContextDataCache.refreshAll(application)
+        contextDataCache.refreshAll(application)
     }
 
     private fun invalidatePackageScopedCaches(event: PackageChangeEvent) {
@@ -172,13 +173,13 @@ class AppRepositoryImpl(
 
         val packageName = event.packageName
         if (packageName == null) {
-            AppIconMemoryCache.clear()
+            appIconMemoryCache.clear()
             ShortcutIconMemoryCache.clear()
-            AppContextDataCache.clear()
+            contextDataCache.clear()
             return
         }
 
-        AppIconMemoryCache.invalidatePackage(packageName)
+        appIconMemoryCache.invalidatePackage(packageName)
         ShortcutIconMemoryCache.invalidatePackage(packageName)
     }
 }

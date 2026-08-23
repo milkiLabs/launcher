@@ -19,7 +19,8 @@ val widgetModule = module {
         WidgetPickerCatalogStore(
             context = get(),
             widgetHost = get(),
-            packageChangeMonitor = get<PackageChangeMonitor>()
+            packageChangeMonitor = get<PackageChangeMonitor>(),
+            applicationScope = get(ApplicationScope)
         )
     }
 }

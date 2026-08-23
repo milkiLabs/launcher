@@ -5,27 +5,19 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.core.content.forEachRow
 import com.milki.launcher.core.content.sqlInSelection
 import com.milki.launcher.core.permission.PermissionChecker
 import com.milki.launcher.data.repository.common.AbstractContentResolverRecentStore
 import com.milki.launcher.data.repository.common.RecentListStorage
+import com.milki.launcher.data.repository.common.filesRecentDataStore
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.repository.FilesRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOn
-
-private val Context.filesRecentDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "recent_files"
-)
 
 class FilesRepositoryImpl(
     context: Context
@@ -50,7 +42,7 @@ class FilesRepositoryImpl(
     }
 
     override fun getRecentFileIds(): Flow<List<Long>> {
-        return observeRecent().flowOn(Dispatchers.IO)
+        return observeRecent()
     }
 
     override suspend fun searchFiles(
@@ -153,16 +145,17 @@ class FilesRepositoryImpl(
                         break
                     }
 
-                    cursorReader.addFileFromCursorRow(
+                    cursorReader.readFileFromCursorRow(
                         cursor = it,
                         columns = columns,
                         collectionUri = uri,
-                        files = files,
-                        addedFileIds = addedFileIds,
-                        logFilteredOut = true,
                         allowedExtensions = extensionConfig.resolveAllowedExtensions(),
                         excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
-                    )
+                    )?.let { doc ->
+                        if (addedFileIds.add(doc.id)) {
+                            files.add(doc)
+                        }
+                    }
                 }
             }
         } catch (e: IllegalArgumentException) {

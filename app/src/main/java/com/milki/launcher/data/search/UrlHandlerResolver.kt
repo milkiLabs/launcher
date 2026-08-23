@@ -13,8 +13,6 @@ import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.domain.model.UrlHandlerApp
 import com.milki.launcher.domain.search.UrlHandlerPort
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -22,12 +20,13 @@ private const val URL_HANDLER_RESOLVER_TAG = "UrlHandlerResolver"
 
 class UrlHandlerResolver(
     private val context: Context,
-    packageChangeMonitor: PackageChangeMonitor
+    packageChangeMonitor: PackageChangeMonitor,
+    applicationScope: CoroutineScope
 ) : UrlHandlerPort {
 
     private val packageManager: PackageManager = context.packageManager
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = applicationScope
     private val browserPackagesCache = SnapshotCache(BrowserPackagesSnapshot.Empty)
     private val handlerAppCache = LruCache<String, UrlHandlerApp>(HANDLER_CACHE_SIZE)
 
