@@ -207,7 +207,7 @@ private fun WidgetResizeOverlay(
     val originY = (draftFrame.position.row * cellHeightPx).roundToInt()
     val frameWidth = (draftFrame.span.columns * cellWidthPx).roundToInt()
     val frameHeight = (draftFrame.span.rows * cellHeightPx).roundToInt()
-    val frameColor = if (isDraftValid) MaterialTheme.colorScheme.primary else Color(0xFFFF6B6B)
+    val frameColor = if (isDraftValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
 
     Box(
         modifier = Modifier
@@ -360,7 +360,7 @@ private fun BoxScope.WidgetTransformHandleNode(
             )
             .border(
                 width = Spacing.hairline,
-                color = Color.White.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.surface,
                 shape = CircleShape
             )
             .zIndex(53f)

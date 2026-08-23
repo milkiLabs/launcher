@@ -156,7 +156,7 @@ internal fun DropHighlightLayer(
                 val highlightColor = when (previewState.highlightKind) {
                     ExternalDropHighlightKind.Primary -> MaterialTheme.colorScheme.primary
                     ExternalDropHighlightKind.Secondary -> MaterialTheme.colorScheme.secondary
-                    ExternalDropHighlightKind.Error -> Color(0xFFFF5252)
+                    ExternalDropHighlightKind.Error -> MaterialTheme.colorScheme.error
                 }
                 val isInlineWidgetDrag = currentExternalItem is ExternalDragItem.Widget &&
                     currentExternalItem.displayMode == WidgetDisplayMode.Inline

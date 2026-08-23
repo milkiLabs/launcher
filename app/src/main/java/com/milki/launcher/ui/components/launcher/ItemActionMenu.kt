@@ -45,6 +45,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -62,6 +63,23 @@ import com.milki.launcher.ui.interaction.dragdrop.startExternalShortcutDrag
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+
+/**
+ * Layout constants for the item action menu popup bubble.
+ *
+ * These values are co-located here (instead of being promoted to global theme
+ * tokens) because they only describe this component's own geometry.
+ */
+private object ItemActionMenuDefaults {
+    val windowMargin: Dp = 12.dp
+    val anchorGap: Dp = 8.dp
+    val arrowSize: Dp = 16.dp
+    val arrowEdgePadding: Dp = 24.dp
+    val arrowCorner: Dp = 4.dp
+    val maxWidth: Dp = 252.dp
+    val cornerRadius: Dp = 28.dp
+    val shadowElevation: Dp = 18.dp
+}
 
 enum class MenuSection {
     QuickShortcut,
@@ -108,10 +126,10 @@ fun ItemActionMenu(
     val positionProvider = remember(density) {
         with(density) {
             PopupOffsetPositionProvider(
-                windowMarginPx = 12.dp.roundToPx(),
-                anchorGapPx = 8.dp.roundToPx(),
-                arrowSizePx = 16.dp.roundToPx(),
-                arrowEdgePaddingPx = 24.dp.roundToPx()
+                windowMarginPx = ItemActionMenuDefaults.windowMargin.roundToPx(),
+                anchorGapPx = ItemActionMenuDefaults.anchorGap.roundToPx(),
+                arrowSizePx = ItemActionMenuDefaults.arrowSize.roundToPx(),
+                arrowEdgePaddingPx = ItemActionMenuDefaults.arrowEdgePadding.roundToPx()
             )
         }
     }
@@ -148,19 +166,19 @@ private fun ItemActionMenuBubble(
     onExternalDragStarted: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
-    val iconTintDefault = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.96f)
-    val textColorDefault = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.98f)
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val iconTintDefault = MaterialTheme.colorScheme.onSurface
+    val textColorDefault = MaterialTheme.colorScheme.onSurface
     val destructiveColor = MaterialTheme.colorScheme.error
     val hapticFeedback = LocalHapticFeedback.current
     val hostView = LocalView.current
     val arrowOffset = with(LocalDensity.current) { placement.arrowOffsetPx.toDp() }
-    val arrowHalf = 8.dp
+    val arrowHalf = ItemActionMenuDefaults.arrowSize / 2
 
     Box(modifier = modifier) {
         Surface(
             modifier = Modifier
-                .widthIn(max = 252.dp)
+                .widthIn(max = ItemActionMenuDefaults.maxWidth)
                 .padding(
                     top = if (placement.verticalPlacement == ItemActionMenuVerticalPlacement.Below) {
                         arrowHalf
@@ -173,9 +191,9 @@ private fun ItemActionMenuBubble(
                         0.dp
                     }
                 ),
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(ItemActionMenuDefaults.cornerRadius),
             color = surfaceColor,
-            shadowElevation = 18.dp,
+            shadowElevation = ItemActionMenuDefaults.shadowElevation,
             tonalElevation = 0.dp
         ) {
             Column(
@@ -273,9 +291,9 @@ private fun ItemActionMenuBubble(
                     }
                 )
                 .offset(x = arrowOffset)
-                .size(16.dp)
+                .size(ItemActionMenuDefaults.arrowSize)
                 .rotate(45f)
-                .background(surfaceColor, RoundedCornerShape(4.dp))
+                .background(surfaceColor, RoundedCornerShape(ItemActionMenuDefaults.arrowCorner))
         )
     }
 }
