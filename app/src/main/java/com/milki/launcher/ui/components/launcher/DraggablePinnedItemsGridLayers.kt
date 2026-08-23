@@ -37,6 +37,7 @@ import com.milki.launcher.domain.model.homeGridSpan
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropResult
+import com.milki.launcher.ui.interaction.grid.DoubleTapArbiter
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.interaction.grid.animateDragVisuals
@@ -95,6 +96,11 @@ internal fun InternalGridDragLayer(
     )
 
     val backgroundGesturePolicy = interactionController.backgroundGesturePolicy(backgroundGestures)
+
+    // Double-tap state holder, remembered across recompositions AND detector
+    // restarts: pointerInput restarts (grid mutations) must not discard a
+    // pending tap mid-double-tap.
+    val doubleTapArbiter = remember { DoubleTapArbiter() }
 
     // Structured restart key for the background gesture detector.
     //
@@ -173,6 +179,7 @@ internal fun InternalGridDragLayer(
                 occupancy = occupancy,
                 layoutMetrics = layoutMetrics,
                 policy = backgroundGesturePolicy,
+                doubleTapArbiter = doubleTapArbiter,
                 bindings = backgroundGestures.copy(
                     onEmptyAreaLongPress = { longPressOffset ->
                         hapticLongPress()
