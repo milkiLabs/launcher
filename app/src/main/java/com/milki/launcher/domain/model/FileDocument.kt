@@ -10,6 +10,7 @@
 package com.milki.launcher.domain.model
 
 import com.milki.launcher.core.file.MimeTypeResolver
+import kotlinx.serialization.Serializable
 
 /**
  * Represents a single document/file from the device storage.
@@ -38,6 +39,7 @@ import com.milki.launcher.core.file.MimeTypeResolver
  * )
  * ```
  */
+@Serializable
 data class FileDocument(
     /**
      * Unique file ID from the MediaStore (_ID column).

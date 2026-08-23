@@ -11,13 +11,35 @@ import com.milki.launcher.domain.model.Contact
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.domain.model.ItemId
-import com.milki.launcher.domain.model.WidgetDisplayMode
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.Transient
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+
+/**
+ * Serializes [ComponentName] as its flattened "pkg/class" string form.
+ */
+private object ComponentNameSerializer : KSerializer<ComponentName> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("android.content.ComponentName", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: ComponentName) {
+        encoder.encodeString(value.flattenToString())
+    }
+
+    override fun deserialize(decoder: Decoder): ComponentName {
+        val flat = decoder.decodeString()
+        return ComponentName.unflattenFromString(flat)
+            ?: throw kotlinx.serialization.SerializationException(
+                "Malformed ComponentName: $flat"
+            )
+    }
+}
 
 /**
  * ExternalDragPayloadCodec.kt - Shared codec for launcher external drag payloads.
@@ -46,12 +68,32 @@ object ExternalDragPayloadCodec {
      * Type-safe representation of all externally draggable launcher entities.
      *
      * This allows one drag/drop pipeline to carry app, file, and contact data.
+     *
+     * The hierarchy is polymorphic-serializable: the codec encodes/decodes the
+     * sealed type directly with a "type" class discriminator, so adding a new
+     * payload kind only requires adding a subclass here.
      */
+    @Serializable
     sealed class ExternalDragItem {
+        @Serializable
+        @SerialName("app")
         data class App(val appInfo: AppInfo) : ExternalDragItem()
+
+        @Serializable
+        @SerialName("file")
         data class File(val fileDocument: FileDocument) : ExternalDragItem()
-        data class Contact(val contact: com.milki.launcher.domain.model.Contact) : ExternalDragItem()
+
+        @Serializable
+        @SerialName("contact")
+        data class Contact(val contact: com.milki.launcher.domain.model.Contact) :
+            ExternalDragItem()
+
+        @Serializable
+        @SerialName("shortcut")
         data class Shortcut(val shortcut: HomeItem.AppShortcut) : ExternalDragItem()
+
+        @Serializable
+        @SerialName("actionShortcut")
         data class ActionShortcut(val shortcut: HomeItem.ActionShortcut) : ExternalDragItem()
 
         /**
@@ -73,6 +115,8 @@ object ExternalDragPayloadCodec {
          * @property folderId  The [HomeItem.FolderItem.id] the item is being extracted from.
          * @property childItem The actual item being dragged out.
          */
+        @Serializable
+        @SerialName("folderChild")
         data class FolderChild(
             val folderId: String,
             val childItem: com.milki.launcher.domain.model.HomeItem
@@ -84,88 +128,29 @@ object ExternalDragPayloadCodec {
          * HOW IT TRAVELS:
          * Like [FolderChild], this is carried entirely via [DragEvent.localState]
          * because the BottomSheet and home grid live in the same Activity process.
-         * [AppWidgetProviderInfo] is a Parcelable but not easily JSON-serializable,
-         * so we rely on the fast localState path exclusively.
+         * [AppWidgetProviderInfo] is a Parcelable that cannot be JSON-serialized,
+         * so it is [Transient] and only travels on the localState path; ClipData
+         * fallback decode re-resolves the provider from [providerComponent].
          *
          * @property providerInfo  The widget provider the user selected.
-         *                         This may be null when decoded from ClipData fallback.
+         *                         Always null when decoded from ClipData fallback.
          * @property providerComponent  Stable provider identity used for ClipData fallback
          *                              decode and later provider re-resolution.
          * @property span          The default grid span (columns × rows) for this widget.
          */
+        @Serializable
+        @SerialName("widget")
         data class Widget(
-            val providerInfo: AppWidgetProviderInfo?,
+            @Transient val providerInfo: AppWidgetProviderInfo? = null,
+            @Serializable(with = ComponentNameSerializer::class)
             val providerComponent: ComponentName,
-            val span: GridSpan,
-            val displayMode: WidgetDisplayMode = WidgetDisplayMode.Inline
+            val span: GridSpan = GridSpan.SINGLE,
+            val displayMode: com.milki.launcher.domain.model.WidgetDisplayMode =
+                com.milki.launcher.domain.model.WidgetDisplayMode.Inline
         ) : ExternalDragItem()
     }
 
-    @Serializable
-    private sealed class ExternalPayloadDto {
-        abstract val type: String
-
-        @Serializable
-        data class AppPayload(
-            override val type: String = "app",
-            val name: String,
-            val packageName: String,
-            val activityName: String
-        ) : ExternalPayloadDto()
-
-        @Serializable
-        data class FilePayload(
-            override val type: String = "file",
-            val id: Long,
-            val name: String,
-            val mimeType: String,
-            val size: Long,
-            val dateModified: Long,
-            val uri: String,
-            val folderPath: String
-        ) : ExternalPayloadDto()
-
-        @Serializable
-        data class ContactPayload(
-            override val type: String = "contact",
-            val id: Long,
-            val displayName: String,
-            val phoneNumbers: List<String>,
-            val photoUri: String?,
-            val lookupKey: String
-        ) : ExternalPayloadDto()
-
-        @Serializable
-        data class ShortcutPayload(
-            override val type: String = "shortcut",
-            val packageName: String,
-            val shortcutId: String,
-            val shortLabel: String,
-            val longLabel: String
-        ) : ExternalPayloadDto()
-
-        @Serializable
-        data class ActionShortcutPayload(
-            override val type: String = "actionShortcut",
-            val id: String,
-            val label: String,
-            val destinationUri: String,
-            val packageName: String? = null,
-            val packageLabel: String? = null
-        ) : ExternalPayloadDto()
-
-        @Serializable
-        data class WidgetPayload(
-            override val type: String = "widget",
-            val providerPackage: String,
-            val providerClass: String,
-            val spanColumns: Int,
-            val spanRows: Int,
-            val displayMode: WidgetDisplayMode = WidgetDisplayMode.Inline
-        ) : ExternalPayloadDto()
-    }
-
-    private val json = lenientJson()
+    private val json = lenientJson { classDiscriminator = "type" }
 
     /**
      * Creates ClipData for platform drag transfer from any supported drag item.
@@ -205,13 +190,11 @@ object ExternalDragPayloadCodec {
     private object CodecSupport {
         fun encodePayloadText(item: ExternalDragItem): String {
             return when (item) {
-                is ExternalDragItem.App -> encodeAppPayload(item.appInfo)
-                is ExternalDragItem.File -> encodeFilePayload(item.fileDocument)
-                is ExternalDragItem.Contact -> encodeContactPayload(item.contact)
-                is ExternalDragItem.Shortcut -> encodeShortcutPayload(item.shortcut)
-                is ExternalDragItem.ActionShortcut -> encodeActionShortcutPayload(item.shortcut)
+                // FolderChild travels as a bare item id: it is always decoded via
+                // localState, and the ClipData text only serves as a human-readable
+                // hint for external drop targets.
                 is ExternalDragItem.FolderChild -> item.childItem.id
-                is ExternalDragItem.Widget -> encodeWidgetPayload(item)
+                else -> json.encodeToString(ExternalDragItem.serializer(), item)
             }
         }
 
@@ -244,12 +227,11 @@ object ExternalDragPayloadCodec {
             descriptionLabel: String?,
             rawText: String?
         ): ExternalDragItem? {
-            return rawText?.let { payloadText ->
-                if (descriptionLabel == LEGACY_APP_DRAG_CLIP_LABEL) {
-                    decodeLegacyAppPayload(payloadText)
-                } else {
-                    decodeStructuredPayload(payloadText)
-                }
+            if (rawText == null) return null
+            return if (descriptionLabel == LEGACY_APP_DRAG_CLIP_LABEL) {
+                decodeLegacyAppPayload(rawText)
+            } else {
+                decodeStructuredPayload(rawText)
             }
         }
 
@@ -261,83 +243,20 @@ object ExternalDragPayloadCodec {
                 ?.toString()
         }
 
-        private fun encodeAppPayload(appInfo: AppInfo): String {
-            return json.encodeToString(
-                ExternalPayloadDto.AppPayload(
-                    name = appInfo.name,
-                    packageName = appInfo.packageName,
-                    activityName = appInfo.activityName
-                )
-            )
-        }
-
-        private fun encodeFilePayload(file: FileDocument): String {
-            return json.encodeToString(
-                ExternalPayloadDto.FilePayload(
-                    id = file.id,
-                    name = file.name,
-                    mimeType = file.mimeType,
-                    size = file.size,
-                    dateModified = file.dateModified,
-                    uri = file.uri,
-                    folderPath = file.folderPath
-                )
-            )
-        }
-
-        private fun encodeContactPayload(contact: com.milki.launcher.domain.model.Contact): String {
-            return json.encodeToString(
-                ExternalPayloadDto.ContactPayload(
-                    id = contact.id,
-                    displayName = contact.displayName,
-                    phoneNumbers = contact.phoneNumbers,
-                    photoUri = contact.photoUri,
-                    lookupKey = contact.lookupKey
-                )
-            )
-        }
-
-        private fun encodeShortcutPayload(shortcut: HomeItem.AppShortcut): String {
-            return json.encodeToString(
-                ExternalPayloadDto.ShortcutPayload(
-                    packageName = shortcut.packageName,
-                    shortcutId = shortcut.shortcutId,
-                    shortLabel = shortcut.shortLabel,
-                    longLabel = shortcut.longLabel
-                )
-            )
-        }
-
-        private fun encodeActionShortcutPayload(shortcut: HomeItem.ActionShortcut): String {
-            return json.encodeToString(
-                ExternalPayloadDto.ActionShortcutPayload(
-                    id = shortcut.id,
-                    label = shortcut.label,
-                    destinationUri = shortcut.destinationUri,
-                    packageName = shortcut.packageName,
-                    packageLabel = shortcut.packageLabel
-                )
-            )
-        }
-
-        private fun encodeWidgetPayload(item: ExternalDragItem.Widget): String {
-            return json.encodeToString(
-                ExternalPayloadDto.WidgetPayload(
-                    providerPackage = item.providerComponent.packageName,
-                    providerClass = item.providerComponent.className,
-                    spanColumns = item.span.columns,
-                    spanRows = item.span.rows,
-                    displayMode = item.displayMode
-                )
-            )
-        }
+        /**
+         * Payload format written by launcher versions predating the unified
+         * contract: a flat app descriptor with no "type" discriminator.
+         */
+        @Serializable
+        private data class LegacyAppPayload(
+            val name: String,
+            val packageName: String,
+            val activityName: String = packageName
+        )
 
         private fun decodeLegacyAppPayload(rawText: String): ExternalDragItem.App? {
             return runCatching {
-                val payload = json.decodeFromString(
-                    ExternalPayloadDto.AppPayload.serializer(),
-                    rawText
-                )
+                val payload = json.decodeFromString(LegacyAppPayload.serializer(), rawText)
                 ExternalDragItem.App(
                     AppInfo(
                         name = payload.name,
@@ -350,111 +269,8 @@ object ExternalDragPayloadCodec {
 
         private fun decodeStructuredPayload(rawText: String): ExternalDragItem? {
             return runCatching {
-                val payloadType = json.parseToJsonElement(rawText)
-                    .jsonObject["type"]
-                    ?.jsonPrimitive
-                    ?.contentOrNull
-                decodeStructuredPayload(payloadType = payloadType, rawText = rawText)
+                json.decodeFromString(ExternalDragItem.serializer(), rawText)
             }.getOrNull()
-        }
-
-        private fun decodeStructuredPayload(
-            payloadType: String?,
-            rawText: String
-        ): ExternalDragItem? {
-            return when (payloadType) {
-                "app" -> decodeAppPayload(rawText)
-                "file" -> decodeFilePayload(rawText)
-                "contact" -> decodeContactPayload(rawText)
-                "shortcut" -> decodeShortcutPayload(rawText)
-                "actionShortcut" -> decodeActionShortcutPayload(rawText)
-                "widget" -> decodeWidgetPayload(rawText)
-                else -> null
-            }
-        }
-
-        private fun decodeAppPayload(rawText: String): ExternalDragItem.App {
-            val payload = json.decodeFromString(ExternalPayloadDto.AppPayload.serializer(), rawText)
-            return ExternalDragItem.App(
-                AppInfo(
-                    name = payload.name,
-                    packageName = payload.packageName,
-                    activityName = payload.activityName
-                )
-            )
-        }
-
-        private fun decodeFilePayload(rawText: String): ExternalDragItem.File {
-            val payload = json.decodeFromString(ExternalPayloadDto.FilePayload.serializer(), rawText)
-            return ExternalDragItem.File(
-                FileDocument(
-                    id = payload.id,
-                    name = payload.name,
-                    mimeType = payload.mimeType,
-                    size = payload.size,
-                    dateModified = payload.dateModified,
-                    uri = payload.uri,
-                    folderPath = payload.folderPath
-                )
-            )
-        }
-
-        private fun decodeContactPayload(rawText: String): ExternalDragItem.Contact {
-            val payload = json.decodeFromString(
-                ExternalPayloadDto.ContactPayload.serializer(),
-                rawText
-            )
-            return ExternalDragItem.Contact(
-                Contact(
-                    id = payload.id,
-                    displayName = payload.displayName,
-                    phoneNumbers = payload.phoneNumbers,
-                    photoUri = payload.photoUri,
-                    lookupKey = payload.lookupKey
-                )
-            )
-        }
-
-        private fun decodeShortcutPayload(rawText: String): ExternalDragItem.Shortcut {
-            val payload = json.decodeFromString(
-                ExternalPayloadDto.ShortcutPayload.serializer(),
-                rawText
-            )
-            return ExternalDragItem.Shortcut(
-                HomeItem.AppShortcut(
-                    id = ItemId.shortcut(payload.packageName, payload.shortcutId),
-                    packageName = payload.packageName,
-                    shortcutId = payload.shortcutId,
-                    shortLabel = payload.shortLabel,
-                    longLabel = payload.longLabel
-                )
-            )
-        }
-
-        private fun decodeActionShortcutPayload(rawText: String): ExternalDragItem.ActionShortcut {
-            val payload = json.decodeFromString(
-                ExternalPayloadDto.ActionShortcutPayload.serializer(),
-                rawText
-            )
-            return ExternalDragItem.ActionShortcut(
-                HomeItem.ActionShortcut(
-                    id = payload.id,
-                    label = payload.label,
-                    destinationUri = payload.destinationUri,
-                    packageName = payload.packageName,
-                    packageLabel = payload.packageLabel
-                )
-            )
-        }
-
-        private fun decodeWidgetPayload(rawText: String): ExternalDragItem.Widget {
-            val payload = json.decodeFromString(ExternalPayloadDto.WidgetPayload.serializer(), rawText)
-            return ExternalDragItem.Widget(
-                providerInfo = null,
-                providerComponent = ComponentName(payload.providerPackage, payload.providerClass),
-                span = GridSpan(columns = payload.spanColumns, rows = payload.spanRows),
-                displayMode = payload.displayMode
-            )
         }
     }
 }

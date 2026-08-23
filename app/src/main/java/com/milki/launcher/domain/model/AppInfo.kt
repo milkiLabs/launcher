@@ -1,5 +1,6 @@
 package com.milki.launcher.domain.model
 
+import kotlinx.serialization.Serializable
 
 /**
  * AppInfo represents a single installed application.
@@ -9,6 +10,7 @@ package com.milki.launcher.domain.model
  *                        (e.g., "com.example.app.MainActivity")
  *                        Multiple activities can share the same packageName.
  */
+@Serializable
 data class AppInfo(
     val name: String,
     val packageName: String,

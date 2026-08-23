@@ -10,6 +10,8 @@
 
 package com.milki.launcher.domain.model
 
+import kotlinx.serialization.Serializable
+
 
 /**
  * Represents a single contact from the device.
@@ -33,6 +35,7 @@ package com.milki.launcher.domain.model
  * )
  * ```
  */
+@Serializable
 data class Contact(
     /**
      * Unique contact ID from the Contacts Provider (_ID column).
