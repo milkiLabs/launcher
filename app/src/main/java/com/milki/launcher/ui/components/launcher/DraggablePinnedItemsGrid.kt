@@ -106,10 +106,9 @@ fun DraggablePinnedItemsGrid(
                         preferredCell = target,
                         draggedSpan = draggedWidget.homeGridSpan,
                         gridColumns = config.columns,
-                        gridRows = maxVisibleRows,
-                        excludeItemId = session.itemId
+                        gridRows = maxVisibleRows
                     ),
-                    occupancy = occupancy
+                    occupancy = GridOccupancy.fromItems(items, excludeItemId = session.itemId)
                 )
                 resolvedAnchor ?: target
             }

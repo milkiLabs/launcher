@@ -15,11 +15,22 @@ import kotlin.math.abs
  */
 class GridReorderEngine {
 
-    /** Nearest free anchor for [ReorderInput.draggedSpan], or null when no space exists. */
-    fun compute(input: ReorderInput, occupancy: GridOccupancy? = null): GridPosition? {
-        val resolved = occupancy
-            ?: GridOccupancy.fromItems(input.items, excludeItemId = input.excludeItemId)
+    /**
+     * Nearest free anchor for [ReorderInput.draggedSpan], or null when no space exists.
+     *
+     * The dragged item is excluded via [ReorderInput.excludeItemId]; occupancy is built
+     * implicitly from [ReorderInput.items].
+     */
+    fun compute(input: ReorderInput): GridPosition? =
+        compute(input, GridOccupancy.fromItems(input.items, excludeItemId = input.excludeItemId))
 
+    /**
+     * Nearest free anchor using a prebuilt [occupancy] index.
+     *
+     * [occupancy] is the sole source of truth: it must already exclude the dragged item.
+     * [ReorderInput.items] and [ReorderInput.excludeItemId] are ignored on this path.
+     */
+    fun compute(input: ReorderInput, occupancy: GridOccupancy): GridPosition? {
         val preferred = input.preferredCell
         val span = input.draggedSpan
 
@@ -36,12 +47,11 @@ class GridReorderEngine {
                 val distance = abs(rowDelta) + abs(columnDelta)
                 if (radius == bestRadius && distance >= bestDistance) continue
 
-                if (!resolved.canPlace(
+                if (!occupancy.canPlace(
                         anchor = GridPosition(row, column),
                         span = span,
                         gridColumns = input.gridColumns,
-                        gridRows = input.gridRows,
-                        excludeItemId = input.excludeItemId
+                        gridRows = input.gridRows
                     )
                 ) {
                     continue

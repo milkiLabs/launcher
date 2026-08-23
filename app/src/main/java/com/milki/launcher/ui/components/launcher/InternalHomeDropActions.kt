@@ -61,10 +61,9 @@ internal fun resolveInternalDropAction(
                 preferredCell = dropPosition,
                 draggedSpan = draggedItem.homeGridSpan,
                 gridColumns = gridColumns,
-                gridRows = gridRows,
-                excludeItemId = draggedItem.id
+                gridRows = gridRows
             ),
-            occupancy = resolved
+            occupancy = GridOccupancy.fromItems(items, excludeItemId = draggedItem.id)
         ) ?: return InternalDropAction.Reject(RejectReason.OCCUPIED_TARGET)
     } else {
         dropPosition

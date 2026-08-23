@@ -1,5 +1,6 @@
 package com.milki.launcher.domain.reorder
 
+import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
@@ -105,6 +106,31 @@ class GridReorderEngineDeterminismTest {
         )
 
         assertEquals(GridPosition(0, 1), anchor)
+    }
+
+    @Test
+    fun explicit_occupancy_is_sole_source_of_truth_and_excludes_dragged_item_upfront() {
+        val dragged = pinnedApp("dragged", GridPosition(0, 0))
+        val blocker = pinnedApp("blocker", GridPosition(1, 1))
+
+        // Occupancy must already omit the dragged item; excludeItemId is ignored here.
+        val occupancy = GridOccupancy.fromItems(listOf(dragged, blocker), excludeItemId = "dragged")
+        val input = ReorderInput(
+            items = listOf(dragged, blocker),
+            preferredCell = GridPosition(1, 1),
+            draggedSpan = GridSpan.SINGLE,
+            gridColumns = 4,
+            gridRows = 4,
+            excludeItemId = "blocker"
+        )
+
+        val explicit = engine.compute(input, occupancy)
+        val implicit = engine.compute(
+            input.copy(excludeItemId = "dragged")
+        )
+
+        assertEquals(GridPosition(0, 1), explicit)
+        assertEquals(implicit, explicit)
     }
 
     private fun pinnedApp(
