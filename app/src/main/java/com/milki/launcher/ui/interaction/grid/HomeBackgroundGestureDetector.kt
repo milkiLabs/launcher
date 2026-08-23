@@ -230,7 +230,11 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
         }
 
         // Finger released before timeout or slop.
-        is PreTimeoutResult.Released -> result.value.outcome
+        is PreTimeoutResult.Released -> when (val value = result.value) {
+            is BackgroundPhase1Resolution.Terminal -> value.outcome
+            // Unreachable at lift time (onLift only produces Terminal).
+            BackgroundPhase1Resolution.SlopExceeded -> null
+        }
 
         // Pointer disappeared (multi-touch, system cancel).
         PreTimeoutResult.Lost -> BackgroundGestureOutcome.Cancelled

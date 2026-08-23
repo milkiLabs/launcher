@@ -56,6 +56,15 @@ sealed class PreTimeoutResult<out T> {
 }
 
 /**
+ * Internal wrapper so "pointer lost" is distinguishable from "timeout fired"
+ * (both would otherwise surface as null from withTimeoutOrNull).
+ */
+private sealed class Tracked<out T> {
+    data class Done<T>(val result: PreTimeoutResult<T>) : Tracked<T>()
+    data object Lost : Tracked<Nothing>()
+}
+
+/**
  * Tracks [pointerId] until one of four things happens:
  *
  * 1. The finger lifts → [PreTimeoutResult.Released] with `onLift(change)` as value.
@@ -79,13 +88,6 @@ suspend fun <T> AwaitPointerEventScope.trackPointerUntilLongPressOrRelease(
     onLift: (PointerInputChange) -> T
 ): PreTimeoutResult<T> {
     var latestChange: PointerInputChange? = null
-
-    // Internal wrapper so "pointer lost" is distinguishable from "timeout fired"
-    // (both would otherwise surface as null from withTimeoutOrNull).
-    sealed class Tracked<out T> {
-        data class Done<T>(val result: PreTimeoutResult<T>) : Tracked<T>()
-        data object Lost : Tracked<Nothing>()
-    }
 
     val outcome = withTimeoutOrNull(longPressTimeoutMillis) {
         while (true) {
