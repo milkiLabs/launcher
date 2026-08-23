@@ -1,8 +1,7 @@
 package com.milki.launcher.presentation.home
 
-import android.content.Context
-import com.milki.launcher.data.icon.AppIconMemoryCache
-import com.milki.launcher.data.icon.ShortcutIconLoader
+import com.milki.launcher.domain.icon.IconPreloader
+import com.milki.launcher.domain.icon.IconPriorityStore
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.HomeRepository
 import kotlinx.coroutines.CoroutineScope
@@ -17,7 +16,8 @@ import kotlinx.coroutines.launch
  */
 class HomeIconWarmupCoordinator(
     private val homeRepository: HomeRepository,
-    private val appContext: Context
+    private val priorityStore: IconPriorityStore,
+    private val iconPreloader: IconPreloader
 ) {
     @Volatile
     private var started = false
@@ -38,20 +38,14 @@ class HomeIconWarmupCoordinator(
                 .map(::collectVisibleHomeIcons)
                 .distinctUntilChanged()
                 .collectLatest { visibleIcons ->
-                    AppIconMemoryCache.updateHomePriorityPackages(visibleIcons.packageNames)
+                    priorityStore.updateHomePriorityPackages(visibleIcons.packageNames)
 
                     if (visibleIcons.packageNames.isNotEmpty()) {
-                        AppIconMemoryCache.preloadMissing(
-                            packageNames = visibleIcons.packageNames,
-                            packageManager = appContext.packageManager
-                        )
+                        iconPreloader.preloadMissingAppIcons(visibleIcons.packageNames)
                     }
 
                     if (visibleIcons.shortcuts.isNotEmpty()) {
-                        ShortcutIconLoader.preloadMissing(
-                            context = appContext,
-                            shortcuts = visibleIcons.shortcuts
-                        )
+                        iconPreloader.preloadMissingShortcutIcons(visibleIcons.shortcuts)
                     }
                 }
         }

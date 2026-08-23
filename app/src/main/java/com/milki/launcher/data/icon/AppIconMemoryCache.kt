@@ -24,6 +24,7 @@ import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.graphics.drawable.Drawable
 import android.util.Log
+import com.milki.launcher.domain.icon.IconPriorityStore
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
 
@@ -36,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong
  * - 300 entries is a practical default for typical devices and prevents
  *   unbounded growth while still covering most app drawers fully.
  */
-object AppIconMemoryCache {
+object AppIconMemoryCache : IconPriorityStore {
 
     private const val TAG = "AppIconMemoryCache"
 
@@ -81,7 +82,7 @@ object AppIconMemoryCache {
      *
      * Existing cached icons are promoted/demoted between tiers immediately.
      */
-    fun updateHomePriorityPackages(packageNames: Set<String>) {
+    override fun updateHomePriorityPackages(packageNames: Set<String>) {
         if (homePriorityPackages == packageNames) return
 
         val removed = homePriorityPackages - packageNames
