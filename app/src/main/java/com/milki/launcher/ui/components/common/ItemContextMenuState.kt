@@ -139,7 +139,7 @@ fun ItemContextMenu(
  * - [HomeItem.PinnedApp]: widgets + quick shortcuts + app info + unpin
  * - All other items: unpin only (no parent app actions for shortcuts)
  * - Pass [includeUnpin] = false when the item lives inside a folder, where
- *   "Remove from folder" is the relevant action instead (see FolderPopupDialogSupport).
+ *   "Remove from folder" is the relevant action instead (see FolderPopupContent).
  */
 @Composable
 fun buildHomeItemMenuActions(

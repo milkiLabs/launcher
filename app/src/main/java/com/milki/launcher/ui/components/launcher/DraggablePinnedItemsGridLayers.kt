@@ -44,6 +44,7 @@ import com.milki.launcher.ui.components.launcher.widget.HomeScreenWidgetView
 import com.milki.launcher.ui.components.launcher.widget.LocalWidgetHost
 import com.milki.launcher.ui.components.launcher.widget.PopupWidgetView
 import com.milki.launcher.ui.theme.Spacing
+import com.milki.launcher.ui.util.windowRect
 import kotlin.math.roundToInt
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
 import com.milki.launcher.ui.screens.launcher.FolderActions
@@ -183,16 +184,7 @@ internal fun InternalGridDragLayer(
                             alpha = visuals.alpha
                         }
                         .onGloballyPositioned { coords ->
-                            val topLeft = coords.localToWindow(Offset.Zero)
-                            onItemBoundsMeasured(
-                                item.id,
-                                Rect(
-                                    left = topLeft.x,
-                                    top = topLeft.y,
-                                    right = topLeft.x + coords.size.width,
-                                    bottom = topLeft.y + coords.size.height
-                                )
-                            )
+                            onItemBoundsMeasured(item.id, coords.windowRect())
                         }
                         .detectDragGesture(
                             key = "${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}",

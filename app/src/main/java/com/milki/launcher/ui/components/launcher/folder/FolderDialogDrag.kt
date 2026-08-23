@@ -20,6 +20,8 @@ import com.milki.launcher.ui.components.launcher.PinnedItemView
 import kotlin.math.roundToInt
 
 private const val FOLDER_CELL_CENTER_RATIO = 0.5f
+private const val FOLDER_PREVIEW_ALPHA = 0.92f
+private const val FOLDER_DRAG_PREVIEW_Z_INDEX = 12f
 
 internal class FolderDialogDragState {
     var draggedItemId by mutableStateOf<String?>(null)

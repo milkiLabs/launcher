@@ -35,6 +35,8 @@ import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
 import com.milki.launcher.ui.interaction.dragdrop.startExternalFolderItemDrag
 import kotlinx.coroutines.delay
 
+private const val FOLDER_AUTO_PAGE_DELAY_MS = 170L
+
 @Composable
 fun FolderPopupDialog(
     folder: HomeItem.FolderItem,

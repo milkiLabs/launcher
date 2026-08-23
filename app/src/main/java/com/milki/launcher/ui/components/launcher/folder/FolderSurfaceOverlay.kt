@@ -32,12 +32,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
+import com.milki.launcher.ui.util.center
+import com.milki.launcher.ui.util.lerp
+import com.milki.launcher.ui.util.windowRect
 import kotlin.math.roundToInt
 
 private const val FOLDER_SCRIM_BASE_ALPHA = 0.18f
 private const val FOLDER_SCRIM_PROGRESS_ALPHA = 0.34f
 private const val FOLDER_SURFACE_BASE_ALPHA = 0.82f
 private const val FOLDER_SURFACE_FINAL_ALPHA = 1f
+private const val FOLDER_MIN_START_SCALE = 0.28f
+private const val FOLDER_OPEN_ANIMATION_MS = 240
 
 internal data class FolderSurfaceTransform(
     val anchorCenter: Offset,
