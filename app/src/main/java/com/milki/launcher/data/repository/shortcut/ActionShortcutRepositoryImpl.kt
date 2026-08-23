@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.data.repository.common.catchIoException
+import com.milki.launcher.data.repository.common.mutate
 import com.milki.launcher.data.repository.common.newlineJsonListSerializer
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.repository.ActionShortcutRepository
@@ -42,20 +43,18 @@ class ActionShortcutRepositoryImpl(
     }
 
     override suspend fun saveShortcut(shortcut: HomeItem.ActionShortcut): Boolean {
-        var success = true
-        dataStore.edit { preferences ->
+        return dataStore.mutate { preferences ->
             val existing = serializer.readFrom(preferences).toMutableList()
-            
-            val isDuplicate = existing.any { 
-                it.id != shortcut.id && 
-                it.destinationUri == shortcut.destinationUri && 
-                it.packageName == shortcut.packageName 
+
+            val isDuplicate = existing.any {
+                it.id != shortcut.id &&
+                    it.destinationUri == shortcut.destinationUri &&
+                    it.packageName == shortcut.packageName
             }
             if (isDuplicate) {
-                success = false
-                return@edit
+                return@mutate false
             }
-            
+
             val index = existing.indexOfFirst { it.id == shortcut.id }
             if (index >= 0) {
                 existing[index] = shortcut
@@ -63,8 +62,8 @@ class ActionShortcutRepositoryImpl(
                 existing.add(shortcut)
             }
             serializer.writeTo(existing, preferences)
+            true
         }
-        return success
     }
 
     override suspend fun replaceAllShortcuts(shortcuts: List<HomeItem.ActionShortcut>) {

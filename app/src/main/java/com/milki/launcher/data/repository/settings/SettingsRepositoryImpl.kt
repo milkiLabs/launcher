@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.milki.launcher.data.repository.common.catchIoException
+import com.milki.launcher.data.repository.common.mutate
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
@@ -97,11 +98,9 @@ class SettingsRepositoryImpl(
     // ========================================================================
 
     override suspend fun addSearchSource(source: SearchSource): PrefixMutationResult {
-        var result: PrefixMutationResult = PrefixMutationResult.Success
-        context.settingsDataStore.edit { preferences ->
-            result = mutationStore.addSearchSource(preferences, source)
+        return context.settingsDataStore.mutate { preferences ->
+            mutationStore.addSearchSource(preferences, source)
         }
-        return result
     }
 
     override suspend fun updateSearchSource(
@@ -111,13 +110,11 @@ class SettingsRepositoryImpl(
         prefixes: List<String>,
         accentColorHex: String
     ): PrefixMutationResult {
-        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
-        context.settingsDataStore.edit { preferences ->
-            result = mutationStore.updateSearchSource(
+        return context.settingsDataStore.mutate { preferences ->
+            mutationStore.updateSearchSource(
                 preferences, sourceId, name, urlTemplate, prefixes, accentColorHex
             )
         }
-        return result
     }
 
     override suspend fun deleteSearchSource(sourceId: String) {
@@ -153,19 +150,15 @@ class SettingsRepositoryImpl(
     // ========================================================================
 
     override suspend fun addPrefix(ownerId: String, prefix: String): PrefixMutationResult {
-        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
-        context.settingsDataStore.edit { preferences ->
-            result = mutationStore.addPrefix(preferences, ownerId, prefix)
+        return context.settingsDataStore.mutate { preferences ->
+            mutationStore.addPrefix(preferences, ownerId, prefix)
         }
-        return result
     }
 
     override suspend fun removePrefix(ownerId: String, prefix: String): PrefixMutationResult {
-        var result: PrefixMutationResult = PrefixMutationResult.TargetNotFound
-        context.settingsDataStore.edit { preferences ->
-            result = mutationStore.removePrefix(preferences, ownerId, prefix)
+        return context.settingsDataStore.mutate { preferences ->
+            mutationStore.removePrefix(preferences, ownerId, prefix)
         }
-        return result
     }
 
     override suspend fun resetPrefixes(ownerId: String) {
