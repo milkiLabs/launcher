@@ -43,15 +43,16 @@ private val LightColorScheme = lightColorScheme(
 )
 
 /**
- * App theme. Prefers Material You dynamic colors on Android 12+,
- * falling back to the static schemes above.
+ * App theme. Uses the static brand schemes by default; opt in to
+ * Material You wallpaper-derived colors with `dynamicColor = true`
+ * (Android 12+).
  *
  * Force either mode with `LauncherTheme(darkTheme = true/false)`.
  */
 @Composable
 fun LauncherTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
