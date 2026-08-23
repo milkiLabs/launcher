@@ -237,7 +237,7 @@ object QueryRanker {
     private const val ACRONYM_MATCH = 7_000
     private const val TOKEN_MATCH = 6_700
     private const val SUBSEQUENCE_MATCH = 5_400
-    private const val TYPO_MATCH = 5_900
+    private const val TYPO_MATCH = 5_100
 
     private const val SECONDARY_EXACT_MATCH = 5_200
     private const val SECONDARY_CONTAINS_MATCH = 4_900
