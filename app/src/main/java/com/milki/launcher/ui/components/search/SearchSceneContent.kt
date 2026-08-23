@@ -28,9 +28,6 @@
 package com.milki.launcher.ui.components.search
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
@@ -65,6 +62,7 @@ import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.presentation.search.SearchUiState
+import com.milki.launcher.ui.components.common.OverlayScrim
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
 
@@ -108,12 +106,8 @@ fun AppSearchDialog(
             decorFitsSystemWindows = false
         )
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = SEARCH_DIALOG_SCRIM_ALPHA))
-        ) {
-            SearchDialogDismissLayer(onDismiss = onDismiss)
+        Box(modifier = Modifier.fillMaxSize()) {
+            OverlayScrim(onClose = onDismiss, alpha = SEARCH_DIALOG_SCRIM_ALPHA)
             SearchDialogSheet(
                 uiState = uiState,
                 onQueryChange = onQueryChange,
@@ -137,19 +131,6 @@ fun AppSearchDialog(
             keyboardController?.hide()
         }
     }
-}
-
-@Composable
-private fun SearchDialogDismissLayer(onDismiss: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            )
-    )
 }
 
 @Composable

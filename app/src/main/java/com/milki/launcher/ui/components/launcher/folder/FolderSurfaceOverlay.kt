@@ -3,11 +3,9 @@ package com.milki.launcher.ui.components.launcher.folder
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,12 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import com.milki.launcher.ui.components.common.OverlayScrim
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
 import com.milki.launcher.ui.util.center
@@ -156,19 +154,9 @@ internal fun FolderPopupScrim(
     openProgress: Float,
     onClose: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Color.Black.copy(
-                    alpha = FOLDER_SCRIM_BASE_ALPHA + (FOLDER_SCRIM_PROGRESS_ALPHA * openProgress)
-                )
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClose
-            )
+    OverlayScrim(
+        onClose = onClose,
+        alpha = FOLDER_SCRIM_BASE_ALPHA + (FOLDER_SCRIM_PROGRESS_ALPHA * openProgress)
     )
 }
 
