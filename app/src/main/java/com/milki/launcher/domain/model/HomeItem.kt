@@ -38,8 +38,7 @@ sealed class HomeItem {
                     id = id,
                     packageName = appInfo.packageName,
                     activityName = appInfo.activityName,
-                    label = appInfo.name,
-                    position = GridPosition.DEFAULT
+                    label = appInfo.name
                 )
             }
         }
@@ -64,8 +63,7 @@ sealed class HomeItem {
                     uri = file.uri,
                     name = file.name,
                     mimeType = file.mimeType,
-                    size = file.size,
-                    position = GridPosition.DEFAULT
+                    size = file.size
                 )
             }
         }
@@ -93,8 +91,7 @@ sealed class HomeItem {
                     lookupKey = contact.lookupKey,
                     displayName = contact.displayName,
                     primaryPhone = contact.phoneNumbers.firstOrNull(),
-                    photoUri = contact.photoUri,
-                    position = GridPosition.DEFAULT
+                    photoUri = contact.photoUri
                 )
             }
         }
@@ -124,8 +121,7 @@ sealed class HomeItem {
                     packageName = packageName,
                     shortcutId = shortcutId,
                     shortLabel = shortLabel,
-                    longLabel = longLabel,
-                    position = GridPosition.DEFAULT
+                    longLabel = longLabel
                 )
             }
         }
@@ -164,8 +160,7 @@ sealed class HomeItem {
                     label = normalizedLabel,
                     destinationUri = normalizedUri,
                     packageName = scopedPackage,
-                    packageLabel = packageLabel?.takeIf { it.isNotBlank() },
-                    position = GridPosition.DEFAULT
+                    packageLabel = packageLabel?.takeIf { it.isNotBlank() }
                 )
             }
         }
