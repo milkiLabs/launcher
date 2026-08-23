@@ -10,77 +10,66 @@ internal fun HomeModelWriter.createFolder(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.CreateFolder
 ): HomeModelWriter.Result {
-    val mutable = currentItems.toMutableList()
+    if (command.draggedItem is HomeItem.FolderItem || command.draggedItem is HomeItem.WidgetItem) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
+    }
     val liveTarget = findLiveNonFolderTarget(
-        items = mutable,
+        items = currentItems,
         targetItemId = command.targetItemId,
         atPosition = command.atPosition
+    ) ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
+    if (command.draggedItem.id == liveTarget.id) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
+    }
+
+    val mutable = currentItems.toMutableList()
+    evictItemEverywhere(mutable, command.draggedItem.id)
+    evictItemEverywhere(mutable, liveTarget.id)
+
+    val folder = HomeItem.FolderItem.create(
+        command.draggedItem,
+        liveTarget,
+        command.atPosition
     )
-
-    val rejection = when {
-        command.draggedItem is HomeItem.FolderItem || command.draggedItem is HomeItem.WidgetItem ->
-            HomeModelWriter.Error.InvalidFolderOperation
-        liveTarget == null -> HomeModelWriter.Error.ItemNotFound
-        command.draggedItem.id == liveTarget.id -> HomeModelWriter.Error.InvalidFolderOperation
-        else -> null
-    }
-
-    val result = if (rejection != null) {
-        HomeModelWriter.Result.Rejected(rejection)
-    } else {
-        val confirmedTarget = requireNotNull(liveTarget)
-        evictItemEverywhere(mutable, command.draggedItem.id)
-        evictItemEverywhere(mutable, confirmedTarget.id)
-
-        val folder = HomeItem.FolderItem.create(
-            command.draggedItem,
-            confirmedTarget,
-            command.atPosition
-        )
-        mutable.add(folder)
-        HomeModelWriter.Result.Applied(mutable)
-    }
-    return result
+    mutable.add(folder)
+    return HomeModelWriter.Result.Applied(mutable)
 }
 
 internal fun HomeModelWriter.addItemToFolder(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.AddItemToFolder
 ): HomeModelWriter.Result {
-    val mutable = currentItems.toMutableList()
-    val folderLookup = findFolderLookup(mutable, command.folderId)
-    val rejection = when {
-        command.item is HomeItem.FolderItem || command.item is HomeItem.WidgetItem ->
-            HomeModelWriter.Error.InvalidFolderOperation
-        folderLookup == null -> HomeModelWriter.Error.FolderNotFound
-        folderLookup.folder.children.any { it.id == command.item.id } -> HomeModelWriter.Error.DuplicateItem
-        else -> null
+    if (command.item is HomeItem.FolderItem || command.item is HomeItem.WidgetItem) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
+    }
+    val folderLookup = findFolderLookup(currentItems, command.folderId)
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
+    if (folderLookup.folder.children.any { it.id == command.item.id }) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.DuplicateItem)
     }
 
-    val result = if (rejection != null) {
-        HomeModelWriter.Result.Rejected(rejection)
-    } else {
-        evictItemEverywhere(mutable, command.item.id)
-        if (!mutable.appendToFolder(command.folderId, listOf(command.item), command.targetIndex)) {
-            HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
-        } else {
-            HomeModelWriter.Result.Applied(mutable)
-        }
+    val mutable = currentItems.toMutableList()
+    evictItemEverywhere(mutable, command.item.id)
+    if (!mutable.appendToFolder(command.folderId, listOf(command.item), command.targetIndex)) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
     }
-    return result
+    return HomeModelWriter.Result.Applied(mutable)
 }
 
 internal fun HomeModelWriter.removeItemFromFolder(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.RemoveItemFromFolder
 ): HomeModelWriter.Result {
+    val folderLookup = findFolderLookup(currentItems, command.folderId)
+    val removed = folderLookup?.folder?.children?.firstOrNull { it.id == command.itemId }
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
+
     val mutable = currentItems.toMutableList()
-    val removed = removeChildFromFolderWithCleanup(
+    removeChildFromFolderWithCleanup(
         items = mutable,
         folderId = command.folderId,
         childItemId = command.itemId
-    ) ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
-
+    )
     return if (removed.id == command.itemId) {
         HomeModelWriter.Result.Applied(mutable)
     } else {
@@ -92,14 +81,14 @@ internal fun HomeModelWriter.reorderFolderItems(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.ReorderFolderItems
 ): HomeModelWriter.Result {
-    val mutable = currentItems.toMutableList()
-    val folderLookup = findFolderLookup(mutable, command.folderId)
+    val folderLookup = findFolderLookup(currentItems, command.folderId)
         ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
 
     val safeChildren = command.newChildren
         .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
         .map { it.withPosition(GridPosition.DEFAULT) }
 
+    val mutable = currentItems.toMutableList()
     mutable[folderLookup.index] = folderLookup.folder.copy(children = safeChildren)
     return HomeModelWriter.Result.Applied(mutable)
 }
@@ -108,109 +97,90 @@ internal fun HomeModelWriter.moveItemBetweenFolders(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.MoveItemBetweenFolders
 ): HomeModelWriter.Result {
+    if (command.sourceFolderId == command.targetFolderId) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
+    }
+    val source = findFolderLookup(currentItems, command.sourceFolderId)?.folder
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
+    val target = findFolderLookup(currentItems, command.targetFolderId)?.folder
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
+    val child = source.children.firstOrNull { it.id == command.itemId }
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
+    if (child is HomeItem.WidgetItem) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
+    }
+    if (target.children.any { it.id == command.itemId }) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.DuplicateItem)
+    }
+
     val mutable = currentItems.toMutableList()
-    val source = findFolderLookup(mutable, command.sourceFolderId)?.folder
-    val target = findFolderLookup(mutable, command.targetFolderId)?.folder
-    val child = source?.children?.firstOrNull { it.id == command.itemId }
-    val rejection = when {
-        command.sourceFolderId == command.targetFolderId -> HomeModelWriter.Error.InvalidFolderOperation
-        source == null || target == null -> HomeModelWriter.Error.FolderNotFound
-        child == null -> HomeModelWriter.Error.ItemNotFound
-        child is HomeItem.WidgetItem -> HomeModelWriter.Error.InvalidFolderOperation
-        target.children.any { it.id == command.itemId } -> HomeModelWriter.Error.DuplicateItem
-        else -> null
+    evictItemEverywhere(mutable, command.itemId)
+    if (!mutable.appendToFolder(command.targetFolderId, listOf(child))) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
     }
-
-    val result = if (rejection != null) {
-        HomeModelWriter.Result.Rejected(rejection)
-    } else {
-        evictItemEverywhere(mutable, command.itemId)
-
-        if (!mutable.appendToFolder(command.targetFolderId, listOf(requireNotNull(child)))) {
-            HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
-        } else {
-            HomeModelWriter.Result.Applied(mutable)
-        }
-    }
-    return result
+    return HomeModelWriter.Result.Applied(mutable)
 }
 
 internal fun HomeModelWriter.extractFolderChildOntoItem(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.ExtractFolderChildOntoItem
 ): HomeModelWriter.Result {
-    val mutable = currentItems.toMutableList()
-    val source = findFolderLookup(mutable, command.sourceFolderId)?.folder
-    val child = source?.children?.firstOrNull { it.id == command.childItemId }
+    val source = findFolderLookup(currentItems, command.sourceFolderId)?.folder
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
+    val child = source.children.firstOrNull { it.id == command.childItemId }
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
+    if (child is HomeItem.WidgetItem) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
+    }
     val liveTarget = findLiveNonFolderTarget(
-        items = mutable,
+        items = currentItems,
         targetItemId = command.targetItemId,
         atPosition = command.atPosition
-    )
-
-    val rejection = when {
-        source == null -> HomeModelWriter.Error.FolderNotFound
-        child == null -> HomeModelWriter.Error.ItemNotFound
-        child is HomeItem.WidgetItem -> HomeModelWriter.Error.InvalidFolderOperation
-        liveTarget == null -> HomeModelWriter.Error.ItemNotFound
-        child.id == liveTarget.id -> HomeModelWriter.Error.InvalidFolderOperation
-        else -> null
+    ) ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
+    if (child.id == liveTarget.id) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
     }
 
-    val result = if (rejection != null) {
-        HomeModelWriter.Result.Rejected(rejection)
-    } else {
-        val confirmedChild = requireNotNull(child)
-        val confirmedTarget = requireNotNull(liveTarget)
-        evictItemEverywhere(mutable, confirmedChild.id)
-        evictItemEverywhere(mutable, confirmedTarget.id)
+    val mutable = currentItems.toMutableList()
+    evictItemEverywhere(mutable, child.id)
+    evictItemEverywhere(mutable, liveTarget.id)
 
-        val folder = HomeItem.FolderItem.create(confirmedChild, confirmedTarget, command.atPosition)
-        mutable.add(folder)
-        HomeModelWriter.Result.Applied(mutable)
-    }
-    return result
+    val folder = HomeItem.FolderItem.create(child, liveTarget, command.atPosition)
+    mutable.add(folder)
+    return HomeModelWriter.Result.Applied(mutable)
 }
 
 internal fun HomeModelWriter.mergeFolders(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.MergeFolders
 ): HomeModelWriter.Result {
+    val sourceLookup = findFolderLookup(currentItems, command.sourceFolderId)
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
+    val targetLookup = findFolderLookup(currentItems, command.targetFolderId)
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
+
+    val targetChildIds = targetLookup.folder.children.map { it.id }.toSet()
+    val sourceChildren = sourceLookup.folder.children
+        .filterNot { it.id in targetChildIds }
+
     val mutable = currentItems.toMutableList()
-    val sourceLookup = findFolderLookup(mutable, command.sourceFolderId)
-    val targetLookup = findFolderLookup(mutable, command.targetFolderId)
-    val rejection = if (sourceLookup == null || targetLookup == null) {
-        HomeModelWriter.Error.FolderNotFound
-    } else {
-        null
+    mutable.removeAll { it.id == command.sourceFolderId }
+
+    if (!mutable.appendToFolder(command.targetFolderId, sourceChildren)) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
     }
-
-    val result = if (rejection != null) {
-        HomeModelWriter.Result.Rejected(rejection)
-    } else {
-        val targetChildIds = requireNotNull(targetLookup).folder.children.map { it.id }.toSet()
-        val sourceChildren = requireNotNull(sourceLookup).folder.children
-            .filterNot { it.id in targetChildIds }
-
-        mutable.removeAll { it.id == command.sourceFolderId }
-
-        if (!mutable.appendToFolder(command.targetFolderId, sourceChildren)) {
-            HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
-        } else {
-            HomeModelWriter.Result.Applied(mutable)
-        }
-    }
-    return result
+    return HomeModelWriter.Result.Applied(mutable)
 }
 
 internal fun HomeModelWriter.renameFolder(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.RenameFolder
 ): HomeModelWriter.Result {
-    val mutable = currentItems.toMutableList()
-    val folderLookup = findFolderLookup(mutable, command.folderId)
+    val folderLookup = findFolderLookup(currentItems, command.folderId)
         ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
     val safeName = command.newName.trim().ifBlank { HomeItem.FolderItem.DEFAULT_NAME }
+
+    val mutable = currentItems.toMutableList()
     mutable[folderLookup.index] = folderLookup.folder.copy(name = safeName)
     return HomeModelWriter.Result.Applied(mutable)
 }
@@ -219,28 +189,21 @@ internal fun HomeModelWriter.extractItemFromFolder(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.ExtractItemFromFolder
 ): HomeModelWriter.Result {
+    val occupied = GridOccupancy.fromItems(currentItems, excludeItemId = command.folderId)
+    if (command.targetPosition in occupied.occupiedCells()) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.TargetOccupied)
+    }
+    val folderLookup = findFolderLookup(currentItems, command.folderId)
+    val child = folderLookup?.folder?.children?.firstOrNull { it.id == command.itemId }
+        ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.ItemNotFound)
+
     val mutable = currentItems.toMutableList()
-    val occupied = GridOccupancy.fromItems(mutable, excludeItemId = command.folderId)
-    val child = removeChildFromFolderWithCleanup(
+    removeChildFromFolderWithCleanup(
         items = mutable,
         folderId = command.folderId,
         childItemId = command.itemId
     )
-
-    val rejection = when {
-        command.targetPosition in occupied.occupiedCells() -> HomeModelWriter.Error.TargetOccupied
-        child == null -> HomeModelWriter.Error.ItemNotFound
-        else -> null
-    }
-
-    val result = if (rejection != null) {
-        HomeModelWriter.Result.Rejected(rejection)
-    } else {
-        val confirmedChild = requireNotNull(child)
-        evictItemEverywhere(mutable, confirmedChild.id)
-        mutable.add(confirmedChild.withPosition(command.targetPosition))
-        HomeModelWriter.Result.Applied(mutable)
-    }
-    return result
+    evictItemEverywhere(mutable, child.id)
+    mutable.add(child.withPosition(command.targetPosition))
+    return HomeModelWriter.Result.Applied(mutable)
 }
-
