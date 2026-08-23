@@ -194,10 +194,14 @@ private fun TriggerAppTargetGroup(
     currentTarget: LauncherTriggerTarget?,
     onTargetSelected: (LauncherTriggerTarget) -> Unit
 ) {
-    val quickShortcuts = getAppQuickActions(
-        packageName = app.packageName,
-        maxCount = 8
-    )
+    // Cached once per app instead of hitting AppContextDataCache on every
+    // recomposition of every row (e.g. each search-query keystroke).
+    val quickShortcuts = remember(app.packageName) {
+        getAppQuickActions(
+            packageName = app.packageName,
+            maxCount = 8
+        )
+    }
     val normalizedQuery = query.trim().lowercase()
     val visibleShortcuts = remember(quickShortcuts, normalizedQuery) {
         if (normalizedQuery.isBlank()) {
