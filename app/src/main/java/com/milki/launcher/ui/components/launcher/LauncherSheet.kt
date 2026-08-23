@@ -39,6 +39,23 @@ private enum class DismissDragSession {
     Blocked
 }
 
+/**
+ * Motion constants for launcher sheet spring animation and fling dismissal.
+ */
+private object SheetMotionSpec {
+    /** Spring damping for settle animations (slightly under-damped for a soft landing). */
+    const val SPRING_DAMPING_RATIO = 0.8f
+
+    /** Spring stiffness for settle animations. */
+    const val SPRING_STIFFNESS = 300f
+
+    /** Minimum fling velocity (px/s) that forces the sheet toward the fling direction. */
+    const val FLING_VELOCITY_THRESHOLD_PX = 1000f
+
+    /** Fraction past which a slow drag settles to hidden rather than expanded. */
+    const val SETTLE_FRACTION_THRESHOLD = 0.5f
+}
+
 @Stable
 class LauncherSheetState(
     private val scope: CoroutineScope
@@ -58,8 +75,8 @@ class LauncherSheetState(
         get() = _fraction.targetValue == 1f
 
     private val animationSpec: AnimationSpec<Float> = spring(
-        dampingRatio = 0.8f,
-        stiffness = 300f
+        dampingRatio = SheetMotionSpec.SPRING_DAMPING_RATIO,
+        stiffness = SheetMotionSpec.SPRING_STIFFNESS
     )
 
     fun onDragDelta(deltaPx: Float) {
@@ -79,11 +96,11 @@ class LauncherSheetState(
 
     /** Returns true if the drawer ended up expanded, false if hidden. */
     suspend fun onDragStopped(velocityPx: Float): Boolean {
-        val targetFraction = if (velocityPx > 1000f) {
+        val targetFraction = if (velocityPx > SheetMotionSpec.FLING_VELOCITY_THRESHOLD_PX) {
             1f // swipe down abruptly
-        } else if (velocityPx < -1000f) {
+        } else if (velocityPx < -SheetMotionSpec.FLING_VELOCITY_THRESHOLD_PX) {
             0f // swipe up abruptly
-        } else if (_fraction.value > 0.5f) {
+        } else if (_fraction.value > SheetMotionSpec.SETTLE_FRACTION_THRESHOLD) {
             1f // mostly hidden
         } else {
             0f // mostly expanded
