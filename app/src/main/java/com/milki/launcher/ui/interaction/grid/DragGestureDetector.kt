@@ -63,121 +63,6 @@ import com.milki.launcher.ui.interaction.trackPointerUntilLongPressOrRelease
 import kotlin.math.abs
 
 /**
- * Configuration for gesture detection behavior.
- *
- * @property dragThresholdPx Minimum movement in pixels to start drag after long-press
- * @property consumeChanges Whether to consume pointer changes during drag
- * @property multiTouchEnabled Whether to allow multi-touch during drag
- */
-data class DragGestureConfig(
-    val dragThresholdPx: Float = 20f,
-    val consumeChanges: Boolean = true,
-    val multiTouchEnabled: Boolean = false
-)
-
-/**
- * Callback interface for gesture events.
- *
- * Using an interface instead of individual lambdas makes it easier
- * to pass all callbacks together and ensures consistent handling.
- */
-interface DragGestureCallbacks {
-    /**
-     * Called when a tap gesture is detected.
-     */
-    fun onTap() {}
-
-    /**
-     * Called when a quick upward swipe is detected (before long-press timeout).
-     * Only invoked when [isSwipeUpEnabled] returns true.
-     */
-    fun onSwipeUp() {}
-
-    /**
-     * Whether swipe-up detection is enabled for this callback set.
-     * When false, upward flicks are treated as regular taps and the standard
-     * [awaitLongPressOrCancellation]-based detection path is used.
-     */
-    val isSwipeUpEnabled: Boolean get() = false
-
-    /**
-     * Called when a long-press is detected (before knowing if it will become a drag).
-     *
-     * @param position The screen position where long-press occurred
-     */
-    fun onLongPress(position: Offset) {}
-
-    /**
-     * Called when the finger lifts after a long-press WITHOUT exceeding the drag threshold.
-     *
-     * This is the point where the gesture system knows the user intended a "long-press
-     * and release" rather than a "long-press and drag". Callers can use this to switch
-     * any non-interactive UI shown during onLongPress (e.g., a non-focusable menu) into
-     * its interactive state (e.g., a focusable popup).
-     *
-     * Also fires when the gesture is cancelled before drag starts (multi-touch, etc.),
-     * ensuring the caller always gets a clean end-of-long-press signal.
-     */
-    fun onLongPressRelease() {}
-
-    /**
-     * Called when drag starts (movement exceeded threshold after long-press).
-     */
-    fun onDragStart() {}
-
-    /**
-     * Called continuously during drag as user moves their finger.
-     *
-     * @param change The pointer input change
-     * @param dragAmount The amount of movement since last call
-     */
-    fun onDrag(change: PointerInputChange, dragAmount: Offset) {}
-
-    /**
-     * Called when drag ends successfully (user released finger).
-     */
-    fun onDragEnd() {}
-
-    /**
-     * Called when drag is cancelled (e.g., system event, multi-touch).
-     */
-    fun onDragCancel() {}
-}
-
-/**
- * Detects tap, long-press, and drag gestures on an element.
- *
- * This function handles the complete gesture lifecycle:
- * 1. Waits for touch down
- * 2. Determines if it's a tap, long-press, or drag
- * 3. Calls appropriate callbacks throughout
- *
- * THREAD SAFETY:
- * This is a suspend function that runs in the pointer input scope.
- * All callbacks are invoked in the same scope.
- *
- * @param config Configuration for gesture detection
- * @param callbacks Callbacks for gesture events
- */
-suspend fun PointerInputScope.detectDragOrTapGesture(
-    config: DragGestureConfig = DragGestureConfig(),
-    callbacks: DragGestureCallbacks
-) {
-    detectDragOrTapGesture(
-        dragThreshold = config.dragThresholdPx,
-        consumeChanges = config.consumeChanges,
-        onTap = { callbacks.onTap() },
-        onSwipeUp = if (callbacks.isSwipeUpEnabled) callbacks::onSwipeUp else null,
-        onLongPress = { callbacks.onLongPress(it) },
-        onLongPressRelease = { callbacks.onLongPressRelease() },
-        onDragStart = { callbacks.onDragStart() },
-        onDrag = { change, offset -> callbacks.onDrag(change, offset) },
-        onDragEnd = { callbacks.onDragEnd() },
-        onDragCancel = { callbacks.onDragCancel() }
-    )
-}
-
-/**
  * Detects tap, swipe-up, long-press, and drag gestures with individual callbacks.
  *
  * This is the primary gesture detection function. It uses two distinct detection
@@ -453,32 +338,6 @@ private suspend fun AwaitPointerEventScope.handlePostLongPressDrag(
 }
 
 /**
- * Extension to add drag gesture detection to a Modifier.
- *
- * This makes it easy to add drag detection to any composable:
- * ```kotlin
- * Box(
- *     modifier = Modifier
- *         .size(100.dp)
- *         .detectDragGesture { callbacks }
- * )
- * ```
- *
- * @param key A stable key that invalidates the gesture detector when changed
- * @param config Gesture detection configuration
- * @param callbacks Callbacks for gesture events
- */
-fun Modifier.detectDragGesture(
-    key: Any? = null,
-    config: DragGestureConfig = DragGestureConfig(),
-    callbacks: DragGestureCallbacks
-): Modifier {
-    return pointerInput(key, config) {
-        detectDragOrTapGesture(config, callbacks)
-    }
-}
-
-/**
  * Extension to add drag gesture detection with individual callbacks.
  *
  * @param key A stable key that invalidates the gesture detector when changed
@@ -517,39 +376,5 @@ fun Modifier.detectDragGesture(
             onDragEnd = onDragEnd,
             onDragCancel = onDragCancel
         )
-    }
-}
-
-/**
- * Simple callback holder for common use cases.
- *
- * Use this when you only need a subset of callbacks:
- * ```kotlin
- * val callbacks = simpleDragCallbacks(
- *     onTap = { handleClick() },
- *     onDragEnd = { handleDrop() }
- * )
- * ```
- */
-fun simpleDragCallbacks(
-    onTap: () -> Unit = {},
-    onSwipeUp: (() -> Unit)? = null,
-    onLongPress: (Offset) -> Unit = {},
-    onLongPressRelease: () -> Unit = {},
-    onDragStart: () -> Unit = {},
-    onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit = { _, _ -> },
-    onDragEnd: () -> Unit = {},
-    onDragCancel: () -> Unit = {}
-): DragGestureCallbacks {
-    return object : DragGestureCallbacks {
-        override fun onTap() = onTap()
-        override val isSwipeUpEnabled: Boolean get() = onSwipeUp != null
-        override fun onSwipeUp() { onSwipeUp?.invoke() }
-        override fun onLongPress(position: Offset) = onLongPress(position)
-        override fun onLongPressRelease() = onLongPressRelease()
-        override fun onDragStart() = onDragStart()
-        override fun onDrag(change: PointerInputChange, dragAmount: Offset) = onDrag(change, dragAmount)
-        override fun onDragEnd() = onDragEnd()
-        override fun onDragCancel() = onDragCancel()
     }
 }
