@@ -1,4 +1,3 @@
-
 package com.milki.launcher.data.search
 
 import android.content.Context
@@ -8,6 +7,7 @@ import android.content.pm.ResolveInfo
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.util.LruCache
 import com.milki.launcher.data.cache.SnapshotCache
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.domain.model.UrlHandlerApp
@@ -24,27 +24,31 @@ class UrlHandlerResolver(
     private val context: Context,
     packageChangeMonitor: PackageChangeMonitor
 ) : UrlHandlerPort {
-        private val packageManager: PackageManager = context.packageManager
+
+    private val packageManager: PackageManager = context.packageManager
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val browserPackagesCache = SnapshotCache(BrowserPackagesSnapshot.Empty)
-    private val handlerAppCache = SnapshotCache<Map<String, UrlHandlerApp>>(emptyMap())
+    private val handlerAppCache = LruCache<String, UrlHandlerApp>(HANDLER_CACHE_SIZE)
 
     init {
+        // Warm the browser set off the main thread so isBrowserPackage never
+        // pays for a MATCH_ALL PackageManager query on the caller.
+        scope.launch { refreshBrowserPackages() }
         scope.launch {
             packageChangeMonitor.events.collectLatest { event ->
-                if (event.packageName == null) {
-                    browserPackagesCache.clear()
-                    handlerAppCache.clear()
-                } else {
+                if (event.packageName != null) {
                     invalidatePackage(event.packageName)
+                } else {
+                    handlerAppCache.evictAll()
                 }
+                refreshBrowserPackages()
             }
         }
     }
 
-        fun resolveUrlHandler(url: String): UrlHandlerApp? {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    fun resolveUrlHandler(url: String): UrlHandlerApp? {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
 
         return runCatching {
             val resolveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -63,7 +67,7 @@ class UrlHandlerResolver(
         }.getOrNull()
     }
 
-        override fun resolveNonBrowserUrlHandler(url: String): UrlHandlerApp? {
+    override fun resolveNonBrowserUrlHandler(url: String): UrlHandlerApp? {
         val handler = resolveUrlHandler(url) ?: return null
         return handler.takeUnless { isBrowserPackage(it.packageName) }
     }
@@ -80,7 +84,7 @@ class UrlHandlerResolver(
         }
     }
 
-        fun getAllUrlHandlers(url: String): List<UrlHandlerApp> {
+    fun getAllUrlHandlers(url: String): List<UrlHandlerApp> {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
 
         return runCatching {
@@ -112,11 +116,11 @@ class UrlHandlerResolver(
         }.getOrElse { emptyList() }
     }
 
-        fun isDeepLink(url: String): Boolean {
+    fun isDeepLink(url: String): Boolean {
         return resolveNonBrowserUrlHandler(url) != null
     }
 
-        fun resolveDefaultBrowser(): UrlHandlerApp? {
+    fun resolveDefaultBrowser(): UrlHandlerApp? {
         val genericHttpUrl = "https://example.com"
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(genericHttpUrl))
 
@@ -136,32 +140,32 @@ class UrlHandlerResolver(
         }.getOrNull()
     }
 
-        private fun isBrowserPackage(packageName: String): Boolean {
+    private fun isBrowserPackage(packageName: String): Boolean {
         val browserPackages = browserPackagesCache.get().takeIf { it.isLoaded }
             ?: BrowserPackagesSnapshot(
                 isLoaded = true,
                 packageNames = getDynamicBrowserPackages()
             ).also(browserPackagesCache::replace)
 
-                if (packageName in browserPackages.packageNames) {
-            return true
-        }
-
-                val knownBrowsers = setOf(
-            "com.android.chrome",
-            "org.mozilla.firefox",
-            "com.sec.android.app.sbrowser"
-        )
-
-        return packageName in knownBrowsers
+        return packageName in browserPackages.packageNames
     }
 
-        private fun getDynamicBrowserPackages(): Set<String> {
-                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://www.google.com"))
-        
-                browserIntent.addCategory(Intent.CATEGORY_BROWSABLE)
+    private fun refreshBrowserPackages() {
+        val packages = runCatching { getDynamicBrowserPackages() }
+            .onFailure { throwable ->
+                Log.w(URL_HANDLER_RESOLVER_TAG, "Failed to query browser packages", throwable)
+            }
+            .getOrDefault(emptySet())
+        browserPackagesCache.replace(
+            BrowserPackagesSnapshot(isLoaded = true, packageNames = packages)
+        )
+    }
 
-                val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    private fun getDynamicBrowserPackages(): Set<String> {
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://www.google.com"))
+        browserIntent.addCategory(Intent.CATEGORY_BROWSABLE)
+
+        val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             packageManager.queryIntentActivities(
                 browserIntent,
                 PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_ALL.toLong())
@@ -171,14 +175,14 @@ class UrlHandlerResolver(
             packageManager.queryIntentActivities(browserIntent, PackageManager.MATCH_ALL)
         }
 
-                return resolveInfos.map { it.activityInfo.packageName }.toSet()
+        return resolveInfos.map { it.activityInfo.packageName }.toSet()
     }
 
-        private fun createHandlerApp(resolveInfo: ResolveInfo): UrlHandlerApp? {
+    private fun createHandlerApp(resolveInfo: ResolveInfo): UrlHandlerApp? {
         return runCatching {
             val activityInfo = resolveInfo.activityInfo
             val cacheKey = handlerCacheKey(activityInfo.packageName, activityInfo.name)
-            handlerAppCache.get()[cacheKey]?.let { cachedHandler ->
+            handlerAppCache.get(cacheKey)?.let { cachedHandler ->
                 return@runCatching cachedHandler
             }
 
@@ -191,7 +195,7 @@ class UrlHandlerResolver(
                 isDefault = false
             )
 
-            handlerAppCache.replace(handlerAppCache.get() + (cacheKey to handlerApp))
+            handlerAppCache.put(cacheKey, handlerApp)
             handlerApp
         }.onFailure { throwable ->
             Log.w(
@@ -203,16 +207,18 @@ class UrlHandlerResolver(
     }
 
     private fun invalidatePackage(packageName: String) {
-        browserPackagesCache.clear()
-        handlerAppCache.replace(
-            handlerAppCache.get().filterKeys { key ->
-                !key.startsWith("$packageName/")
-            }
-        )
+        val prefix = "$packageName/"
+        handlerAppCache.snapshot().keys
+            .filter { it.startsWith(prefix) }
+            .forEach(handlerAppCache::remove)
     }
 
     private fun handlerCacheKey(packageName: String, activityName: String): String {
         return "$packageName/$activityName"
+    }
+
+    private companion object {
+        const val HANDLER_CACHE_SIZE = 128
     }
 }
 
