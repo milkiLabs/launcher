@@ -1,19 +1,14 @@
 package com.milki.launcher.data.repository.apps
 
-import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.domain.homegraph.HomeGridDefaults
 
 /**
  * DataStore schema for app repository persistence.
+ *
+ * The [com.milki.launcher.data.repository.common.launcherDataStore] instance
+ * itself is declared in the central DataStore registry (LauncherDataStores.kt).
  */
-internal val Context.launcherDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "launcher_prefs"
-)
-
 internal object AppPreferenceKeys {
     /**
      * Comma-separated list of flattened ComponentName strings.

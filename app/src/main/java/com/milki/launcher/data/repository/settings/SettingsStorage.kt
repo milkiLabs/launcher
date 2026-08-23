@@ -1,14 +1,12 @@
 package com.milki.launcher.data.repository.settings
 
-import android.content.Context
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.milki.launcher.core.util.lenientJson
+import com.milki.launcher.data.repository.common.settingsDataStore
 import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
@@ -122,11 +120,9 @@ internal object SettingsPreferenceKeys {
 internal val settingsStorageJson: Json = lenientJson()
 
 /**
- * DataStore instance for launcher settings, scoped to application context.
+ * DataStore instance for launcher settings — declared in the central registry
+ * (LauncherDataStores.kt).
  */
-internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "launcher_settings"
-)
 
 // ========================================================================
 // READ

@@ -1,20 +1,14 @@
 package com.milki.launcher.data.repository.home
 
-import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 
 /**
  * DataStore schema primitives for home-layout persistence.
  *
- * Keeping storage keys and DataStore wiring in one file avoids scattering
- * schema details across mutation and repository classes.
+ * The [com.milki.launcher.data.repository.common.homeDataStore] instance itself
+ * is declared in the central DataStore registry (LauncherDataStores.kt); this
+ * file keeps the schema keys.
  */
-internal val Context.homeDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "home_items"
-)
 
 /**
  * Preference keys used by home-layout persistence.

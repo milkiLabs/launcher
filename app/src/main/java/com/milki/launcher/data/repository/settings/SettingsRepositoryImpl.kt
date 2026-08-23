@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.milki.launcher.data.repository.common.catchIoException
 import com.milki.launcher.data.repository.common.mutate
+import com.milki.launcher.data.repository.common.settingsDataStore
 import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
