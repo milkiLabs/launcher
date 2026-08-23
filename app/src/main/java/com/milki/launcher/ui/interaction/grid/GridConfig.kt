@@ -93,59 +93,14 @@ data class GridConfig(
          * Uses the shared home-grid default column count.
          */
         val Default = GridConfig()
-        
-        /**
-         * Configuration optimized for tablets.
-         * More columns to utilize the larger screen space.
-         */
-        val Tablet = GridConfig(
-            columns = 6,
-            extraRows = 6,
-            dragThresholdPx = 25f
-        )
-        
-        /**
-         * Configuration with larger cells for accessibility.
-         * Fewer columns means larger, easier-to-tap cells.
-         */
-        val Accessibility = GridConfig(
-            columns = 3,
-            dragThresholdPx = 30f,
-            dragScale = 1f,
-            previewScale = 1f
-        )
     }
-    
-    /**
-     * Validates the configuration and returns any issues found.
-     *
-     * This is useful for debugging configuration problems.
-     * Returns an empty list if the configuration is valid.
-     *
-     * @return List of validation error messages, empty if valid
-     */
-    fun validate(): List<String> {
-        val errors = mutableListOf<String>()
-        
-        if (columns < 1) {
-            errors.add("columns must be at least 1, got $columns")
-        }
-        if (extraRows < 0) {
-            errors.add("extraRows must be non-negative, got $extraRows")
-        }
-        if (maxRows < 1) {
-            errors.add("maxRows must be at least 1, got $maxRows")
-        }
-        if (dragThresholdPx <= 0) {
-            errors.add("dragThresholdPx must be positive, got $dragThresholdPx")
-        }
-        if (dragScale <= 0) {
-            errors.add("dragScale must be positive, got $dragScale")
-        }
-        if (previewScale <= 0) {
-            errors.add("previewScale must be positive, got $previewScale")
-        }
-        
-        return errors
+
+    init {
+        require(columns >= 1) { "columns must be at least 1, got $columns" }
+        require(extraRows >= 0) { "extraRows must be non-negative, got $extraRows" }
+        require(maxRows >= 1) { "maxRows must be at least 1, got $maxRows" }
+        require(dragThresholdPx > 0) { "dragThresholdPx must be positive, got $dragThresholdPx" }
+        require(dragScale > 0) { "dragScale must be positive, got $dragScale" }
+        require(previewScale > 0) { "previewScale must be positive, got $previewScale" }
     }
 }
