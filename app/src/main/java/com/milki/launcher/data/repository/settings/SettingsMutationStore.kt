@@ -136,10 +136,16 @@ internal class SettingsMutationStore {
         ownerId: String,
         prefix: String
     ): PrefixMutationResult {
-        val normalizedPrefix = SearchSource.normalizePrefix(prefix)
+        val normalizedPrefixes = SearchSource.normalizePrefixes(listOf(prefix))
 
-        if (normalizedPrefix.isEmpty()) return PrefixMutationResult.InvalidPrefixEmpty
-        if (normalizedPrefix.contains(" ")) return PrefixMutationResult.InvalidPrefixContainsSpaces
+        if (normalizedPrefixes.isEmpty()) {
+            return if (prefix.isNotBlank()) {
+                PrefixMutationResult.InvalidPrefixContainsSpaces
+            } else {
+                PrefixMutationResult.InvalidPrefixEmpty
+            }
+        }
+        val normalizedPrefix = normalizedPrefixes.single()
 
         val sources = preferences.parseStoredSearchSources()
         val providerConfigs = parsePrefixConfigurations(
@@ -161,8 +167,9 @@ internal class SettingsMutationStore {
         ownerId: String,
         prefix: String
     ): PrefixMutationResult {
-        val normalizedPrefix = SearchSource.normalizePrefix(prefix)
-        if (normalizedPrefix.isEmpty()) return PrefixMutationResult.InvalidPrefixEmpty
+        val normalizedPrefixes = SearchSource.normalizePrefixes(listOf(prefix))
+        if (normalizedPrefixes.isEmpty()) return PrefixMutationResult.InvalidPrefixEmpty
+        val normalizedPrefix = normalizedPrefixes.single()
 
         val sources = preferences.parseStoredSearchSources()
 
@@ -269,7 +276,7 @@ internal class SettingsMutationStore {
         val targetSource = sources.firstOrNull { it.id == sourceId }
             ?: return PrefixMutationResult.TargetNotFound
 
-        val currentPrefixes = targetSource.prefixes.map(SearchSource::normalizePrefix)
+        val currentPrefixes = SearchSource.normalizePrefixes(targetSource.prefixes)
         if (normalizedPrefix in currentPrefixes) return PrefixMutationResult.PrefixAlreadyExistsOnTarget
 
         if (hasPrefixConflict(listOf(normalizedPrefix), ignoredOwnerId = sourceId, sources = sources, providerConfigs = providerConfigs)) {
@@ -297,12 +304,10 @@ internal class SettingsMutationStore {
         val targetSource = sources.firstOrNull { it.id == sourceId }
             ?: return PrefixMutationResult.TargetNotFound
 
-        val currentPrefixes = targetSource.prefixes.map(SearchSource::normalizePrefix)
+        val currentPrefixes = SearchSource.normalizePrefixes(targetSource.prefixes)
         if (normalizedPrefix !in currentPrefixes) return PrefixMutationResult.PrefixNotFoundOnTarget
 
-        val remaining = targetSource.prefixes.filterNot {
-            SearchSource.normalizePrefix(it) == normalizedPrefix
-        }
+        val remaining = currentPrefixes - normalizedPrefix
 
         val updatedSources = sources.map { source ->
             if (source.id == sourceId) {

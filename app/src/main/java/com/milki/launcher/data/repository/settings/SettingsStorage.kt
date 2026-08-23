@@ -297,10 +297,7 @@ internal fun normalizeAndValidateSearchSources(
     rawSources: List<SearchSource>
 ): List<SearchSource> {
     val normalized = rawSources.mapIndexed { index, source ->
-        val normalizedPrefixes = source.prefixes
-            .map(SearchSource.Companion::normalizePrefix)
-            .filter { it.isNotBlank() && !it.contains(" ") }
-            .distinct()
+        val normalizedPrefixes = SearchSource.normalizePrefixes(source.prefixes)
 
         val safeName = source.name.trim().ifBlank { "Source ${index + 1}" }
         val safeTemplate = if (SearchSource.isValidUrlTemplate(source.urlTemplate)) {
@@ -309,10 +306,7 @@ internal fun normalizeAndValidateSearchSources(
             "https://www.google.com/search?q={query}"
         }
 
-        val normalizedDefaultPrefixes = source.defaultPrefixes
-            .map(SearchSource.Companion::normalizePrefix)
-            .filter { it.isNotBlank() && !it.contains(" ") }
-            .distinct()
+        val normalizedDefaultPrefixes = SearchSource.normalizePrefixes(source.defaultPrefixes)
             .ifEmpty { normalizedPrefixes }
 
         source.copy(
