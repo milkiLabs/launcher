@@ -33,6 +33,7 @@ import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.model.WebSearchResult
 import com.milki.launcher.domain.model.YouTubeSearchResult
+import com.milki.launcher.domain.search.UrlActionResolver
 import com.milki.launcher.presentation.home.HomePinningController
 import com.milki.launcher.core.intent.openFile
 import com.milki.launcher.core.intent.launchApp
@@ -174,26 +175,21 @@ class ActionExecutor(
     }
 
     private fun openYouTubeSearch(result: YouTubeSearchResult) {
-        val youtubeUrl = "https://www.youtube.com/results?search_query=${Uri.encode(result.query)}"
-        
+        val youtubeUrl = UrlActionResolver.youtubeSearchUrl(result.query)
+
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(youtubeUrl)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        
+
         val pm = context.packageManager
-        val resolved = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val resolvedPackageNames = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0L))
         } else {
             @Suppress("DEPRECATION")
             pm.queryIntentActivities(intent, 0)
-        }
-        val youtubePackage = resolved.firstOrNull {
-            it.activityInfo.packageName.contains("youtube", ignoreCase = true)
-        }?.activityInfo?.packageName
+        }.map { it.activityInfo.packageName }
 
-        if (youtubePackage != null) {
-            intent.setPackage(youtubePackage)
-        }
+        UrlActionResolver.selectYoutubePackage(resolvedPackageNames)?.let(intent::setPackage)
 
         if (!context.launchSafe("YouTube search", intent)) {
             openUrlInBrowser(youtubeUrl)
@@ -223,19 +219,27 @@ class ActionExecutor(
 
     private fun openUrlInExternalBrowser(url: String) {
         val uri = Uri.parse(url)
-        val pinnedIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        resolveDefaultBrowser()?.let { pinnedIntent.setPackage(it) }
+        val steps = UrlActionResolver.externalBrowserSteps(resolveDefaultBrowser())
 
-        val chooserIntent = Intent.createChooser(
-            Intent(Intent.ACTION_VIEW, uri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
-            "Open with"
-        ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        val intents = steps.map { step ->
+            when (step) {
+                is UrlActionResolver.ExternalBrowserStep.Pinned ->
+                    Intent(Intent.ACTION_VIEW, uri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        step.packageName?.let { setPackage(it) }
+                    }
+
+                UrlActionResolver.ExternalBrowserStep.SystemChooser ->
+                    Intent.createChooser(
+                        Intent(Intent.ACTION_VIEW, uri).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
+                        "Open with"
+                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            }
+        }
 
         context.launchSafe(
             "external browser",
-            listOf(pinnedIntent, chooserIntent),
+            intents,
             failureMessage = "No browser app found"
         )
     }
