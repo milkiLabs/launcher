@@ -322,7 +322,7 @@ private fun BoxScope.WidgetTransformBorderHandleNode(
                 cellHeightPx = cellHeightPx,
                 gridColumns = gridColumns,
                 maxVisibleRows = maxVisibleRows,
-                draftFrame = resizeDraft.draftFrame,
+                draftFrame = draftFrame,
                 updateDraft = updateDraft,
                 settleDraftAfterGesture = settleDraftAfterGesture
             )
@@ -366,7 +366,7 @@ private fun BoxScope.WidgetTransformHandleNode(
                 cellHeightPx = cellHeightPx,
                 gridColumns = gridColumns,
                 maxVisibleRows = maxVisibleRows,
-                draftFrame = resizeDraft.draftFrame,
+                draftFrame = draftFrame,
                 updateDraft = updateDraft,
                 settleDraftAfterGesture = settleDraftAfterGesture
             )
