@@ -3,8 +3,6 @@ package com.milki.launcher.data.repository.apps
 import android.app.Application
 import android.content.ComponentName
 import androidx.datastore.preferences.core.edit
-import com.milki.launcher.core.util.parseCsv
-import com.milki.launcher.core.util.toCsv
 import com.milki.launcher.data.repository.common.RecentListStorage
 import com.milki.launcher.domain.model.AppInfo
 
@@ -12,10 +10,9 @@ internal class RecentAppsStore(application: Application) : RecentListStorage<Str
     dataStore = application.launcherDataStore,
     key = AppPreferenceKeys.RECENT_APPS,
     maxSize = AppPreferenceKeys.MAX_RECENT_APPS,
+    encoder = { component -> component },
+    decoder = { raw -> raw },
 ) {
-    override fun encode(item: String): String = item
-    override fun decode(raw: String): String? = raw
-
     suspend fun pruneUnavailable(installedApps: List<AppInfo>) {
         val validComponents = installedApps
             .mapTo(mutableSetOf()) { app ->
@@ -23,30 +20,23 @@ internal class RecentAppsStore(application: Application) : RecentListStorage<Str
             }
 
         dataStore.edit { preferences ->
-            val currentRaw = preferences[key] ?: return@edit
-            val currentComponents = parseCsv(currentRaw)
+            val raw = preferences[key] ?: return@edit
+            val currentComponents = readItems(raw)
 
             if (currentComponents.isEmpty()) {
                 preferences.remove(key)
                 return@edit
             }
 
-            val filtered = linkedSetOf<String>()
-            currentComponents.forEach { component ->
-                if (component in validComponents) {
-                    filtered += component
-                }
-            }
+            val filtered = currentComponents
+                .filterTo(linkedSetOf()) { it in validComponents }
+            val normalizedRaw = writeItems(filtered.toList())
 
-            val normalizedRaw = filtered
-                .take(maxSize)
-                .toCsv()
-
-            if (normalizedRaw == currentRaw) {
+            if (normalizedRaw == raw) {
                 return@edit
             }
 
-            if (normalizedRaw.isEmpty()) {
+            if (filtered.isEmpty()) {
                 preferences.remove(key)
             } else {
                 preferences[key] = normalizedRaw
