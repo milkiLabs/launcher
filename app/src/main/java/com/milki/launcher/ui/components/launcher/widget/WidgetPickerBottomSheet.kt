@@ -348,7 +348,7 @@ private fun AppGroupCard(
                 horizontalArrangement = Arrangement.spacedBy(Spacing.medium)
             ) {
                 WidgetAppIcon(
-                    drawable = group.appIcon,
+                    drawable = group.appIcon?.newDrawable(),
                     label = group.appLabel,
                     size = 48.dp
                 )

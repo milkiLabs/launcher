@@ -1,5 +1,4 @@
 package com.milki.launcher.ui.components.launcher.widget
-
 import android.graphics.drawable.Drawable
 import android.view.View
 import androidx.compose.foundation.background
@@ -272,7 +271,7 @@ private fun WidgetPreview(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 WidgetAppIcon(
-                    drawable = entry.appIcon,
+                    drawable = entry.appIcon?.newDrawable(),
                     label = entry.label,
                     size = IconSize.appList
                 )

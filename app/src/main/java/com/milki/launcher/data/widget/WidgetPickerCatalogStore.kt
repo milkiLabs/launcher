@@ -13,6 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -34,6 +35,13 @@ class WidgetPickerCatalogStore(
 ) {
     companion object {
         private const val TAG = "WidgetPickerCatalog"
+
+        /**
+         * Batch installs/uninstalls emit one package event per package. Waiting
+         * before rebuilding lets bursts coalesce into a single catalog rebuild
+         * instead of N full icon+label IPC sweeps.
+         */
+        private const val PACKAGE_EVENT_DEBOUNCE_MS = 500L
     }
 
     private val packageManager: PackageManager = context.packageManager
@@ -46,6 +54,7 @@ class WidgetPickerCatalogStore(
     init {
         scope.launch {
             packageChangeMonitor.events.collectLatest {
+                delay(PACKAGE_EVENT_DEBOUNCE_MS)
                 refresh()
             }
         }
@@ -103,7 +112,7 @@ class WidgetPickerCatalogStore(
                     label = widgetLabel,
                     appLabel = appLabel,
                     appIcon = try {
-                        packageManager.getApplicationIcon(info.provider.packageName)
+                        packageManager.getApplicationIcon(info.provider.packageName).constantState
                     } catch (_: Exception) {
                         null
                     },
