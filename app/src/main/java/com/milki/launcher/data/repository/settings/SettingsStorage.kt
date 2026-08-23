@@ -261,31 +261,19 @@ internal fun parseSearchSources(
     json: String?,
     isInitialized: Boolean
 ): List<SearchSource> {
-    if (!isInitialized) {
-        if (json.isNullOrBlank()) {
-            return SearchSource.defaultSources()
-        }
-
-        return runCatching {
-            val decoded: SerializedSearchSources =
-                settingsStorageJson.decodeFromString(json)
-            normalizeAndValidateSearchSources(decoded)
-        }.getOrElse {
-            SearchSource.defaultSources()
-        }
-    }
+    // Before initialization, missing/corrupt data falls back to the factory
+    // defaults; afterwards it means the user cleared their sources.
+    val fallback = if (isInitialized) emptyList() else SearchSource.defaultSources()
 
     if (json.isNullOrBlank()) {
-        return emptyList()
+        return fallback
     }
 
     return runCatching {
         val decoded: SerializedSearchSources =
             settingsStorageJson.decodeFromString(json)
         normalizeAndValidateSearchSources(decoded)
-    }.getOrElse {
-        emptyList()
-    }
+    }.getOrElse { fallback }
 }
 
 internal fun serializeSearchSources(sources: List<SearchSource>): String {
