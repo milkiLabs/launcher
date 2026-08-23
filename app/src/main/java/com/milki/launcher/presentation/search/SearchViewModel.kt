@@ -219,7 +219,7 @@ class SearchViewModel(
         val dynamicProviderIds = providerRegistry
             .getAllConfigs()
             .map { it.providerId }
-            .filter { it.startsWith("source_") }
+            .filter { it.startsWith(SearchSource.ID_PREFIX) }
             .toSet()
 
         val nextDynamicProviderIds = enabledSources.map { it.id }.toSet()

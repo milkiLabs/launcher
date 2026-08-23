@@ -3,6 +3,7 @@ package com.milki.launcher.domain.search
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.ProviderPrefixConfiguration
 import com.milki.launcher.domain.model.ProviderId
+import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.domain.repository.SearchProvider
 import com.milki.launcher.domain.model.SearchProviderConfig
 
@@ -41,11 +42,7 @@ class SearchProviderRegistry(
     private var prefixConfigurations: ProviderPrefixConfiguration = emptyMap()
 
     init {
-        // Register all initial providers
-        initialProviders.forEach { register(it) }
-
-        // Initialize prefix mappings with default prefixes
-        rebuildPrefixMappings()
+        registerAll(initialProviders)
     }
 
     /**
@@ -54,13 +51,27 @@ class SearchProviderRegistry(
      * If a provider with the same providerId already exists, it will be replaced.
      * This allows for dynamic provider replacement (e.g., for testing).
      *
-     * IMPORTANT: After registering, call rebuildPrefixMappings() to update
-     * the prefix-to-provider mappings based on current configuration.
+     * Prefix mappings are rebuilt automatically after registration; there is no
+     * need to call rebuildPrefixMappings() manually.
      *
      * @param provider The provider to register
      */
     fun register(provider: SearchProvider) {
-        providersById[provider.config.providerId] = provider
+        registerAll(listOf(provider))
+    }
+
+    /**
+     * Register multiple search providers, rebuilding prefix mappings only once
+     * after all providers have been added. Use this instead of repeated
+     * [register] calls when registering in bulk.
+     *
+     * @param providers The providers to register
+     */
+    fun registerAll(providers: List<SearchProvider>) {
+        if (providers.isEmpty()) return
+        for (provider in providers) {
+            providersById[provider.config.providerId] = provider
+        }
         rebuildPrefixMappings()
     }
 
@@ -140,7 +151,7 @@ class SearchProviderRegistry(
     private fun providerPriority(providerId: String): Int {
         return when {
             providerId in ProviderId.all -> 0
-            providerId.startsWith("source_") -> 1
+            providerId.startsWith(SearchSource.ID_PREFIX) -> 1
             else -> 2
         }
     }

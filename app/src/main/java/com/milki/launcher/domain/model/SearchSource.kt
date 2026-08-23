@@ -31,6 +31,9 @@ data class SearchSource(
 
     companion object {
 
+        /** Prefix shared by all dynamically-created source IDs (e.g., "source_youtube"). */
+        const val ID_PREFIX = "source_"
+
         fun create(
             name: String,
             urlTemplate: String,
@@ -41,7 +44,7 @@ data class SearchSource(
         ): SearchSource {
             val normalizedPrefixes = normalizePrefixes(prefixes)
             return SearchSource(
-                id = "source_${UUID.randomUUID()}",
+                id = "$ID_PREFIX${UUID.randomUUID()}",
                 name = name,
                 urlTemplate = urlTemplate,
                 prefixes = normalizedPrefixes,
@@ -55,7 +58,7 @@ data class SearchSource(
         fun defaultSources(): List<SearchSource> {
             return listOf(
                 SearchSource(
-                    id = "source_duckduckgo",
+                    id = "${ID_PREFIX}duckduckgo",
                     name = "DuckDuckGo",
                     urlTemplate = "https://duckduckgo.com/?q={query}",
                     prefixes = listOf("k"),
@@ -65,7 +68,7 @@ data class SearchSource(
                     defaultPrefixes = listOf("k")
                 ),
                 SearchSource(
-                    id = "source_youtube",
+                    id = "${ID_PREFIX}youtube",
                     name = "YouTube",
                     urlTemplate = "https://www.youtube.com/results?search_query={query}",
                     prefixes = listOf("y", "yt"),
@@ -75,7 +78,7 @@ data class SearchSource(
                     defaultPrefixes = listOf("y", "yt")
                 ),
                 SearchSource(
-                    id = "source_instagram",
+                    id = "${ID_PREFIX}instagram",
                     name = "Instagram",
                     urlTemplate = "https://www.instagram.com/explore/tags/{query}/",
                     prefixes = listOf("ig"),
