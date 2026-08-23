@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +22,8 @@ import com.milki.launcher.core.launcher.isAppDefaultLauncher
 import com.milki.launcher.core.launcher.launchHomeRoleRequestIfNeeded
 import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
 import com.milki.launcher.core.perf.traceSection
+import com.milki.launcher.data.contextmenu.AppContextDataCache
+import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
@@ -38,6 +41,8 @@ import com.milki.launcher.presentation.settings.DefaultLauncherPromoter
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import com.milki.launcher.ui.screens.settings.SettingsNavHost
 import com.milki.launcher.ui.screens.settings.rememberSettingsActions
+import com.milki.launcher.ui.components.common.LocalAppContextDataCache
+import com.milki.launcher.ui.components.common.LocalAppIconMemoryCache
 import com.milki.launcher.ui.theme.LauncherTheme
 import kotlinx.serialization.Serializable
 import org.koin.android.ext.android.inject
@@ -84,6 +89,8 @@ class MainActivity : ComponentActivity() {
     private val filesRepository:
             com.milki.launcher.domain.repository.FilesRepository by inject()
     private val widgetPickerCatalogStore: WidgetPickerCatalogStore by inject()
+    private val appIconMemoryCache: AppIconMemoryCache by inject()
+    private val contextDataCache: AppContextDataCache by inject()
 
     private lateinit var runtime: LauncherHostRuntime
     private lateinit var backupCoordinator: BackupImportExportCoordinator
@@ -136,7 +143,12 @@ class MainActivity : ComponentActivity() {
 
             traceSection("launcher.startup.setContent") {
                 setContent {
-                    MainNavigationRoot()
+                    CompositionLocalProvider(
+                        LocalAppIconMemoryCache provides appIconMemoryCache,
+                        LocalAppContextDataCache provides contextDataCache
+                    ) {
+                        MainNavigationRoot()
+                    }
                 }
             }
         }

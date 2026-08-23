@@ -51,6 +51,7 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.LauncherScreenScaffold
+import com.milki.launcher.ui.components.common.LocalAppIconMemoryCache
 import com.milki.launcher.ui.components.common.SelectableAppRow
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.interaction.dragdrop.startExternalActionShortcutDrag
@@ -278,12 +279,14 @@ private fun ActionShortcutGridItem(
     onExternalDragStarted: () -> Unit
 ) {
     val hostView = LocalView.current
+    val iconCache = LocalAppIconMemoryCache.current
 
     val startDrag: () -> Unit = {
         val started = startExternalActionShortcutDrag(
             hostView = hostView,
             shortcut = shortcut,
-            dragShadowSize = IconSize.appHomeCompact
+            dragShadowSize = IconSize.appHomeCompact,
+            iconCache = iconCache
         )
         if (started) {
             hostView.post(onExternalDragStarted)

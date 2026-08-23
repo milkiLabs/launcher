@@ -53,9 +53,6 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.ui.theme.IconSize
 
 /**
@@ -98,6 +95,7 @@ fun AppIcon(
     size: Dp = IconSize.appList
 ) {
     val context = LocalContext.current
+    val iconCache = LocalAppIconMemoryCache.current
 
     /**
      * Immediate cache read for first composition.
@@ -108,24 +106,23 @@ fun AppIcon(
      * by repository preloading, so the icon is available in the first frame.
      */
     var iconDrawable by remember(packageName) {
-        mutableStateOf(AppIconMemoryCache.get(packageName))
+        mutableStateOf(iconCache.get(packageName))
     }
 
     /**
      * Background fallback load for cache misses.
      *
-     * If this specific icon wasn't preloaded yet, we load it on IO and store it
-     * in memory cache for all future consumers. Once loaded, state updates and
-     * this composable re-renders with the real icon.
+     * If this specific icon wasn't preloaded yet, we load it (the cache shifts
+     * PackageManager/disk work onto IO internally) and store it in memory for
+     * all future consumers. Once loaded, state updates and this composable
+     * re-renders with the real icon.
      */
     LaunchedEffect(packageName, iconDrawable) {
         if (iconDrawable == null) {
-            iconDrawable = withContext(Dispatchers.IO) {
-                AppIconMemoryCache.getOrLoad(
-                    packageName = packageName,
-                    packageManager = context.packageManager
-                )
-            }
+            iconDrawable = iconCache.getOrLoad(
+                packageName = packageName,
+                packageManager = context.packageManager
+            )
         }
     }
 

@@ -8,6 +8,9 @@ import com.milki.launcher.core.shortcut.ShortcutInfoComparator
 import com.milki.launcher.core.shortcut.toAppShortcut
 import com.milki.launcher.data.cache.SnapshotCache
 import com.milki.launcher.domain.model.HomeItem
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Process-wide, pre-populated cache for context menu data (shortcuts + widget availability).
@@ -26,18 +29,20 @@ import com.milki.launcher.domain.model.HomeItem
  * - Synchronous reads from the UI thread
  * - Thread-safe concurrent access
  *
+ * THREADING CONTRACT:
+ * - [getShortcuts] and [hasWidgets] are pure in-memory reads, safe from any thread.
+ * - [refreshAll] performs IPC and is a suspending function that internally shifts
+ *   work onto [ioDispatcher]; callers cannot accidentally block the main thread.
+ *
  * LIFECYCLE:
  * - Populated by AppRepositoryImpl alongside installed app refreshes
  * - Reads are lock-free (volatile snapshot references)
  * - Stale data is acceptable for the brief moment between a package change
  *   and the next refresh — the menu will just show the previous state
  */
-object AppContextDataCache {
-
-    /**
-     * Maximum number of shortcuts to retain per app.
-     */
-    private const val MAX_SHORTCUTS_PER_APP = 4
+class AppContextDataCache(
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) {
 
     private val cache = SnapshotCache(AppContextDataSnapshot.Empty)
 
@@ -64,16 +69,18 @@ object AppContextDataCache {
     /**
      * Refreshes the entire cache for all installed packages.
      *
-     * MUST be called from a background thread (IO dispatcher).
+     * Performs IPC internally on [ioDispatcher].
      * Called by AppRepositoryImpl whenever the installed apps list changes.
      */
-    fun refreshAll(context: Context) {
-        cache.replace(
-            AppContextDataSnapshot(
-                shortcutsByPackage = loadAllShortcuts(context),
-                widgetPackages = loadWidgetPackages(context)
+    suspend fun refreshAll(context: Context) {
+        withContext(ioDispatcher) {
+            cache.replace(
+                AppContextDataSnapshot(
+                    shortcutsByPackage = loadAllShortcuts(context),
+                    widgetPackages = loadWidgetPackages(context)
+                )
             )
-        )
+        }
     }
 
     fun clear() {
@@ -119,6 +126,10 @@ object AppContextDataCache {
         val appWidgetManager = android.appwidget.AppWidgetManager.getInstance(context)
         return appWidgetManager.installedProviders
             .mapTo(mutableSetOf()) { it.provider.packageName }
+    }
+
+    private companion object {
+        const val MAX_SHORTCUTS_PER_APP = 4
     }
 }
 

@@ -17,8 +17,8 @@ interface IconPriorityStore {
 interface IconPreloader {
 
     /** Preloads missing app icons for the given packages. */
-    fun preloadMissingAppIcons(packageNames: Set<String>)
+    suspend fun preloadMissingAppIcons(packageNames: Set<String>)
 
     /** Preloads missing icons for the given shortcuts. */
-    fun preloadMissingShortcutIcons(shortcuts: List<HomeItem.AppShortcut>)
+    suspend fun preloadMissingShortcutIcons(shortcuts: List<HomeItem.AppShortcut>)
 }

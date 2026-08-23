@@ -63,7 +63,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.domain.homegraph.HomeGridDefaults
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.ItemId
@@ -75,6 +74,7 @@ import com.milki.launcher.presentation.search.SearchResultAction
 import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.FixedAppGrid
+import com.milki.launcher.ui.components.common.LocalAppIconMemoryCache
 
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.IconSize
@@ -82,9 +82,7 @@ import com.milki.launcher.ui.theme.Spacing
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val LANDSCAPE_RECENT_ROW_CAPACITY = 6
 private const val BENCHMARK_SCROLL_DOWN_FRACTION = 0.75f
@@ -230,17 +228,17 @@ private fun Modifier.interruptDrawerGridScrollOnTouch(
 @Composable
 private fun HandleDrawerIconPreload(adapterItems: List<DrawerAdapterItem>) {
     val context = LocalContext.current
+    val iconCache = LocalAppIconMemoryCache.current
 
     LaunchedEffect(adapterItems) {
         val appEntries = adapterItems.filterIsInstance<DrawerAdapterItem.AppEntry>()
         if (appEntries.isEmpty()) return@LaunchedEffect
 
-        withContext(Dispatchers.IO) {
-            AppIconMemoryCache.preloadMissing(
-                appEntries.map { it.app.packageName },
-                context.packageManager
-            )
-        }
+        // preloadMissing shifts work onto IO internally
+        iconCache.preloadMissing(
+            appEntries.map { it.app.packageName },
+            context.packageManager
+        )
     }
 }
 

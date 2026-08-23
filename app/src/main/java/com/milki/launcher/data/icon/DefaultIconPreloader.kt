@@ -5,25 +5,26 @@ import com.milki.launcher.domain.icon.IconPreloader
 import com.milki.launcher.domain.model.HomeItem
 
 /**
- * Default [IconPreloader] backed by the process-wide icon cache singletons.
+ * Default [IconPreloader] backed by the DI-managed icon memory cache.
  *
  * Keeps the Android context and PackageManager access out of the warmup
  * coordinator, which only sees the port.
  */
 class DefaultIconPreloader(
-    private val appContext: Context
+    private val appContext: Context,
+    private val appIconMemoryCache: AppIconMemoryCache
 ) : IconPreloader {
 
-    override fun preloadMissingAppIcons(packageNames: Set<String>) {
+    override suspend fun preloadMissingAppIcons(packageNames: Set<String>) {
         if (packageNames.isEmpty()) return
 
-        AppIconMemoryCache.preloadMissing(
+        appIconMemoryCache.preloadMissing(
             packageNames = packageNames,
             packageManager = appContext.packageManager
         )
     }
 
-    override fun preloadMissingShortcutIcons(shortcuts: List<HomeItem.AppShortcut>) {
+    override suspend fun preloadMissingShortcutIcons(shortcuts: List<HomeItem.AppShortcut>) {
         if (shortcuts.isEmpty()) return
 
         ShortcutIconLoader.preloadMissing(

@@ -21,6 +21,7 @@ internal fun Modifier.detectAppExternalDragGesture(
     onExternalDragStarted: () -> Unit
 ): Modifier {
     val hostView = LocalView.current
+    val iconCache = LocalAppIconMemoryCache.current
 
     return this.detectDragGesture(
         key = "${appInfo.packageName}/${appInfo.activityName}",
@@ -34,7 +35,8 @@ internal fun Modifier.detectAppExternalDragGesture(
             val dragStarted = startExternalAppDrag(
                 hostView = hostView,
                 appInfo = appInfo,
-                dragShadowSize = dragShadowSize
+                dragShadowSize = dragShadowSize,
+                iconCache = iconCache
             )
 
             if (dragStarted) {

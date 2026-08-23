@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import android.view.View
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
+import com.milki.launcher.ui.components.common.LocalAppIconMemoryCache
 import com.milki.launcher.ui.interaction.dragdrop.startExternalFolderItemDrag
 import kotlinx.coroutines.delay
 
@@ -237,6 +238,7 @@ private fun FolderPagerPage(
     onDraggingInternallyChange: (Boolean) -> Unit
 ) {
     val dragState = reorderEngine.state
+    val iconCache = LocalAppIconMemoryCache.current
 
     FolderGridPage(
         page = page,
@@ -288,7 +290,8 @@ private fun FolderPagerPage(
                 startExternalFolderItemDrag(
                     hostView = hostView,
                     folderId = folder.id,
-                    item = escapedItem
+                    item = escapedItem,
+                    iconCache = iconCache
                 )
                 onClose()
             }

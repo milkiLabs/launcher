@@ -91,13 +91,16 @@ object ExternalDragItemCache {
 fun startExternalAppDrag(
     hostView: View,
     appInfo: AppInfo,
-    dragShadowSize: Dp = IconSize.appList
+    dragShadowSize: Dp = IconSize.appList,
+    iconCache: AppIconMemoryCache
 ): Boolean {
     val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
-    val iconDrawable = AppIconMemoryCache.getOrLoad(
-        packageName = appInfo.packageName,
-        packageManager = hostView.context.packageManager
-    )
+    // Cache-only lookup: the dragged item was just rendered, so its icon is
+    // almost always cached. Never risk PackageManager/disk work on the gesture
+    // thread — fall back to the system default app icon on a miss.
+    val iconDrawable = iconCache.get(packageName = appInfo.packageName)
+        ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
+        ?: return false
     return startExternalDrag(
         hostView = hostView,
         payload = ExternalDragItem.App(appInfo),
@@ -175,16 +178,13 @@ fun startExternalShortcutDrag(
 fun startExternalActionShortcutDrag(
     hostView: View,
     shortcut: HomeItem.ActionShortcut,
-    dragShadowSize: Dp = IconSize.appList
+    dragShadowSize: Dp = IconSize.appList,
+    iconCache: AppIconMemoryCache
 ): Boolean {
     val dragHostView = resolveExternalDragHostCandidates(hostView).firstOrNull() ?: hostView
+    // Cache-only lookup with generic-icon fallback (see startExternalAppDrag).
     val iconDrawable = shortcut.packageName
-        ?.let { packageName ->
-            AppIconMemoryCache.getOrLoad(
-                packageName = packageName,
-                packageManager = hostView.context.packageManager
-            )
-        }
+        ?.let { packageName -> iconCache.get(packageName) }
         ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_compass)
     return startExternalDrag(
         hostView = hostView,
@@ -235,7 +235,8 @@ fun startExternalFolderItemDrag(
     hostView: View,
     folderId: String,
     item: com.milki.launcher.domain.model.HomeItem,
-    dragShadowSize: Dp = IconSize.appList
+    dragShadowSize: Dp = IconSize.appList,
+    iconCache: AppIconMemoryCache
 ): Boolean {
     // Choose an appropriate drag shadow drawable based on the item type.
     //
@@ -249,7 +250,9 @@ fun startExternalFolderItemDrag(
     val shadowDrawable: Drawable? = when (item) {
         is com.milki.launcher.domain.model.HomeItem.PinnedApp -> {
             // Try the in-memory app icon cache first; fall back to the system default.
-            AppIconMemoryCache.get(item.packageName)
+            // Cache-only lookup: the item was just rendered, so a miss is rare and
+            // must never trigger PackageManager/disk work on the gesture thread.
+            iconCache.get(item.packageName)
                 ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.sym_def_app_icon)
         }
         is com.milki.launcher.domain.model.HomeItem.PinnedFile -> {
@@ -266,12 +269,7 @@ fun startExternalFolderItemDrag(
         }
         is com.milki.launcher.domain.model.HomeItem.ActionShortcut -> {
             item.packageName
-                ?.let { packageName ->
-                    AppIconMemoryCache.getOrLoad(
-                        packageName = packageName,
-                        packageManager = hostView.context.packageManager
-                    )
-                }
+                ?.let { packageName -> iconCache.get(packageName) }
                 ?: ContextCompat.getDrawable(hostView.context, android.R.drawable.ic_menu_compass)
         }
         else -> {

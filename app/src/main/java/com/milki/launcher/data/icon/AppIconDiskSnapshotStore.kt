@@ -13,35 +13,49 @@ import android.os.Build
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Best-effort disk snapshot cache for app icons used after process restarts.
+ *
+ * THREADING CONTRACT:
+ * [load] and [save] perform disk I/O (file reads/writes, PNG compression,
+ * directory pruning). Both are suspending functions that internally shift work
+ * onto [ioDispatcher], so callers can never accidentally block the main thread.
  */
-object AppIconDiskSnapshotStore {
+class AppIconDiskSnapshotStore(
+    context: Context,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) {
 
-    private const val TAG = "AppIconDiskCache"
-    private const val CACHE_DIR_NAME = "app_icon_snapshots"
-    private const val DEFAULT_BITMAP_SIZE_PX = 192
-    private const val PNG_COMPRESSION_QUALITY = 100
-    private val INVALID_FILE_KEY_CHARS = Regex("[^A-Za-z0-9._-]")
+    private val appContext = context.applicationContext
 
     private val lock = Any()
-    private var cacheDir: File? = null
     @Volatile
-    private var appResources: Resources? = null
+    private var cacheDir: File? = null
 
-    fun initialize(context: Context) {
-        synchronized(lock) {
-            val directory = File(context.cacheDir, CACHE_DIR_NAME)
-            if (!directory.exists()) {
-                directory.mkdirs()
-            }
-            cacheDir = directory
-            appResources = context.resources
+    private val appResources: Resources
+        get() = appContext.resources
+
+    suspend fun load(packageName: String, packageManager: PackageManager): Drawable? {
+        return withContext(ioDispatcher) {
+            loadBlocking(packageName, packageManager)
         }
     }
 
-    fun load(packageName: String, packageManager: PackageManager): Drawable? {
+    suspend fun save(
+        packageName: String,
+        packageManager: PackageManager,
+        drawable: Drawable
+    ) {
+        withContext(ioDispatcher) {
+            saveBlocking(packageName, packageManager, drawable)
+        }
+    }
+
+    private fun loadBlocking(packageName: String, packageManager: PackageManager): Drawable? {
         val snapshotFile = buildSnapshotFile(packageName, packageManager)
         val bitmap = snapshotFile
             ?.takeIf(File::exists)
@@ -51,15 +65,15 @@ object AppIconDiskSnapshotStore {
             snapshotFile.delete()
         }
 
-        return bitmap?.let { BitmapDrawable(appResources ?: Resources.getSystem(), it) }
+        return bitmap?.let { BitmapDrawable(appResources, it) }
     }
 
-    fun save(
+    private fun saveBlocking(
         packageName: String,
         packageManager: PackageManager,
         drawable: Drawable
     ) {
-        val snapshotDirectory = cacheDir
+        val snapshotDirectory = resolveCacheDir()
         val snapshotFile = buildSnapshotFile(packageName, packageManager)
         val bitmap = drawable.toBitmapOrNull()
         val shouldSaveSnapshot = snapshotFile?.exists() == false && bitmap != null
@@ -75,6 +89,31 @@ object AppIconDiskSnapshotStore {
             }.onFailure { exception ->
                 snapshotFile.delete()
                 Log.w(TAG, "Failed to save icon snapshot for $packageName", exception)
+            }
+        }
+    }
+
+    /**
+     * Lazily creates and returns the snapshot directory.
+     *
+     * Replaces the former eager `initialize(context)` call from Application:
+     * the directory is materialized on first use instead of requiring an
+     * explicit startup hook whose omission silently disabled the cache.
+     */
+    private fun resolveCacheDir(): File? {
+        cacheDir?.let { return it }
+        return synchronized(lock) {
+            cacheDir ?: run {
+                val directory = File(appContext.cacheDir, CACHE_DIR_NAME)
+                if (!directory.exists()) {
+                    directory.mkdirs()
+                }
+                if (!directory.isDirectory) {
+                    Log.w(TAG, "Icon snapshot directory unavailable: ${directory.absolutePath}")
+                    null
+                } else {
+                    directory.also { cacheDir = it }
+                }
             }
         }
     }
@@ -101,8 +140,7 @@ object AppIconDiskSnapshotStore {
         packageManager: PackageManager
     ): String? {
         val packageInfo = readPackageInfo(packageName, packageManager) ?: return null
-        val densityDpi =
-            (appResources ?: Resources.getSystem()).displayMetrics.densityDpi
+        val densityDpi = appResources.displayMetrics.densityDpi
         val normalizedPackageName = packageName.replace(INVALID_FILE_KEY_CHARS, "_")
         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode
@@ -118,7 +156,7 @@ object AppIconDiskSnapshotStore {
         packageName: String,
         packageManager: PackageManager
     ): File? {
-        val directory = cacheDir
+        val directory = resolveCacheDir()
         val cacheKey = buildCacheKey(packageName, packageManager)
 
         return if (directory != null && cacheKey != null) {
@@ -160,5 +198,13 @@ object AppIconDiskSnapshotStore {
             draw(canvas)
             bitmap
         }.getOrNull()
+    }
+
+    private companion object {
+        const val TAG = "AppIconDiskCache"
+        const val CACHE_DIR_NAME = "app_icon_snapshots"
+        const val DEFAULT_BITMAP_SIZE_PX = 192
+        const val PNG_COMPRESSION_QUALITY = 100
+        val INVALID_FILE_KEY_CHARS = Regex("[^A-Za-z0-9._-]")
     }
 }

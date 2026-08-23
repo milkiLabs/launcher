@@ -123,7 +123,7 @@ class ItemContextMenuRegistry {
  *   The remove action itself is expressed as the [onRemoveFromFolder]
  *   discriminator rather than a caller-allocated [MenuAction] list so the
  *   result can be remembered on stable keys; a fresh list literal here would
- *   defeat remember and rebuild actions (including AppContextDataCache
+ *   defeat remember and rebuild actions (including context-data-cache
  *   lookups) on every recomposition per item.
  */
 @Composable
@@ -133,19 +133,27 @@ fun buildHomeItemMenuActions(
     onRemoveFromFolder: (() -> Unit)? = null
 ): List<MenuAction> {
     val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
+    val contextDataCache = LocalAppContextDataCache.current
     val includeRemoveFromFolder = onRemoveFromFolder != null
     val removeFromFolderLabel = if (includeRemoveFromFolder) {
         stringResource(R.string.folder_action_remove_item)
     } else {
         ""
     }
-    return remember(item, actionHandler, includeUnpin, includeRemoveFromFolder, removeFromFolderLabel) {
+    return remember(
+        item,
+        contextDataCache,
+        actionHandler,
+        includeUnpin,
+        includeRemoveFromFolder,
+        removeFromFolderLabel
+    ) {
         buildList {
             if (item is HomeItem.PinnedApp) {
-                if (AppContextDataCache.hasWidgets(item.packageName)) {
+                if (contextDataCache.hasWidgets(item.packageName)) {
                     add(createOpenAppWidgetsAction(item.label, actionHandler))
                 }
-                val quickActions = AppContextDataCache.getShortcuts(item.packageName).take(4)
+                val quickActions = contextDataCache.getShortcuts(item.packageName).take(4)
                 addAll(quickActions.map { createLaunchShortcutAction(it, actionHandler) })
                 add(createAppInfoAction(item.packageName, actionHandler))
             }
@@ -183,12 +191,13 @@ fun buildAppDrawerMenuActions(
     extraActions: List<MenuAction> = emptyList()
 ): List<MenuAction> {
     val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-    return remember(appInfo, extraActions, actionHandler) {
+    val contextDataCache = LocalAppContextDataCache.current
+    return remember(appInfo, contextDataCache, extraActions, actionHandler) {
         buildList {
-            if (AppContextDataCache.hasWidgets(appInfo.packageName)) {
+            if (contextDataCache.hasWidgets(appInfo.packageName)) {
                 add(createOpenAppWidgetsAction(appInfo.name, actionHandler))
             }
-            val quickActions = AppContextDataCache.getShortcuts(appInfo.packageName).take(4)
+            val quickActions = contextDataCache.getShortcuts(appInfo.packageName).take(4)
             addAll(quickActions.map { createLaunchShortcutAction(it, actionHandler) })
             add(createAppInfoAction(appInfo.packageName, actionHandler))
             add(createUninstallAppAction(appInfo.packageName, actionHandler))
@@ -226,10 +235,11 @@ fun AppItemContextMenu(
  * Returns cached quick shortcuts for [packageName].
  */
 fun getAppQuickActions(
+    contextDataCache: AppContextDataCache,
     packageName: String,
     maxCount: Int = 4
 ): List<HomeItem.AppShortcut> {
-    return AppContextDataCache.getShortcuts(packageName).take(maxCount)
+    return contextDataCache.getShortcuts(packageName).take(maxCount)
 }
 
 /**

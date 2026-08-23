@@ -7,10 +7,19 @@
  * lightweight path to serve Drawables from memory with minimal work on the UI thread.
  *
  * DESIGN GOALS:
- * 1. Keep the API simple and explicit (get, preload, loadAndCache).
+ * 1. Keep the API simple and explicit: synchronous reads for cache hits,
+ *    suspending slow paths that own their threading.
  * 2. Avoid duplicate icon loads when many composables request the same package.
  * 3. Stay safe for multi-threaded access from repository loading + UI fallback loads.
  * 4. Avoid third-party image-pipeline overhead for local PackageManager icons.
+ *
+ * THREADING CONTRACT:
+ * - [get] and [contains] are pure in-memory reads, safe from any thread
+ *   (including the UI thread) at any time.
+ * - [getOrLoad], [loadAndCache], and [preloadMissing] may hit PackageManager
+ *   and the disk snapshot store. They are suspending functions that internally
+ *   shift work onto [ioDispatcher], so callers cannot accidentally block the
+ *   main thread by calling them.
  *
  * IMPORTANT IMPLEMENTATION DETAIL:
  * We store Drawable.ConstantState instead of Drawable instances. A Drawable object
@@ -27,6 +36,9 @@ import android.util.Log
 import com.milki.launcher.domain.icon.IconPriorityStore
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Thread-safe process-wide cache for app icons.
@@ -37,16 +49,10 @@ import java.util.concurrent.atomic.AtomicLong
  * - 300 entries is a practical default for typical devices and prevents
  *   unbounded growth while still covering most app drawers fully.
  */
-object AppIconMemoryCache : IconPriorityStore {
-
-    private const val TAG = "AppIconMemoryCache"
-
-    private const val MAX_GENERAL_ENTRIES = 300
-    private const val MAX_HOME_PRIORITY_ENTRIES = 120
-
-    private const val SLOW_SINGLE_LOAD_MS = 24L
-    private const val SLOW_PRELOAD_BATCH_MS = 120L
-    private const val HIT_RATE_LOG_INTERVAL = 200L
+class AppIconMemoryCache(
+    private val diskSnapshotStore: AppIconDiskSnapshotStore,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : IconPriorityStore {
 
     private val generalIconCache = DrawableConstantStateCache(MAX_GENERAL_ENTRIES)
     private val homePriorityIconCache = DrawableConstantStateCache(MAX_HOME_PRIORITY_ENTRIES)
@@ -66,6 +72,17 @@ object AppIconMemoryCache : IconPriorityStore {
         val drawable: Drawable,
         val shouldPersistToDisk: Boolean
     )
+
+    private companion object {
+        const val TAG = "AppIconMemoryCache"
+
+        const val MAX_GENERAL_ENTRIES = 300
+        const val MAX_HOME_PRIORITY_ENTRIES = 120
+
+        const val SLOW_SINGLE_LOAD_MS = 24L
+        const val SLOW_PRELOAD_BATCH_MS = 120L
+        const val HIT_RATE_LOG_INTERVAL = 200L
+    }
 
     /**
      * Returns a fresh Drawable from cache if present, otherwise null.
@@ -149,55 +166,40 @@ object AppIconMemoryCache : IconPriorityStore {
     /**
      * Loads icon from PackageManager and stores it in cache.
      *
-     * This method should be called from a background thread when possible.
-     * It is intentionally tiny so callers can control threading policy.
+     * Suspends while shifting PackageManager/disk work onto [ioDispatcher];
+     * safe to call from any thread or dispatcher.
      *
      * @param packageName Package name whose icon should be loaded.
      * @param packageManager Android PackageManager.
      * @return Loaded icon drawable, or default activity icon when package is missing.
      */
-    fun loadAndCache(
+    suspend fun loadAndCache(
         packageName: String,
         packageManager: PackageManager
     ): Drawable {
-        val startedAt = SystemClock.elapsedRealtime()
+        return withContext(ioDispatcher) {
+            val startedAt = SystemClock.elapsedRealtime()
+            val drawable = resolveAndCache(packageName, packageManager)
 
-        val loadResult = resolveIcon(
-            packageName = packageName,
-            packageManager = packageManager
-        )
+            val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+            if (elapsedMs >= SLOW_SINGLE_LOAD_MS) {
+                Log.w(TAG, "Slow icon load for $packageName: ${elapsedMs}ms")
+            }
 
-        if (loadResult.shouldPersistToDisk) {
-            AppIconDiskSnapshotStore.save(
-                packageName = packageName,
-                packageManager = packageManager,
-                drawable = loadResult.drawable
-            )
+            drawable
         }
-
-        preload(packageName = packageName, icon = loadResult.drawable)
-
-        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
-        if (elapsedMs >= SLOW_SINGLE_LOAD_MS) {
-            Log.w(TAG, "Slow icon load for $packageName: ${elapsedMs}ms")
-        }
-
-        return loadResult.drawable
     }
 
     /**
      * Returns an icon using cache-first lookup.
      *
-     * Fast path:
-     * 1. Try cache hit and return immediately.
-     * Slow path:
-     * 2. Load from PackageManager, cache, then return.
+     * Fast path (cache hit) resolves synchronously; only misses suspend on IO.
      *
-     * @param packageName Package name whose icon is requested.
+     * @param packageName Package name whose icon should be loaded.
      * @param packageManager Android PackageManager.
      * @return Icon drawable.
      */
-    fun getOrLoad(
+    suspend fun getOrLoad(
         packageName: String,
         packageManager: PackageManager
     ): Drawable {
@@ -214,37 +216,58 @@ object AppIconMemoryCache : IconPriorityStore {
     /**
      * Preloads only missing package icons; already-cached entries are skipped.
      */
-    fun preloadMissing(
+    suspend fun preloadMissing(
         packageNames: Collection<String>,
         packageManager: PackageManager
     ) {
-        val startedAt = SystemClock.elapsedRealtime()
-        var loadedCount = 0
+        withContext(ioDispatcher) {
+            val startedAt = SystemClock.elapsedRealtime()
+            var loadedCount = 0
 
-        packageNames.forEach { packageName ->
-            if (!contains(packageName)) {
-                loadAndCache(
-                    packageName = packageName,
-                    packageManager = packageManager
-                )
-                loadedCount += 1
+            packageNames.forEach { packageName ->
+                if (!contains(packageName)) {
+                    resolveAndCache(packageName, packageManager)
+                    loadedCount += 1
+                }
             }
-        }
 
-        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
-        if (loadedCount > 0 && elapsedMs >= SLOW_PRELOAD_BATCH_MS) {
-            Log.w(
-                TAG,
-                "Slow icon preload batch: ${elapsedMs}ms for $loadedCount packages"
-            )
+            val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+            if (loadedCount > 0 && elapsedMs >= SLOW_PRELOAD_BATCH_MS) {
+                Log.w(
+                    TAG,
+                    "Slow icon preload batch: ${elapsedMs}ms for $loadedCount packages"
+                )
+            }
         }
     }
 
-    private fun resolveIcon(
+    private suspend fun resolveAndCache(
+        packageName: String,
+        packageManager: PackageManager
+    ): Drawable {
+        val loadResult = resolveIcon(
+            packageName = packageName,
+            packageManager = packageManager
+        )
+
+        if (loadResult.shouldPersistToDisk) {
+            diskSnapshotStore.save(
+                packageName = packageName,
+                packageManager = packageManager,
+                drawable = loadResult.drawable
+            )
+        }
+
+        preload(packageName = packageName, icon = loadResult.drawable)
+
+        return loadResult.drawable
+    }
+
+    private suspend fun resolveIcon(
         packageName: String,
         packageManager: PackageManager
     ): LoadResult {
-        AppIconDiskSnapshotStore.load(
+        diskSnapshotStore.load(
             packageName = packageName,
             packageManager = packageManager
         )?.let { diskSnapshot ->

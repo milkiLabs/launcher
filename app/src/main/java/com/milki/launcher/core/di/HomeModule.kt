@@ -1,11 +1,9 @@
 package com.milki.launcher.core.di
 
 import android.content.Context
-import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.data.icon.DefaultIconPreloader
 import com.milki.launcher.data.repository.home.HomeRepositoryImpl
 import com.milki.launcher.domain.icon.IconPreloader
-import com.milki.launcher.domain.icon.IconPriorityStore
 import com.milki.launcher.domain.repository.HomeRepository
 import com.milki.launcher.presentation.home.HomeIconWarmupCoordinator
 import com.milki.launcher.presentation.home.HomeViewModel
@@ -25,12 +23,11 @@ val homeModule = module {
         )
     }
 
-    single<IconPriorityStore> {
-        AppIconMemoryCache
-    }
-
     factory<IconPreloader> {
-        DefaultIconPreloader(get<Context>())
+        DefaultIconPreloader(
+            appContext = get(),
+            appIconMemoryCache = get()
+        )
     }
 
     factory {

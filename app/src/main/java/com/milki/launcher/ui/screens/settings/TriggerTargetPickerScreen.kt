@@ -25,6 +25,7 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.LauncherScreenScaffold
+import com.milki.launcher.ui.components.common.LocalAppContextDataCache
 import com.milki.launcher.ui.components.common.SelectableRow
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.getAppQuickActions
@@ -194,10 +195,12 @@ private fun TriggerAppTargetGroup(
     currentTarget: LauncherTriggerTarget?,
     onTargetSelected: (LauncherTriggerTarget) -> Unit
 ) {
-    // Cached once per app instead of hitting AppContextDataCache on every
+    // Cached once per app instead of hitting the context data cache on every
     // recomposition of every row (e.g. each search-query keystroke).
-    val quickShortcuts = remember(app.packageName) {
+    val contextDataCache = LocalAppContextDataCache.current
+    val quickShortcuts = remember(app.packageName, contextDataCache) {
         getAppQuickActions(
+            contextDataCache = contextDataCache,
             packageName = app.packageName,
             maxCount = 8
         )
