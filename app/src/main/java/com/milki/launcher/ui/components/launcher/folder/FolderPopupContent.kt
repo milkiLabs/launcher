@@ -234,8 +234,8 @@ internal fun FolderPagerIndicator(
             Box(
                 modifier = Modifier
                     .size(
-                        width = if (isSelected) 18.dp else 8.dp,
-                        height = 8.dp
+                        width = if (isSelected) FOLDER_INDICATOR_ACTIVE_DOT_WIDTH else FOLDER_INDICATOR_HEIGHT,
+                        height = FOLDER_INDICATOR_HEIGHT
                     )
                     .clip(CircleShape)
                     .background(

@@ -6,9 +6,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.milki.launcher.ui.components.launcher.PopupDefaults
 import com.milki.launcher.ui.components.launcher.PopupOffsetPositionProvider
 
 @Composable
@@ -29,8 +29,8 @@ fun PopupWidgetView(
     val positionProvider = remember(density) {
         with(density) {
             PopupOffsetPositionProvider(
-                windowMarginPx = 12.dp.roundToPx(),
-                anchorGapPx = 8.dp.roundToPx(),
+                windowMarginPx = PopupDefaults.windowMargin.roundToPx(),
+                anchorGapPx = PopupDefaults.anchorGap.roundToPx(),
                 arrowSizePx = 0,
                 arrowEdgePaddingPx = 0
             )

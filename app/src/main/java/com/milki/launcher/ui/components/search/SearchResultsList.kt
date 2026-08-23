@@ -20,9 +20,7 @@
 package com.milki.launcher.ui.components.search
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,8 +46,8 @@ import com.milki.launcher.domain.model.WebSearchResult
 import com.milki.launcher.domain.model.YouTubeSearchResult
 import com.milki.launcher.presentation.search.LocalSearchActionHandler
 import com.milki.launcher.presentation.search.SearchResultAction
-import com.milki.launcher.ui.components.common.AppGridItem
 import com.milki.launcher.ui.components.common.AppListItem
+import com.milki.launcher.ui.components.common.FixedAppGrid
 import com.milki.launcher.ui.theme.Spacing
 
 private const val APP_RESULTS_GRID_COLUMNS = 5
@@ -152,15 +150,13 @@ fun SearchResultsList(
  * - 2 rows (implicit, based on number of items)
  * - Maximum 10 items (limited by ViewModel)
  *
- * The grid is rendered as a simple 5-column layout because search
- * app results are capped at 10 items. This lets the dialog wrap to
- * content height instead of reserving unnecessary empty space.
+ * Row layout is delegated to [FixedAppGrid]: with fillFromRight enabled the
+ * grid is flipped so the most relevant apps appear on the bottom row, with
+ * the top result in the bottom-right corner (closest to the thumb).
  *
  * @param appResults List of app search results to display (max 10)
  * @param actionHandler The action handler to emit actions when user interacts
- * @param reverseOrder When true (ONE_HANDED layout), the grid is flipped so the
- *                     most relevant apps appear on the bottom row, with the top
- *                     result in the bottom-right corner (closest to the thumb).
+ * @param reverseOrder When true (ONE_HANDED layout), fills rows from the right
  */
 @Composable
 private fun AppResultsGrid(
@@ -170,21 +166,6 @@ private fun AppResultsGrid(
     reverseOrder: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val displayOrder = if (reverseOrder) appResults.asReversed() else appResults
-
-    val rows = if (reverseOrder) {
-        buildList {
-            var remaining = displayOrder
-            while (remaining.isNotEmpty()) {
-                val take = minOf(APP_RESULTS_GRID_COLUMNS, remaining.size)
-                add(0, remaining.takeLast(take))
-                remaining = remaining.dropLast(take)
-            }
-        }
-    } else {
-        displayOrder.chunked(APP_RESULTS_GRID_COLUMNS)
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -192,36 +173,16 @@ private fun AppResultsGrid(
             .padding(horizontal = Spacing.smallMedium),
         verticalArrangement = if (reverseOrder) Arrangement.Bottom else Arrangement.Top
     ) {
-        rows.forEach { rowResults ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.small)
-            ) {
-                val fillers = APP_RESULTS_GRID_COLUMNS - rowResults.size
-
-                if (reverseOrder) {
-                    repeat(fillers) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-
-                rowResults.forEach { result ->
-                    Box(modifier = Modifier.weight(1f)) {
-                        AppGridItem(
-                            appInfo = result.appInfo,
-                            onExternalDragStarted = onExternalAppDragStart,
-                            onClick = { actionHandler(SearchResultAction.Tap(result)) }
-                        )
-                    }
-                }
-
-                if (!reverseOrder) {
-                    repeat(fillers) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
+        FixedAppGrid(
+            apps = appResults.map { it.appInfo },
+            columns = APP_RESULTS_GRID_COLUMNS,
+            onAppClick = { appInfo ->
+                actionHandler(SearchResultAction.Tap(AppSearchResult(appInfo)))
+            },
+            onExternalDragStarted = onExternalAppDragStart,
+            modifier = Modifier.fillMaxWidth(),
+            fillFromRight = reverseOrder
+        )
     }
 }
 

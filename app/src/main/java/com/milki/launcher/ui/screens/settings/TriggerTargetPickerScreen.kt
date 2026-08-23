@@ -1,6 +1,5 @@
 package com.milki.launcher.ui.screens.settings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +27,7 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.LauncherScreenScaffold
+import com.milki.launcher.ui.components.common.SelectableRow
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.getAppQuickActions
 import com.milki.launcher.ui.components.launcher.ActionShortcutIcon
@@ -78,7 +77,7 @@ internal fun TriggerActionShortcutPickerScreen(
                 items = filteredShortcuts,
                 key = { it.id }
             ) { shortcut ->
-                TriggerTargetRow(
+                SelectableRow(
                     title = shortcut.label,
                     subtitle = shortcut.destinationUri,
                     selected = currentTarget is LauncherTriggerTarget.ActionShortcut &&
@@ -237,7 +236,7 @@ private fun TriggerAppTargetRow(
     currentTarget: LauncherTriggerTarget?,
     onTargetSelected: (LauncherTriggerTarget) -> Unit
 ) {
-    TriggerTargetRow(
+    SelectableRow(
         title = app.name,
         subtitle = app.packageName,
         selected = currentTarget is LauncherTriggerTarget.App &&
@@ -268,7 +267,7 @@ private fun TriggerAppShortcutTargetRow(
     currentTarget: LauncherTriggerTarget?,
     onTargetSelected: (LauncherTriggerTarget) -> Unit
 ) {
-    TriggerTargetRow(
+    SelectableRow(
         title = shortcut.shortLabel.ifBlank { shortcut.longLabel },
         subtitle = "Shortcut in $appName",
         selected = currentTarget is LauncherTriggerTarget.AppShortcut &&
@@ -286,68 +285,6 @@ private fun TriggerAppShortcutTargetRow(
         },
         modifier = Modifier.padding(start = Spacing.mediumLarge)
     )
-}
-
-@Composable
-private fun TriggerTargetRow(
-    title: String,
-    subtitle: String,
-    selected: Boolean,
-    leadingContent: @Composable () -> Unit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
-        shape = MaterialTheme.shapes.medium
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = Spacing.medium,
-                vertical = Spacing.smallMedium
-            ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            leadingContent()
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = Spacing.medium)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            if (selected) {
-                Icon(
-                    imageVector = Icons.Default.Apps,
-                    contentDescription = "Selected",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = Spacing.smallMedium)
-                )
-            }
-        }
-    }
 }
 
 @Composable

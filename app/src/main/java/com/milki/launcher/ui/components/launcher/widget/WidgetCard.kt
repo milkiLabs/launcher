@@ -48,6 +48,12 @@ import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
+/**
+ * Shared height for both widget card previews (inline drawable preview and the
+ * popup-icon placeholder) so both drag options align in the row.
+ */
+private val WidgetPreviewHeight: Dp = 92.dp
+
 @Composable
 internal fun WidgetCard(
     entry: WidgetPickerEntry,
@@ -121,7 +127,7 @@ internal fun WidgetCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(92.dp),
+                            .height(WidgetPreviewHeight),
                         contentAlignment = Alignment.Center
                     ) {
                         WidgetPopupIcon(
@@ -209,7 +215,7 @@ private fun WidgetPreview(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val previewHeight = 92.dp
+    val previewHeight = WidgetPreviewHeight
 
     val previewDrawable = remember(entry.providerInfo) {
         try {
@@ -256,7 +262,7 @@ private fun WidgetPreview(
                 WidgetAppIcon(
                     drawable = entry.appIcon,
                     label = entry.label,
-                    size = 40.dp
+                    size = IconSize.appList
                 )
                 Spacer(modifier = Modifier.height(Spacing.smallMedium))
                 Text(

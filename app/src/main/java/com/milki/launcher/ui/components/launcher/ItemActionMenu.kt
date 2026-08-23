@@ -71,8 +71,7 @@ import com.milki.launcher.ui.theme.Spacing
  * tokens) because they only describe this component's own geometry.
  */
 private object ItemActionMenuDefaults {
-    val windowMargin: Dp = 12.dp
-    val anchorGap: Dp = 8.dp
+    val anchorGap: Dp = PopupDefaults.anchorGap
     val arrowSize: Dp = 16.dp
     val arrowEdgePadding: Dp = 24.dp
     val arrowCorner: Dp = 4.dp
@@ -126,7 +125,7 @@ fun ItemActionMenu(
     val positionProvider = remember(density) {
         with(density) {
             PopupOffsetPositionProvider(
-                windowMarginPx = ItemActionMenuDefaults.windowMargin.roundToPx(),
+                windowMarginPx = PopupDefaults.windowMargin.roundToPx(),
                 anchorGapPx = ItemActionMenuDefaults.anchorGap.roundToPx(),
                 arrowSizePx = ItemActionMenuDefaults.arrowSize.roundToPx(),
                 arrowEdgePaddingPx = ItemActionMenuDefaults.arrowEdgePadding.roundToPx()

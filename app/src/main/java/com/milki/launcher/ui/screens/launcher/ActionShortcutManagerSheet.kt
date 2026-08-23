@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -50,6 +51,7 @@ import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.LauncherScreenScaffold
+import com.milki.launcher.ui.components.common.SelectableAppRow
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.interaction.dragdrop.startExternalActionShortcutDrag
 import com.milki.launcher.ui.interaction.grid.GridConfig
@@ -57,6 +59,9 @@ import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 import kotlinx.serialization.Serializable
+
+/** Touch target for one action-shortcut tile in the library grid. */
+private val ShortcutTileSize: Dp = 88.dp
 
 @Serializable
 private sealed interface ActionShortcutManagerRoute : NavKey {
@@ -288,7 +293,7 @@ private fun ActionShortcutGridItem(
     ) {
         Box(
             modifier = Modifier
-                .size(88.dp)
+                .size(ShortcutTileSize)
                 .detectDragGesture(
                     key = shortcut.id,
                     dragThreshold = GridConfig.Default.dragThresholdPx,
@@ -328,7 +333,7 @@ private fun ActionShortcutGridItem(
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(IconSize.extraSmall)
             )
             Text("Delete")
         }
@@ -545,58 +550,12 @@ private fun ActionShortcutAppPicker(
                     items = visibleApps,
                     key = { "${it.packageName}/${it.activityName}" }
                 ) { app ->
-                    ActionShortcutAppRow(
+                    SelectableAppRow(
                         app = app,
                         selected = app.packageName == selectedPackageName,
                         onClick = { onAppSelected(app) }
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionShortcutAppRow(
-    app: AppInfo,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
-        shape = MaterialTheme.shapes.small
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.medium),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppIcon(
-                packageName = app.packageName,
-                size = IconSize.appList
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = Spacing.medium)
-            ) {
-                Text(
-                    text = app.name,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = app.packageName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
         }
     }
