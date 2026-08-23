@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,17 +37,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.R
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
-import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
-import com.milki.launcher.ui.components.launcher.MenuAction
+import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.Spacing
@@ -87,10 +81,8 @@ internal fun FolderNameHeader(
                 BasicTextField(
                     value = name,
                     onValueChange = onNameChange,
-                    textStyle = LocalTextStyle.current.copy(
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = MaterialTheme.typography.titleMedium.fontSize,
-                        fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center
                     ),
                     singleLine = true,
@@ -304,15 +296,8 @@ private fun FolderPopupItem(
         ItemActionMenu(
             actions = buildHomeItemMenuActions(
                 item = item,
-                extraActions = listOf(
-                    MenuAction(
-                        label = stringResource(R.string.folder_action_remove_item),
-                        icon = Icons.Filled.Delete,
-                        onClick = onRemoveFromFolder,
-                        isDestructive = true
-                    )
-                ),
-                includeUnpin = false
+                includeUnpin = false,
+                onRemoveFromFolder = onRemoveFromFolder
             ),
             expanded = menuRegistry.shownForItemId == item.id,
             onDismiss = menuRegistry::dismiss,

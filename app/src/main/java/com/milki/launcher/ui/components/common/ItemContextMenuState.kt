@@ -1,5 +1,7 @@
 package com.milki.launcher.ui.components.common
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -7,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.data.contextmenu.AppContextDataCache
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.FileDocument
@@ -116,15 +120,26 @@ class ItemContextMenuRegistry {
  * - All other items: unpin only (no parent app actions for shortcuts)
  * - Pass [includeUnpin] = false when the item lives inside a folder, where
  *   "Remove from folder" is the relevant action instead (see FolderPopupContent).
+ *   The remove action itself is expressed as the [onRemoveFromFolder]
+ *   discriminator rather than a caller-allocated [MenuAction] list so the
+ *   result can be remembered on stable keys; a fresh list literal here would
+ *   defeat remember and rebuild actions (including AppContextDataCache
+ *   lookups) on every recomposition per item.
  */
 @Composable
 fun buildHomeItemMenuActions(
     item: HomeItem,
-    extraActions: List<MenuAction> = emptyList(),
-    includeUnpin: Boolean = true
+    includeUnpin: Boolean = true,
+    onRemoveFromFolder: (() -> Unit)? = null
 ): List<MenuAction> {
     val actionHandler = com.milki.launcher.presentation.search.LocalSearchActionHandler.current
-    return remember(item, extraActions, actionHandler, includeUnpin) {
+    val includeRemoveFromFolder = onRemoveFromFolder != null
+    val removeFromFolderLabel = if (includeRemoveFromFolder) {
+        stringResource(R.string.folder_action_remove_item)
+    } else {
+        ""
+    }
+    return remember(item, actionHandler, includeUnpin, includeRemoveFromFolder, removeFromFolderLabel) {
         buildList {
             if (item is HomeItem.PinnedApp) {
                 if (AppContextDataCache.hasWidgets(item.packageName)) {
@@ -143,7 +158,16 @@ fun buildHomeItemMenuActions(
                     )
                 )
             }
-            addAll(extraActions)
+            if (includeRemoveFromFolder) {
+                add(
+                    MenuAction(
+                        label = removeFromFolderLabel,
+                        icon = Icons.Filled.Delete,
+                        onClick = onRemoveFromFolder,
+                        isDestructive = true
+                    )
+                )
+            }
         }
     }
 }
