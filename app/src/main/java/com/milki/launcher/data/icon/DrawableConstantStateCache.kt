@@ -47,6 +47,22 @@ internal class DrawableConstantStateCache(
     }
 
     /**
+     * Atomically removes the entry and returns its raw [Drawable.ConstantState].
+     *
+     * Used for moving entries between cache tiers without disturbing LRU
+     * recency or creating intermediate Drawable instances.
+     */
+    fun removeState(key: String): Drawable.ConstantState? =
+        synchronized(lock) { cache.remove(key) }
+
+    /**
+     * Caches a raw [Drawable.ConstantState] directly.
+     */
+    fun putState(key: String, state: Drawable.ConstantState) {
+        synchronized(lock) { cache.put(key, state) }
+    }
+
+    /**
      * Removes all entries whose keys match the predicate.
      */
     fun removeWhere(predicate: (String) -> Boolean) {
