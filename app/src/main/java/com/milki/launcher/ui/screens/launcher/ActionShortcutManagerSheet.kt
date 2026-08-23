@@ -31,9 +31,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,9 +40,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.ui.NavDisplay
+import androidx.activity.compose.BackHandler
 import com.milki.launcher.core.url.UrlDestinationValidationResult
 import com.milki.launcher.core.url.UrlValidator
 import com.milki.launcher.domain.model.AppInfo
@@ -64,15 +60,19 @@ import kotlinx.serialization.Serializable
 private val ShortcutTileSize: Dp = 88.dp
 
 @Serializable
-private sealed interface ActionShortcutManagerRoute : NavKey {
+private sealed interface ActionShortcutManagerScreen : java.io.Serializable {
     @Serializable
-    data object Library : ActionShortcutManagerRoute
+    data object Library : ActionShortcutManagerScreen
 
     @Serializable
-    data class Editor(val shortcutId: String?) : ActionShortcutManagerRoute
+    data class Editor(
+        val shortcutId: String? = null,
+        val appPackageName: String? = null,
+        val appLabel: String? = null
+    ) : ActionShortcutManagerScreen
 
     @Serializable
-    data object AppPicker : ActionShortcutManagerRoute
+    data class AppPicker(val editor: Editor) : ActionShortcutManagerScreen
 }
 
 @Composable
@@ -85,112 +85,100 @@ internal fun ActionShortcutManagerSheet(
     onExternalDragStarted: () -> Unit,
     headerDragHandleModifier: Modifier = Modifier
 ) {
-    val backStack = remember {
-        mutableStateListOf<ActionShortcutManagerRoute>(
-            ActionShortcutManagerRoute.Library
+    var screen by rememberSaveable {
+        mutableStateOf<ActionShortcutManagerScreen>(ActionShortcutManagerScreen.Library)
+    }
+
+    fun resolveApp(packageName: String?, label: String?): AppInfo? {
+        if (packageName == null) return null
+        return installedApps.firstOrNull { it.packageName == packageName }
+            ?: AppInfo(
+                name = label ?: packageName,
+                packageName = packageName,
+                activityName = ""
+            )
+    }
+
+    fun editorFor(shortcut: HomeItem.ActionShortcut?): ActionShortcutManagerScreen.Editor {
+        return ActionShortcutManagerScreen.Editor(
+            shortcutId = shortcut?.id,
+            appPackageName = shortcut?.packageName,
+            appLabel = shortcut?.packageLabel
         )
     }
-    var selectedApp by remember { mutableStateOf<AppInfo?>(null) }
 
-    fun appFromShortcut(shortcut: HomeItem.ActionShortcut?): AppInfo? {
-        return shortcut?.packageName?.let { packageName ->
-            installedApps.firstOrNull { it.packageName == packageName }
-                ?: AppInfo(
-                    name = shortcut.packageLabel ?: packageName,
-                    packageName = packageName,
-                    activityName = ""
-                )
+    BackHandler(enabled = screen !is ActionShortcutManagerScreen.Library) {
+        screen = when (val current = screen) {
+            is ActionShortcutManagerScreen.AppPicker -> current.editor
+            else -> ActionShortcutManagerScreen.Library
         }
     }
 
-    fun popToLibrary() {
-        while (backStack.size > 1) {
-            backStack.removeLastOrNull()
-        }
-        selectedApp = null
-    }
+    when (val current = screen) {
+        is ActionShortcutManagerScreen.Library -> ActionShortcutLibrary(
+            shortcuts = shortcuts,
+            onCreateShortcut = { screen = editorFor(null) },
+            onEditShortcut = { shortcut ->
+                screen = editorFor(shortcut)
+            },
+            onDeleteShortcut = onDeleteShortcut,
+            onExternalDragStarted = onExternalDragStarted,
+            headerDragHandleModifier = headerDragHandleModifier
+        )
 
-    fun navigateToEditor(shortcut: HomeItem.ActionShortcut?) {
-        selectedApp = appFromShortcut(shortcut)
-        backStack.add(ActionShortcutManagerRoute.Editor(shortcut?.id))
-    }
+        is ActionShortcutManagerScreen.Editor -> {
+            val existingShortcut = current.shortcutId?.let { shortcutId ->
+                shortcuts.firstOrNull { it.id == shortcutId }
+            }
 
-    NavDisplay(
-        backStack = backStack,
-        onBack = {
-            if (backStack.size > 1) {
-                backStack.removeLastOrNull()
+            if (current.shortcutId != null && existingShortcut == null) {
+                LaunchedEffect(current.shortcutId) {
+                    screen = ActionShortcutManagerScreen.Library
+                }
             } else {
-                onDismissRequest()
-            }
-        },
-        entryProvider = { route ->
-            when (route) {
-                ActionShortcutManagerRoute.Library -> NavEntry(route) {
-                    ActionShortcutLibrary(
-                        shortcuts = shortcuts,
-                        onCreateShortcut = {
-                            navigateToEditor(null)
-                        },
-                        onEditShortcut = { shortcut ->
-                            navigateToEditor(shortcut)
-                        },
-                        onDeleteShortcut = onDeleteShortcut,
-                        onExternalDragStarted = onExternalDragStarted,
-                        headerDragHandleModifier = headerDragHandleModifier
-                    )
-                }
-
-                is ActionShortcutManagerRoute.Editor -> NavEntry(route) {
-                    val existingShortcut = route.shortcutId?.let { shortcutId ->
-                        shortcuts.firstOrNull { it.id == shortcutId }
-                    }
-
-                    if (route.shortcutId != null && existingShortcut == null) {
-                        LaunchedEffect(route.shortcutId) {
-                            popToLibrary()
-                        }
-                        return@NavEntry
-                    }
-
-                    ActionShortcutEditor(
-                        existingShortcut = existingShortcut,
-                        selectedApp = selectedApp,
-                        onSelectedAppChange = { selectedApp = it },
-                        onChooseApp = {
-                            backStack.add(ActionShortcutManagerRoute.AppPicker)
-                        },
-                        onBack = { popToLibrary() },
-                        onSave = { shortcut, onResult ->
-                            onSaveShortcut(shortcut) { success ->
-                                if (success) {
-                                    popToLibrary()
-                                }
-                                onResult(success)
+                ActionShortcutEditor(
+                    existingShortcut = existingShortcut,
+                    selectedApp = resolveApp(current.appPackageName, current.appLabel),
+                    onSelectedAppChange = { app ->
+                        screen = current.copy(
+                            appPackageName = app?.packageName,
+                            appLabel = app?.name
+                        )
+                    },
+                    onChooseApp = {
+                        screen = ActionShortcutManagerScreen.AppPicker(current)
+                    },
+                    onBack = { screen = ActionShortcutManagerScreen.Library },
+                    onSave = { shortcut, onResult ->
+                        onSaveShortcut(shortcut) { success ->
+                            if (success) {
+                                screen = ActionShortcutManagerScreen.Library
                             }
+                            onResult(success)
                         }
-                    )
-                }
-
-                ActionShortcutManagerRoute.AppPicker -> NavEntry(route) {
-                    ActionShortcutAppPicker(
-                        installedApps = installedApps,
-                        selectedPackageName = selectedApp?.packageName,
-                        onBack = { backStack.removeLastOrNull() },
-                        onAppSelected = { app ->
-                            selectedApp = app
-                            backStack.removeLastOrNull()
-                        },
-                        onClearApp = {
-                            selectedApp = null
-                            backStack.removeLastOrNull()
-                        }
-                    )
-                }
-
+                    }
+                )
             }
         }
-    )
+
+        is ActionShortcutManagerScreen.AppPicker -> ActionShortcutAppPicker(
+            installedApps = installedApps,
+            selectedPackageName = current.editor.appPackageName,
+            onBack = { screen = current.editor },
+            onAppSelected = { app ->
+                screen = current.editor.copy(
+                    appPackageName = app.packageName,
+                    appLabel = app.name
+                )
+            },
+            onClearApp = {
+                screen = current.editor.copy(
+                    appPackageName = null,
+                    appLabel = null
+                )
+            }
+        )
+    }
 }
 
 @Composable
