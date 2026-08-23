@@ -37,7 +37,8 @@ val homeModule = module {
         HomeIconWarmupCoordinator(
             homeRepository = get(),
             priorityStore = get(),
-            iconPreloader = get()
+            iconPreloader = get(),
+            packageManager = get<Context>().packageManager
         )
     }
 

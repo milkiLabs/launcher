@@ -61,7 +61,6 @@ import com.milki.launcher.ui.components.common.IconBadge
 import com.milki.launcher.ui.components.common.IconLabelCell
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.WidgetPopupIcon
-import com.milki.launcher.ui.components.common.ItemContextMenu
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
 import com.milki.launcher.ui.components.common.rememberItemContextMenuState
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
@@ -134,7 +133,7 @@ fun PinnedItem(
             PinnedItemView(item = item)
         }
 
-        ItemContextMenu(
+        ItemActionMenu(
             actions = buildHomeItemMenuActions(item),
             expanded = menuState.showMenu,
             onDismiss = menuState::dismiss,
@@ -306,10 +305,12 @@ internal fun ActionShortcutIcon(
         }
     }
 
-    if (resolvedPackage != null) {
+    val handlerPackage = resolvedPackage
+
+    if (handlerPackage != null) {
         Box(modifier = modifier.size(size)) {
             AppIcon(
-                packageName = packageName,
+                packageName = handlerPackage,
                 size = size,
                 modifier = Modifier.matchParentSize()
             )

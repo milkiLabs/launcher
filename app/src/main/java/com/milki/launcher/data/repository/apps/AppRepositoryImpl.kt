@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
 import com.milki.launcher.data.contextmenu.AppContextDataCache
+import com.milki.launcher.data.icon.ActionShortcutPackageResolver
 import com.milki.launcher.data.icon.AppIconMemoryCache
 import com.milki.launcher.data.icon.ShortcutIconMemoryCache
 import com.milki.launcher.domain.model.AppInfo
@@ -163,6 +164,11 @@ class AppRepositoryImpl(
 
     private fun invalidatePackageScopedCaches(event: PackageChangeEvent) {
         if (event.isInitialLoad) return
+
+        // Action shortcut URI resolutions can change on any package event
+        // (install/uninstall/update may add or remove an intent handler),
+        // and the cache is keyed by URI rather than package, so drop it all.
+        ActionShortcutPackageResolver.clear()
 
         val packageName = event.packageName
         if (packageName == null) {

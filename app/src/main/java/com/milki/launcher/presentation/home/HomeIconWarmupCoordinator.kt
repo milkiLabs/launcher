@@ -1,5 +1,7 @@
 package com.milki.launcher.presentation.home
 
+import android.content.pm.PackageManager
+import com.milki.launcher.data.icon.ActionShortcutPackageResolver
 import com.milki.launcher.domain.icon.IconPreloader
 import com.milki.launcher.domain.icon.IconPriorityStore
 import com.milki.launcher.domain.model.HomeItem
@@ -17,14 +19,16 @@ import kotlinx.coroutines.launch
 class HomeIconWarmupCoordinator(
     private val homeRepository: HomeRepository,
     private val priorityStore: IconPriorityStore,
-    private val iconPreloader: IconPreloader
+    private val iconPreloader: IconPreloader,
+    private val packageManager: PackageManager
 ) {
     @Volatile
     private var started = false
 
     private data class VisibleHomeIcons(
         val packageNames: Set<String>,
-        val shortcuts: List<HomeItem.AppShortcut>
+        val shortcuts: List<HomeItem.AppShortcut>,
+        val unresolvedActionShortcuts: List<HomeItem.ActionShortcut>
     )
 
     fun start(scope: CoroutineScope) {
@@ -47,6 +51,13 @@ class HomeIconWarmupCoordinator(
                     if (visibleIcons.shortcuts.isNotEmpty()) {
                         iconPreloader.preloadMissingShortcutIcons(visibleIcons.shortcuts)
                     }
+
+                    // Pre-resolve action shortcut handler packages so the first
+                    // composition of ActionShortcutIcon hits the cache instead of
+                    // flashing the generic link placeholder.
+                    visibleIcons.unresolvedActionShortcuts.forEach { shortcut ->
+                        ActionShortcutPackageResolver.getOrLoad(packageManager, shortcut.destinationUri)
+                    }
                 }
         }
     }
@@ -54,6 +65,7 @@ class HomeIconWarmupCoordinator(
     private fun collectVisibleHomeIcons(items: List<HomeItem>): VisibleHomeIcons {
         val packageNames = linkedSetOf<String>()
         val shortcuts = mutableListOf<HomeItem.AppShortcut>()
+        val unresolvedActionShortcuts = mutableListOf<HomeItem.ActionShortcut>()
 
         fun visit(item: HomeItem) {
             when (item) {
@@ -62,7 +74,14 @@ class HomeIconWarmupCoordinator(
                     packageNames += item.packageName
                     shortcuts += item
                 }
-                is HomeItem.ActionShortcut -> item.packageName?.let { packageNames += it }
+                is HomeItem.ActionShortcut -> {
+                    val packageName = item.packageName
+                    if (packageName != null) {
+                        packageNames += packageName
+                    } else {
+                        unresolvedActionShortcuts += item
+                    }
+                }
                 is HomeItem.WidgetItem -> packageNames += item.providerPackage
                 is HomeItem.FolderItem -> item.children.forEach(::visit)
                 is HomeItem.PinnedContact,
@@ -73,7 +92,8 @@ class HomeIconWarmupCoordinator(
         items.forEach(::visit)
         return VisibleHomeIcons(
             packageNames = packageNames,
-            shortcuts = shortcuts
+            shortcuts = shortcuts,
+            unresolvedActionShortcuts = unresolvedActionShortcuts.distinctBy { it.destinationUri }
         )
     }
 }
