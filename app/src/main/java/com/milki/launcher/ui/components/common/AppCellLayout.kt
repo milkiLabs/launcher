@@ -59,6 +59,11 @@ fun AppCellLayout(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .launcherCellSemantics(
+                    label = appInfo.name,
+                    onTap = onClick,
+                    onLongPress = menuState?.let { it::onLongPress }
+                )
                 .detectAppExternalDragGesture(
                     appInfo = appInfo,
                     dragShadowSize = iconSize,

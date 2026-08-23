@@ -49,6 +49,7 @@ import com.milki.launcher.ui.theme.Spacing
 import com.milki.launcher.ui.util.windowRect
 import kotlin.math.roundToInt
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
+import com.milki.launcher.ui.components.common.launcherCellSemantics
 import com.milki.launcher.ui.screens.launcher.FolderActions
 import com.milki.launcher.ui.screens.launcher.HomeActions
 import com.milki.launcher.ui.screens.launcher.WidgetActions
@@ -221,6 +222,19 @@ internal fun InternalGridDragLayer(
                         .onGloballyPositioned { coords ->
                             onItemBoundsMeasured(item.id, coords.windowRect())
                         }
+                        .then(
+                            // Inline widgets host live AppWidgetHostViews with
+                            // their own accessibility tree - leave those alone.
+                            if (!isInlineWidget && interactions.gridGesturesEnabled) {
+                                Modifier.launcherCellSemantics(
+                                    label = getItemLabel(item),
+                                    onTap = interactions.tapAction,
+                                    onLongPress = { showItemMenu(item) }
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
                         .detectDragGesture(
                             key = "${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}",
                             dragThreshold = config.dragThresholdPx,

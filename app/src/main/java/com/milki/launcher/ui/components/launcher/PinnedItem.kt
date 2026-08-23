@@ -59,6 +59,7 @@ import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconBadge
 import com.milki.launcher.ui.components.common.IconLabelCell
+import com.milki.launcher.ui.components.common.launcherCellSemantics
 import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.WidgetPopupIcon
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
@@ -114,6 +115,14 @@ fun PinnedItem(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .launcherCellSemantics(
+                    label = getItemLabel(item),
+                    onTap = onClick,
+                    onLongPress = {
+                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        menuState.onLongPress()
+                    }
+                )
                 .detectDragGesture(
                     key = item.id,
                     onTap = onClick,
@@ -187,7 +196,7 @@ private fun formatHomeItemLabel(item: HomeItem): String {
 /**
  * Returns the display label for a pinned item.
  */
-private fun getItemLabel(item: HomeItem): String {
+internal fun getItemLabel(item: HomeItem): String {
     return when (item) {
         is HomeItem.PinnedApp -> item.label
         is HomeItem.PinnedFile -> item.name

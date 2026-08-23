@@ -34,4 +34,7 @@
         <item quantity="other">%d items</item>
     </plurals>
     <string name="folder_action_remove_item">Remove from folder</string>
+
+    <!-- Accessibility -->
+    <string name="a11y_cell_more_options">More options</string>
 </resources>
