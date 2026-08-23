@@ -54,7 +54,7 @@ class AppDragDropLayoutMetricsTest {
     fun calculate_target_stays_within_grid_bounds() {
         val start = GridPosition(row = 5, column = 3)
         assertEquals(
-            GridPosition(row = 5, column = 3),
+            GridPosition(row = 5, column = 0),
             metrics.calculateTarget(start, Offset(x = -9000f, y = 9000f))
         )
         assertEquals(

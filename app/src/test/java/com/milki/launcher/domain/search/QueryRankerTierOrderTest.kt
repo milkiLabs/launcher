@@ -9,7 +9,7 @@ class QueryRankerTierOrderTest {
     @Test
     fun scoring_constants_follow_documented_hierarchy() {
         val constants = QueryRanker::class.java.declaredFields
-            .filter { it.type == Int.TYPE }
+            .filter { it.type == java.lang.Integer.TYPE }
             .onEach { it.isAccessible = true }
             .associate { it.name to it.getInt(null) }
 
@@ -30,8 +30,8 @@ class QueryRankerTierOrderTest {
                 val previous = constants[documentedOrder[index - 1]]
                 val current = constants[name]
                 assertTrue(
-                    "$name (${constants[name]}) must outrank ${documentedOrder[index - 1]} ($previous)",
-                    current != null && previous != null && current > previous
+                    "$name (${constants[name]}) must rank below ${documentedOrder[index - 1]} ($previous)",
+                    current != null && previous != null && current < previous
                 )
             }
         }

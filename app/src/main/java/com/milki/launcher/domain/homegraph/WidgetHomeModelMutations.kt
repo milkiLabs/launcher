@@ -15,7 +15,7 @@ internal fun HomeModelWriter.updateWidgetFrame(
     if (command.newSpan.columns < 1 || command.newSpan.rows < 1) null
     else (it as? HomeItem.WidgetItem)
         ?.withPosition(command.newPosition)
-        ?.let { moved -> (moved as? HomeItem.WidgetItem)?.withSpan(command.newSpan) }
+        ?.withSpan(command.newSpan)
 }
 
 internal fun HomeModelWriter.updateWidgetDisplayMode(

@@ -36,13 +36,17 @@ object QueryTextMatcher {
     /**
      * Builds the acronym of [text] from the first character of each
      * alphanumeric run ("Google Play Store" -> "gps").
+     * A text with a single alphanumeric run resolves to that run lowercased
+     * ("Notes" -> "notes") so prefix queries keep matching.
      */
     fun buildAcronym(text: String): String {
+        val tokens = tokenize(text)
+        if (tokens.size == 1) return tokens[0].lowercase()
         val builder = StringBuilder()
         var boundary = true
         for (c in text) {
             if (c.isLetterOrDigit()) {
-                if (boundary) builder.append(c)
+                if (boundary) builder.append(c.lowercaseChar())
                 boundary = false
             } else {
                 boundary = true
