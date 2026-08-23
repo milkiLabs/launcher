@@ -137,35 +137,11 @@ object QueryRanker {
     private fun prefixQuality(text: String, query: String): Int =
         (PREFIX_QUALITY_MAX - (text.length - query.length)).coerceAtLeast(0)
 
-    private fun tokenize(text: String): List<String> {
-        if (text.isBlank()) return emptyList()
-        val result = ArrayList<String>(4)
-        var start = -1
-        text.forEachIndexed { i, c ->
-            if (c.isLetterOrDigit()) {
-                if (start == -1) start = i
-            } else if (start != -1) {
-                result += text.substring(start, i)
-                start = -1
-            }
-        }
-        if (start != -1) result += text.substring(start)
-        return result
-    }
+    private fun tokenize(text: String): List<String> =
+        QueryTextMatcher.tokenize(text)
 
-    private fun buildAcronym(text: String): String {
-        val builder = StringBuilder()
-        var boundary = true
-        for (c in text) {
-            if (c.isLetterOrDigit()) {
-                if (boundary) builder.append(c)
-                boundary = false
-            } else {
-                boundary = true
-            }
-        }
-        return builder.toString()
-    }
+    private fun buildAcronym(text: String): String =
+        QueryTextMatcher.buildAcronym(text)
 
     private fun isSubsequence(query: String, text: String): Boolean {
         if (query.length > text.length) return false
@@ -210,25 +186,8 @@ object QueryRanker {
     private fun maxEditDistanceFor(query: String): Int =
         if (query.length >= LONG_QUERY_MIN_LENGTH) 2 else 1
 
-    private fun levenshtein(a: String, b: String): Int {
-        if (a == b) return 0
-        if (a.isEmpty()) return b.length
-        if (b.isEmpty()) return a.length
-        var prev = IntArray(b.length + 1) { it }
-        var curr = IntArray(b.length + 1)
-        for (i in 1..a.length) {
-            curr[0] = i
-            val ac = a[i - 1]
-            for (j in 1..b.length) {
-                val cost = if (ac == b[j - 1]) 0 else 1
-                curr[j] = minOf(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost)
-            }
-            val swap = prev
-            prev = curr
-            curr = swap
-        }
-        return prev[b.length]
-    }
+    private fun levenshtein(a: String, b: String): Int =
+        QueryTextMatcher.levenshtein(a, b)
 
     private const val EXACT_MATCH = 10_000
     private const val PREFIX_MATCH = 9_000
