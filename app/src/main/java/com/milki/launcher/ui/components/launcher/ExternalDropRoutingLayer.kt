@@ -52,8 +52,10 @@ internal fun ExternalDropRoutingLayer(
             interactionController.onExternalDragStarted()
         },
         onDragMoved = { localOffset, item ->
+            // pixelToCell is raw; clamp explicitly here because routed drop
+            // positions are persisted downstream.
             interactionController.onExternalDragMoved(
-                targetPosition = layoutMetrics.pixelToCell(localOffset),
+                targetPosition = layoutMetrics.clamp(layoutMetrics.pixelToCell(localOffset)),
                 item = item
             )
         },
@@ -68,7 +70,7 @@ internal fun ExternalDropRoutingLayer(
             ) {
                 externalDragState.targetPosition
             } else {
-                layoutMetrics.pixelToCell(localOffset)
+                layoutMetrics.clamp(layoutMetrics.pixelToCell(localOffset))
             }
 
             interactionController.onExternalDropCommitted(

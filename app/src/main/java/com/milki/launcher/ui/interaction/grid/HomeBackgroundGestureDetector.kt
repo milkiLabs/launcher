@@ -27,10 +27,14 @@ private enum class BackgroundGestureOutcome {
     Cancelled
 }
 
-private data class PendingTap(
-    val position: Offset,
-    val uptimeMillis: Long
-)
+/**
+ * Multiplier applied to [ViewConfiguration.touchSlop] to derive the max
+ * displacement between the two taps of a double tap. A deliberately
+ * generous value: the second touch of a double tap typically lands with
+ * more jitter than a single stationary finger, and Android's own gesture
+ * pipeline has historically used a widened slop for the same reason.
+ */
+private const val DOUBLE_TAP_SLOP_TOUCH_SLOP_MULTIPLIER = 2f
 
 internal fun Modifier.detectHomeBackgroundGestures(
     key: Any? = null,
@@ -38,43 +42,23 @@ internal fun Modifier.detectHomeBackgroundGestures(
     occupancy: GridOccupancy,
     layoutMetrics: AppDragDropLayoutMetrics,
     policy: HomeBackgroundGesturePolicy,
+    doubleTapArbiter: DoubleTapArbiter,
     gestureThresholdPx: Float,
     bindings: HomeBackgroundGestureBindings
 ): Modifier {
     return pointerInput(key, items, occupancy, layoutMetrics, policy, gestureThresholdPx, bindings) {
         coroutineScope {
-            var pendingTap: PendingTap? = null
             var pendingTapJob: Job? = null
 
-            fun clearPendingTap() {
+            fun cancelPendingTapResolution() {
                 pendingTapJob?.cancel()
                 pendingTapJob = null
-                pendingTap = null
-            }
-
-            fun flushPendingTapAsSingleTap() {
-                if (pendingTap == null) return
-                bindings.invoke(LauncherTrigger.HOME_TAP)
-                clearPendingTap()
-            }
-
-            fun schedulePendingTapResolution(
-                tap: PendingTap,
-                timeoutMillis: Long
-            ) {
-                clearPendingTap()
-                pendingTap = tap
-                pendingTapJob = launch {
-                    delay(timeoutMillis)
-                    if (pendingTap == tap) {
-                        bindings.invoke(LauncherTrigger.HOME_TAP)
-                        clearPendingTap()
-                    }
-                }
             }
 
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
+                // Raw (unclamped) cell on purpose: out-of-range cells have no
+                // occupant, so presses outside the grid count as empty area.
                 val pressedCell = layoutMetrics.pixelToCell(down.position)
                 val occupant = occupancy.occupantAt(pressedCell)
                 val startCellOccupied = occupant != null
@@ -91,27 +75,30 @@ internal fun Modifier.detectHomeBackgroundGestures(
 
                 val supportsDoubleTap = LauncherTrigger.HOME_DOUBLE_TAP in policy.enabledTriggers
                 val doubleTapTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis
-                val doubleTapSlopPx = viewConfiguration.touchSlop * 2f
-                val secondTapCandidate = pendingTap?.let { pending ->
-                    val elapsedMillis = down.uptimeMillis - pending.uptimeMillis
-                    val delta = down.position - pending.position
-                    val withinTapDistance =
-                        (delta.x * delta.x) + (delta.y * delta.y) <= (doubleTapSlopPx * doubleTapSlopPx)
-                    val canUseAsSecondTap =
-                        supportsDoubleTap &&
-                                !startCellOccupied &&
-                                elapsedMillis >= 0L &&
-                                elapsedMillis <= doubleTapTimeoutMillis &&
-                                withinTapDistance
+                val doubleTapSlopPx =
+                    viewConfiguration.touchSlop * DOUBLE_TAP_SLOP_TOUCH_SLOP_MULTIPLIER
 
-                    if (canUseAsSecondTap) {
-                        clearPendingTap()
-                        true
-                    } else {
-                        flushPendingTapAsSingleTap()
-                        false
-                    }
-                } ?: false
+                /**
+                 * Arbitrate this down against any tap pending from a previous
+                 * gesture. The pending tap is consumed either way, and the
+                 * arbiter's state lives outside `pointerInput`, so detector
+                 * restarts (grid mutations) no longer discard unresolved taps.
+                 */
+                val arbitration = doubleTapArbiter.arbitrateDown(
+                    downTimeMillis = down.uptimeMillis,
+                    downPosition = down.position,
+                    landsOnEmptyCell = !startCellOccupied,
+                    supportsDoubleTap = supportsDoubleTap,
+                    doubleTapTimeoutMillis = doubleTapTimeoutMillis,
+                    doubleTapSlopPx = doubleTapSlopPx
+                )
+                cancelPendingTapResolution()
+
+                // A pending tap that failed arbitration must not wait for the
+                // (now cancelled) timeout job — emit its deferred single tap now.
+                if (arbitration == DoubleTapDownDecision.PENDING_FLUSHED_AS_SINGLE_TAP) {
+                    bindings.invoke(LauncherTrigger.HOME_TAP)
+                }
 
                 val outcome = awaitBackgroundGestureOutcome(
                     pointerId = down.id,
@@ -139,16 +126,26 @@ internal fun Modifier.detectHomeBackgroundGestures(
                     BackgroundGestureOutcome.Released -> {
                         if (!startCellOccupied) {
                             if (supportsDoubleTap) {
-                                if (secondTapCandidate) {
-                                    bindings.invoke(LauncherTrigger.HOME_DOUBLE_TAP)
-                                } else {
-                                    schedulePendingTapResolution(
-                                        tap = PendingTap(
-                                        position = down.position,
-                                        uptimeMillis = down.uptimeMillis
-                                        ),
-                                        timeoutMillis = doubleTapTimeoutMillis
-                                    )
+                                when (arbitration) {
+                                    DoubleTapDownDecision.SECOND_TAP ->
+                                        bindings.invoke(LauncherTrigger.HOME_DOUBLE_TAP)
+
+                                    else -> {
+                                        // First half of a potential double tap:
+                                        // defer the single tap until either a
+                                        // qualifying second tap arrives or the
+                                        // double-tap window expires.
+                                        doubleTapArbiter.recordTap(
+                                            uptimeMillis = down.uptimeMillis,
+                                            position = down.position
+                                        )
+                                        pendingTapJob = launch {
+                                            delay(doubleTapTimeoutMillis)
+                                            if (doubleTapArbiter.resolvePendingTap()) {
+                                                bindings.invoke(LauncherTrigger.HOME_TAP)
+                                            }
+                                        }
+                                    }
                                 }
                             } else {
                                 bindings.invoke(LauncherTrigger.HOME_TAP)
@@ -160,7 +157,17 @@ internal fun Modifier.detectHomeBackgroundGestures(
                     BackgroundGestureOutcome.Cancelled -> Unit
                 }
 
-                if (secondTapCandidate && outcome != BackgroundGestureOutcome.Released) {
+                /**
+                 * SECOND-TAP-BECAME-SWIPE REPAIR PATH:
+                 * Arbitration consumed the previous tap expecting a double tap,
+                 * but this gesture ended as anything other than a clean release
+                 * (e.g. it turned into a swipe, long-press, or was cancelled).
+                 * No HOME_DOUBLE_TAP will fire for the pair, so repay the user
+                 * with the deferred HOME_TAP from the first press.
+                 */
+                if (arbitration == DoubleTapDownDecision.SECOND_TAP &&
+                    outcome != BackgroundGestureOutcome.Released
+                ) {
                     bindings.invoke(LauncherTrigger.HOME_TAP)
                 }
             }

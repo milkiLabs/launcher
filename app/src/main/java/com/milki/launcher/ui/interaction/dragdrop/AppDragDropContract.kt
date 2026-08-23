@@ -22,7 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import com.milki.launcher.domain.model.GridBounds
 import com.milki.launcher.domain.model.GridPosition
+import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import kotlin.math.roundToInt
 
@@ -39,14 +41,14 @@ data class AppDragDropLayoutMetrics(
 	val columns: Int,
 	val rows: Int
 ) {
+	// Single definition of "inside the grid", shared with the domain layer.
+	private val bounds = GridBounds(columns = columns, rows = rows)
+
 	/**
-	 * Validates and clamps a [GridPosition] to this metrics range.
+	 * Clamps a [GridPosition] into this metrics range via the domain [GridBounds].
 	 */
 	fun clamp(position: GridPosition): GridPosition {
-		return GridPosition(
-			row = position.row.coerceIn(0, rows - 1),
-			column = position.column.coerceIn(0, columns - 1)
-		)
+		return bounds.clamp(position, GridSpan.SINGLE)
 	}
 
 	/**
@@ -60,12 +62,17 @@ data class AppDragDropLayoutMetrics(
 	}
 
 	/**
-	 * Converts a local pixel position inside the drop surface to a cell.
+	 * Converts a local pixel position inside the drop surface to a raw cell.
+	 *
+	 * No clamping is applied: coordinates outside the grid resolve to
+	 * out-of-range rows/columns so callers can detect and handle them
+	 * (e.g. clamp via [clamp] or treat as "outside the grid") explicitly.
 	 */
 	fun pixelToCell(localPixelPosition: Offset): GridPosition {
-		val column = (localPixelPosition.x / cellWidthPx).toInt()
-		val row = (localPixelPosition.y / cellHeightPx).toInt()
-		return clamp(GridPosition(row = row, column = column))
+		return GridPosition(
+			row = (localPixelPosition.y / cellHeightPx).toInt(),
+			column = (localPixelPosition.x / cellWidthPx).toInt()
+		)
 	}
 
 	/**
