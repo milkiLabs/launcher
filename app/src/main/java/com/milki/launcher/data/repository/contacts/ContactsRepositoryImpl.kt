@@ -81,7 +81,9 @@ class ContactsRepositoryImpl(
 
         val selection = "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} LIKE ?"
         val selectionArgs = arrayOf("%$queryLower%")
-        val sortOrder = "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC LIMIT $maxItems"
+        // No SQL LIMIT: SQLite's ASCII-only LIKE ordering could evict better
+        // matches; rank fully in memory and cap afterwards instead.
+        val sortOrder = "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC"
 
         contentResolver.forEachRow(
             uri = ContactsContract.Contacts.CONTENT_URI,
@@ -123,7 +125,7 @@ class ContactsRepositoryImpl(
                 nameLower.startsWith(queryLower) -> 1
                 else -> 2
             }
-        }
+        }.take(maxItems)
     }
 
     private fun queryPhonesForContacts(contactIds: List<Long>): Map<Long, List<String>> {
@@ -148,53 +150,76 @@ class ContactsRepositoryImpl(
     }
 
     private suspend fun queryContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {
-        val selection = sqlInSelection(ContactsContract.CommonDataKinds.Phone.NUMBER, phoneNumbers)
-            ?: return emptyMap()
+        // Stored NUMBER values keep their display formatting ("+962 79 ...",
+        // "(021) ..."), so exact-string matching misses. Compare on normalized
+        // forms instead; PHONE_NORMALIZED_NUMBER is preferred when populated,
+        // with our own formatting-stripped form as fallback.
+        val requestedByNormalized = mutableMapOf<String, MutableList<String>>()
+        for (phone in phoneNumbers) {
+            requestedByNormalized.getOrPut(normalizePhoneNumber(phone)) {
+                mutableListOf()
+            }.add(phone)
+        }
 
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER,
             ContactsContract.CommonDataKinds.Phone.NUMBER,
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.PHOTO_URI,
             ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY
         )
 
-        val builtContacts = mutableMapOf<Long, Contact>()
-        val phoneToContactId = mutableMapOf<String, Long>()
+        val contactIdByNormalized = mutableMapOf<String, Long>()
+        val matchedContactIds = LinkedHashSet<Long>()
+        val infoByContactId = mutableMapOf<Long, ContactInfo>()
 
         contentResolver.forEachRow(
             uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            projection = projection,
-            selection = selection.first,
-            selectionArgs = selection.second
+            projection = projection
         ) { cursor ->
+            val raw = cursor.getString(1) ?: cursor.getString(2) ?: return@forEachRow
+            val normalized = normalizePhoneNumber(raw)
+            if (normalized !in requestedByNormalized) return@forEachRow
+
             val contactId = cursor.getLong(0)
-            val matchedPhone = cursor.getString(1)
-            val displayName = cursor.getString(2)
-            val photoUri = cursor.getString(3)
-            val lookupKey = cursor.getString(4)
-
-            if (matchedPhone != null && displayName != null && lookupKey != null) {
-                phoneToContactId[matchedPhone] = contactId
-
-                if (contactId !in builtContacts) {
-                    val phones = queryPhonesForContacts(listOf(contactId))[contactId].orEmpty().distinct()
-                    builtContacts[contactId] = Contact(
-                        id = contactId,
-                        displayName = displayName,
-                        phoneNumbers = phones,
-                        photoUri = photoUri,
-                        lookupKey = lookupKey
-                    )
-                }
+            contactIdByNormalized.putIfAbsent(normalized, contactId)
+            if (matchedContactIds.add(contactId) &&
+                cursor.getString(3) != null && cursor.getString(5) != null
+            ) {
+                infoByContactId[contactId] = ContactInfo(
+                    displayName = cursor.getString(3),
+                    photoUri = cursor.getString(4),
+                    lookupKey = cursor.getString(5)
+                )
             }
         }
+        if (infoByContactId.isEmpty()) {
+            return emptyMap()
+        }
 
-        return buildMap {
-            for ((phone, contactId) in phoneToContactId) {
-                builtContacts[contactId]?.let { put(phone, it) }
+        val phonesByContactId = queryPhonesForContacts(infoByContactId.keys.toList())
+
+        val contactByPhone = mutableMapOf<String, Contact>()
+        for ((normalized, contactId) in contactIdByNormalized) {
+            val info = infoByContactId[contactId] ?: continue
+            val contact = Contact(
+                id = contactId,
+                displayName = info.displayName,
+                phoneNumbers = phonesByContactId[contactId].orEmpty().distinct(),
+                photoUri = info.photoUri,
+                lookupKey = info.lookupKey
+            )
+            for (requested in requestedByNormalized.getValue(normalized)) {
+                contactByPhone[requested] = contact
             }
         }
+        return contactByPhone
+    }
+
+    private fun normalizePhoneNumber(raw: String): String {
+        val digits = raw.filter(Char::isDigit)
+        return if (raw.trimStart().startsWith("+")) "+$digits" else digits
     }
 
     private data class ContactInfo(
