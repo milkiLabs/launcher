@@ -12,6 +12,15 @@ import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * Emits a signal whenever launcher-relevant package broadcasts are received.
+ *
+ * Contract: [events] is a best-effort change *signal*, not a reliable
+ * per-package event stream. Events may be coalesced or dropped under burst
+ * (e.g. bulk installs), and no ordering/delivery guarantee is made between
+ * packages. Consumers must treat every emission as "something changed" and
+ * refresh accordingly; never act on a single event as if it were exhaustive.
+ *
+ * The receiver lives for the process lifetime (singleton) and is never
+ * unregistered by design.
  */
 class PackageChangeMonitor(
     private val application: Application
@@ -19,7 +28,10 @@ class PackageChangeMonitor(
 
     private val packageSignal = MutableSharedFlow<PackageChangeEvent>(
         replay = 0,
-        extraBufferCapacity = 1,
+        // Sized to absorb install/update bursts (e.g. Play Store batch
+        // updates); overflow still drops oldest, which is safe because
+        // consumers perform full refreshes — see class contract above.
+        extraBufferCapacity = 16,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
