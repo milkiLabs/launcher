@@ -140,13 +140,26 @@ class UrlHandlerResolver(
     }
 
     private fun isBrowserPackage(packageName: String): Boolean {
-        val browserPackages = browserPackagesCache.get().takeIf { it.isLoaded }
-            ?: BrowserPackagesSnapshot(
-                isLoaded = true,
-                packageNames = getDynamicBrowserPackages()
-            ).also(browserPackagesCache::replace)
+        browserPackagesCache.get().takeIf { it.isLoaded }?.let { cached ->
+            return packageName in cached.packageNames
+        }
 
-        return packageName in browserPackages.packageNames
+        // Double-check under lock so concurrent callers don't each run the
+        // MATCH_ALL query and stomp each other's snapshot (read-modify-write).
+        synchronized(this) {
+            browserPackagesCache.get().takeIf { it.isLoaded }?.let { cached ->
+                return packageName in cached.packageNames
+            }
+
+            val packages = runCatching { getDynamicBrowserPackages() }
+                .onFailure { throwable ->
+                    Log.w(URL_HANDLER_RESOLVER_TAG, "Failed to query browser packages", throwable)
+                }
+                .getOrDefault(emptySet())
+            val loaded = BrowserPackagesSnapshot(isLoaded = true, packageNames = packages)
+            browserPackagesCache.replace(loaded)
+            return packageName in loaded.packageNames
+        }
     }
 
     private fun refreshBrowserPackages() {

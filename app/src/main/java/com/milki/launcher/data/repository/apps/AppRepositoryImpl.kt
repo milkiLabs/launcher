@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Production implementation of AppRepository.
@@ -45,6 +47,11 @@ class AppRepositoryImpl(
 
     // Single source of truth for installed apps. Null means "not loaded yet".
     private val installedAppsSnapshot = MutableStateFlow<List<AppInfo>?>(null)
+
+    // Serializes PM scans across the on-demand path (getInstalledApps) and
+    // the background refresh path, so concurrent callers never duplicate the
+    // expensive launcher-activity enumeration. Mirrors WidgetPickerCatalogStore.
+    private val catalogLoadMutex = Mutex()
 
     private val recentApps = combine(
         recentAppsStore.observeRecent(),
@@ -90,8 +97,10 @@ class AppRepositoryImpl(
             return apps
         }
 
-        return installedAppsCatalog.loadInstalledApps().also { apps ->
-            installedAppsSnapshot.value = apps
+        return catalogLoadMutex.withLock {
+            installedAppsSnapshot.value ?: installedAppsCatalog.loadInstalledApps().also { apps ->
+                installedAppsSnapshot.value = apps
+            }
         }
     }
 
@@ -157,7 +166,9 @@ class AppRepositoryImpl(
 
     private suspend fun refreshInstalledAppsSnapshot(event: PackageChangeEvent) {
         invalidatePackageScopedCaches(event)
-        val latestApps = installedAppsCatalog.loadInstalledApps()
+        val latestApps = catalogLoadMutex.withLock {
+            installedAppsCatalog.loadInstalledApps()
+        }
         installedAppsSnapshot.value = latestApps
         recentAppsStore.pruneUnavailable(latestApps)
         contextDataCache.refreshAll(application)

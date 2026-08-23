@@ -8,6 +8,7 @@ import com.milki.launcher.domain.model.AppInfo
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Scans launcher activities and maps them into AppInfo models.
@@ -39,7 +40,11 @@ internal class InstalledAppsCatalog(
 ) {
 
     private val labelCache = AppLabelCache(application)
-    private var isFirstLoad = true
+
+    // CAS instead of a plain var: loadInstalledApps can be invoked
+    // concurrently, and exactly one scan must claim the first-load
+    // SharedPreferences label cache.
+    private val isFirstLoad = AtomicBoolean(true)
 
     suspend fun loadInstalledApps(): List<AppInfo> {
         return withContext(dispatcher) {
@@ -55,8 +60,7 @@ internal class InstalledAppsCatalog(
 
             // On first load: read cached labels to skip expensive PM IPC.
             // On subsequent loads (package changes): resolve fresh from PM.
-            val useLabelCache = isFirstLoad
-            isFirstLoad = false
+            val useLabelCache = isFirstLoad.compareAndSet(true, false)
             val cachedLabels = if (useLabelCache) labelCache.readAll() else emptyMap()
 
             var hadCacheMiss = false
