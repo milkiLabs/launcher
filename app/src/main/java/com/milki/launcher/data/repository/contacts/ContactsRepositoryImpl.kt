@@ -6,6 +6,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.core.content.forEachRow
+import com.milki.launcher.core.content.sqlInSelection
 import com.milki.launcher.core.permission.PermissionChecker
 import com.milki.launcher.data.repository.common.AbstractContentResolverRecentStore
 import com.milki.launcher.data.repository.common.RecentListStorage
@@ -81,23 +83,21 @@ class ContactsRepositoryImpl(
         val selectionArgs = arrayOf("%$queryLower%")
         val sortOrder = "${ContactsContract.Contacts.DISPLAY_NAME_PRIMARY} ASC LIMIT $maxItems"
 
-        contentResolver.query(
-            ContactsContract.Contacts.CONTENT_URI,
-            contactsProjection,
-            selection,
-            selectionArgs,
-            sortOrder
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(0)
-                val displayName = cursor.getString(1)
-                val photoUri = cursor.getString(2)
-                val lookupKey = cursor.getString(3)
+        contentResolver.forEachRow(
+            uri = ContactsContract.Contacts.CONTENT_URI,
+            projection = contactsProjection,
+            selection = selection,
+            selectionArgs = selectionArgs,
+            sortOrder = sortOrder
+        ) { cursor ->
+            val id = cursor.getLong(0)
+            val displayName = cursor.getString(1)
+            val photoUri = cursor.getString(2)
+            val lookupKey = cursor.getString(3)
 
-                if (displayName != null && lookupKey != null) {
-                    contactIds.add(id)
-                    contactInfo[id] = ContactInfo(displayName, photoUri, lookupKey)
-                }
+            if (displayName != null && lookupKey != null) {
+                contactIds.add(id)
+                contactInfo[id] = ContactInfo(displayName, photoUri, lookupKey)
             }
         }
 
@@ -126,36 +126,30 @@ class ContactsRepositoryImpl(
         }
     }
 
-    private suspend fun queryPhonesForContacts(contactIds: List<Long>): Map<Long, List<String>> {
-        val result = mutableMapOf<Long, MutableList<String>>()
-        val placeholders = contactIds.joinToString(",") { "?" }
-        val selection = "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} IN ($placeholders)"
+    private fun queryPhonesForContacts(contactIds: List<Long>): Map<Long, List<String>> {
+        val selection = sqlInSelection(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, contactIds)
+            ?: return emptyMap()
 
-        contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            arrayOf(
+        val result = mutableMapOf<Long, MutableList<String>>()
+        contentResolver.forEachRow(
+            uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            projection = arrayOf(
                 ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
                 ContactsContract.CommonDataKinds.Phone.NUMBER
             ),
-            selection,
-            contactIds.map { it.toString() }.toTypedArray(),
-            null
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val contactId = cursor.getLong(0)
-                val number = cursor.getString(1)
-                if (number != null) {
-                    result.getOrPut(contactId) { mutableListOf() }.add(number)
-                }
-            }
+            selection = selection.first,
+            selectionArgs = selection.second
+        ) { cursor ->
+            val number = cursor.getString(1) ?: return@forEachRow
+            result.getOrPut(cursor.getLong(0)) { mutableListOf() }.add(number)
         }
 
         return result
     }
 
     private suspend fun queryContactsByPhoneNumbers(phoneNumbers: List<String>): Map<String, Contact> {
-        val placeholders = phoneNumbers.joinToString(",") { "?" }
-        val selection = "${ContactsContract.CommonDataKinds.Phone.NUMBER} IN ($placeholders)"
+        val selection = sqlInSelection(ContactsContract.CommonDataKinds.Phone.NUMBER, phoneNumbers)
+            ?: return emptyMap()
 
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
@@ -168,33 +162,30 @@ class ContactsRepositoryImpl(
         val builtContacts = mutableMapOf<Long, Contact>()
         val phoneToContactId = mutableMapOf<String, Long>()
 
-        contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            projection,
-            selection,
-            phoneNumbers.toTypedArray(),
-            null
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                val contactId = cursor.getLong(0)
-                val matchedPhone = cursor.getString(1)
-                val displayName = cursor.getString(2)
-                val photoUri = cursor.getString(3)
-                val lookupKey = cursor.getString(4)
+        contentResolver.forEachRow(
+            uri = ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            projection = projection,
+            selection = selection.first,
+            selectionArgs = selection.second
+        ) { cursor ->
+            val contactId = cursor.getLong(0)
+            val matchedPhone = cursor.getString(1)
+            val displayName = cursor.getString(2)
+            val photoUri = cursor.getString(3)
+            val lookupKey = cursor.getString(4)
 
-                if (matchedPhone != null && displayName != null && lookupKey != null) {
-                    phoneToContactId[matchedPhone] = contactId
+            if (matchedPhone != null && displayName != null && lookupKey != null) {
+                phoneToContactId[matchedPhone] = contactId
 
-                    if (contactId !in builtContacts) {
-                        val phones = queryPhonesForContact(contactId)
-                        builtContacts[contactId] = Contact(
-                            id = contactId,
-                            displayName = displayName,
-                            phoneNumbers = phones,
-                            photoUri = photoUri,
-                            lookupKey = lookupKey
-                        )
-                    }
+                if (contactId !in builtContacts) {
+                    val phones = queryPhonesForContacts(listOf(contactId))[contactId].orEmpty().distinct()
+                    builtContacts[contactId] = Contact(
+                        id = contactId,
+                        displayName = displayName,
+                        phoneNumbers = phones,
+                        photoUri = photoUri,
+                        lookupKey = lookupKey
+                    )
                 }
             }
         }
@@ -204,29 +195,6 @@ class ContactsRepositoryImpl(
                 builtContacts[contactId]?.let { put(phone, it) }
             }
         }
-    }
-
-    private suspend fun queryPhonesForContact(contactId: Long): List<String> {
-        val phones = mutableListOf<String>()
-        val selection = "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?"
-
-        contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-            selection,
-            arrayOf(contactId.toString()),
-            null
-        )?.use { cursor ->
-            while (cursor.moveToNext()) {
-                cursor.getString(0)?.let { phone ->
-                    if (phone !in phones) {
-                        phones.add(phone)
-                    }
-                }
-            }
-        }
-
-        return phones
     }
 
     private data class ContactInfo(

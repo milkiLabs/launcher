@@ -9,6 +9,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.milki.launcher.core.content.forEachRow
+import com.milki.launcher.core.content.sqlInSelection
 import com.milki.launcher.core.permission.PermissionChecker
 import com.milki.launcher.data.repository.common.AbstractContentResolverRecentStore
 import com.milki.launcher.data.repository.common.RecentListStorage
@@ -177,38 +179,31 @@ class FilesRepositoryImpl(
         val filesMap = mutableMapOf<Long, FileDocument>()
 
         for (chunk in ids.chunked(500)) {
-            val placeholders = chunk.joinToString(",") { "?" }
-            val selection = "${MediaStore.Files.FileColumns._ID} IN ($placeholders)"
-            val selectionArgs = chunk.map { it.toString() }.toTypedArray()
+            val selection = sqlInSelection(MediaStore.Files.FileColumns._ID, chunk) ?: continue
 
-            val cursor = contentResolver.query(
-                MediaStore.Files.getContentUri("external"),
-                cursorReader.projection,
-                selection,
-                selectionArgs,
-                null
-            )
-
-            cursor?.use {
-                val columns = cursorReader.resolveColumns(it)
-
-                while (it.moveToNext()) {
-                    currentCoroutineContext().ensureActive()
-                    val tempFiles = mutableListOf<FileDocument>()
-                    cursorReader.addFileFromCursorRow(
-                        cursor = it,
-                        columns = columns,
-                        collectionUri = MediaStore.Files.getContentUri("external"),
-                        files = tempFiles,
-                        addedFileIds = mutableSetOf(),
-                        logFilteredOut = false,
-                        allowedExtensions = extensionConfig.resolveAllowedExtensions(),
-                        excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
-                    )
-                    if (tempFiles.isNotEmpty()) {
-                        val doc = tempFiles.first()
-                        filesMap[doc.id] = doc
-                    }
+            var columns: MediaStoreFileCursorReader.MediaStoreColumns? = null
+            contentResolver.forEachRow(
+                uri = MediaStore.Files.getContentUri("external"),
+                projection = cursorReader.projection,
+                selection = selection.first,
+                selectionArgs = selection.second
+            ) { cursor ->
+                currentCoroutineContext().ensureActive()
+                val resolvedColumns = columns ?: cursorReader.resolveColumns(cursor).also { columns = it }
+                val tempFiles = mutableListOf<FileDocument>()
+                cursorReader.addFileFromCursorRow(
+                    cursor = cursor,
+                    columns = resolvedColumns,
+                    collectionUri = MediaStore.Files.getContentUri("external"),
+                    files = tempFiles,
+                    addedFileIds = mutableSetOf(),
+                    logFilteredOut = false,
+                    allowedExtensions = extensionConfig.resolveAllowedExtensions(),
+                    excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
+                )
+                if (tempFiles.isNotEmpty()) {
+                    val doc = tempFiles.first()
+                    filesMap[doc.id] = doc
                 }
             }
         }
