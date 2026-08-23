@@ -11,8 +11,6 @@ import com.milki.launcher.domain.model.SearchProviderConfig
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.repository.FilesRepository
 import com.milki.launcher.domain.repository.SearchRequest
-import com.milki.launcher.domain.repository.SearchProvider
-import com.milki.launcher.domain.search.QueryRanker
 import kotlinx.coroutines.flow.first
 
 /**
@@ -25,7 +23,7 @@ import kotlinx.coroutines.flow.first
  */
 class FilesSearchProvider(
     private val filesRepository: FilesRepository
-) : SearchProvider {
+) : RecentBackedSearchProvider<FileDocument>() {
 
     override val config: SearchProviderConfig = SearchProviderConfig(
         providerId = ProviderId.FILES,
@@ -34,36 +32,10 @@ class FilesSearchProvider(
         description = "Search documents on device"
     )
 
-    override suspend fun search(request: SearchRequest): List<SearchResult> {
-        if (!request.filesPermissionState.isGranted) {
-            return listOf(permissionPrompt(request.filesPermissionState))
-        }
+    override fun permissionState(request: SearchRequest): PermissionAccessState =
+        request.filesPermissionState
 
-        if (request.query.isBlank()) {
-            return resolveRecentFiles(request.fileSearchExtensionConfig)
-                .take(MAX_SEARCH_RESULTS)
-                .map { FileDocumentSearchResult(it) }
-        }
-
-        val files = filesRepository.searchFiles(
-            query = request.query,
-            maxItems = MAX_SEARCH_RESULTS,
-            extensionConfig = request.fileSearchExtensionConfig
-        )
-        val recentFiles = resolveRecentFiles(request.fileSearchExtensionConfig)
-
-        return QueryRanker.rank(
-            items = files,
-            query = request.query,
-            recentItems = recentFiles,
-            nameSelector = { it.name },
-            identitySelector = { it.id.toString() },
-        )
-            .map { FileDocumentSearchResult(it) }
-            .take(MAX_SEARCH_RESULTS)
-    }
-
-    private fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
+    override fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
         val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             MANAGE_EXTERNAL_STORAGE_PERMISSION
         } else {
@@ -84,17 +56,28 @@ class FilesSearchProvider(
         )
     }
 
-    private suspend fun resolveRecentFiles(
-        extensionConfig: FileSearchExtensionConfig
-    ): List<FileDocument> {
+    override suspend fun searchTypedItems(request: SearchRequest): List<FileDocument> =
+        filesRepository.searchFiles(
+            query = request.query,
+            maxItems = MAX_SEARCH_RESULTS,
+            extensionConfig = request.fileSearchExtensionConfig
+        )
+
+    override suspend fun resolveRecentItems(request: SearchRequest): List<FileDocument> {
         val recentIds = filesRepository.getRecentFileIds().first()
         if (recentIds.isEmpty()) return emptyList()
 
         val filesById = filesRepository.getFilesByIds(
             ids = recentIds,
-            extensionConfig = extensionConfig
+            extensionConfig = request.fileSearchExtensionConfig
         )
 
         return recentIds.mapNotNull { id -> filesById[id] }
     }
+
+    override val toSearchResult: (FileDocument) -> SearchResult = { FileDocumentSearchResult(it) }
+
+    override val nameSelector: (FileDocument) -> String = { it.name }
+
+    override val identitySelector: (FileDocument) -> String = { it.id.toString() }
 }

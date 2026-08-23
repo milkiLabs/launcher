@@ -7,11 +7,9 @@ import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchProviderConfig
+import com.milki.launcher.domain.model.SearchRequest
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.repository.ContactsRepository
-import com.milki.launcher.domain.repository.SearchRequest
-import com.milki.launcher.domain.repository.SearchProvider
-import com.milki.launcher.domain.search.QueryRanker
 import kotlinx.coroutines.flow.first
 
 /**
@@ -24,7 +22,7 @@ import kotlinx.coroutines.flow.first
  */
 class ContactsSearchProvider(
     private val contactsRepository: ContactsRepository
-) : SearchProvider {
+) : RecentBackedSearchProvider<Contact>() {
 
     private companion object {
         const val MIN_PHONE_DIGITS = 3
@@ -38,37 +36,17 @@ class ContactsSearchProvider(
         description = "Search your contacts"
     )
 
-    override suspend fun search(request: SearchRequest): List<SearchResult> {
-        val typedPhoneResult = request.query.trim().takeIf(::isPhoneNumberQuery)?.let(::PhoneNumberSearchResult)
+    override fun permissionState(request: SearchRequest): PermissionAccessState =
+        request.contactsPermissionState
 
-        if (!request.contactsPermissionState.isGranted) {
-            return listOfNotNull(typedPhoneResult, permissionPrompt(request.contactsPermissionState))
-        }
-
-        if (request.query.isBlank()) {
-            return resolveRecentContacts()
-                .take(MAX_SEARCH_RESULTS)
-                .map { ContactSearchResult(it) }
-        }
-
-        val contacts = contactsRepository.searchContacts(query = request.query, maxItems = MAX_SEARCH_RESULTS)
-        val recentContacts = resolveRecentContacts()
-
-        val ranked = QueryRanker.rank(
-            items = contacts,
-            query = request.query,
-            recentItems = recentContacts,
-            nameSelector = { it.displayName },
-            identitySelector = { it.id.toString() },
+    override fun preQueryResults(request: SearchRequest): List<SearchResult> =
+        listOfNotNull(
+            request.query.trim()
+                .takeIf(::isPhoneNumberQuery)
+                ?.let(::PhoneNumberSearchResult)
         )
 
-        return buildList {
-            typedPhoneResult?.let(::add)
-            addAll(ranked.map { ContactSearchResult(it) })
-        }.take(MAX_SEARCH_RESULTS)
-    }
-
-    private fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
+    override fun permissionPrompt(state: PermissionAccessState): PermissionRequestResult {
         val requiresSettings = state == PermissionAccessState.REQUIRES_SETTINGS
         return PermissionRequestResult(
             permission = READ_CONTACTS_PERMISSION,
@@ -82,12 +60,10 @@ class ContactsSearchProvider(
         )
     }
 
-    private fun isPhoneNumberQuery(query: String): Boolean {
-        val digitCount = query.count(Char::isDigit)
-        return digitCount >= MIN_PHONE_DIGITS && PHONE_QUERY_PATTERN.matches(query)
-    }
+    override suspend fun searchTypedItems(query: String): List<Contact> =
+        contactsRepository.searchContacts(query = query, maxItems = MAX_SEARCH_RESULTS)
 
-    private suspend fun resolveRecentContacts(): List<Contact> {
+    override suspend fun resolveRecentItems(request: SearchRequest): List<Contact> {
         val recentPhones = contactsRepository.getRecentContacts().first()
         if (recentPhones.isEmpty()) return emptyList()
 
@@ -96,6 +72,17 @@ class ContactsSearchProvider(
         return recentPhones.mapNotNull { phoneNumber ->
             contactsByPhone[phoneNumber] ?: contactFromPhoneNumber(phoneNumber)
         }
+    }
+
+    override val toSearchResult: (Contact) -> SearchResult = { ContactSearchResult(it) }
+
+    override val nameSelector: (Contact) -> String = { it.displayName }
+
+    override val identitySelector: (Contact) -> String = { it.id.toString() }
+
+    private fun isPhoneNumberQuery(query: String): Boolean {
+        val digitCount = query.count(Char::isDigit)
+        return digitCount >= MIN_PHONE_DIGITS && PHONE_QUERY_PATTERN.matches(query)
     }
 
     private fun contactFromPhoneNumber(phoneNumber: String): Contact {
