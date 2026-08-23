@@ -180,7 +180,7 @@ class HomeViewModel(
     }
 
     private suspend fun removeUnavailableItemsById(itemIds: Set<String>) {
-        modelMutator.apply(
+        modelMutator.applyTracked(
             command = HomeModelWriter.RemoveItemsById(itemIds = itemIds)
         )
     }
