@@ -116,16 +116,21 @@ class LauncherBackupRepositoryImpl(
                 context = importContext
             )
 
-            val existingHomeItems = homeRepository.readPinnedItems()
-            collectWidgetIds(existingHomeItems).forEach(widgetHost::deallocateWidgetId)
-
             val sanitizedActionShortcuts = importSanitizer.sanitizeActionShortcuts(
                 items = snapshot.actionShortcuts,
                 context = importContext
             )
-            settingsRepository.updateSettings { snapshot.settings }
-            homeRepository.replacePinnedItems(sanitizedHomeItems)
-            actionShortcutRepository.replaceAllShortcuts(sanitizedActionShortcuts)
+
+            val existingWidgetIds = collectWidgetIds(homeRepository.readPinnedItems())
+            try {
+                settingsRepository.updateSettings { snapshot.settings }
+                homeRepository.replacePinnedItems(sanitizedHomeItems)
+                actionShortcutRepository.replaceAllShortcuts(sanitizedActionShortcuts)
+            } catch (throwable: Throwable) {
+                collectWidgetIds(sanitizedHomeItems).forEach(widgetHost::deallocateWidgetId)
+                throw throwable
+            }
+            existingWidgetIds.forEach(widgetHost::deallocateWidgetId)
 
             LauncherImportResult(
                 success = true,
