@@ -33,6 +33,9 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -152,30 +155,41 @@ private fun WidgetDragOptionColumn(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    Column(
-        modifier = modifier.detectDragGesture(
-            key = "${entry.providerInfo.provider.packageName}/${entry.providerInfo.provider.className}-$mode",
-            dragThreshold = GridConfig.Default.dragThresholdPx,
-            onTap = {},
-            onLongPress = {},
-            onLongPressRelease = {},
-            onDragStart = {
-                val dragStarted = startExternalWidgetDrag(
-                    hostView = hostView,
-                    providerInfo = entry.providerInfo,
-                    span = entry.span,
-                    displayMode = mode,
-                    dragShadowSize = IconSize.appHomeCompact
-                )
+    val startDrag: () -> Unit = {
+        val dragStarted = startExternalWidgetDrag(
+            hostView = hostView,
+            providerInfo = entry.providerInfo,
+            span = entry.span,
+            displayMode = mode,
+            dragShadowSize = IconSize.appHomeCompact
+        )
 
-                if (dragStarted) {
-                    hostView.post(onExternalDragStarted)
-                }
-            },
-            onDrag = { change, _ -> change.consume() },
-            onDragEnd = {},
-            onDragCancel = {}
-        ),
+        if (dragStarted) {
+            hostView.post(onExternalDragStarted)
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction("Add $label widget to home") {
+                        startDrag()
+                        true
+                    }
+                )
+            }
+            .detectDragGesture(
+                key = "${entry.providerInfo.provider.packageName}/${entry.providerInfo.provider.className}-$mode",
+                dragThreshold = GridConfig.Default.dragThresholdPx,
+                onTap = {},
+                onLongPress = {},
+                onLongPressRelease = {},
+                onDragStart = startDrag,
+                onDrag = { change, _ -> change.consume() },
+                onDragEnd = {},
+                onDragCancel = {}
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.small)
     ) {

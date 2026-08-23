@@ -37,6 +37,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -275,6 +278,17 @@ private fun ActionShortcutGridItem(
 ) {
     val hostView = LocalView.current
 
+    val startDrag: () -> Unit = {
+        val started = startExternalActionShortcutDrag(
+            hostView = hostView,
+            shortcut = shortcut,
+            dragShadowSize = IconSize.appHomeCompact
+        )
+        if (started) {
+            hostView.post(onExternalDragStarted)
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -282,22 +296,21 @@ private fun ActionShortcutGridItem(
         Box(
             modifier = Modifier
                 .size(ShortcutTileSize)
+                .semantics {
+                    customActions = listOf(
+                        CustomAccessibilityAction("Add ${shortcut.label} shortcut to home") {
+                            startDrag()
+                            true
+                        }
+                    )
+                }
                 .detectDragGesture(
                     key = shortcut.id,
                     dragThreshold = GridConfig.Default.dragThresholdPx,
                     onTap = onClick,
                     onLongPress = {},
                     onLongPressRelease = {},
-                    onDragStart = {
-                        val started = startExternalActionShortcutDrag(
-                            hostView = hostView,
-                            shortcut = shortcut,
-                            dragShadowSize = IconSize.appHomeCompact
-                        )
-                        if (started) {
-                            hostView.post(onExternalDragStarted)
-                        }
-                    },
+                    onDragStart = { startDrag() },
                     onDrag = { change, _ -> change.consume() },
                     onDragEnd = {},
                     onDragCancel = {}
