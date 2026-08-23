@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,7 @@ import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
+import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.domain.model.homeGridSpan
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
@@ -93,6 +95,34 @@ internal fun InternalGridDragLayer(
 
     val backgroundGesturePolicy = interactionController.backgroundGesturePolicy(backgroundGestures)
 
+    // Structured restart key for the background gesture detector.
+    //
+    // The previous implementation built a sorted/joined string on every
+    // recomposition of this layer even though pointerInput only compares keys
+    // for restart eligibility. Computing it via remember means the (cheap)
+    // equality comparison still happens each recomposition, but allocation and
+    // trigger-set sorting only occur when one of the identity components
+    // actually changes. Reading the interaction/drag state here preserves the
+    // same composition subscriptions as before, so invalidation behavior is
+    // unchanged.
+    val backgroundGestureRestartKey = remember(
+        items.size,
+        interactionController.menuShownForItemId,
+        interactionController.externalDragState.isActive,
+        dragController.session?.itemId,
+        interactionController.widgetTransformSession?.widgetId,
+        backgroundGesturePolicy.enabledTriggers
+    ) {
+        BackgroundGestureRestartKey(
+            itemCount = items.size,
+            menuShownForItemId = interactionController.menuShownForItemId,
+            isExternalDragActive = interactionController.externalDragState.isActive,
+            internalDragItemId = dragController.session?.itemId,
+            widgetTransformWidgetId = interactionController.widgetTransformSession?.widgetId,
+            enabledTriggers = backgroundGesturePolicy.enabledTriggers
+        )
+    }
+
     fun showItemMenu(item: HomeItem) {
         if (!interactionController.showItemMenu(item.id)) return
         hapticLongPress()
@@ -137,10 +167,7 @@ internal fun InternalGridDragLayer(
         modifier = Modifier
             .fillMaxSize()
             .detectHomeBackgroundGestures(
-                key = "background-${items.size}-${interactionController.menuShownForItemId ?: "none"}-${interactionController.externalDragState.isActive}-${dragController.session?.itemId ?: "idle"}-${interactionController.widgetTransformSession?.widgetId ?: "none"}-${
-                    backgroundGesturePolicy.enabledTriggers.sortedBy { it.name }
-                        .joinToString(separator = ",") { it.name }
-                }",
+                key = backgroundGestureRestartKey,
                 items = items,
                 occupancy = occupancy,
                 layoutMetrics = layoutMetrics,
@@ -255,7 +282,7 @@ internal fun InternalGridDragLayer(
                         PinnedItemView(item = item)
 
                         if (interactions.menuKind == ItemMenuKind.Item) {
-                            com.milki.launcher.ui.components.common.ItemContextMenu(
+                            ItemActionMenu(
                                 actions = buildHomeItemMenuActions(item),
                                 expanded = interactionController.menuShownForItemId == item.id,
                                 onDismiss = { interactionController.dismissMenu() },
@@ -311,6 +338,22 @@ internal fun InternalGridDragLayer(
         }
     }
 }
+
+/**
+ * Identity of the background gesture detector's pointerInput session.
+ *
+ * Structured replacement for a hand-rolled concatenated string: data-class
+ * equality gives identical restart semantics for detectHomeBackgroundGestures
+ * without per-recomposition string building or trigger-set sorting.
+ */
+private data class BackgroundGestureRestartKey(
+    val itemCount: Int,
+    val menuShownForItemId: String?,
+    val isExternalDragActive: Boolean,
+    val internalDragItemId: String?,
+    val widgetTransformWidgetId: String?,
+    val enabledTriggers: Set<LauncherTrigger>
+)
 
 /**
  * Per-item gesture and menu strategy, resolved once per item instead of being

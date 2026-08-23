@@ -109,29 +109,6 @@ class ItemContextMenuRegistry {
 }
 
 /**
- * Simple context menu that displays a list of actions.
- * Callers are responsible for building the correct actions for their item type.
- */
-@Composable
-fun ItemContextMenu(
-    actions: List<MenuAction>,
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    focusable: Boolean = true,
-    onExternalDragStarted: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
-) {
-    ItemActionMenu(
-        expanded = expanded,
-        onDismiss = onDismiss,
-        actions = actions,
-        focusable = focusable,
-        onExternalDragStarted = onExternalDragStarted,
-        modifier = modifier
-    )
-}
-
-/**
  * Builds menu actions for a [HomeItem] on the home screen.
  *
  * Rules:
@@ -208,7 +185,7 @@ fun AppItemContextMenu(
     extraActions: List<MenuAction> = emptyList(),
     modifier: Modifier = Modifier
 ) {
-    ItemContextMenu(
+    ItemActionMenu(
         actions = buildAppDrawerMenuActions(appInfo, extraActions),
         expanded = menuState.showMenu,
         onDismiss = menuState::dismiss,

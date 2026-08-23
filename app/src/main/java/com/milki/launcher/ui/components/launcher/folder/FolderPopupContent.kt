@@ -47,8 +47,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.R
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.common.ItemContextMenu
 import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
+import com.milki.launcher.ui.components.launcher.ItemActionMenu
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
 import com.milki.launcher.ui.components.launcher.MenuAction
 import com.milki.launcher.ui.interaction.grid.detectDragGesture
@@ -301,7 +301,7 @@ private fun FolderPopupItem(
     ) {
         com.milki.launcher.ui.components.launcher.PinnedItemView(item = item)
 
-        ItemContextMenu(
+        ItemActionMenu(
             actions = buildHomeItemMenuActions(
                 item = item,
                 extraActions = listOf(
