@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * This keeps catalog scans fast and avoids flooding IO threads
  * during startup with icon work that no consumer needs yet.
  */
-internal class InstalledAppsCatalog(
+class InstalledAppsCatalog(
     private val application: Application,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {

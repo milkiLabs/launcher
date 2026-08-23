@@ -23,7 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.milki.launcher.BuildConfig
+import com.milki.launcher.R
 import com.milki.launcher.core.intent.openUrlDestination
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
@@ -40,7 +42,10 @@ internal fun HomeScreenSettingsScreen(
     onSelectOpenAppAction: (LauncherTrigger, LauncherTriggerAction) -> Unit,
     onBack: () -> Unit
 ) {
-    LauncherScreenScaffold(title = "Home Screen", onBack = onBack) { paddingValues ->
+    LauncherScreenScaffold(
+        title = stringResource(R.string.settings_group_home_title),
+        onBack = onBack
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -68,7 +73,10 @@ internal fun SearchSettingsScreen(
     var editingSource by remember { mutableStateOf<SearchSource?>(null) }
     var sourceIdPendingDelete by remember { mutableStateOf<String?>(null) }
 
-    LauncherScreenScaffold(title = "Search", onBack = onBack) { paddingValues ->
+    LauncherScreenScaffold(
+        title = stringResource(R.string.settings_group_search_title),
+        onBack = onBack
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -166,7 +174,10 @@ internal fun AdvancedSettingsScreen(
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
 
-    LauncherScreenScaffold(title = "Advanced", onBack = onBack) { paddingValues ->
+    LauncherScreenScaffold(
+        title = stringResource(R.string.settings_group_advanced_title),
+        onBack = onBack
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -201,7 +212,10 @@ internal fun AboutSettingsScreen(
 ) {
     val context = LocalContext.current
 
-    LauncherScreenScaffold(title = "About", onBack = onBack) { paddingValues ->
+    LauncherScreenScaffold(
+        title = stringResource(R.string.settings_group_about_title),
+        onBack = onBack
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -45,6 +46,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
+import com.milki.launcher.R
 import com.milki.launcher.core.url.UrlDestinationValidationResult
 import com.milki.launcher.core.url.UrlValidator
 import com.milki.launcher.domain.model.AppInfo
@@ -196,13 +199,13 @@ private fun ActionShortcutLibrary(
     headerDragHandleModifier: Modifier
 ) {
     LauncherScreenScaffold(
-        title = "Shortcuts",
+        title = stringResource(R.string.shortcuts_library_title),
         topAppBarModifier = headerDragHandleModifier,
         actions = {
             IconButton(onClick = onCreateShortcut) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Add shortcut"
+                    contentDescription = stringResource(R.string.shortcut_add_a11y)
                 )
             }
         }
@@ -217,16 +220,16 @@ private fun ActionShortcutLibrary(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "No shortcuts yet",
+                    text = stringResource(R.string.shortcut_empty_title),
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(Spacing.small))
                 Button(onClick = onCreateShortcut) {
-                    Text("Add shortcut")
+                    Text(stringResource(R.string.shortcut_add_a11y))
                 }
                 Spacer(modifier = Modifier.height(Spacing.medium))
                 Text(
-                    text = "Long press and drag a shortcut to add it to your home screen",
+                    text = stringResource(R.string.shortcut_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -258,7 +261,7 @@ private fun ActionShortcutLibrary(
             item {
                 Spacer(modifier = Modifier.height(Spacing.medium))
                 Text(
-                    text = "Long press and drag a shortcut to add it to your home screen",
+                    text = stringResource(R.string.shortcut_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
@@ -280,6 +283,7 @@ private fun ActionShortcutGridItem(
 ) {
     val hostView = LocalView.current
     val iconCache = LocalAppIconMemoryCache.current
+    val addToHomeActionLabel = stringResource(R.string.shortcut_a11y_add_to_home, shortcut.label)
 
     val startDrag: () -> Unit = {
         val started = startExternalActionShortcutDrag(
@@ -302,7 +306,7 @@ private fun ActionShortcutGridItem(
                 .size(ShortcutTileSize)
                 .semantics {
                     customActions = listOf(
-                        CustomAccessibilityAction("Add ${shortcut.label} shortcut to home") {
+                        CustomAccessibilityAction(addToHomeActionLabel) {
                             startDrag()
                             true
                         }
@@ -334,14 +338,14 @@ private fun ActionShortcutGridItem(
             overflow = TextOverflow.Ellipsis
         )
 
-        TextButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = null,
-                modifier = Modifier.size(IconSize.extraSmall)
-            )
-            Text("Delete")
-        }
+            TextButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(IconSize.extraSmall)
+                )
+                Text(stringResource(R.string.action_delete))
+            }
     }
 }
 
@@ -364,16 +368,20 @@ private fun ActionShortcutEditor(
     var showDuplicateError by rememberSaveable(existingShortcut?.id) {
         mutableStateOf(false)
     }
-    val validationMessage = remember(destination, validationResult) {
+    val validationMessageRes = remember(destination, validationResult) {
         validateActionShortcutDestination(destination, validationResult)
     }
+    val validationMessage = validationMessageRes?.let { stringResource(it) }
 
     LaunchedEffect(destination, selectedApp?.packageName) {
         showDuplicateError = false
     }
 
     LauncherScreenScaffold(
-        title = if (existingShortcut == null) "Add shortcut" else "Edit shortcut",
+        title = stringResource(
+            if (existingShortcut == null) R.string.shortcut_editor_add_title
+            else R.string.shortcut_editor_edit_title
+        ),
         onBack = onBack
     ) { paddingValues ->
         Column(
@@ -387,22 +395,22 @@ private fun ActionShortcutEditor(
             TextField(
                 value = label,
                 onValueChange = { label = it },
-                label = { Text("Shortcut name") },
-                placeholder = { Text("WhatsApp chat, Facebook profile, website") },
+                label = { Text(stringResource(R.string.shortcut_name_label)) },
+                placeholder = { Text(stringResource(R.string.shortcut_name_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             TextField(
                 value = destination,
                 onValueChange = { destination = it },
-                label = { Text("Destination URI") },
-                placeholder = { Text("https://example.com or whatsapp://send?phone=...") },
+                label = { Text(stringResource(R.string.shortcut_destination_label)) },
+                placeholder = { Text(stringResource(R.string.shortcut_destination_placeholder)) },
                 isError = validationMessage != null || showDuplicateError,
                 supportingText = {
                     if (showDuplicateError) {
-                        Text("A shortcut with this destination and app already exists.")
+                        Text(stringResource(R.string.shortcut_error_duplicate))
                     } else {
-                        Text(validationMessage ?: "Any Android deep link or web URL can be used.")
+                        Text(validationMessage ?: stringResource(R.string.shortcut_destination_hint))
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -435,7 +443,7 @@ private fun ActionShortcutEditor(
                 enabled = validationMessage == null && validationResult != null,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save shortcut")
+                Text(stringResource(R.string.shortcut_save_button))
             }
         }
     }
@@ -476,14 +484,15 @@ private fun ActionShortcutAppSelector(
                     .padding(start = Spacing.medium)
             ) {
                 Text(
-                    text = selectedApp?.name ?: "Open with any matching app",
+                    text = selectedApp?.name
+                        ?: stringResource(R.string.shortcut_open_with_any),
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = selectedApp?.packageName
-                        ?: "Choose an app only when the destination should be forced there.",
+                        ?: stringResource(R.string.shortcut_app_optional_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
@@ -492,11 +501,11 @@ private fun ActionShortcutAppSelector(
             }
 
             TextButton(onClick = onChooseApp) {
-                Text("Choose")
+                Text(stringResource(R.string.action_choose))
             }
             if (selectedApp != null) {
                 TextButton(onClick = onClearApp) {
-                    Text("Clear")
+                    Text(stringResource(R.string.action_clear))
                 }
             }
         }
@@ -525,7 +534,7 @@ private fun ActionShortcutAppPicker(
     }
 
     LauncherScreenScaffold(
-        title = "Choose app",
+        title = stringResource(R.string.trigger_picker_choose_app),
         onBack = onBack
     ) { paddingValues ->
         Column(
@@ -538,14 +547,14 @@ private fun ActionShortcutAppPicker(
             UnifiedSearchInputField(
                 query = query,
                 onQueryChange = { query = it },
-                placeholderText = "Search apps",
+                placeholderText = stringResource(R.string.shortcut_picker_search_apps),
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedButton(
                 onClick = onClearApp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Open with any matching app")
+                Text(stringResource(R.string.shortcut_open_with_any))
             }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -566,11 +575,12 @@ private fun ActionShortcutAppPicker(
     }
 }
 
+@StringRes
 private fun validateActionShortcutDestination(
     destination: String,
     validationResult: UrlDestinationValidationResult?
-): String? {
-    if (destination.isBlank()) return "Destination is required."
-    if (validationResult == null) return "Enter a valid web URL or Android URI."
+): Int? {
+    if (destination.isBlank()) return R.string.shortcut_error_destination_required
+    if (validationResult == null) return R.string.shortcut_error_invalid_destination
     return null
 }

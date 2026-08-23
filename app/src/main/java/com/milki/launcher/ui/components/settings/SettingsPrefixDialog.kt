@@ -15,6 +15,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -25,10 +28,11 @@ fun AddPrefixDialog(
     existingPrefixes: List<String>,
     onDismiss: () -> Unit,
     onAdd: (String, (String) -> Unit) -> Unit,
-    title: String = "Add Prefix",
-    description: String = "Enter a new prefix. It can be one or more characters.",
-    duplicatePrefixMessage: String = "This prefix already exists"
+    title: String = stringResource(R.string.prefix_dialog_title),
+    description: String = stringResource(R.string.prefix_dialog_description),
+    duplicatePrefixMessage: String = stringResource(R.string.prefix_dialog_duplicate_error)
 ) {
+    val context = LocalContext.current
     var text by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -49,8 +53,8 @@ fun AddPrefixDialog(
                         text = newText
                         error = null
                     },
-                    label = { Text("Prefix") },
-                    placeholder = { Text("e.g., f, م, find") },
+                    label = { Text(stringResource(R.string.prefix_label)) },
+                    placeholder = { Text(stringResource(R.string.prefix_placeholder)) },
                     isError = error != null,
                     supportingText = error?.let { { Text(it) } },
                     singleLine = true,
@@ -63,8 +67,8 @@ fun AddPrefixDialog(
                 onClick = {
                     val trimmed = text.trim()
                     when {
-                        trimmed.isEmpty() -> error = "Prefix cannot be empty"
-                        trimmed.contains(" ") -> error = "Prefix cannot contain spaces"
+                        trimmed.isEmpty() -> error = context.getString(R.string.prefix_error_empty)
+                        trimmed.contains(" ") -> error = context.getString(R.string.prefix_error_spaces)
                         trimmed in existingPrefixes -> error = duplicatePrefixMessage
                         else -> {
                             onAdd(trimmed) { validationMessage ->
@@ -74,12 +78,12 @@ fun AddPrefixDialog(
                     }
                 }
             ) {
-                Text("Add")
+                Text(stringResource(R.string.action_add))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )

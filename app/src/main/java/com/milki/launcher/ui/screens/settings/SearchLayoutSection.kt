@@ -1,6 +1,8 @@
 package com.milki.launcher.ui.screens.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.SearchLayout
 import com.milki.launcher.ui.components.settings.DropdownSettingItem
@@ -11,17 +13,20 @@ internal fun SearchLayoutSection(
     settings: LauncherSettings,
     onSetSearchLayout: (SearchLayout) -> Unit
 ) {
-    SettingsCategory(title = "Search")
+    SettingsCategory(title = stringResource(R.string.settings_group_search_title))
+
+    val classicLabel = stringResource(R.string.search_layout_classic)
+    val oneHandedLabel = stringResource(R.string.search_layout_one_handed)
 
     DropdownSettingItem(
-        title = "Search layout",
+        title = stringResource(R.string.search_layout_title),
         selectedValue = when (settings.searchLayout) {
-            SearchLayout.CLASSIC -> "Classic"
-            SearchLayout.ONE_HANDED -> "One-handed"
+            SearchLayout.CLASSIC -> classicLabel
+            SearchLayout.ONE_HANDED -> oneHandedLabel
         },
         options = listOf(
-            "Classic" to SearchLayout.CLASSIC,
-            "One-handed" to SearchLayout.ONE_HANDED
+            classicLabel to SearchLayout.CLASSIC,
+            oneHandedLabel to SearchLayout.ONE_HANDED
         ),
         onOptionSelected = onSetSearchLayout
     )

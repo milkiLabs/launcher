@@ -19,6 +19,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherTrigger
@@ -59,11 +61,11 @@ internal fun TriggerActionShortcutPickerScreen(
     }
 
     TriggerTargetPickerScaffold(
-        title = "Choose shortcut",
+        title = stringResource(R.string.trigger_picker_choose_shortcut),
         triggerDisplayName = trigger.displayName,
         query = query,
         onQueryChange = { query = it },
-        placeholderText = "Search shortcuts",
+        placeholderText = stringResource(R.string.trigger_picker_search_shortcuts),
         onBack = onBack,
         isEmpty = filteredShortcuts.isEmpty(),
         emptyState = { TriggerTargetPickerEmptyState() }
@@ -118,11 +120,11 @@ internal fun TriggerAppPickerScreen(
     }
 
     TriggerTargetPickerScaffold(
-        title = "Choose app",
+        title = stringResource(R.string.trigger_picker_choose_app),
         triggerDisplayName = trigger.displayName,
         query = query,
         onQueryChange = { query = it },
-        placeholderText = "Search apps and shortcuts",
+        placeholderText = stringResource(R.string.trigger_picker_search_apps),
         onBack = onBack,
         isEmpty = filteredApps.isEmpty(),
         emptyState = { TriggerTargetPickerEmptyState() }
@@ -274,7 +276,7 @@ private fun TriggerAppShortcutTargetRow(
 ) {
     SelectableRow(
         title = shortcut.shortLabel.ifBlank { shortcut.longLabel },
-        subtitle = "Shortcut in $appName",
+        subtitle = stringResource(R.string.trigger_shortcut_in_app, appName),
         selected = currentTarget is LauncherTriggerTarget.AppShortcut &&
             currentTarget.packageName == shortcut.packageName &&
             currentTarget.shortcutId == shortcut.shortcutId,
@@ -306,13 +308,13 @@ private fun TriggerTargetPickerEmptyState() {
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
-            text = "No apps found",
+            text = stringResource(R.string.trigger_picker_empty_title),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(top = Spacing.smallMedium)
         )
         Text(
-            text = "Try a different search.",
+            text = stringResource(R.string.trigger_picker_empty_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

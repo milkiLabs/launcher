@@ -15,6 +15,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 
 /**
  * Shared scaffold for full-screen launcher sub-screens: a TopAppBar with the
@@ -56,7 +58,7 @@ internal fun LauncherScreenScaffold(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
+                                contentDescription = stringResource(R.string.a11y_navigate_back)
                             )
                         }
                     }

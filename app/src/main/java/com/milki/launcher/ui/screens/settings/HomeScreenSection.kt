@@ -1,6 +1,8 @@
 package com.milki.launcher.ui.screens.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
@@ -21,7 +23,7 @@ internal fun HomeScreenSection(
     actions: SettingsHomeScreenActions,
     onSelectOpenAppAction: (LauncherTrigger, LauncherTriggerAction) -> Unit
 ) {
-    SettingsCategory(title = "Home Screen")
+    SettingsCategory(title = stringResource(R.string.settings_group_home_title))
 
     LauncherTrigger.entries.forEach { trigger ->
         val action = settings.actionForTrigger(trigger)
@@ -29,7 +31,7 @@ internal fun HomeScreenSection(
         DropdownSettingItem(
             title = trigger.displayName,
             subtitle = if (action.requiresTargetPicker) {
-                target?.displayName ?: "Choose an app or shortcut"
+                target?.displayName ?: stringResource(R.string.home_trigger_target_unset)
             } else {
                 null
             },

@@ -14,6 +14,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.SearchSource
 import com.milki.launcher.ui.theme.Spacing
 
@@ -41,11 +44,17 @@ fun SourceEditorDialog(
     }
     var colorHex by remember { mutableStateOf(initialSource?.accentColorHex ?: "#4285F4") }
     var errorText by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (initialSource == null) "Add Source" else "Edit Source")
+            Text(
+                stringResource(
+                    if (initialSource == null) R.string.source_editor_add_title
+                    else R.string.source_editor_edit_title
+                )
+            )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.smallMedium)) {
@@ -55,7 +64,7 @@ fun SourceEditorDialog(
                         name = it
                         errorText = null
                     },
-                    label = { Text("Source name") },
+                    label = { Text(stringResource(R.string.source_editor_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -66,8 +75,8 @@ fun SourceEditorDialog(
                         urlTemplate = it
                         errorText = null
                     },
-                    label = { Text("URL template") },
-                    supportingText = { Text("Must include {query}") },
+                    label = { Text(stringResource(R.string.source_editor_url_label)) },
+                    supportingText = { Text(stringResource(R.string.source_editor_url_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -78,8 +87,8 @@ fun SourceEditorDialog(
                         prefixesText = it
                         errorText = null
                     },
-                    label = { Text("Prefixes") },
-                    supportingText = { Text("Comma-separated, e.g. yt, y") },
+                    label = { Text(stringResource(R.string.source_editor_prefixes_label)) },
+                    supportingText = { Text(stringResource(R.string.source_editor_prefixes_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -90,8 +99,8 @@ fun SourceEditorDialog(
                         colorHex = it
                         errorText = null
                     },
-                    label = { Text("Color (hex)") },
-                    supportingText = { Text("Example: #FF0000") },
+                    label = { Text(stringResource(R.string.source_editor_color_label)) },
+                    supportingText = { Text(stringResource(R.string.source_editor_color_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -117,10 +126,14 @@ fun SourceEditorDialog(
                         .distinct()
 
                     when {
-                        normalizedName.isEmpty() -> errorText = "Name cannot be empty"
-                        !SearchSource.isValidUrlTemplate(normalizedTemplate) -> errorText = "URL template must start with http/https and include {query}"
-                        normalizedPrefixes.isEmpty() -> errorText = "At least one prefix is required"
-                        normalizedPrefixes.any { it.contains(" ") } -> errorText = "Prefixes cannot contain spaces"
+                        normalizedName.isEmpty() ->
+                            errorText = context.getString(R.string.source_editor_error_empty_name)
+                        !SearchSource.isValidUrlTemplate(normalizedTemplate) ->
+                            errorText = context.getString(R.string.source_editor_error_invalid_template)
+                        normalizedPrefixes.isEmpty() ->
+                            errorText = context.getString(R.string.source_editor_error_no_prefixes)
+                        normalizedPrefixes.any { it.contains(" ") } ->
+                            errorText = context.getString(R.string.source_editor_error_prefix_spaces)
                         else -> {
                             onConfirm(
                                 normalizedName,
@@ -134,12 +147,17 @@ fun SourceEditorDialog(
                     }
                 }
             ) {
-                Text(if (initialSource == null) "Add" else "Save")
+                Text(
+                    stringResource(
+                        if (initialSource == null) R.string.action_add
+                        else R.string.action_save
+                    )
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )

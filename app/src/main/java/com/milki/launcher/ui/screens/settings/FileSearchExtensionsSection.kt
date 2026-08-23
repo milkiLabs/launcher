@@ -29,8 +29,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.FileSearchCategory
 import com.milki.launcher.domain.model.FileSearchExtensionConfig
 import com.milki.launcher.ui.components.settings.SettingsCardSurface
@@ -44,10 +47,10 @@ internal fun FileSearchExtensionsSection(
     extensionConfig: FileSearchExtensionConfig,
     actions: SettingsFileSearchActions
 ) {
-    SettingsCategory(title = "File Search Extensions")
+    SettingsCategory(title = stringResource(R.string.file_extensions_section_title))
 
     Text(
-        text = "Choose which file types appear when searching with the file prefix.",
+        text = stringResource(R.string.file_extensions_section_description),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
@@ -80,12 +83,12 @@ internal fun FileSearchExtensionsSection(
             )
         ) {
             Text(
-                text = "Custom Extensions",
+                text = stringResource(R.string.file_extensions_custom_title),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Add file extensions not covered by categories above.",
+                text = stringResource(R.string.file_extensions_custom_description),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -98,13 +101,14 @@ internal fun FileSearchExtensionsSection(
                     verticalArrangement = Arrangement.spacedBy(Spacing.extraSmall)
                 ) {
                     extensionConfig.customExtensions.sorted().forEach { ext ->
+                        val removeLabel = stringResource(R.string.file_extension_remove_a11y, ext)
                         AssistChip(
                             onClick = { actions.onRemoveCustomExtension(ext) },
                             label = { Text(".$ext") },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Remove .$ext",
+                                    contentDescription = removeLabel,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -116,6 +120,7 @@ internal fun FileSearchExtensionsSection(
 
             var newExtension by remember { mutableStateOf("") }
             var errorMessage by remember { mutableStateOf<String?>(null) }
+            val context = LocalContext.current
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -128,8 +133,8 @@ internal fun FileSearchExtensionsSection(
                         newExtension = value.lowercase().filter { it.isLetterOrDigit() }
                         errorMessage = null
                     },
-                    label = { Text("Extension") },
-                    placeholder = { Text("e.g. sketch") },
+                    label = { Text(stringResource(R.string.file_extension_label)) },
+                    placeholder = { Text(stringResource(R.string.file_extension_placeholder)) },
                     singleLine = true,
                     isError = errorMessage != null,
                     supportingText = errorMessage?.let { msg -> { Text(msg) } },
@@ -140,7 +145,7 @@ internal fun FileSearchExtensionsSection(
                             val trimmed = newExtension.trim()
                             if (trimmed.isNotEmpty()) {
                                 if (trimmed in extensionConfig.customExtensions) {
-                                    errorMessage = "Already added"
+                                    errorMessage = context.getString(R.string.file_extension_error_duplicate)
                                 } else {
                                     actions.onAddCustomExtension(trimmed)
                                     newExtension = ""
@@ -157,7 +162,7 @@ internal fun FileSearchExtensionsSection(
                         val trimmed = newExtension.trim()
                         if (trimmed.isNotEmpty()) {
                             if (trimmed in extensionConfig.customExtensions) {
-                                errorMessage = "Already added"
+                                errorMessage = context.getString(R.string.file_extension_error_duplicate)
                             } else {
                                 actions.onAddCustomExtension(trimmed)
                                 newExtension = ""
@@ -168,7 +173,7 @@ internal fun FileSearchExtensionsSection(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Add extension",
+                        contentDescription = stringResource(R.string.file_extension_add_a11y),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }

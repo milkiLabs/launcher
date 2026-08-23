@@ -7,6 +7,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.PrefixConfig
 import com.milki.launcher.domain.model.ProviderId
@@ -22,10 +24,10 @@ internal fun LocalPrefixesSection(
     settings: LauncherSettings,
     actions: SettingsPrefixActions
 ) {
-    SettingsCategory(title = "Local Prefixes")
+    SettingsCategory(title = stringResource(R.string.local_prefixes_section_title))
 
     Text(
-        text = "Customize local provider prefixes.",
+        text = stringResource(R.string.local_prefixes_section_description),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
@@ -35,14 +37,14 @@ internal fun LocalPrefixesSection(
     )
 
     LocalProviderPrefixItem(
-        name = "Contacts",
+        name = stringResource(R.string.provider_contacts_name),
         providerId = ProviderId.CONTACTS,
         settings = settings,
         actions = actions
     )
 
     LocalProviderPrefixItem(
-        name = "Files",
+        name = stringResource(R.string.provider_files_name),
         providerId = ProviderId.FILES,
         settings = settings,
         actions = actions

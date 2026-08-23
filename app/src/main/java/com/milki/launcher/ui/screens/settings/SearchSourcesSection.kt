@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.core.util.hexToColorOr
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.SearchSource
@@ -38,10 +40,10 @@ internal fun SearchSourcesSection(
     onRequestEditSource: (SearchSource) -> Unit,
     onRequestDeleteSource: (String) -> Unit
 ) {
-    SettingsCategory(title = "Search Sources")
+    SettingsCategory(title = stringResource(R.string.search_sources_section_title))
 
     Text(
-        text = "Manage search sources and their activation prefixes.",
+        text = stringResource(R.string.search_sources_section_description),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(
@@ -57,7 +59,7 @@ internal fun SearchSourcesSection(
             ?: settings.searchSources.first().name
 
         DropdownSettingItem(
-            title = "Default search engine",
+            title = stringResource(R.string.search_source_default_engine),
             selectedValue = defaultSourceName,
             options = settings.searchSources.map { source -> source.name to source },
             onOptionSelected = { selectedSource ->
@@ -67,8 +69,8 @@ internal fun SearchSourcesSection(
     }
 
     ActionSettingItem(
-        title = "Add custom source",
-        subtitle = "Define name, URL template, prefixes, and color",
+        title = stringResource(R.string.search_source_add),
+        subtitle = stringResource(R.string.search_source_add_subtitle),
         onClick = onRequestAddSource,
         icon = Icons.Default.Add
     )
@@ -114,13 +116,13 @@ private fun SourcePrefixSettingItem(
                     IconButton(onClick = onEdit) {
                         Icon(
                             imageVector = Icons.Filled.Edit,
-                            contentDescription = "Edit source"
+                            contentDescription = stringResource(R.string.search_source_edit_a11y)
                         )
                     }
                     IconButton(onClick = onDelete) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
-                            contentDescription = "Delete source",
+                            contentDescription = stringResource(R.string.delete_source_title),
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -129,8 +131,8 @@ private fun SourcePrefixSettingItem(
                 Spacer(modifier = Modifier.height(Spacing.small))
 
                 SwitchSettingItem(
-                    title = "Prefix search",
-                    subtitle = "Enable searching by prefix (e.g. 'yt query')",
+                    title = stringResource(R.string.search_source_prefix_search_title),
+                    subtitle = stringResource(R.string.search_source_prefix_search_subtitle),
                     checked = source.isEnabled,
                     onCheckedChange = { actions.onSetSourceEnabled(source.id, it) }
                 )
@@ -138,8 +140,8 @@ private fun SourcePrefixSettingItem(
                 Spacer(modifier = Modifier.height(Spacing.small))
 
                 SwitchSettingItem(
-                    title = "Suggested action",
-                    subtitle = "Show this source as a quick action chip",
+                    title = stringResource(R.string.search_source_suggested_action_title),
+                    subtitle = stringResource(R.string.search_source_suggested_action_subtitle),
                     checked = source.showAsSuggestedAction,
                     onCheckedChange = { actions.onSetSourceSuggestedAction(source.id, it) }
                 )

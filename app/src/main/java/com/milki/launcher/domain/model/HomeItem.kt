@@ -242,6 +242,8 @@ sealed class HomeItem {
                 return FolderItem(
                     id = id,
                     name = DEFAULT_NAME,
+                    // Children render by list order inside the folder, so drop
+                    // the stale grid coordinates of their previous home cells.
                     children = listOf(
                         item1.withPosition(GridPosition.DEFAULT),
                         item2.withPosition(GridPosition.DEFAULT)

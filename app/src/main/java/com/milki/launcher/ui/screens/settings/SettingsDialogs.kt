@@ -11,6 +11,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.domain.model.backup.LauncherImportResult
 import com.milki.launcher.domain.model.backup.SkippedImportCategory
 import com.milki.launcher.ui.theme.Spacing
@@ -28,16 +30,19 @@ internal fun ResetSettingsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Reset Settings") },
-        text = { Text("This will restore all settings to their default values. This action cannot be undone.") },
+        title = { Text(stringResource(R.string.reset_settings_title)) },
+        text = { Text(stringResource(R.string.reset_settings_message)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Reset", color = MaterialTheme.colorScheme.error)
+                Text(
+                    stringResource(R.string.action_reset),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )
@@ -50,16 +55,19 @@ internal fun DeleteSourceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Delete source") },
-        text = { Text("Delete this source and all of its prefixes?") },
+        title = { Text(stringResource(R.string.delete_source_title)) },
+        text = { Text(stringResource(R.string.delete_source_message)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text("Delete", color = MaterialTheme.colorScheme.error)
+                Text(
+                    stringResource(R.string.action_delete),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )
@@ -72,15 +80,15 @@ internal fun ImportReportDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Import Report") },
+        title = { Text(stringResource(R.string.import_report_title)) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
                 Text(importReport.message)
                 Spacer(modifier = Modifier.height(Spacing.small))
-                Text("Imported items: ${importReport.importedTopLevelCount}")
-                Text("Skipped items: ${importReport.skippedCount}")
+                Text(stringResource(R.string.import_report_imported_count, importReport.importedTopLevelCount))
+                Text(stringResource(R.string.import_report_skipped_count, importReport.skippedCount))
 
                 if (importReport.skippedReasons.isNotEmpty()) {
                     ImportSkippedReasonGroups(importReport)
@@ -89,7 +97,7 @@ internal fun ImportReportDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("OK")
+                Text(stringResource(R.string.action_ok))
             }
         }
     )
@@ -128,14 +136,15 @@ private val skippedImportCategoryDisplayOrder = listOf(
     SkippedImportCategory.OTHER
 )
 
+@Composable
 private fun SkippedImportCategory.toDisplayTitle(): String {
     return when (this) {
-        SkippedImportCategory.APP -> "Apps"
-        SkippedImportCategory.FILE -> "Files"
-        SkippedImportCategory.WIDGET -> "Widgets"
-        SkippedImportCategory.SHORTCUT -> "Shortcuts"
-        SkippedImportCategory.FOLDER -> "Folders"
-        SkippedImportCategory.CONTACT -> "Contacts"
-        SkippedImportCategory.OTHER -> "Other"
+        SkippedImportCategory.APP -> stringResource(R.string.skipped_category_apps)
+        SkippedImportCategory.FILE -> stringResource(R.string.skipped_category_files)
+        SkippedImportCategory.WIDGET -> stringResource(R.string.skipped_category_widgets)
+        SkippedImportCategory.SHORTCUT -> stringResource(R.string.skipped_category_shortcuts)
+        SkippedImportCategory.FOLDER -> stringResource(R.string.skipped_category_folders)
+        SkippedImportCategory.CONTACT -> stringResource(R.string.skipped_category_contacts)
+        SkippedImportCategory.OTHER -> stringResource(R.string.skipped_category_other)
     }
 }

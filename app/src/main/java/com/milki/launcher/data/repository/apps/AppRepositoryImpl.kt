@@ -37,12 +37,12 @@ class AppRepositoryImpl(
     private val packageChangeMonitor: PackageChangeMonitor,
     private val appIconMemoryCache: AppIconMemoryCache,
     private val contextDataCache: AppContextDataCache,
+    private val installedAppsCatalog: InstalledAppsCatalog,
     applicationScope: CoroutineScope
 ) : AppRepository {
 
     private val repositoryScope = applicationScope
 
-    private val installedAppsCatalog = InstalledAppsCatalog(application)
     private val recentAppsStore = RecentAppsStore(application)
 
     // Single source of truth for installed apps. Null means "not loaded yet".

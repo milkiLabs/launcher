@@ -16,7 +16,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.milki.launcher.R
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.domain.model.LauncherSettings
@@ -342,22 +344,19 @@ internal fun LauncherRootContent(
             if (showSetDefaultLauncherPrompt) {
                 AlertDialog(
                     onDismissRequest = onDismissSetDefaultLauncherPrompt,
-                    title = { Text("Set as default launcher") },
+                    title = { Text(stringResource(R.string.default_launcher_prompt_title)) },
                     text = {
-                        Text(
-                            "Milki works best when it is your default Home app. " +
-                                    "Set it as default now?"
-                        )
+                        Text(stringResource(R.string.default_launcher_prompt_message))
                     },
                     confirmButton = {
                         TextButton(onClick = onSetDefaultLauncher) {
-                            Text("Set default")
+                            Text(stringResource(R.string.action_set_default))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = onDismissSetDefaultLauncherPrompt) {
                             Text(
-                                text = "Not now",
+                                text = stringResource(R.string.action_not_now),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }

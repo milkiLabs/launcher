@@ -2,6 +2,7 @@ package com.milki.launcher.core.di
 
 import com.milki.launcher.data.repository.shortcut.ActionShortcutRepositoryImpl
 import com.milki.launcher.data.repository.apps.AppRepositoryImpl
+import com.milki.launcher.data.repository.apps.InstalledAppsCatalog
 import com.milki.launcher.data.repository.apps.PackageChangeMonitor
 import com.milki.launcher.data.repository.settings.SettingsRepositoryImpl
 import com.milki.launcher.data.search.UrlHandlerResolver
@@ -34,12 +35,17 @@ val coreModule = module {
         PackageChangeMonitor(get())
     }
 
+    single {
+        InstalledAppsCatalog(get(), get<CoroutineDispatcher>(IoDispatcher))
+    }
+
     single<AppRepository> {
         AppRepositoryImpl(
             application = get(),
             packageChangeMonitor = get(),
             appIconMemoryCache = get(),
             contextDataCache = get(),
+            installedAppsCatalog = get(),
             applicationScope = get(ApplicationScope)
         )
     }

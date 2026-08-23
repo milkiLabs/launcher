@@ -1,10 +1,26 @@
 <resources>
     <string name="app_name">Milki Launcher</string>
 
+    <!-- Common actions -->
+    <string name="action_add">Add</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_ok">OK</string>
+    <string name="action_choose">Choose</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_set_default">Set default</string>
+    <string name="action_not_now">Not now</string>
+
     <!-- Homescreen long-press menu -->
     <string name="menu_widgets">Widgets</string>
     <string name="menu_shortcuts">Shortcuts</string>
     <string name="menu_settings">Settings</string>
+
+    <!-- Default launcher prompt -->
+    <string name="default_launcher_prompt_title">Set as default launcher</string>
+    <string name="default_launcher_prompt_message">Milki works best when it is your default Home app. Set it as default now?</string>
 
     <!-- Widget picker sheet -->
     <string name="widget_picker_title">Widgets</string>
@@ -37,4 +53,142 @@
 
     <!-- Accessibility -->
     <string name="a11y_cell_more_options">More options</string>
+    <string name="a11y_navigate_back">Back</string>
+
+    <!-- Settings index -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_default_launcher_title">Set as default launcher</string>
+    <string name="settings_default_launcher_subtitle">Open Android Home app settings to set Milki Launcher as default</string>
+    <string name="settings_group_home_title">Home Screen</string>
+    <string name="settings_group_home_subtitle">Home button and gesture actions</string>
+    <string name="settings_group_search_title">Search</string>
+    <string name="settings_group_search_subtitle">Layout, sources, prefixes, and file types</string>
+    <string name="settings_group_advanced_title">Advanced</string>
+    <string name="settings_group_advanced_subtitle">Backup, import, and reset</string>
+    <string name="settings_group_about_title">About</string>
+    <string name="settings_group_about_subtitle">Version and links</string>
+
+    <!-- Home screen page -->
+    <string name="home_trigger_target_unset">Choose an app or shortcut</string>
+
+    <!-- Search layout section -->
+    <string name="search_layout_title">Search layout</string>
+    <string name="search_layout_classic">Classic</string>
+    <string name="search_layout_one_handed">One-handed</string>
+
+    <!-- Search sources section -->
+    <string name="search_sources_section_title">Search Sources</string>
+    <string name="search_sources_section_description">Manage search sources and their activation prefixes.</string>
+    <string name="search_source_default_engine">Default search engine</string>
+    <string name="search_source_add">Add custom source</string>
+    <string name="search_source_add_subtitle">Define name, URL template, prefixes, and color</string>
+    <string name="search_source_edit_a11y">Edit source</string>
+    <string name="search_source_prefix_search_title">Prefix search</string>
+    <string name="search_source_prefix_search_subtitle">Enable searching by prefix (e.g. \'yt query\')</string>
+    <string name="search_source_suggested_action_title">Suggested action</string>
+    <string name="search_source_suggested_action_subtitle">Show this source as a quick action chip</string>
+
+    <!-- Source editor dialog -->
+    <string name="source_editor_add_title">Add Source</string>
+    <string name="source_editor_edit_title">Edit Source</string>
+    <string name="source_editor_name_label">Source name</string>
+    <string name="source_editor_url_label">URL template</string>
+    <string name="source_editor_url_hint">Must include {query}</string>
+    <string name="source_editor_prefixes_label">Prefixes</string>
+    <string name="source_editor_prefixes_hint">Comma-separated, e.g. yt, y</string>
+    <string name="source_editor_color_label">Color (hex)</string>
+    <string name="source_editor_color_hint">Example: #FF0000</string>
+    <string name="source_editor_error_empty_name">Name cannot be empty</string>
+    <string name="source_editor_error_invalid_template">URL template must start with http/https and include {query}</string>
+    <string name="source_editor_error_no_prefixes">At least one prefix is required</string>
+    <string name="source_editor_error_prefix_spaces">Prefixes cannot contain spaces</string>
+
+    <!-- Local prefixes section -->
+    <string name="local_prefixes_section_title">Local Prefixes</string>
+    <string name="local_prefixes_section_description">Customize local provider prefixes.</string>
+    <string name="provider_contacts_name">Contacts</string>
+    <string name="provider_files_name">Files</string>
+    <string name="prefix_owner_add_a11y">Add prefix</string>
+    <string name="prefix_dialog_title">Add Prefix</string>
+    <string name="prefix_dialog_description">Enter a new prefix. It can be one or more characters.</string>
+    <string name="prefix_dialog_duplicate_error">This prefix already exists</string>
+    <string name="prefix_label">Prefix</string>
+    <string name="prefix_placeholder">e.g., f, م, find</string>
+    <string name="prefix_error_empty">Prefix cannot be empty</string>
+    <string name="prefix_error_spaces">Prefix cannot contain spaces</string>
+
+    <!-- File search extensions section -->
+    <string name="file_extensions_section_title">File Search Extensions</string>
+    <string name="file_extensions_section_description">Choose which file types appear when searching with the file prefix.</string>
+    <string name="file_extensions_custom_title">Custom Extensions</string>
+    <string name="file_extensions_custom_description">Add file extensions not covered by categories above.</string>
+    <string name="file_extension_remove_a11y">Remove .%1$s</string>
+    <string name="file_extension_add_a11y">Add extension</string>
+    <string name="file_extension_label">Extension</string>
+    <string name="file_extension_placeholder">e.g. sketch</string>
+    <string name="file_extension_error_duplicate">Already added</string>
+
+    <!-- Advanced page -->
+    <string name="advanced_export_title">Export backup</string>
+    <string name="advanced_export_subtitle">Export settings and homescreen snapshot to a file</string>
+    <string name="advanced_import_title">Import backup (replace current)</string>
+    <string name="advanced_import_subtitle">Replace current settings and homescreen from a backup file</string>
+    <string name="advanced_reset_title">Reset to defaults</string>
+    <string name="advanced_reset_subtitle">Restore all settings to their default values</string>
+
+    <!-- Settings dialogs -->
+    <string name="reset_settings_title">Reset Settings</string>
+    <string name="reset_settings_message">This will restore all settings to their default values. This action cannot be undone.</string>
+    <string name="delete_source_title">Delete source</string>
+    <string name="delete_source_message">Delete this source and all of its prefixes?</string>
+    <string name="import_report_title">Import Report</string>
+    <string name="import_report_imported_count">Imported items: %1$d</string>
+    <string name="import_report_skipped_count">Skipped items: %1$d</string>
+    <string name="skipped_category_apps">Apps</string>
+    <string name="skipped_category_files">Files</string>
+    <string name="skipped_category_widgets">Widgets</string>
+    <string name="skipped_category_shortcuts">Shortcuts</string>
+    <string name="skipped_category_folders">Folders</string>
+    <string name="skipped_category_contacts">Contacts</string>
+    <string name="skipped_category_other">Other</string>
+
+    <!-- About page -->
+    <string name="about_app_tagline">A fast, keyboard-first productivity launcher for Android.</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_github_title">GitHub</string>
+    <string name="about_github_subtitle">github.com/milkilabs/launcher</string>
+    <string name="about_x_title">X</string>
+    <string name="about_x_subtitle">x.com/milkilabs</string>
+    <string name="about_website_title">Website</string>
+    <string name="about_website_subtitle">milkilabs.github.io/launcher</string>
+
+    <!-- Trigger target pickers -->
+    <string name="trigger_picker_choose_shortcut">Choose shortcut</string>
+    <string name="trigger_picker_choose_app">Choose app</string>
+    <string name="trigger_picker_search_shortcuts">Search shortcuts</string>
+    <string name="trigger_picker_search_apps">Search apps and shortcuts</string>
+    <string name="trigger_picker_empty_title">No apps found</string>
+    <string name="trigger_picker_empty_hint">Try a different search.</string>
+    <string name="trigger_shortcut_in_app">Shortcut in %1$s</string>
+
+    <!-- Action shortcut manager -->
+    <string name="shortcuts_library_title">Shortcuts</string>
+    <string name="shortcut_add_a11y">Add shortcut</string>
+    <string name="shortcut_empty_title">No shortcuts yet</string>
+    <string name="shortcut_empty_hint">Long press and drag a shortcut to add it to your home screen</string>
+    <string name="shortcut_a11y_add_to_home">Add %1$s shortcut to home</string>
+    <string name="shortcut_editor_add_title">Add shortcut</string>
+    <string name="shortcut_editor_edit_title">Edit shortcut</string>
+    <string name="shortcut_name_label">Shortcut name</string>
+    <string name="shortcut_name_placeholder">WhatsApp chat, Facebook profile, website</string>
+    <string name="shortcut_destination_label">Destination URI</string>
+    <string name="shortcut_destination_placeholder">https://example.com or whatsapp://send?phone=…</string>
+    <string name="shortcut_destination_hint">Any Android deep link or web URL can be used.</string>
+    <string name="shortcut_error_duplicate">A shortcut with this destination and app already exists.</string>
+    <string name="shortcut_error_destination_required">Destination is required.</string>
+    <string name="shortcut_error_invalid_destination">Enter a valid web URL or Android URI.</string>
+    <string name="shortcut_save_button">Save shortcut</string>
+    <string name="shortcut_open_with_any">Open with any matching app</string>
+    <string name="shortcut_app_optional_hint">Choose an app only when the destination should be forced there.</string>
+    <string name="shortcut_picker_search_apps">Search apps</string>
 </resources>

@@ -18,7 +18,9 @@ import kotlin.math.abs
  *   Exact match > Prefix > Word prefix > Contains > Acronym > Token > Subsequence > Typo
  *
  * Recent items receive a boost that can elevate them above weaker matches
- * but never above stronger text matches.
+ * but never above stronger text matches: [RECENT_BOOST_MAX] plus the maximum
+ * prefix-quality bonus ([PREFIX_QUALITY_MAX]) stays at or below the smallest
+ * gap between adjacent tiers (500).
  */
 object QueryRanker {
 
@@ -202,7 +204,7 @@ object QueryRanker {
     private const val SECONDARY_CONTAINS_MATCH = 4_900
     private const val SECONDARY_TOKEN_MATCH = 4_700
 
-    private const val RECENT_BOOST_MAX = 650
+    private const val RECENT_BOOST_MAX = 400
     private const val RECENT_BOOST_STEP = 80
     private const val RECENT_BOOST_MIN = 120
     private const val PREFIX_QUALITY_MAX = 100

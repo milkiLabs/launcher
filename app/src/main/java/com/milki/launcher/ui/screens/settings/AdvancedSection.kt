@@ -8,6 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.SettingsCategory
 import com.milki.launcher.ui.theme.Spacing
@@ -19,25 +21,25 @@ internal fun AdvancedSection(
     onRequestExport: () -> Unit,
     onRequestImport: () -> Unit
 ) {
-    SettingsCategory(title = "Advanced")
+    SettingsCategory(title = stringResource(R.string.settings_group_advanced_title))
 
     ActionSettingItem(
-        title = "Export backup",
-        subtitle = "Export settings and homescreen snapshot to a file",
+        title = stringResource(R.string.advanced_export_title),
+        subtitle = stringResource(R.string.advanced_export_subtitle),
         onClick = onRequestExport,
         icon = Icons.Default.FileUpload
     )
 
     ActionSettingItem(
-        title = "Import backup (replace current)",
-        subtitle = "Replace current settings and homescreen from a backup file",
+        title = stringResource(R.string.advanced_import_title),
+        subtitle = stringResource(R.string.advanced_import_subtitle),
         onClick = onRequestImport,
         icon = Icons.Default.FileDownload
     )
 
     ActionSettingItem(
-        title = "Reset to defaults",
-        subtitle = "Restore all settings to their default values",
+        title = stringResource(R.string.advanced_reset_title),
+        subtitle = stringResource(R.string.advanced_reset_subtitle),
         onClick = onRequestReset,
         textColor = MaterialTheme.colorScheme.error
     )

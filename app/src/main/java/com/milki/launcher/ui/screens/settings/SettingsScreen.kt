@@ -20,24 +20,20 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
+import com.milki.launcher.R
+import com.milki.launcher.ui.components.common.LauncherScreenScaffold
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.theme.Spacing
 
 /**
  * Root page that lists the settings groups and quick actions.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsIndexScreen(
     showSetDefaultLauncherOption: Boolean,
@@ -47,23 +43,7 @@ internal fun SettingsIndexScreen(
     onOpenAdvanced: () -> Unit,
     onOpenAbout: () -> Unit
 ) {
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(text = "Settings")
-                },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            )
-        }
-    ) { paddingValues ->
+    LauncherScreenScaffold(title = stringResource(R.string.settings_title)) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -72,37 +52,37 @@ internal fun SettingsIndexScreen(
         ) {
             if (showSetDefaultLauncherOption) {
                 ActionSettingItem(
-                    title = "Set as default launcher",
-                    subtitle = "Open Android Home app settings to set Milki Launcher as default",
+                    title = stringResource(R.string.settings_default_launcher_title),
+                    subtitle = stringResource(R.string.settings_default_launcher_subtitle),
                     onClick = onOpenDefaultLauncherSettings,
                     icon = Icons.Default.Home
                 )
             }
 
             SettingsGroupItem(
-                title = "Home Screen",
-                subtitle = "Home button and gesture actions",
+                title = stringResource(R.string.settings_group_home_title),
+                subtitle = stringResource(R.string.settings_group_home_subtitle),
                 icon = Icons.Default.Home,
                 onClick = onOpenHomeScreen
             )
 
             SettingsGroupItem(
-                title = "Search",
-                subtitle = "Layout, sources, prefixes, and file types",
+                title = stringResource(R.string.settings_group_search_title),
+                subtitle = stringResource(R.string.settings_group_search_subtitle),
                 icon = Icons.Default.Search,
                 onClick = onOpenSearch
             )
 
             SettingsGroupItem(
-                title = "Advanced",
-                subtitle = "Backup, import, and reset",
+                title = stringResource(R.string.settings_group_advanced_title),
+                subtitle = stringResource(R.string.settings_group_advanced_subtitle),
                 icon = Icons.Default.Settings,
                 onClick = onOpenAdvanced
             )
 
             SettingsGroupItem(
-                title = "About",
-                subtitle = "Version and links",
+                title = stringResource(R.string.settings_group_about_title),
+                subtitle = stringResource(R.string.settings_group_about_subtitle),
                 icon = Icons.Default.Info,
                 onClick = onOpenAbout
             )
