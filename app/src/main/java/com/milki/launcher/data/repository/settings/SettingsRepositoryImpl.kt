@@ -26,8 +26,8 @@ import kotlinx.coroutines.flow.map
  * DI intentionally binds this single instance under each interface separately
  * (see coreModule) so consumers depend only on the focused surface they need.
  *
- * Persistence mapping, diff writing, and mutation rules
- * live in focused collaborators.
+ * Persistence codecs live in SettingsStorage.kt; prefix/source mutation
+ * rules live in SettingsMutationStore.
  */
 class SettingsRepositoryImpl(
     private val context: Context
@@ -44,18 +44,11 @@ class SettingsRepositoryImpl(
 
     override val settings: Flow<LauncherSettings> = context.settingsDataStore.data
         .catchIoException()
-        .map(SettingsPreferenceReader::mapPreferencesToSettings)
+        .map(Preferences::toLauncherSettings)
 
     override suspend fun updateSettings(transform: (LauncherSettings) -> LauncherSettings) {
         context.settingsDataStore.edit { preferences ->
-            val currentSettings = SettingsPreferenceReader.mapPreferencesToSettings(preferences)
-            val newSettings = transform(currentSettings)
-
-            SettingsPreferenceWriter.writeSettingsDiffToPreferences(
-                currentSettings = currentSettings,
-                newSettings = newSettings,
-                preferences = preferences
-            )
+            preferences.writeSettings(transform(preferences.toLauncherSettings()))
         }
     }
 
@@ -68,17 +61,16 @@ class SettingsRepositoryImpl(
         action: LauncherTriggerAction
     ) {
         context.settingsDataStore.edit { preferences ->
-            val currentActions = SettingsPreferenceReader.parseTriggerActions(preferences)
+            val currentActions = preferences.parseTriggerActions()
             val currentAction =
                 currentActions[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
             if (currentAction == action) {
                 return@edit
             }
-            val updatedActions = currentActions + (trigger to action)
-            SettingsPreferenceWriter.writeTriggerActions(updatedActions, preferences)
+            writeTriggerActions(currentActions + (trigger to action), preferences)
             if (action != LauncherTriggerAction.OPEN_APP && action != LauncherTriggerAction.OPEN_ACTION_SHORTCUT) {
-                val updatedTargets = SettingsPreferenceReader.parseTriggerTargets(preferences) - trigger
-                SettingsPreferenceWriter.writeTriggerTargets(updatedTargets, preferences)
+                val updatedTargets = preferences.parseTriggerTargets() - trigger
+                writeTriggerTargets(updatedTargets, preferences)
             }
         }
     }
@@ -93,10 +85,10 @@ class SettingsRepositoryImpl(
             } else {
                 LauncherTriggerAction.OPEN_APP
             }
-            val updatedActions = SettingsPreferenceReader.parseTriggerActions(preferences) + (trigger to newAction)
-            val updatedTargets = SettingsPreferenceReader.parseTriggerTargets(preferences) + (trigger to target)
-            SettingsPreferenceWriter.writeTriggerActions(updatedActions, preferences)
-            SettingsPreferenceWriter.writeTriggerTargets(updatedTargets, preferences)
+            val updatedActions = preferences.parseTriggerActions() + (trigger to newAction)
+            val updatedTargets = preferences.parseTriggerTargets() + (trigger to target)
+            writeTriggerActions(updatedActions, preferences)
+            writeTriggerTargets(updatedTargets, preferences)
         }
     }
 

@@ -31,7 +31,7 @@ internal class SettingsMutationStore {
         preferences: MutablePreferences,
         source: SearchSource
     ): PrefixMutationResult {
-        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val currentSources = preferences.parseStoredSearchSources()
         val currentPrefixConfigs = parsePrefixConfigurations(
             preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS]
         )
@@ -58,7 +58,7 @@ internal class SettingsMutationStore {
         prefixes: List<String>,
         accentColorHex: String
     ): PrefixMutationResult {
-        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val currentSources = preferences.parseStoredSearchSources()
         val currentPrefixConfigs = parsePrefixConfigurations(
             preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS]
         )
@@ -91,7 +91,7 @@ internal class SettingsMutationStore {
     }
 
     fun deleteSearchSource(preferences: MutablePreferences, sourceId: String) {
-        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val currentSources = preferences.parseStoredSearchSources()
         val updatedSources = currentSources.filterNot { it.id == sourceId }
         if (updatedSources != currentSources) {
             preferences.writeSearchSources(updatedSources)
@@ -103,7 +103,7 @@ internal class SettingsMutationStore {
         sourceId: String,
         enabled: Boolean
     ) {
-        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val currentSources = preferences.parseStoredSearchSources()
         if (currentSources.none { it.id == sourceId }) return
 
         preferences.writeSearchSources(
@@ -116,7 +116,7 @@ internal class SettingsMutationStore {
         sourceId: String,
         showAsSuggestedAction: Boolean
     ) {
-        val currentSources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val currentSources = preferences.parseStoredSearchSources()
         if (currentSources.none { it.id == sourceId }) return
 
         preferences.writeSearchSources(
@@ -141,7 +141,7 @@ internal class SettingsMutationStore {
         if (normalizedPrefix.isEmpty()) return PrefixMutationResult.InvalidPrefixEmpty
         if (normalizedPrefix.contains(" ")) return PrefixMutationResult.InvalidPrefixContainsSpaces
 
-        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val sources = preferences.parseStoredSearchSources()
         val providerConfigs = parsePrefixConfigurations(
             preferences[SettingsPreferenceKeys.PREFIX_CONFIGURATIONS]
         )
@@ -164,7 +164,7 @@ internal class SettingsMutationStore {
         val normalizedPrefix = SearchSource.normalizePrefix(prefix)
         if (normalizedPrefix.isEmpty()) return PrefixMutationResult.InvalidPrefixEmpty
 
-        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val sources = preferences.parseStoredSearchSources()
 
         return when {
             isProviderId(ownerId) -> removeProviderPrefix(preferences, ownerId, normalizedPrefix)
@@ -187,7 +187,7 @@ internal class SettingsMutationStore {
      */
     fun resetAllPrefixes(preferences: MutablePreferences) {
         preferences.remove(SettingsPreferenceKeys.PREFIX_CONFIGURATIONS)
-        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val sources = preferences.parseStoredSearchSources()
         val resetSources = sources.map { it.copy(prefixes = it.defaultPrefixes) }
         if (resetSources != sources) {
             preferences.writeSearchSources(resetSources)
@@ -323,7 +323,7 @@ internal class SettingsMutationStore {
     }
 
     private fun resetSourcePrefixes(preferences: MutablePreferences, sourceId: String) {
-        val sources = SettingsPreferenceReader.parseSearchSources(preferences)
+        val sources = preferences.parseStoredSearchSources()
         val targetSource = sources.firstOrNull { it.id == sourceId } ?: return
         if (targetSource.defaultPrefixes.isEmpty()) return
 
