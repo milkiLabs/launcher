@@ -26,11 +26,13 @@ internal class AppLabelCache(application: Application) {
 
     /**
      * Reads all cached labels. Returns a map of "package/activity" → label.
+     * Only keys carrying the [KEY_PREFIX] are returned, so foreign entries
+     * written to this file by other code can never leak into the label set.
      */
     fun readAll(): Map<String, String> {
         return buildMap {
             for ((key, value) in prefs.all) {
-                if (value is String) put(key, value)
+                if (value is String && key.startsWith(KEY_PREFIX)) put(key, value)
             }
         }
     }
@@ -52,7 +54,9 @@ internal class AppLabelCache(application: Application) {
         private const val PREFS_NAME = "app_label_cache"
 
         fun cacheKey(packageName: String, activityName: String): String {
-            return "$packageName/$activityName"
+            return "$KEY_PREFIX$packageName/$activityName"
         }
+
+        private const val KEY_PREFIX = "label:"
     }
 }
