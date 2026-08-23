@@ -98,7 +98,7 @@ internal class LauncherBackupImportSanitizer(
         context: ImportContext
     ): HomeItem.ActionShortcut? {
         val packageName = item.packageName ?: return item
-        if (packageName !in context.validPackages) {
+        if (!context.isPackageInstalled(packageName)) {
             context.skip(
                 category = SkippedImportCategory.SHORTCUT,
                 message = "Missing action shortcut package $packageName"
@@ -112,7 +112,7 @@ internal class LauncherBackupImportSanitizer(
         item: HomeItem.AppShortcut,
         context: ImportContext
     ): HomeItem.AppShortcut? {
-        if (item.packageName !in context.validPackages) {
+        if (!context.isPackageInstalled(item.packageName)) {
             context.skip(
                 category = SkippedImportCategory.SHORTCUT,
                 message = "Missing shortcut package ${item.packageName}"
@@ -145,14 +145,6 @@ internal class LauncherBackupImportSanitizer(
         item: HomeItem.WidgetItem,
         context: ImportContext
     ): HomeItem.WidgetItem? {
-        if (item.providerPackage !in context.validPackages) {
-            context.skip(
-                category = SkippedImportCategory.WIDGET,
-                message = "Missing widget provider package ${item.providerPackage}"
-            )
-            return null
-        }
-
         val providerComponent = runCatching {
             ComponentName(item.providerPackage, item.providerClass)
         }.getOrNull()
@@ -255,7 +247,7 @@ internal class LauncherBackupImportSanitizer(
 }
 
 internal data class ImportContext(
-    val validPackages: Set<String>,
+    val isPackageInstalled: (String) -> Boolean,
     val validPinnedAppComponents: Set<String>,
     val skippedReasons: MutableList<SkippedImportReason>,
     val requestWidgetBindPermission: WidgetBindPermissionRequester

@@ -98,14 +98,13 @@ class LauncherBackupRepositoryImpl(
             }
 
             val installedApps = appRepository.getInstalledApps()
-            val validPackages = installedApps.mapTo(mutableSetOf()) { it.packageName }
             val validComponents = installedApps.mapTo(mutableSetOf()) {
                 ComponentName(it.packageName, it.activityName).flattenToString()
             }
 
             val skippedReasons = mutableListOf<SkippedImportReason>()
             val importContext = ImportContext(
-                validPackages = validPackages,
+                isPackageInstalled = ::isPackageInstalled,
                 validPinnedAppComponents = validComponents,
                 skippedReasons = skippedReasons,
                 requestWidgetBindPermission = requestWidgetBindPermission
@@ -151,6 +150,12 @@ class LauncherBackupRepositoryImpl(
                 skippedReasons = emptyList()
             )
         }
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return runCatching {
+            appContext.packageManager.getPackageInfo(packageName, 0)
+        }.isSuccess
     }
 
     private fun collectWidgetIds(items: List<HomeItem>): List<Int> {
