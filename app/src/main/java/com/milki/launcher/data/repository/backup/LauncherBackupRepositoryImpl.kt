@@ -3,6 +3,7 @@ package com.milki.launcher.data.repository.backup
 import android.content.ComponentName
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.milki.launcher.core.file.ContentUriFailurePolicy
 import com.milki.launcher.core.file.PinnedFileAvailability
 import com.milki.launcher.core.util.lenientJson
@@ -66,9 +67,10 @@ class LauncherBackupRepositoryImpl(
                 message = "Backup exported successfully"
             )
         }.getOrElse { throwable ->
+            Log.e(TAG, "Failed to export backup to $uri", throwable)
             LauncherBackupResult(
                 success = false,
-                message = throwable.message ?: "Failed to export backup"
+                message = "Failed to export backup"
             )
         }
     }
@@ -142,14 +144,19 @@ class LauncherBackupRepositoryImpl(
                 skippedReasons = skippedReasons.toList()
             )
         }.getOrElse { throwable ->
+            Log.e(TAG, "Failed to import backup from $uri", throwable)
             LauncherImportResult(
                 success = false,
-                message = throwable.message ?: "Failed to import backup",
+                message = "Failed to import backup",
                 importedTopLevelCount = 0,
                 skippedCount = 0,
                 skippedReasons = emptyList()
             )
         }
+    }
+
+    private companion object {
+        const val TAG = "LauncherBackupRepo"
     }
 
     private fun isPackageInstalled(packageName: String): Boolean {
