@@ -16,23 +16,18 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation3.runtime.NavEntry
@@ -55,6 +49,7 @@ import com.milki.launcher.core.url.UrlValidator
 import com.milki.launcher.domain.model.AppInfo
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
+import com.milki.launcher.ui.components.common.LauncherScreenScaffold
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.interaction.dragdrop.startExternalActionShortcutDrag
 import com.milki.launcher.ui.interaction.grid.GridConfig
@@ -75,7 +70,6 @@ private sealed interface ActionShortcutManagerRoute : NavKey {
     data object AppPicker : ActionShortcutManagerRoute
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ActionShortcutManagerSheet(
     shortcuts: List<HomeItem.ActionShortcut>,
@@ -194,7 +188,6 @@ internal fun ActionShortcutManagerSheet(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionShortcutLibrary(
     shortcuts: List<HomeItem.ActionShortcut>,
@@ -204,29 +197,16 @@ private fun ActionShortcutLibrary(
     onExternalDragStarted: () -> Unit,
     headerDragHandleModifier: Modifier
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                modifier = headerDragHandleModifier,
-                title = {
-                    Text(
-                        text = "Shortcuts",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onCreateShortcut) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add shortcut"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+    LauncherScreenScaffold(
+        title = "Shortcuts",
+        topAppBarModifier = headerDragHandleModifier,
+        actions = {
+            IconButton(onClick = onCreateShortcut) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add shortcut"
                 )
-            )
+            }
         }
     ) { paddingValues ->
         if (shortcuts.isEmpty()) {
@@ -254,7 +234,7 @@ private fun ActionShortcutLibrary(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
-            return@Scaffold
+            return@LauncherScreenScaffold
         }
 
         LazyVerticalGrid(
@@ -355,7 +335,6 @@ private fun ActionShortcutGridItem(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionShortcutEditor(
     existingShortcut: HomeItem.ActionShortcut?,
@@ -383,29 +362,9 @@ private fun ActionShortcutEditor(
         showDuplicateError = false
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = if (existingShortcut == null) "Add shortcut" else "Edit shortcut",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            )
-        }
+    LauncherScreenScaffold(
+        title = if (existingShortcut == null) "Add shortcut" else "Edit shortcut",
+        onBack = onBack
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -534,7 +493,6 @@ private fun ActionShortcutAppSelector(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ActionShortcutAppPicker(
     installedApps: List<AppInfo>,
@@ -556,29 +514,9 @@ private fun ActionShortcutAppPicker(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Choose app",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            )
-        }
+    LauncherScreenScaffold(
+        title = "Choose app",
+        onBack = onBack
     ) { paddingValues ->
         Column(
             modifier = Modifier
