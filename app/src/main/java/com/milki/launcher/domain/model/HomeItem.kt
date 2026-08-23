@@ -18,15 +18,7 @@ sealed class HomeItem {
 
     abstract val position: GridPosition
 
-    fun withPosition(newPosition: GridPosition): HomeItem = when (this) {
-        is PinnedApp -> copy(position = newPosition)
-        is PinnedFile -> copy(position = newPosition)
-        is PinnedContact -> copy(position = newPosition)
-        is AppShortcut -> copy(position = newPosition)
-        is ActionShortcut -> copy(position = newPosition)
-        is WidgetItem -> copy(position = newPosition)
-        is FolderItem -> copy(position = newPosition)
-    }
+    abstract fun withPosition(newPosition: GridPosition): HomeItem
 
     @Serializable
     data class PinnedApp(
@@ -36,6 +28,8 @@ sealed class HomeItem {
         val label: String,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
+
+        override fun withPosition(newPosition: GridPosition): PinnedApp = copy(position = newPosition)
 
                 companion object {
                         fun fromAppInfo(appInfo: AppInfo): PinnedApp {
@@ -60,6 +54,8 @@ sealed class HomeItem {
         val size: Long = 0,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
+
+        override fun withPosition(newPosition: GridPosition): PinnedFile = copy(position = newPosition)
 
                 companion object {
                         fun fromFileDocument(file: FileDocument): PinnedFile {
@@ -86,6 +82,8 @@ sealed class HomeItem {
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
 
+        override fun withPosition(newPosition: GridPosition): PinnedContact = copy(position = newPosition)
+
                 companion object {
                         fun fromContact(contact: Contact): PinnedContact {
                 val contactKey = if (contact.lookupKey.isNotBlank()) contact.lookupKey else contact.id.toString()
@@ -111,6 +109,8 @@ sealed class HomeItem {
         val longLabel: String = shortLabel,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
+
+        override fun withPosition(newPosition: GridPosition): AppShortcut = copy(position = newPosition)
 
                 companion object {
             fun fromShortcutInfo(
@@ -140,6 +140,8 @@ sealed class HomeItem {
         val packageLabel: String? = null,
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
+
+        override fun withPosition(newPosition: GridPosition): ActionShortcut = copy(position = newPosition)
 
         companion object {
             val DefaultDocsShortcut = ActionShortcut(
@@ -195,6 +197,8 @@ sealed class HomeItem {
             return copy(displayMode = newDisplayMode)
         }
 
+        override fun withPosition(newPosition: GridPosition): WidgetItem = copy(position = newPosition)
+
         companion object {
                         fun create(
                 appWidgetId: Int,
@@ -226,6 +230,8 @@ sealed class HomeItem {
         val children: List<HomeItem> = emptyList(),
         override val position: GridPosition = GridPosition.DEFAULT
     ) : HomeItem() {
+
+        override fun withPosition(newPosition: GridPosition): FolderItem = copy(position = newPosition)
 
                 companion object {
 
