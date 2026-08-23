@@ -66,22 +66,29 @@ internal fun findFolderLookup(items: List<HomeItem>, folderId: String): FolderLo
 }
 
 /**
- * Appends [additions] to the folder [folderId], normalizing positions and
- * dropping nested folders/widgets. Returns false when the folder does not exist.
+ * Appends [additions] to the folder [folderId], normalizing positions.
+ * Returns false when the folder does not exist. Callers must not pass
+ * nested folders or widgets; violations fail loudly instead of being
+ * silently dropped, preserving the deterministic mutation contract.
  */
 internal fun MutableList<HomeItem>.appendToFolder(
     folderId: String,
     additions: List<HomeItem>,
     targetIndex: Int? = null
 ): Boolean {
+    require(additions.all { it !is HomeItem.FolderItem && it !is HomeItem.WidgetItem }) {
+        "appendToFolder received invalid children (folders/widgets): " +
+            additions.filter { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
+                .joinToString { it.id }
+    }
     val folderLookup = findFolderLookup(this, folderId) ?: return false
-    val safeAdditions = additions
-        .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
-        .map { it.withPosition(GridPosition.DEFAULT) }
 
     val children = folderLookup.folder.children.toMutableList()
     val insertAt = targetIndex?.coerceIn(0, children.size) ?: children.size
-    children.addAll(insertAt, safeAdditions)
+    children.addAll(
+        insertAt,
+        additions.map { it.withPosition(GridPosition.DEFAULT) }
+    )
 
     this[folderLookup.index] = folderLookup.folder.copy(children = children)
     return true

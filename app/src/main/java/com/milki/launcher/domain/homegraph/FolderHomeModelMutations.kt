@@ -81,12 +81,13 @@ internal fun HomeModelWriter.reorderFolderItems(
     currentItems: List<HomeItem>,
     command: HomeModelWriter.ReorderFolderItems
 ): HomeModelWriter.Result {
+    if (command.newChildren.any { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }) {
+        return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.InvalidFolderOperation)
+    }
     val folderLookup = findFolderLookup(currentItems, command.folderId)
         ?: return HomeModelWriter.Result.Rejected(HomeModelWriter.Error.FolderNotFound)
 
-    val safeChildren = command.newChildren
-        .filterNot { it is HomeItem.FolderItem || it is HomeItem.WidgetItem }
-        .map { it.withPosition(GridPosition.DEFAULT) }
+    val safeChildren = command.newChildren.map { it.withPosition(GridPosition.DEFAULT) }
 
     val mutable = currentItems.toMutableList()
     mutable[folderLookup.index] = folderLookup.folder.copy(children = safeChildren)
