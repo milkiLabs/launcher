@@ -187,8 +187,6 @@ class MainActivity : ComponentActivity() {
                                 onExitSettings = { rootNavigation.pop() }
                             )
                         }
-
-                    else -> error("Unknown main route: $route")
                 }
             }
         )

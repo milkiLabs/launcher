@@ -69,6 +69,8 @@ import com.milki.launcher.domain.search.parseSearchQuery
 import com.milki.launcher.presentation.common.ViewModelSharingStarted
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -109,6 +111,7 @@ import kotlinx.coroutines.withContext
  * @property isSearchVisible Visibility stream owned by the launcher navigator
  * ([com.milki.launcher.presentation.launcher.LauncherNavigator.searchVisibilityFlow]).
  */
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class SearchViewModel(
     private val appRepository: AppRepository,
     private val settingsRepository: SettingsReader,
