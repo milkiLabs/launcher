@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -197,8 +196,7 @@ private fun WidgetPickerHeader(
             ) {
                 Text(
                     text = stringResource(R.string.widget_picker_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.headlineSmall
                 )
                 Text(
                     text = stringResource(R.string.widget_picker_subtitle),
@@ -295,8 +293,7 @@ private fun LoadingWidgetCatalogState() {
             ) {
                 Text(
                     text = stringResource(R.string.widget_picker_loading_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    style = MaterialTheme.typography.titleMedium
                 )
                 Text(
                     text = stringResource(R.string.widget_picker_loading_subtitle),
@@ -363,7 +360,6 @@ private fun AppGroupCard(
                     Text(
                         text = group.appLabel,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -452,8 +448,7 @@ private fun EmptyWidgetSearchState(searchQuery: String) {
             )
             Text(
                 text = stringResource(R.string.widget_picker_empty_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.titleMedium
             )
             Text(
                 text = stringResource(R.string.widget_picker_empty_hint, searchQuery),

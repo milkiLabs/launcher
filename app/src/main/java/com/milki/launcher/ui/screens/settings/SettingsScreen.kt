@@ -31,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.font.FontWeight
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.theme.Spacing
 
@@ -55,10 +54,7 @@ internal fun SettingsIndexScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Settings",
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text(text = "Settings")
                 },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(

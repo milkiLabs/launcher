@@ -11,9 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import com.milki.launcher.ui.theme.IconSize
+import com.milki.launcher.ui.theme.SectionTitleStyle
 import com.milki.launcher.ui.theme.Spacing
 
 /**
@@ -47,10 +46,8 @@ fun SettingsCategory(
         }
         Text(
             text = title.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.2.sp
+            style = SectionTitleStyle,
+            color = MaterialTheme.colorScheme.primary
         )
     }
 }

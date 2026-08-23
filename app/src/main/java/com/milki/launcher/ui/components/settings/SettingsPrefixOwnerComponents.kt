@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import com.milki.launcher.domain.model.PrefixOwner
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
@@ -70,8 +69,7 @@ fun PrefixOwnerSettingItem(
                 Spacer(modifier = Modifier.width(Spacing.smallMedium))
                 Text(
                     text = owner.name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.weight(1f))
@@ -169,7 +167,6 @@ fun PrefixChip(
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
                 color = color
             )
             Spacer(modifier = Modifier.width(Spacing.extraSmall))

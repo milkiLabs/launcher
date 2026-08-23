@@ -8,7 +8,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import com.milki.launcher.ui.components.settings.ActionSettingItem
 import com.milki.launcher.ui.components.settings.GitHubIcon
 import com.milki.launcher.ui.components.settings.SettingsCardSurface
@@ -33,8 +32,7 @@ internal fun AboutSection(
             Text(
                 text = "Milki Launcher",
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = "Version $appVersion",

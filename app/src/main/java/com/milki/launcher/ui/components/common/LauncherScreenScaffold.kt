@@ -15,7 +15,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.font.FontWeight
 
 /**
  * Shared scaffold for full-screen launcher sub-screens: a TopAppBar with the
@@ -42,10 +41,7 @@ internal fun LauncherScreenScaffold(
                 modifier = topAppBarModifier,
                 title = {
                     Column {
-                        Text(
-                            text = title,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Text(text = title)
                         if (subtitle != null) {
                             Text(
                                 text = subtitle,
