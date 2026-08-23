@@ -10,12 +10,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherTrigger
+import com.milki.launcher.ui.interaction.PreTimeoutResult
+import com.milki.launcher.ui.interaction.awaitPointerUp
+import com.milki.launcher.ui.interaction.consumeUntilPointerUp
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
+import com.milki.launcher.ui.interaction.trackPointerUntilLongPressOrRelease
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 
 private enum class BackgroundGestureOutcome {
     Released,
@@ -165,6 +168,18 @@ internal fun Modifier.detectHomeBackgroundGestures(
     }
 }
 
+/**
+ * Resolution produced by the shared tracker for phase 1 (pre-slop) of a
+ * background gesture.
+ */
+private sealed interface BackgroundPhase1Resolution {
+    /** A terminal gesture outcome was reached before touch slop. */
+    data class Terminal(val outcome: BackgroundGestureOutcome) : BackgroundPhase1Resolution
+
+    /** Movement passed touch slop; hand off to post-slop tracking. */
+    data object SlopExceeded : BackgroundPhase1Resolution
+}
+
 private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
     pointerId: PointerId,
     startPosition: Offset,
@@ -175,49 +190,60 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
     bindings: HomeBackgroundGestureBindings,
     suppressDirectionalGestures: Boolean = false
 ): BackgroundGestureOutcome? {
-    var exceededTouchSlop = false
-    val slopOutcome = withTimeoutOrNull(longPressTimeoutMillis) {
-        while (true) {
-            val event = awaitPointerEvent()
-            val change = event.changes.firstOrNull { it.id == pointerId }
-                ?: return@withTimeoutOrNull BackgroundGestureOutcome.Cancelled
-
-            if (!change.pressed) {
-                return@withTimeoutOrNull BackgroundGestureOutcome.Released
-            }
-
+    val result = trackPointerUntilLongPressOrRelease(
+        pointerId = pointerId,
+        longPressTimeoutMillis = longPressTimeoutMillis,
+        onMove = { change ->
             val totalDrag = change.position - startPosition
             val matchedTrigger = policy.matchingTrigger(
                 dragOffset = totalDrag,
                 minimumDistancePx = gestureThresholdPx
             )
-            if (matchedTrigger != null) {
-                if (suppressDirectionalGestures) {
-                    return@withTimeoutOrNull BackgroundGestureOutcome.Moved
-                }
-                bindings.invoke(matchedTrigger)
-                return@withTimeoutOrNull BackgroundGestureOutcome.Triggered
-            }
+            when {
+                matchedTrigger != null && suppressDirectionalGestures ->
+                    BackgroundPhase1Resolution.Terminal(BackgroundGestureOutcome.Moved)
 
-            if (totalDrag.exceedsTouchSlop(touchSlopPx = touchSlopPx)) {
+                matchedTrigger != null -> {
+                    bindings.invoke(matchedTrigger)
+                    BackgroundPhase1Resolution.Terminal(BackgroundGestureOutcome.Triggered)
+                }
+
+                totalDrag.exceedsTouchSlop(touchSlopPx = touchSlopPx) ->
+                    BackgroundPhase1Resolution.SlopExceeded
+
+                else -> null
+            }
+        },
+        onLift = {
+            BackgroundPhase1Resolution.Terminal(BackgroundGestureOutcome.Released)
+        }
+    )
+
+    var exceededTouchSlop = false
+    val phase1Outcome: BackgroundGestureOutcome? = when (result) {
+        is PreTimeoutResult.Resolved -> when (val value = result.value) {
+            is BackgroundPhase1Resolution.Terminal -> value.outcome
+            BackgroundPhase1Resolution.SlopExceeded -> {
                 exceededTouchSlop = true
-                break
+                null
             }
         }
-        null
-    }
 
-    if (slopOutcome != null) {
-        return slopOutcome
+        // Finger released before timeout or slop.
+        is PreTimeoutResult.Released -> result.value.outcome
+
+        // Pointer disappeared (multi-touch, system cancel).
+        PreTimeoutResult.Lost -> BackgroundGestureOutcome.Cancelled
+
+        // Timeout fired → long press.
+        is PreTimeoutResult.LongPress -> null
     }
 
     if (!exceededTouchSlop) {
-        return null
+        return phase1Outcome
     }
 
-    var event = currentEvent
-    var change = event.changes.firstOrNull { it.id == pointerId }
-        ?: return BackgroundGestureOutcome.Cancelled
+    var change = (result as PreTimeoutResult.Resolved).change
     var totalDrag = change.position - startPosition
 
     if (!policy.hasDirectionalMotion(totalDrag)) {
@@ -225,7 +251,7 @@ private suspend fun AwaitPointerEventScope.awaitBackgroundGestureOutcome(
     }
 
     while (true) {
-        event = awaitPointerEvent()
+        val event = awaitPointerEvent()
         change = event.changes.firstOrNull { it.id == pointerId }
             ?: return BackgroundGestureOutcome.Cancelled
 
@@ -273,22 +299,5 @@ private fun HomeBackgroundGesturePolicy.hasDirectionalMotion(
             trigger = trigger,
             minimumDistancePx = 0f
         )
-    }
-}
-
-private suspend fun AwaitPointerEventScope.awaitPointerUp(pointerId: PointerId) {
-    while (true) {
-        val event = awaitPointerEvent()
-        val change = event.changes.firstOrNull { it.id == pointerId } ?: return
-        if (!change.pressed) return
-    }
-}
-
-private suspend fun AwaitPointerEventScope.consumeUntilPointerUp(pointerId: PointerId) {
-    while (true) {
-        val event = awaitPointerEvent()
-        val change = event.changes.firstOrNull { it.id == pointerId } ?: return
-        change.consume()
-        if (!change.pressed) return
     }
 }

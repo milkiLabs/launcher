@@ -58,7 +58,8 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
-import kotlinx.coroutines.withTimeoutOrNull
+import com.milki.launcher.ui.interaction.PreTimeoutResult
+import com.milki.launcher.ui.interaction.trackPointerUntilLongPressOrRelease
 import kotlin.math.abs
 
 /**
@@ -334,9 +335,10 @@ private sealed class PreLongPressOutcome {
  * Custom gesture classifier that distinguishes tap, swipe-up, and long-press.
  *
  * Unlike [awaitLongPressOrCancellation] (which cancels on any movement beyond
- * touch-slop), this function continues tracking the pointer until release or
- * the long-press timeout. It classifies the gesture on release based on the
- * total upward displacement.
+ * touch-slop), this classifier continues tracking the pointer until release or
+ * the long-press timeout (via the shared
+ * [trackPointerUntilLongPressOrRelease] primitive). It classifies the gesture
+ * on release based on the total upward displacement.
  *
  * WHEN TO USE:
  * Only called when onSwipeUp is non-null. When swipe-up detection is not
@@ -352,40 +354,37 @@ private suspend fun AwaitPointerEventScope.awaitPreLongPressClassification(
     startPosition: Offset,
     swipeUpThresholdPx: Float
 ): PreLongPressOutcome {
-    val longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis
-
-    var latestChange: PointerInputChange? = null
-
-    val earlyResult = withTimeoutOrNull(longPressTimeoutMillis) {
-        while (true) {
-            val event = awaitPointerEvent()
-            val change = event.changes.firstOrNull { it.id == pointerId }
-                ?: return@withTimeoutOrNull PreLongPressOutcome.Cancelled
-
-            latestChange = change
-
-            if (!change.pressed) {
-                // Finger released before long-press timeout.
-                // Classify based on upward displacement (screen Y increases
-                // downward, so upward movement = start.y - end.y > 0).
-                val upwardDisplacement = startPosition.y - change.position.y
-                return@withTimeoutOrNull if (upwardDisplacement > swipeUpThresholdPx) {
-                    PreLongPressOutcome.SwipeUp
-                } else {
-                    PreLongPressOutcome.Tap
-                }
+    return when (val result = trackPointerUntilLongPressOrRelease(
+        pointerId = pointerId,
+        longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
+        // No early resolution: classification only happens at lift time.
+        onMove = { null },
+        onLift = { change ->
+            // Classify based on upward displacement (screen Y increases
+            // downward, so upward movement = start.y - end.y > 0).
+            val upwardDisplacement = startPosition.y - change.position.y
+            if (upwardDisplacement > swipeUpThresholdPx) {
+                PreLongPressOutcome.SwipeUp
+            } else {
+                PreLongPressOutcome.Tap
             }
         }
+    )) {
+        is PreTimeoutResult.Released -> result.value
 
-        @Suppress("UNREACHABLE_CODE")
-        PreLongPressOutcome.Cancelled
+        /**
+         * Unreachable with `onMove = { null }`, but kept exhaustive for safety:
+         * a pre-lift resolution would be meaningless for this classifier.
+         */
+        is PreTimeoutResult.Resolved -> PreLongPressOutcome.Cancelled
+
+        // Pointer disappeared before lift or timeout (multi-touch, system cancel).
+        PreTimeoutResult.Lost -> PreLongPressOutcome.Cancelled
+
+        is PreTimeoutResult.LongPress -> PreLongPressOutcome.LongPress(
+            result.change ?: currentEvent.changes.first { it.id == pointerId }
+        )
     }
-
-    // earlyResult is non-null if the pointer was released or lost before timeout.
-    // null means the timeout fired → long press.
-    return earlyResult ?: PreLongPressOutcome.LongPress(
-        latestChange ?: currentEvent.changes.first { it.id == pointerId }
-    )
 }
 
 /**
