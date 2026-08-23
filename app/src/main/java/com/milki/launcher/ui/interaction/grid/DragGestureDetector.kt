@@ -60,6 +60,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import com.milki.launcher.ui.interaction.PreTimeoutResult
 import com.milki.launcher.ui.interaction.trackPointerUntilLongPressOrRelease
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.abs
 
 /**
@@ -322,8 +323,9 @@ private suspend fun AwaitPointerEventScope.handlePostLongPressDrag(
              */
             onLongPressRelease()
         }
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
-        android.util.Log.w("DragGestureDetector", "Gesture cancelled: ${e.message}")
         if (dragStarted) {
             onDragCancel()
         } else {
