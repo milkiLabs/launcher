@@ -252,26 +252,6 @@ internal fun InternalGridDragLayer(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
-
-                        WidgetContextMenu(
-                            expanded = interactionController.menuShownForItemId == item.id,
-                            onDismiss = {
-                                interactionController.dismissMenu()
-                            },
-                            focusable = !interactionController.isMenuGestureActive,
-                            displayMode = widgetItem.displayMode,
-                            onEdit = {
-                                interactionController.startWidgetTransform(widgetItem.id)
-                            },
-                            onModeAction = {
-                                interactionController.dismissMenu()
-                                widget.onUpdateWidgetDisplayMode(widgetItem.id, WidgetDisplayMode.PopupIcon)
-                            },
-                            onRemove = {
-                                interactionController.dismissMenu()
-                                widget.onRemoveWidget(widgetItem.id, widgetItem.appWidgetId)
-                            }
-                        )
                     } else {
                         PinnedItemView(item = item)
 
@@ -295,30 +275,37 @@ internal fun InternalGridDragLayer(
                                 height = with(LocalDensity.current) { (cellHeightPx * widgetItem.span.rows).toDp() },
                                 onDismiss = interactionController::dismissWidgetPopup
                             )
+                        }
+                    }
 
-                            WidgetContextMenu(
-                                expanded = interactionController.menuShownForItemId == widgetItem.id,
-                                onDismiss = {
-                                    interactionController.dismissMenu()
-                                },
-                                focusable = !interactionController.isMenuGestureActive,
-                                displayMode = widgetItem.displayMode,
-                                onEdit = {
-                                    interactionController.dismissWidgetPopup()
-                                    interactionController.startWidgetTransform(widgetItem.id)
-                                },
-                                onModeAction = {
-                                    interactionController.dismissMenu()
+                    if (widgetItem != null && (isInlineWidget || isPopupWidget) && widgetHost != null) {
+                        val isPopupMode = isPopupWidget
+                        WidgetContextMenu(
+                            expanded = interactionController.menuShownForItemId == item.id,
+                            onDismiss = {
+                                interactionController.dismissMenu()
+                            },
+                            focusable = !interactionController.isMenuGestureActive,
+                            displayMode = widgetItem.displayMode,
+                            onEdit = {
+                                if (isPopupMode) interactionController.dismissWidgetPopup()
+                                interactionController.startWidgetTransform(widgetItem.id)
+                            },
+                            onModeAction = {
+                                interactionController.dismissMenu()
+                                if (isPopupMode) {
                                     interactionController.dismissWidgetPopup()
                                     widget.onExpandPopupWidget(widgetItem.id, maxVisibleRows)
-                                },
-                                onRemove = {
-                                    interactionController.dismissMenu()
-                                    interactionController.dismissWidgetPopup()
-                                    widget.onRemoveWidget(widgetItem.id, widgetItem.appWidgetId)
+                                } else {
+                                    widget.onUpdateWidgetDisplayMode(widgetItem.id, WidgetDisplayMode.PopupIcon)
                                 }
-                            )
-                        }
+                            },
+                            onRemove = {
+                                interactionController.dismissMenu()
+                                if (isPopupMode) interactionController.dismissWidgetPopup()
+                                widget.onRemoveWidget(widgetItem.id, widgetItem.appWidgetId)
+                            }
+                        )
                     }
                 }
             }
