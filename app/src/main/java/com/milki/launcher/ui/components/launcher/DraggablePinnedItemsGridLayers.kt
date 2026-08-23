@@ -162,6 +162,14 @@ internal fun InternalGridDragLayer(
                 val widgetItem = item as? HomeItem.WidgetItem
                 val isInlineWidget = widgetItem?.displayMode == WidgetDisplayMode.Inline
                 val isPopupWidget = widgetItem?.displayMode == WidgetDisplayMode.PopupIcon
+                val interactions = resolveItemInteractions(
+                    item = item,
+                    widgetItem = widgetItem,
+                    interactionController = interactionController,
+                    home = home,
+                    widget = widget,
+                    isDragSessionIdle = { dragController.session == null }
+                )
                 val span = item.homeGridSpan
 
                 Box(
@@ -190,39 +198,30 @@ internal fun InternalGridDragLayer(
                             key = "${item.id}-${item.position.row}-${item.position.column}-${span.columns}-${span.rows}",
                             dragThreshold = config.dragThresholdPx,
                             onTap = {
-                                if (isInlineWidget) return@detectDragGesture
-                                if (isPopupWidget) {
-                                    interactionController.showWidgetPopup(item.id)
-                                    return@detectDragGesture
+                                if (interactions.gridGesturesEnabled) {
+                                    interactions.tapAction?.invoke()
                                 }
-                                if (dragController.session == null) home.onPinnedItemClick(item)
                             },
-                            onSwipeUp = if (isPopupWidget) {
-                                { widget.onLaunchWidgetApp(widgetItem.providerPackage) }
-                            } else null,
+                            onSwipeUp = interactions.swipeUpAction?.takeIf { interactions.gridGesturesEnabled },
                             onLongPress = {
-                                if (isInlineWidget) return@detectDragGesture
-                                showItemMenu(item)
+                                if (interactions.gridGesturesEnabled) showItemMenu(item)
                             },
                             onLongPressRelease = {
-                                if (isInlineWidget) return@detectDragGesture
-                                interactionController.updateMenuGestureState(false)
+                                if (interactions.gridGesturesEnabled) {
+                                    interactionController.updateMenuGestureState(false)
+                                }
                             },
                             onDragStart = {
-                                if (isInlineWidget) return@detectDragGesture
-                                startItemDrag(item)
+                                if (interactions.gridGesturesEnabled) startItemDrag(item)
                             },
                             onDrag = { change, dragAmount ->
-                                if (isInlineWidget) return@detectDragGesture
-                                updateItemDrag(item, change, dragAmount)
+                                if (interactions.gridGesturesEnabled) updateItemDrag(item, change, dragAmount)
                             },
                             onDragEnd = {
-                                if (isInlineWidget) return@detectDragGesture
-                                finishItemDrag(item)
+                                if (interactions.gridGesturesEnabled) finishItemDrag(item)
                             },
                             onDragCancel = {
-                                if (isInlineWidget) return@detectDragGesture
-                                cancelItemDrag()
+                                if (interactions.gridGesturesEnabled) cancelItemDrag()
                             }
                         )
                 ) {
@@ -255,7 +254,7 @@ internal fun InternalGridDragLayer(
                     } else {
                         PinnedItemView(item = item)
 
-                        if (!isPopupWidget) {
+                        if (interactions.menuKind == ItemMenuKind.Item) {
                             com.milki.launcher.ui.components.common.ItemContextMenu(
                                 actions = buildHomeItemMenuActions(item),
                                 expanded = interactionController.menuShownForItemId == item.id,
@@ -278,7 +277,7 @@ internal fun InternalGridDragLayer(
                         }
                     }
 
-                    if (widgetItem != null && (isInlineWidget || isPopupWidget) && widgetHost != null) {
+                    if (widgetItem != null && interactions.menuKind == ItemMenuKind.Widget && widgetHost != null) {
                         val isPopupMode = isPopupWidget
                         WidgetContextMenu(
                             expanded = interactionController.menuShownForItemId == item.id,
@@ -310,6 +309,51 @@ internal fun InternalGridDragLayer(
                 }
             }
         }
+    }
+}
+
+/**
+ * Per-item gesture and menu strategy, resolved once per item instead of being
+ * re-derived inside every gesture callback.
+ */
+private enum class ItemMenuKind { Item, Widget }
+
+private class ItemInteractions(
+    val menuKind: ItemMenuKind,
+    val gridGesturesEnabled: Boolean,
+    val tapAction: (() -> Unit)?,
+    val swipeUpAction: (() -> Unit)?
+)
+
+private fun resolveItemInteractions(
+    item: HomeItem,
+    widgetItem: HomeItem.WidgetItem?,
+    interactionController: HomeSurfaceInteractionController,
+    home: HomeActions,
+    widget: WidgetActions,
+    isDragSessionIdle: () -> Boolean
+): ItemInteractions {
+    return when (widgetItem?.displayMode) {
+        WidgetDisplayMode.Inline -> ItemInteractions(
+            menuKind = ItemMenuKind.Widget,
+            gridGesturesEnabled = false,
+            tapAction = null,
+            swipeUpAction = null
+        )
+
+        WidgetDisplayMode.PopupIcon -> ItemInteractions(
+            menuKind = ItemMenuKind.Widget,
+            gridGesturesEnabled = true,
+            tapAction = { interactionController.showWidgetPopup(item.id) },
+            swipeUpAction = { widget.onLaunchWidgetApp(widgetItem.providerPackage) }
+        )
+
+        null -> ItemInteractions(
+            menuKind = ItemMenuKind.Item,
+            gridGesturesEnabled = true,
+            tapAction = { if (isDragSessionIdle()) home.onPinnedItemClick(item) },
+            swipeUpAction = null
+        )
     }
 }
 
