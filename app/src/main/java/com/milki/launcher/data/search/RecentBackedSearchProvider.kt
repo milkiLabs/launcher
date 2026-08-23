@@ -2,8 +2,9 @@ package com.milki.launcher.data.search
 
 import com.milki.launcher.domain.model.PermissionAccessState
 import com.milki.launcher.domain.model.PermissionRequestResult
-import com.milki.launcher.domain.model.SearchRequest
 import com.milki.launcher.domain.model.SearchResult
+import com.milki.launcher.domain.repository.SearchProvider
+import com.milki.launcher.domain.repository.SearchRequest
 import com.milki.launcher.domain.search.QueryRanker
 
 /**
@@ -14,7 +15,7 @@ import com.milki.launcher.domain.search.QueryRanker
  * blank query → [resolveRecentItems]; typed query → [searchTypedItems] ranked
  * via [QueryRanker], all capped at [maxResults].
  */
-internal abstract class RecentBackedSearchProvider<T>(
+abstract class RecentBackedSearchProvider<T : Any>(
     private val maxResults: Int = MAX_SEARCH_RESULTS,
 ) : SearchProvider {
 

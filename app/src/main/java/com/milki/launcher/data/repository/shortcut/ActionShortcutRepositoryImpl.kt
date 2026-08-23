@@ -30,6 +30,7 @@ class ActionShortcutRepositoryImpl(
     private val dataStore = context.actionShortcutDataStore
     private val serializer = newlineJsonListSerializer(
         key = ActionShortcutPreferenceKeys.SHORTCUTS,
+        json = HomeItem.json,
         serializer = HomeItem.ActionShortcut.serializer(),
         default = { listOf(HomeItem.ActionShortcut.DefaultDocsShortcut) }
     )

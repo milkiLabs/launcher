@@ -7,9 +7,9 @@ import com.milki.launcher.domain.model.PermissionRequestResult
 import com.milki.launcher.domain.model.PhoneNumberSearchResult
 import com.milki.launcher.domain.model.ProviderId
 import com.milki.launcher.domain.model.SearchProviderConfig
-import com.milki.launcher.domain.model.SearchRequest
 import com.milki.launcher.domain.model.SearchResult
 import com.milki.launcher.domain.repository.ContactsRepository
+import com.milki.launcher.domain.repository.SearchRequest
 import kotlinx.coroutines.flow.first
 
 /**
@@ -60,8 +60,8 @@ class ContactsSearchProvider(
         )
     }
 
-    override suspend fun searchTypedItems(query: String): List<Contact> =
-        contactsRepository.searchContacts(query = query, maxItems = MAX_SEARCH_RESULTS)
+    override suspend fun searchTypedItems(request: SearchRequest): List<Contact> =
+        contactsRepository.searchContacts(query = request.query, maxItems = MAX_SEARCH_RESULTS)
 
     override suspend fun resolveRecentItems(request: SearchRequest): List<Contact> {
         val recentPhones = contactsRepository.getRecentContacts().first()

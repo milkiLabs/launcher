@@ -3,22 +3,21 @@ package com.milki.launcher.data.repository.common
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.Preferences.Key
-import com.milki.launcher.domain.model.HomeItem
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Builds a newline-JSON list serializer backed by the shared [HomeItem.json] instance,
- * defaulting to the docs shortcut when the preference is absent.
+ * Builds a newline-JSON list serializer backed by [json].
  */
-internal fun <T : HomeItem> newlineJsonListSerializer(
+internal fun <T> newlineJsonListSerializer(
     key: Key<String>,
+    json: Json,
     serializer: KSerializer<T>,
     default: () -> List<T> = { emptyList() }
 ): NewlineJsonListSerializer<T> = NewlineJsonListSerializer(
     key = key,
-    json = HomeItem.json,
+    json = json,
     serializer = serializer,
     default = default
 )
