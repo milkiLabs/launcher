@@ -381,6 +381,28 @@ private fun FolderOverlayHost(
 }
 
 /**
+ * Generic bottom-sheet overlay route host shared by drawer, widget picker,
+ * and shortcut manager overlays.
+ *
+ * Sheets opened via navigation are mounted open and dismiss by routing
+ * [setOpen](false) back through the owning action contract.
+ */
+@Composable
+private fun OverlaySheetRoute(
+    sheetState: LauncherSheetState,
+    setOpen: (Boolean) -> Unit,
+    content: @Composable (Modifier) -> Unit
+) {
+    LauncherSurfaceSheetHost(
+        isOpen = true,
+        sheetState = sheetState,
+        onDismissRequest = { setOpen(false) }
+    ) { dragHandleModifier ->
+        content(dragHandleModifier)
+    }
+}
+
+/**
  * Hosts app drawer bottom sheet and keeps drawer-specific UI isolated.
  */
 @Composable
@@ -390,10 +412,9 @@ private fun DrawerHost(
     benchmarkScrollEvents: Flow<Unit>,
     drawerActions: DrawerActions
 ) {
-    LauncherSurfaceSheetHost(
-        isOpen = true,
+    OverlaySheetRoute(
         sheetState = appDrawerSheetState,
-        onDismissRequest = { drawerActions.onAppDrawerOpenChange(false) }
+        setOpen = drawerActions.onAppDrawerOpenChange
     ) { dragHandleModifier ->
         AppDrawerOverlay(
             uiState = appDrawerUiState,
@@ -416,15 +437,14 @@ private fun WidgetPickerHost(
     widgetPickerCatalogStore: WidgetPickerCatalogStore?,
     widgetActions: WidgetActions
 ) {
-    if (widgetPickerCatalogStore == null) return
+    val catalogStore = widgetPickerCatalogStore ?: return
 
-    LauncherSurfaceSheetHost(
-        isOpen = true,
+    OverlaySheetRoute(
         sheetState = widgetPickerSheetState,
-        onDismissRequest = { widgetActions.onWidgetPickerOpenChange(false) }
+        setOpen = widgetActions.onWidgetPickerOpenChange
     ) { dragHandleModifier ->
         WidgetPickerBottomSheet(
-            catalogStore = widgetPickerCatalogStore,
+            catalogStore = catalogStore,
             searchQuery = widgetPickerQuery,
             onSearchQueryChange = widgetActions.onWidgetPickerQueryChange,
             headerDragHandleModifier = dragHandleModifier,
@@ -440,10 +460,9 @@ private fun ShortcutManagerHost(
     installedApps: List<AppInfo>,
     shortcutActions: ShortcutManagerActions
 ) {
-    LauncherSurfaceSheetHost(
-        isOpen = true,
+    OverlaySheetRoute(
         sheetState = shortcutManagerSheetState,
-        onDismissRequest = { shortcutActions.onShortcutManagerOpenChange(false) }
+        setOpen = shortcutActions.onShortcutManagerOpenChange
     ) { dragHandleModifier ->
         ActionShortcutManagerSheet(
             shortcuts = shortcuts,
