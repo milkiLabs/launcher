@@ -32,10 +32,7 @@ package com.milki.launcher.data.icon
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.graphics.drawable.Drawable
-import android.util.Log
 import com.milki.launcher.domain.icon.IconPriorityStore
-import java.util.Locale
-import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,7 +48,8 @@ import kotlinx.coroutines.withContext
  */
 class AppIconMemoryCache(
     private val diskSnapshotStore: AppIconDiskSnapshotStore,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val metrics: IconCacheMetrics = IconCacheMetrics()
 ) : IconPriorityStore {
 
     private val generalIconCache = DrawableConstantStateCache(MAX_GENERAL_ENTRIES)
@@ -65,23 +63,14 @@ class AppIconMemoryCache(
     private val priorityLock = Any()
     private val homePriorityPackages = linkedSetOf<String>()
 
-    private val requestCount = AtomicLong(0)
-    private val hitCount = AtomicLong(0)
-
     private data class LoadResult(
         val drawable: Drawable,
         val shouldPersistToDisk: Boolean
     )
 
     private companion object {
-        const val TAG = "AppIconMemoryCache"
-
         const val MAX_GENERAL_ENTRIES = 300
         const val MAX_HOME_PRIORITY_ENTRIES = 120
-
-        const val SLOW_SINGLE_LOAD_MS = 24L
-        const val SLOW_PRELOAD_BATCH_MS = 120L
-        const val HIT_RATE_LOG_INTERVAL = 200L
     }
 
     /**
@@ -181,10 +170,10 @@ class AppIconMemoryCache(
             val startedAt = SystemClock.elapsedRealtime()
             val drawable = resolveAndCache(packageName, packageManager)
 
-            val elapsedMs = SystemClock.elapsedRealtime() - startedAt
-            if (elapsedMs >= SLOW_SINGLE_LOAD_MS) {
-                Log.w(TAG, "Slow icon load for $packageName: ${elapsedMs}ms")
-            }
+            metrics.recordSingleLoadDuration(
+                packageName = packageName,
+                elapsedMs = SystemClock.elapsedRealtime() - startedAt
+            )
 
             drawable
         }
@@ -205,11 +194,11 @@ class AppIconMemoryCache(
     ): Drawable {
         val cached = get(packageName)
         if (cached != null) {
-            recordRequest(wasHit = true)
+            metrics.recordRequest(wasHit = true)
             return cached
         }
 
-        recordRequest(wasHit = false)
+        metrics.recordRequest(wasHit = false)
         return loadAndCache(packageName = packageName, packageManager = packageManager)
     }
 
@@ -232,12 +221,10 @@ class AppIconMemoryCache(
             }
 
             val elapsedMs = SystemClock.elapsedRealtime() - startedAt
-            if (loadedCount > 0 && elapsedMs >= SLOW_PRELOAD_BATCH_MS) {
-                Log.w(
-                    TAG,
-                    "Slow icon preload batch: ${elapsedMs}ms for $loadedCount packages"
-                )
-            }
+            metrics.recordPreloadBatchDuration(
+                elapsedMs = elapsedMs,
+                loadedCount = loadedCount
+            )
         }
     }
 
@@ -288,34 +275,5 @@ class AppIconMemoryCache(
                 shouldPersistToDisk = false
             )
         }
-    }
-
-    private fun recordRequest(wasHit: Boolean) {
-        val totalRequests = requestCount.incrementAndGet()
-        if (wasHit) {
-            hitCount.incrementAndGet()
-        }
-
-        if (totalRequests % HIT_RATE_LOG_INTERVAL != 0L) {
-            return
-        }
-
-        val currentHits = hitCount.get()
-        val hitRatePercent = if (totalRequests == 0L) {
-            0.0
-        } else {
-            (currentHits.toDouble() * 100.0) / totalRequests.toDouble()
-        }
-
-        Log.d(
-            TAG,
-            String.format(
-                Locale.US,
-                "Icon cache hit rate %.1f%% (%d/%d)",
-                hitRatePercent,
-                currentHits,
-                totalRequests
-            )
-        )
     }
 }
