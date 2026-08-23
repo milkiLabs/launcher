@@ -20,7 +20,11 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.milki.launcher"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
     ndkVersion = "27.1.12297006"
 
     packaging {
@@ -35,7 +39,9 @@ android {
         targetSdk = 35
         versionCode = appVersionCode
         versionName = appVersionName
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // AndroidBenchmarkRunner extends AndroidJUnitRunner; microbenchmarks need it,
+        // regular instrumented tests are unaffected.
+        testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
     }
 
     dependenciesInfo {
@@ -53,6 +59,10 @@ android {
             }
         }
     }
+
+    // Instrumented tests (including microbenchmarks) run against the
+    // release-like, non-debuggable benchmark build type.
+    testBuildType = "benchmark"
 
     buildTypes {
         // Release build - optimized for distribution
@@ -94,6 +104,9 @@ android {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
+
+            // Microbenchmarks require a non-debuggable build.
+            isDebuggable = false
         }
         
     }
@@ -151,6 +164,7 @@ dependencies {
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.benchmark.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
