@@ -34,7 +34,10 @@
  *
  * THREAD SAFETY:
  * The underlying Android AppWidgetHost and AppWidgetManager are thread-safe.
- * This wrapper can be called from any thread.
+ * [updateHostState] mutates internal listening-state flags, so it synchronizes
+ * on the instance to guarantee at-most-once startListening/stopListening
+ * transitions even when called from different threads. In practice all current
+ * callers invoke it from the main thread (Activity lifecycle callbacks).
  */
 
 package com.milki.launcher.data.widget
@@ -93,21 +96,22 @@ class WidgetHostManager(
      * provides read-only information about which apps offer widgets and what
      * properties those widgets have (min size, resize rules, preview image, etc.).
      *
-     * WHY PUBLIC:
-     * Callers (e.g. HomeViewModel) need this to call loadLabel() on
-     * AppWidgetProviderInfo when creating HomeItem.WidgetItem.
+     * WHY ENCAPSULATED:
+     * Callers use [loadProviderLabel] instead of touching this directly, so
+     * PackageManager usage stays inside the data layer.
      */
     private val appWidgetManager: AppWidgetManager = AppWidgetManager.getInstance(context)
 
     /**
      * Convenience accessor for the system PackageManager.
      *
-     * WHY PUBLIC:
+     * WHY ENCAPSULATED:
      * AppWidgetProviderInfo.loadLabel() requires a PackageManager argument.
-     * Callers like HomeViewModel don't have direct Context access, so they
-     * go through this property instead.
+     * Callers go through [loadProviderLabel] rather than holding a Context or
+     * PackageManager themselves.
      */
     private val packageManager: PackageManager = context.packageManager
+    // Guarded by `this` (see [updateHostState]); all reads/writes happen inside the lock.
     private var activityStarted = false
     private var activityResumed = false
     private var stateIsNormal = false
@@ -123,6 +127,7 @@ class WidgetHostManager(
         return providerInfo.loadLabel(packageManager) ?: providerInfo.provider.shortClassName
     }
 
+    @Synchronized
     override fun updateHostState(
         started: Boolean?,
         resumed: Boolean?,
