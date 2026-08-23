@@ -180,13 +180,13 @@ internal fun InternalGridDragLayer(
                 layoutMetrics = layoutMetrics,
                 policy = backgroundGesturePolicy,
                 doubleTapArbiter = doubleTapArbiter,
+                gestureThresholdPx = cellHeightPx,
                 bindings = backgroundGestures.copy(
                     onEmptyAreaLongPress = { longPressOffset ->
                         hapticLongPress()
                         backgroundGestures.onEmptyAreaLongPress(longPressOffset)
                     }
-                ),
-                gestureThresholdPx = cellHeightPx
+                )
             )
     ) {
         items.forEach { item ->

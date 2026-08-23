@@ -98,6 +98,29 @@ object MimeTypeResolver {
     }
 
     /**
+     * Shared predicate for the `isXxx` family.
+     *
+     * Matches when either the normalized MIME type (see [normalizeMimeType])
+     * is one of [mimes], or the lowercased file extension is one of [extensions].
+     * If [mimePrefix] is set, any MIME starting with that prefix also matches
+     * (used for the open-ended text-family MIME types).
+     */
+    private fun matches(
+        mimeType: String,
+        fileName: String,
+        mimes: List<String>,
+        extensions: List<String>,
+        mimePrefix: String? = null
+    ): Boolean {
+        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
+        if (mimePrefix != null && normalizedMimeType.startsWith(mimePrefix)) return true
+        if (normalizedMimeType in mimes) return true
+
+        val extension = fileName.substringAfterLast('.', "").lowercase()
+        return extension in extensions
+    }
+
+    /**
      * Check if a file is a PDF document.
      *
      * Checks both the MIME type and the file extension.
@@ -107,8 +130,7 @@ object MimeTypeResolver {
      * @return True if the file is a PDF
      */
     fun isPdf(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        return normalizeMimeType(fileName, mimeType) == MIME_PDF || extension == "pdf"
+        return matches(mimeType, fileName, listOf(MIME_PDF), listOf("pdf"))
     }
 
     /**
@@ -121,8 +143,7 @@ object MimeTypeResolver {
      * @return True if the file is an EPUB
      */
     fun isEpub(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        return normalizeMimeType(fileName, mimeType) == MIME_EPUB || extension == "epub"
+        return matches(mimeType, fileName, listOf(MIME_EPUB), listOf("epub"))
     }
 
     /**
@@ -136,10 +157,12 @@ object MimeTypeResolver {
      * @return True if the file is a Word document
      */
     fun isWordDocument(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
-        return normalizedMimeType in listOf(MIME_WORD_DOC, MIME_WORD_DOCX) ||
-                extension in listOf("doc", "docx")
+        return matches(
+            mimeType = mimeType,
+            fileName = fileName,
+            mimes = listOf(MIME_WORD_DOC, MIME_WORD_DOCX),
+            extensions = listOf("doc", "docx")
+        )
     }
 
     /**
@@ -153,10 +176,12 @@ object MimeTypeResolver {
      * @return True if the file is an Excel spreadsheet
      */
     fun isExcelSpreadsheet(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
-        return normalizedMimeType in listOf(MIME_EXCEL_XLS, MIME_EXCEL_XLSX) ||
-                extension in listOf("xls", "xlsx")
+        return matches(
+            mimeType = mimeType,
+            fileName = fileName,
+            mimes = listOf(MIME_EXCEL_XLS, MIME_EXCEL_XLSX),
+            extensions = listOf("xls", "xlsx")
+        )
     }
 
     /**
@@ -170,10 +195,12 @@ object MimeTypeResolver {
      * @return True if the file is a PowerPoint presentation
      */
     fun isPowerPoint(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
-        return normalizedMimeType in listOf(MIME_POWERPOINT_PPT, MIME_POWERPOINT_PPTX) ||
-                extension in listOf("ppt", "pptx")
+        return matches(
+            mimeType = mimeType,
+            fileName = fileName,
+            mimes = listOf(MIME_POWERPOINT_PPT, MIME_POWERPOINT_PPTX),
+            extensions = listOf("ppt", "pptx")
+        )
     }
 
     /**
@@ -188,9 +215,12 @@ object MimeTypeResolver {
      * @return True if the file is a text file
      */
     fun isTextFile(mimeType: String, fileName: String): Boolean {
-        val extension = fileName.substringAfterLast('.', "").lowercase()
-        val normalizedMimeType = normalizeMimeType(fileName, mimeType)
-        return normalizedMimeType.startsWith("text/") ||
-                extension in listOf("txt", "rtf", "md", "json", "xml")
+        return matches(
+            mimeType = mimeType,
+            fileName = fileName,
+            mimes = emptyList(),
+            extensions = listOf("txt", "rtf", "md", "json", "xml"),
+            mimePrefix = "text/"
+        )
     }
 }
