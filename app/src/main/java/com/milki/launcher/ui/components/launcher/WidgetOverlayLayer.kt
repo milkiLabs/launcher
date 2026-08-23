@@ -107,6 +107,16 @@ internal fun WidgetOverlayLayer(
     }
 }
 
+/**
+ * Immutable snapshot of an in-progress widget resize session.
+ */
+private data class WidgetResizeDraft(
+    val originalFrame: WidgetFrame,
+    val draftFrame: WidgetFrame,
+    val lastValidFrame: WidgetFrame,
+    val isDraftValid: Boolean = true
+)
+
 @Composable
 private fun WidgetResizeOverlay(
     widgetItem: HomeItem.WidgetItem,
@@ -121,7 +131,15 @@ private fun WidgetResizeOverlay(
     BackHandler(onBack = onCancelTransform)
 
     val isPopupWidget = widgetItem.displayMode == WidgetDisplayMode.PopupIcon
-    val originalFrame = remember(
+
+    // Draft transform state bundled into a single remembered value.
+    //
+    // The previous implementation declared four separate remember blocks that
+    // each repeated the same six reset keys, so adding a key meant editing four
+    // places and any drift between them would desynchronize the fields. One
+    // keyed state resets atomically when the session/widget/grid identity
+    // changes.
+    var resizeDraft by remember(
         widgetItem.id,
         widgetItem.position,
         widgetItem.span,
@@ -134,37 +152,14 @@ private fun WidgetResizeOverlay(
         } else {
             widgetItem.position
         }
-        WidgetFrame(position = previewPosition, span = widgetItem.span)
-    }
-    var draftFrame by remember(
-        widgetItem.id,
-        widgetItem.position,
-        widgetItem.span,
-        widgetItem.displayMode,
-        gridColumns,
-        maxVisibleRows
-    ) {
-        mutableStateOf(originalFrame)
-    }
-    var lastValidFrame by remember(
-        widgetItem.id,
-        widgetItem.position,
-        widgetItem.span,
-        widgetItem.displayMode,
-        gridColumns,
-        maxVisibleRows
-    ) {
-        mutableStateOf(originalFrame)
-    }
-    var isDraftValid by remember(
-        widgetItem.id,
-        widgetItem.position,
-        widgetItem.span,
-        widgetItem.displayMode,
-        gridColumns,
-        maxVisibleRows
-    ) {
-        mutableStateOf(true)
+        val originalFrame = WidgetFrame(position = previewPosition, span = widgetItem.span)
+        mutableStateOf(
+            WidgetResizeDraft(
+                originalFrame = originalFrame,
+                draftFrame = originalFrame,
+                lastValidFrame = originalFrame
+            )
+        )
     }
     val draftOccupancy = remember(items, widgetItem.id) {
         GridOccupancy.fromItems(items, excludeItemId = widgetItem.id)
@@ -177,17 +172,18 @@ private fun WidgetResizeOverlay(
     }
 
     fun updateDraft(frame: WidgetFrame) {
-        draftFrame = frame
-        isDraftValid = isFrameFree(frame)
-        if (isDraftValid) {
-            lastValidFrame = frame
-        }
+        val valid = isFrameFree(frame)
+        resizeDraft = resizeDraft.copy(
+            draftFrame = frame,
+            isDraftValid = valid,
+            lastValidFrame = if (valid) frame else resizeDraft.lastValidFrame
+        )
     }
 
     fun settleDraftAfterGesture() {
-        if (!isDraftValid) {
-            draftFrame = lastValidFrame
-            isDraftValid = true
+        val draft = resizeDraft
+        if (!draft.isDraftValid) {
+            resizeDraft = draft.copy(draftFrame = draft.lastValidFrame, isDraftValid = true)
         }
     }
 
@@ -198,16 +194,16 @@ private fun WidgetResizeOverlay(
             .background(Color.Black.copy(alpha = 0.5f))
             .pointerInput(Unit) {
                 detectTapGestures {
-                    onConfirmTransform(draftFrame)
+                    onConfirmTransform(resizeDraft.draftFrame)
                 }
             }
     )
 
-    val originX = (draftFrame.position.column * cellWidthPx).roundToInt()
-    val originY = (draftFrame.position.row * cellHeightPx).roundToInt()
-    val frameWidth = (draftFrame.span.columns * cellWidthPx).roundToInt()
-    val frameHeight = (draftFrame.span.rows * cellHeightPx).roundToInt()
-    val frameColor = if (isDraftValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    val originX = (resizeDraft.draftFrame.position.column * cellWidthPx).roundToInt()
+    val originY = (resizeDraft.draftFrame.position.row * cellHeightPx).roundToInt()
+    val frameWidth = (resizeDraft.draftFrame.span.columns * cellWidthPx).roundToInt()
+    val frameHeight = (resizeDraft.draftFrame.span.rows * cellHeightPx).roundToInt()
+    val frameColor = if (resizeDraft.isDraftValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
 
     Box(
         modifier = Modifier
@@ -241,7 +237,7 @@ private fun WidgetResizeOverlay(
                             cellHeightPx = cellHeightPx,
                             gridColumns = gridColumns,
                             maxVisibleRows = maxVisibleRows,
-                            draftFrame = draftFrame,
+                            draftFrame = resizeDraft.draftFrame,
                             updateDraft = ::updateDraft,
                             settleDraftAfterGesture = ::settleDraftAfterGesture
                         )
@@ -250,7 +246,7 @@ private fun WidgetResizeOverlay(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "${draftFrame.span.columns} x ${draftFrame.span.rows}",
+                text = "${resizeDraft.draftFrame.span.columns} x ${resizeDraft.draftFrame.span.rows}",
                 color = frameColor,
                 style = MaterialTheme.typography.titleSmall
             )
@@ -264,7 +260,7 @@ private fun WidgetResizeOverlay(
                 cellHeightPx = cellHeightPx,
                 gridColumns = gridColumns,
                 maxVisibleRows = maxVisibleRows,
-                draftFrame = draftFrame,
+                draftFrame = resizeDraft.draftFrame,
                 updateDraft = ::updateDraft,
                 settleDraftAfterGesture = ::settleDraftAfterGesture
             )
@@ -279,7 +275,7 @@ private fun WidgetResizeOverlay(
                 cellHeightPx = cellHeightPx,
                 gridColumns = gridColumns,
                 maxVisibleRows = maxVisibleRows,
-                draftFrame = draftFrame,
+                draftFrame = resizeDraft.draftFrame,
                 updateDraft = ::updateDraft,
                 settleDraftAfterGesture = ::settleDraftAfterGesture
             )
@@ -326,7 +322,7 @@ private fun BoxScope.WidgetTransformBorderHandleNode(
                 cellHeightPx = cellHeightPx,
                 gridColumns = gridColumns,
                 maxVisibleRows = maxVisibleRows,
-                draftFrame = draftFrame,
+                draftFrame = resizeDraft.draftFrame,
                 updateDraft = updateDraft,
                 settleDraftAfterGesture = settleDraftAfterGesture
             )
@@ -370,7 +366,7 @@ private fun BoxScope.WidgetTransformHandleNode(
                 cellHeightPx = cellHeightPx,
                 gridColumns = gridColumns,
                 maxVisibleRows = maxVisibleRows,
-                draftFrame = draftFrame,
+                draftFrame = resizeDraft.draftFrame,
                 updateDraft = updateDraft,
                 settleDraftAfterGesture = settleDraftAfterGesture
             )
