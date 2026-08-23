@@ -24,8 +24,6 @@
 
 package com.milki.launcher.ui.components.launcher
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,11 +48,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.milki.launcher.data.icon.ActionShortcutPackageResolver
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.components.common.IconBadge
@@ -62,10 +63,14 @@ import com.milki.launcher.ui.components.common.ShortcutIcon
 import com.milki.launcher.ui.components.common.WidgetPopupIcon
 import com.milki.launcher.ui.components.common.ItemContextMenu
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
+import com.milki.launcher.ui.components.common.rememberItemContextMenuState
+import com.milki.launcher.ui.interaction.grid.detectDragGesture
 import com.milki.launcher.ui.components.launcher.folder.FolderIcon
 import com.milki.launcher.ui.theme.CornerRadius
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 
@@ -87,18 +92,16 @@ import com.milki.launcher.ui.theme.Spacing
  * - All items: "Unpin from home" - removes the item from the home screen
  * - Apps only: "App info" - opens the system app info screen
  *
+ * LONG-PRESS PROTOCOL:
+ * Menu lifecycle is owned by [ItemContextMenuState] - the same state machine
+ * behind [com.milki.launcher.ui.components.common.AppCellLayout] - so haptics
+ * timing and the non-focusable-during-gesture behavior match every other cell
+ * surface.
+ *
  * @param item The pinned item to display
  * @param onClick Called when user taps this item
- * @param handleLongPress Whether this composable should handle long-press gestures.
- *                        Set to false when used in DraggablePinnedItemsGrid (parent handles gestures).
- *                        Set to true when used standalone.
- * @param showMenu External control for showing the menu (used by parent when handleLongPress is false)
- * @param menuFocusable Whether the menu popup can receive focus. When false, touches pass through
- *                      to the underlying gesture detector. Used by DraggablePinnedItemsGrid to
- *                      keep drag detection working while the menu is visually shown.
  * @param modifier Optional modifier for external customization
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PinnedItem(
     item: HomeItem,
@@ -106,34 +109,37 @@ fun PinnedItem(
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
-    var isMenuVisible by remember { mutableStateOf(false) }
-    val dismissMenu: () -> Unit = {
-        isMenuVisible = false
-    }
+    val menuState = rememberItemContextMenuState()
 
     Box(modifier = modifier) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = {
+                .detectDragGesture(
+                    key = item.id,
+                    onTap = onClick,
+                    onLongPress = {
                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isMenuVisible = true
-                    }
+                        menuState.onLongPress()
+                    },
+                    onLongPressRelease = { menuState.onLongPressRelease() },
+                    onDragStart = { menuState.onDragStart() },
+                    onDrag = { change, _ -> change.consume() },
+                    onDragEnd = {},
+                    onDragCancel = { menuState.onDragCancel() }
                 ),
             color = Color.Transparent,
             shape = RoundedCornerShape(CornerRadius.medium)
         ) {
             PinnedItemView(item = item)
         }
-        
+
         ItemContextMenu(
             actions = buildHomeItemMenuActions(item),
-            expanded = isMenuVisible,
-            onDismiss = dismissMenu,
-            focusable = true,
-            onExternalDragStarted = dismissMenu,
+            expanded = menuState.showMenu,
+            onDismiss = menuState::dismiss,
+            focusable = menuState.isMenuFocusable,
+            onExternalDragStarted = menuState::dismiss,
         )
     }
 }
@@ -271,16 +277,36 @@ internal fun ActionShortcutIcon(
     size: Dp,
     modifier: Modifier = Modifier
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val packageName = shortcut.packageName ?: androidx.compose.runtime.remember(shortcut.destinationUri) {
-        kotlin.runCatching {
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(shortcut.destinationUri))
-            val resolveInfo = context.packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
-            resolveInfo?.activityInfo?.packageName
-        }.getOrNull()
+    val context = LocalContext.current
+
+    /**
+     * Resolved handler package for [shortcut.destinationUri].
+     *
+     * resolveActivity is binder IPC, so it must never run during composition.
+     * We serve an explicit packageName or a cached resolution synchronously,
+     * then fall back to a background load on cache misses (mirroring
+     * AppIcon/ShortcutIcon). Null results are cached too, so unresolvable
+     * URIs settle on the generic link placeholder without repeat IPC.
+     */
+    var resolvedPackage by remember(shortcut.packageName, shortcut.destinationUri) {
+        mutableStateOf(
+            shortcut.packageName
+                ?: ActionShortcutPackageResolver.getCached(shortcut.destinationUri)
+        )
     }
 
-    if (packageName != null) {
+    LaunchedEffect(shortcut.destinationUri) {
+        if (resolvedPackage == null && shortcut.packageName == null) {
+            resolvedPackage = withContext(Dispatchers.IO) {
+                ActionShortcutPackageResolver.getOrLoad(
+                    packageManager = context.packageManager,
+                    destinationUri = shortcut.destinationUri
+                )
+            }
+        }
+    }
+
+    if (resolvedPackage != null) {
         Box(modifier = modifier.size(size)) {
             AppIcon(
                 packageName = packageName,
