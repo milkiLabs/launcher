@@ -356,33 +356,23 @@ private fun IntRect.centerX(): Int {
     return left + ((right - left) / 2)
 }
 
-fun createUnpinAction(itemId: String, actionHandler: (SearchResultAction) -> Unit): MenuAction {
-    return MenuAction(
-        label = "Unpin from home",
-        icon = Icons.Filled.Delete,
-        onClick = { actionHandler(SearchResultAction.UnpinItem(itemId)) },
-        isDestructive = true
-    )
-}
-
 fun createPinAction(
     isPinned: Boolean,
-    pinAction: SearchResultAction,
-    unpinAction: SearchResultAction,
+    pinAction: SearchResultAction? = null,
+    unpinAction: SearchResultAction? = null,
     actionHandler: (SearchResultAction) -> Unit
 ): MenuAction {
     return if (isPinned) {
         MenuAction(
             label = "Unpin from home",
-            icon = Icons.Filled.Delete,
-            onClick = { actionHandler(unpinAction) },
-            isDestructive = true
+            icon = Icons.Outlined.PushPin,
+            onClick = { unpinAction?.let(actionHandler) }
         )
     } else {
         MenuAction(
             label = "Pin to home",
             icon = Icons.Outlined.PushPin,
-            onClick = { actionHandler(pinAction) }
+            onClick = { pinAction?.let(actionHandler) }
         )
     }
 }
@@ -415,14 +405,6 @@ fun createLaunchShortcutAction(shortcut: HomeItem.AppShortcut, actionHandler: (S
         icon = Icons.AutoMirrored.Filled.OpenInNew,
         onClick = { actionHandler(SearchResultAction.LaunchAppShortcut(shortcut)) },
         shortcutIcon = shortcut
-    )
-}
-
-fun createOpenWithAction(): MenuAction {
-    return MenuAction(
-        label = "Open with...",
-        icon = Icons.AutoMirrored.Filled.OpenInNew,
-        onClick = { }
     )
 }
 

@@ -19,7 +19,6 @@ import com.milki.launcher.ui.components.launcher.createLaunchShortcutAction
 import com.milki.launcher.ui.components.launcher.createOpenAppWidgetsAction
 import com.milki.launcher.ui.components.launcher.createPinAction
 import com.milki.launcher.ui.components.launcher.createUninstallAppAction
-import com.milki.launcher.ui.components.launcher.createUnpinAction
 
 @Stable
 class ItemContextMenuState {
@@ -159,7 +158,13 @@ fun buildHomeItemMenuActions(
                 add(createAppInfoAction(item.packageName, actionHandler))
             }
             if (includeUnpin) {
-                add(createUnpinAction(item.id, actionHandler))
+                add(
+                    createPinAction(
+                        isPinned = true,
+                        unpinAction = SearchResultAction.UnpinItem(item.id),
+                        actionHandler = actionHandler
+                    )
+                )
             }
             addAll(extraActions)
         }
