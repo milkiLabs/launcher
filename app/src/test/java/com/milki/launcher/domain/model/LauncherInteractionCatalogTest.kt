@@ -9,7 +9,7 @@ class LauncherInteractionCatalogTest {
     @Test
     fun available_actions_include_notification_shade_action() {
         assertTrue(
-            LauncherInteractionCatalog.availableActions()
+            LauncherTriggerAction.entries
                 .contains(LauncherTriggerAction.OPEN_NOTIFICATION_SHADE)
         )
     }
@@ -17,13 +17,13 @@ class LauncherInteractionCatalogTest {
     @Test
     fun configurable_triggers_include_swipe_down() {
         assertTrue(
-            LauncherInteractionCatalog.configurableTriggers.contains(LauncherTrigger.HOME_SWIPE_DOWN)
+            LauncherTrigger.entries.contains(LauncherTrigger.HOME_SWIPE_DOWN)
         )
     }
 
     @Test
     fun swipe_triggers_only_include_swipe_gestures() {
-        val swipeTriggers = LauncherInteractionCatalog.configurableTriggers.filter { trigger ->
+        val swipeTriggers = LauncherTrigger.entries.filter { trigger ->
             trigger.metadata.kind == LauncherGestureKind.SWIPE
         }
 
@@ -93,7 +93,7 @@ class LauncherInteractionCatalogTest {
 
     @Test
     fun default_trigger_actions_are_generated_from_catalog_defaults() {
-        val expected = LauncherInteractionCatalog.configurableTriggers.associateWith {
+        val expected = LauncherTrigger.entries.associateWith {
             LauncherInteractionCatalog.defaultActionFor(it)
         }
 

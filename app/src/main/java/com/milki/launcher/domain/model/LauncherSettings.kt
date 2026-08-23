@@ -134,11 +134,9 @@ sealed class LauncherTriggerTarget {
         val packageName: String,
         val shortcutId: String,
         val shortLabel: String,
-        val longLabel: String = shortLabel
+        val longLabel: String = shortLabel,
+        override val displayName: String = shortLabel.ifBlank { longLabel }
     ) : LauncherTriggerTarget() {
-        override val displayName: String
-            get() = shortLabel.ifBlank { longLabel }
-
         fun toHomeShortcut(): HomeItem.AppShortcut {
             return HomeItem.AppShortcut(
                 id = ItemId.shortcut(packageName, shortcutId),
@@ -156,11 +154,9 @@ sealed class LauncherTriggerTarget {
         val label: String,
         val destinationUri: String,
         val packageName: String? = null,
-        val packageLabel: String? = null
+        val packageLabel: String? = null,
+        override val displayName: String = label
     ) : LauncherTriggerTarget() {
-        override val displayName: String
-            get() = label
-
         fun toHomeShortcut(): HomeItem.ActionShortcut {
             return HomeItem.ActionShortcut(
                 id = id,
@@ -180,12 +176,6 @@ sealed class LauncherTriggerTarget {
  * settings UI and runtime mapping logic.
  */
 object LauncherInteractionCatalog {
-    val configurableTriggers: List<LauncherTrigger> = LauncherTrigger.entries
-
-    fun availableActions(): List<LauncherTriggerAction> {
-        return LauncherTriggerAction.entries
-    }
-
     fun defaultActionFor(trigger: LauncherTrigger): LauncherTriggerAction {
         return when (trigger) {
             LauncherTrigger.HOME_TAP -> LauncherTriggerAction.DO_NOTHING
@@ -196,7 +186,7 @@ object LauncherInteractionCatalog {
     }
 
     fun defaultTriggerActions(): Map<LauncherTrigger, LauncherTriggerAction> {
-        return configurableTriggers.associateWith(::defaultActionFor)
+        return LauncherTrigger.entries.associateWith(::defaultActionFor)
     }
 }
 

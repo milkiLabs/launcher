@@ -99,7 +99,7 @@ internal object SettingsPreferenceReader {
     internal fun mergeWithDefaultTriggerActions(
         overrides: Map<LauncherTrigger, LauncherTriggerAction>
     ): Map<LauncherTrigger, LauncherTriggerAction> {
-        return LauncherInteractionCatalog.configurableTriggers.associateWith { trigger ->
+        return LauncherTrigger.entries.associateWith { trigger ->
             overrides[trigger] ?: LauncherInteractionCatalog.defaultActionFor(trigger)
         }
     }

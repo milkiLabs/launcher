@@ -19,8 +19,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.widget.WidgetHostPort
-import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
+import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.actionForTrigger
 import com.milki.launcher.domain.model.targetForTrigger
@@ -162,7 +162,7 @@ internal fun LauncherRootContent(
         }
 
         val enabledHomeTriggers = remember(launcherSettings) {
-            LauncherInteractionCatalog.configurableTriggers
+            LauncherTrigger.entries
                 .filter { trigger ->
                     launcherSettings.actionForTrigger(trigger) != LauncherTriggerAction.DO_NOTHING
                 }

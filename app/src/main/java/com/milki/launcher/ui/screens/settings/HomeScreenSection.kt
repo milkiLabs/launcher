@@ -1,7 +1,6 @@
 package com.milki.launcher.ui.screens.settings
 
 import androidx.compose.runtime.Composable
-import com.milki.launcher.domain.model.LauncherInteractionCatalog
 import com.milki.launcher.domain.model.LauncherSettings
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
@@ -24,7 +23,7 @@ internal fun HomeScreenSection(
 ) {
     SettingsCategory(title = "Home Screen")
 
-    LauncherInteractionCatalog.configurableTriggers.forEach { trigger ->
+    LauncherTrigger.entries.forEach { trigger ->
         val action = settings.actionForTrigger(trigger)
         val target = settings.targetForTrigger(trigger)
         DropdownSettingItem(
@@ -35,7 +34,7 @@ internal fun HomeScreenSection(
                 null
             },
             selectedValue = action.displayName,
-            options = LauncherInteractionCatalog.availableActions()
+            options = LauncherTriggerAction.entries
                 .map { availableAction -> availableAction.displayName to availableAction },
             onOptionSelected = { selectedAction ->
                 if (selectedAction.requiresTargetPicker) {
