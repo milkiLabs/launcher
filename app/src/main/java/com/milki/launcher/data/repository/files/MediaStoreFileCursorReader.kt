@@ -4,6 +4,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
+import com.milki.launcher.BuildConfig
 import com.milki.launcher.core.file.MimeTypeResolver
 import com.milki.launcher.domain.model.FileDocument
 import com.milki.launcher.domain.model.FileFilterConfig
@@ -45,43 +46,42 @@ internal class MediaStoreFileCursorReader {
         )
     }
 
-    suspend fun addFileFromCursorRow(
+    fun readFileFromCursorRow(
         cursor: Cursor,
         columns: MediaStoreColumns,
         collectionUri: Uri,
-        files: MutableList<FileDocument>,
-        addedFileIds: MutableSet<Long>,
-        logFilteredOut: Boolean,
         allowedExtensions: Set<String>? = null,
         excludedMimePrefixes: Set<String>? = null
-    ) {
-        try {
-            when (val outcome = readCursorRow(cursor, columns, collectionUri, addedFileIds, allowedExtensions, excludedMimePrefixes)) {
-                CursorRowOutcome.Skip -> Unit
+    ): FileDocument? {
+        return try {
+            when (val outcome = readCursorRow(cursor, columns, collectionUri, allowedExtensions, excludedMimePrefixes)) {
+                CursorRowOutcome.Skip -> null
                 is CursorRowOutcome.FilteredOut -> {
-                    if (logFilteredOut) {
+                    if (BuildConfig.DEBUG) {
                         Log.d(MEDIA_STORE_FILE_CURSOR_READER_TAG, "Filtered out: ${outcome.fileName}")
                     }
+                    null
                 }
 
                 is CursorRowOutcome.Include -> {
-                    addedFileIds.add(outcome.fileDocument.id)
-                    if (logFilteredOut) {
+                    if (BuildConfig.DEBUG) {
                         Log.d(
                             MEDIA_STORE_FILE_CURSOR_READER_TAG,
                             "Found file: ${outcome.fileDocument.name}, " +
                                 "mimeType: ${outcome.normalizedMimeType}, size: ${outcome.fileDocument.size}"
                         )
                     }
-                    files.add(outcome.fileDocument)
+                    outcome.fileDocument
                 }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: IllegalArgumentException) {
             Log.e(MEDIA_STORE_FILE_CURSOR_READER_TAG, "Error reading file from cursor", e)
+            null
         } catch (e: IllegalStateException) {
             Log.e(MEDIA_STORE_FILE_CURSOR_READER_TAG, "Error reading file from cursor", e)
+            null
         }
     }
 
@@ -89,7 +89,6 @@ private fun readCursorRow(
     cursor: Cursor,
     columns: MediaStoreColumns,
     collectionUri: Uri,
-    addedFileIds: Set<Long>,
     allowedExtensions: Set<String>? = null,
     excludedMimePrefixes: Set<String>? = null
 ): CursorRowOutcome {
@@ -110,7 +109,6 @@ private fun readCursorRow(
         ?: relativePath?.substringAfterLast('/')?.trimEnd('/')
         ?: "Storage"
     val shouldInclude = name != null &&
-        id !in addedFileIds &&
         FileFilterConfig.shouldIncludeFile(
             fileName = name,
             mimeType = normalizedMimeType,
@@ -121,7 +119,7 @@ private fun readCursorRow(
         )
 
     return when {
-        id in addedFileIds || name == null -> CursorRowOutcome.Skip
+        name == null -> CursorRowOutcome.Skip
         !shouldInclude -> CursorRowOutcome.FilteredOut(name)
         else -> CursorRowOutcome.Include(
             fileDocument = FileDocument(

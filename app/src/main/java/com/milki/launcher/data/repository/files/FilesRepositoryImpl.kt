@@ -183,19 +183,13 @@ class FilesRepositoryImpl(
             ) { cursor ->
                 currentCoroutineContext().ensureActive()
                 val resolvedColumns = columns ?: cursorReader.resolveColumns(cursor).also { columns = it }
-                val tempFiles = mutableListOf<FileDocument>()
-                cursorReader.addFileFromCursorRow(
+                cursorReader.readFileFromCursorRow(
                     cursor = cursor,
                     columns = resolvedColumns,
                     collectionUri = MediaStore.Files.getContentUri("external"),
-                    files = tempFiles,
-                    addedFileIds = mutableSetOf(),
-                    logFilteredOut = false,
                     allowedExtensions = extensionConfig.resolveAllowedExtensions(),
                     excludedMimePrefixes = extensionConfig.resolveExcludedMimePrefixes()
-                )
-                if (tempFiles.isNotEmpty()) {
-                    val doc = tempFiles.first()
+                )?.let { doc ->
                     filesMap[doc.id] = doc
                 }
             }
