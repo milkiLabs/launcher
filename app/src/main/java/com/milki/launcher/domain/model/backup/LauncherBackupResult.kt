@@ -24,5 +24,6 @@ enum class SkippedImportCategory {
     WIDGET,
     SHORTCUT,
     FOLDER,
+    CONTACT,
     OTHER
 }

@@ -124,6 +124,7 @@ private val skippedImportCategoryDisplayOrder = listOf(
     SkippedImportCategory.WIDGET,
     SkippedImportCategory.SHORTCUT,
     SkippedImportCategory.FOLDER,
+    SkippedImportCategory.CONTACT,
     SkippedImportCategory.OTHER
 )
 
@@ -134,6 +135,7 @@ private fun SkippedImportCategory.toDisplayTitle(): String {
         SkippedImportCategory.WIDGET -> "Widgets"
         SkippedImportCategory.SHORTCUT -> "Shortcuts"
         SkippedImportCategory.FOLDER -> "Folders"
+        SkippedImportCategory.CONTACT -> "Contacts"
         SkippedImportCategory.OTHER -> "Other"
     }
 }

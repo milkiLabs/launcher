@@ -70,7 +70,7 @@ internal class LauncherBackupImportSanitizer(
                 context = context
             )
 
-            is HomeItem.PinnedContact -> item
+            is HomeItem.PinnedContact -> sanitizePinnedContact(item, context)
             is HomeItem.FolderItem -> sanitizeFolder(
                 folder = item,
                 context = context
@@ -135,6 +135,21 @@ internal class LauncherBackupImportSanitizer(
             context.skip(
                 category = SkippedImportCategory.FILE,
                 message = "Missing or inaccessible file ${item.name}"
+            )
+            return null
+        }
+        return item
+    }
+
+    private fun sanitizePinnedContact(
+        item: HomeItem.PinnedContact,
+        context: ImportContext
+    ): HomeItem.PinnedContact? {
+        val hasValidLookup = item.lookupKey.isNotBlank() || item.contactId != 0L
+        if (!hasValidLookup || item.displayName.isBlank()) {
+            context.skip(
+                category = SkippedImportCategory.CONTACT,
+                message = "Invalid pinned contact ${item.displayName}"
             )
             return null
         }
