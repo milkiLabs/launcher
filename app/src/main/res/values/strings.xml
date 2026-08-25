@@ -129,6 +129,10 @@
     <string name="file_extension_error_duplicate">Already added</string>
 
     <!-- Advanced page -->
+    <string name="advanced_share_logs_title">Share crash logs</string>
+    <string name="advanced_share_logs_subtitle">Send crash reports and device info to help diagnose issues</string>
+    <string name="crash_logs_share_subject">Milki Launcher crash logs</string>
+    <string name="crash_logs_empty_note">No crash reports recorded yet.</string>
     <string name="advanced_export_title">Export backup</string>
     <string name="advanced_export_subtitle">Export settings and homescreen snapshot to a file</string>
     <string name="advanced_import_title">Import backup (replace current)</string>

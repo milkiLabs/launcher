@@ -1,5 +1,6 @@
 package com.milki.launcher.core.di
 
+import com.milki.launcher.core.crash.CrashLogWriter
 import com.milki.launcher.data.repository.shortcut.ActionShortcutRepositoryImpl
 import com.milki.launcher.data.repository.apps.AppRepositoryImpl
 import com.milki.launcher.data.repository.apps.InstalledAppsCatalog
@@ -25,6 +26,8 @@ val IoDispatcher = named("ioDispatcher")
 
 val coreModule = module {
     single(IoDispatcher) { Dispatchers.IO }
+
+    single { CrashLogWriter(get()) }
 
     single(ApplicationScope) {
         val ioDispatcher = get<CoroutineDispatcher>(IoDispatcher)

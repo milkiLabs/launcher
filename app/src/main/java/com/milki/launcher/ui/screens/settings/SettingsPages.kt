@@ -170,6 +170,7 @@ internal fun AdvancedSettingsScreen(
     onRequestReset: () -> Unit,
     onRequestExport: () -> Unit,
     onRequestImport: () -> Unit,
+    onShareCrashLogs: () -> Unit,
     onBack: () -> Unit
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
@@ -188,7 +189,8 @@ internal fun AdvancedSettingsScreen(
                 backupStatusMessage = backupStatusMessage,
                 onRequestReset = { showResetDialog = true },
                 onRequestExport = onRequestExport,
-                onRequestImport = onRequestImport
+                onRequestImport = onRequestImport,
+                onShareCrashLogs = onShareCrashLogs
             )
 
             Spacer(modifier = Modifier.height(Spacing.extraLarge))

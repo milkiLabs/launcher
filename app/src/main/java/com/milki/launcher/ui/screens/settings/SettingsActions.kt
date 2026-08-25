@@ -70,7 +70,8 @@ data class SettingsFileSearchActions(
 data class SettingsAdvancedActions(
     val onResetToDefaults: () -> Unit,
     val onExportBackup: () -> Unit,
-    val onImportBackup: () -> Unit
+    val onImportBackup: () -> Unit,
+    val onShareCrashLogs: () -> Unit
 )
 
 /**

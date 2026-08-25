@@ -13,6 +13,8 @@ import android.app.Application
 // ============================================================================
 // IMPORTS - Koin (Dependency Injection)
 // ============================================================================
+import com.milki.launcher.core.crash.CrashLogWriter
+import com.milki.launcher.core.crash.GlobalCrashHandler
 import com.milki.launcher.core.di.allModules
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
@@ -22,6 +24,8 @@ import org.koin.core.logger.Level
 class LauncherApplication : Application() {
 
     override fun onCreate() {
+        // Installed before Koin so even dependency-init failures are captured.
+        GlobalCrashHandler.install(CrashLogWriter(this))
         super.onCreate()
         initializeKoin()
     }

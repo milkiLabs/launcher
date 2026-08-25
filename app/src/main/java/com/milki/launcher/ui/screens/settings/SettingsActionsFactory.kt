@@ -16,7 +16,8 @@ fun rememberSettingsActions(
     settingsViewModel: SettingsViewModel,
     onOpenDefaultLauncherSettings: () -> Unit,
     onExportBackup: () -> Unit,
-    onImportBackup: () -> Unit
+    onImportBackup: () -> Unit,
+    onShareCrashLogs: () -> Unit
 ): SettingsActions {
     return remember(settingsViewModel) {
         SettingsActions(
@@ -67,7 +68,8 @@ fun rememberSettingsActions(
                     onResetToDefaults =
                         settingsViewModel::resetToDefaults,
                     onExportBackup = onExportBackup,
-                    onImportBackup = onImportBackup
+                    onImportBackup = onImportBackup,
+                    onShareCrashLogs = onShareCrashLogs
                 )
         )
     }

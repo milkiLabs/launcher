@@ -117,6 +117,15 @@ jobs:
           # Binaries: .../releases/download/v%v/app-release.apk
           cp "$RELEASE_APK" "dist/app-release.apk"
 
+          # Archive the R8 mapping per release so stack traces can always be
+          # retraced, keyed by version.
+          MAPPING_FILE="app/build/outputs/mapping/release/mapping.txt"
+          if [ -f "$MAPPING_FILE" ]; then
+            cp "$MAPPING_FILE" "dist/mapping_${TAG_NAME}.txt"
+          else
+            echo "No mapping file found; skipping archive."
+          fi
+
           ls -lh dist
 
       - name: Upload APK artifacts

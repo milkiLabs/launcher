@@ -2,6 +2,7 @@ package com.milki.launcher.ui.screens.settings
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.MaterialTheme
@@ -19,9 +20,17 @@ internal fun AdvancedSection(
     backupStatusMessage: String?,
     onRequestReset: () -> Unit,
     onRequestExport: () -> Unit,
-    onRequestImport: () -> Unit
+    onRequestImport: () -> Unit,
+    onShareCrashLogs: () -> Unit
 ) {
     SettingsCategory(title = stringResource(R.string.settings_group_advanced_title))
+
+    ActionSettingItem(
+        title = stringResource(R.string.advanced_share_logs_title),
+        subtitle = stringResource(R.string.advanced_share_logs_subtitle),
+        onClick = onShareCrashLogs,
+        icon = Icons.Default.BugReport
+    )
 
     ActionSettingItem(
         title = stringResource(R.string.advanced_export_title),

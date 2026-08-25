@@ -16,6 +16,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.ui.NavDisplay
+import com.milki.launcher.R
+import com.milki.launcher.core.crash.CrashLogWriter
 import com.milki.launcher.core.intent.isHomeIntent
 import com.milki.launcher.core.intent.shouldNormalizeRootToHome
 import com.milki.launcher.core.launcher.isAppDefaultLauncher
@@ -91,6 +93,7 @@ class MainActivity : ComponentActivity() {
     private val widgetPickerCatalogStore: WidgetPickerCatalogStore by inject()
     private val appIconMemoryCache: AppIconMemoryCache by inject()
     private val contextDataCache: AppContextDataCache by inject()
+    private val crashLogWriter: CrashLogWriter by inject()
 
     private lateinit var runtime: LauncherHostRuntime
     private lateinit var backupCoordinator: BackupImportExportCoordinator
@@ -230,7 +233,8 @@ class MainActivity : ComponentActivity() {
                 settingsViewModel = settingsViewModel,
                 onOpenDefaultLauncherSettings = ::openDefaultLauncherSettings,
                 onExportBackup = backupCoordinator::launchExport,
-                onImportBackup = backupCoordinator::launchImport
+                onImportBackup = backupCoordinator::launchImport,
+                onShareCrashLogs = ::shareCrashLogs
             )
 
         LauncherTheme {
@@ -345,6 +349,22 @@ class MainActivity : ComponentActivity() {
         }
 
         openDefaultLauncherSettingsFallback()
+    }
+
+    private fun shareCrashLogs() {
+        val logs = crashLogWriter.buildShareableText()
+            .ifBlank { getString(R.string.crash_logs_empty_note) }
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(
+                Intent.EXTRA_SUBJECT,
+                getString(R.string.crash_logs_share_subject)
+            )
+            putExtra(Intent.EXTRA_TEXT, logs)
+        }
+        startActivity(
+            Intent.createChooser(shareIntent, getString(R.string.advanced_share_logs_title))
+        )
     }
 
     private companion object {

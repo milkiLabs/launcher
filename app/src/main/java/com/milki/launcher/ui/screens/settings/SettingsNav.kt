@@ -167,6 +167,8 @@ fun SettingsNavHost(
                             current.actions.advanced.onExportBackup,
                         onRequestImport =
                             current.actions.advanced.onImportBackup,
+                        onShareCrashLogs =
+                            current.actions.advanced.onShareCrashLogs,
                         onBack = navigateBack
                     )
                 }

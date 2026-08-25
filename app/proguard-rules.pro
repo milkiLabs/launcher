@@ -22,3 +22,11 @@
 
 # Needed when minifying the benchmark androidTest APK (error-prone annotations).
 -dontwarn javax.lang.model.element.Modifier
+
+# Crash-log friendliness: keep shrinking and optimization, but do not rename
+# classes/methods. User-reported stack traces stay readable, so there is no
+# dependency on per-release mapping.txt archives.
+-dontobfuscate
+
+# Keep file names and line numbers in stack traces for diagnosis.
+-keepattributes SourceFile,LineNumberTable
