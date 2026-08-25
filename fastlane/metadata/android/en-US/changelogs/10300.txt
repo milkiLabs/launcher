@@ -1,0 +1,13 @@
+Fixes and polish across the launcher.
+
+Fixed:
+- Preserve empty pinned item state on Home (@xziztt via #5)
+- Request file/contacts permissions before importing backups with pinned items
+- Validate pinned contacts during backup import
+- Prevent widget data loss on failed backup import
+- Avoid reading foreign entries from app label cache
+
+Changed:
+- Re-enable Material You dynamic colors by default
+- TalkBack accessibility improvements
+- Performance and stability improvements
