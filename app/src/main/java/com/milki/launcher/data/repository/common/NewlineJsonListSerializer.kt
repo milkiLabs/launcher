@@ -35,7 +35,7 @@ internal class NewlineJsonListSerializer<T>(
 
     fun readFrom(preferences: Preferences): List<T> {
         val encoded = preferences[key] ?: return default()
-        if (encoded.isEmpty()) return default()
+        if (encoded.isEmpty()) return emptyList()
 
         return encoded
             .split("\n")
