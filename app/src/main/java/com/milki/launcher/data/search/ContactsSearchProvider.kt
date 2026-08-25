@@ -69,9 +69,12 @@ class ContactsSearchProvider(
 
         val contactsByPhone = contactsRepository.getContactsByPhoneNumbers(recentPhones)
 
-        return recentPhones.mapNotNull { phoneNumber ->
-            contactsByPhone[phoneNumber] ?: contactFromPhoneNumber(phoneNumber)
-        }
+        // distinct(): two recents can resolve to the same contact (e.g. a
+        // contact dialed on two of its numbers), which would otherwise render
+        // duplicate LazyColumn keys.
+        return recentPhones
+            .map { phoneNumber -> contactsByPhone[phoneNumber] ?: Contact.unresolved(phoneNumber) }
+            .distinct()
     }
 
     override val toSearchResult: (Contact) -> SearchResult = { ContactSearchResult(it) }
@@ -83,15 +86,5 @@ class ContactsSearchProvider(
     private fun isPhoneNumberQuery(query: String): Boolean {
         val digitCount = query.count(Char::isDigit)
         return digitCount >= MIN_PHONE_DIGITS && PHONE_QUERY_PATTERN.matches(query)
-    }
-
-    private fun contactFromPhoneNumber(phoneNumber: String): Contact {
-        return Contact(
-            id = -1,
-            displayName = phoneNumber,
-            phoneNumbers = listOf(phoneNumber),
-            photoUri = null,
-            lookupKey = ""
-        )
     }
 }

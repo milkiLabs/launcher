@@ -45,7 +45,7 @@ data class Contact(
     
     /**
      * The display name of the contact (DISPLAY_NAME_PRIMARY).
-     * This is the name shown in the contacts app.
+     * The name shown in the contacts app.
      */
     val displayName: String,
     
@@ -69,6 +69,26 @@ data class Contact(
      * Used to retrieve the contact later or create contact URIs.
      */
     val lookupKey: String
-)
+) {
+
+    companion object {
+        /**
+         * Sentinel id for a placeholder contact that could not be resolved in
+         * the Contacts Provider (e.g. the number was dialed before the contact
+         * was deleted). Placeholders are identified by their phone number, so
+         * consumers must never treat [id] as unique among them.
+         */
+        const val UNRESOLVED_CONTACT_ID = -1L
+
+        /** Placeholder contact standing in for an unresolvable phone number. */
+        fun unresolved(phoneNumber: String): Contact = Contact(
+            id = UNRESOLVED_CONTACT_ID,
+            displayName = phoneNumber,
+            phoneNumbers = listOf(phoneNumber),
+            photoUri = null,
+            lookupKey = ""
+        )
+    }
+}
 
 

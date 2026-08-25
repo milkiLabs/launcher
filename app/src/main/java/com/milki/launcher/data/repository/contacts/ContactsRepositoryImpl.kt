@@ -163,7 +163,6 @@ class ContactsRepositoryImpl(
         )
 
         val contactIdByNormalized = mutableMapOf<String, Long>()
-        val matchedContactIds = LinkedHashSet<Long>()
         val infoByContactId = mutableMapOf<Long, ContactInfo>()
 
         contentResolver.forEachRow(
@@ -176,7 +175,10 @@ class ContactsRepositoryImpl(
 
             val contactId = cursor.getLong(0)
             contactIdByNormalized.putIfAbsent(normalized, contactId)
-            if (matchedContactIds.add(contactId) &&
+            // The first Phone row seen for a contact may have a null display
+            // name or lookup key; keep scanning later rows until one carries
+            // the info, otherwise the whole contact would be dropped.
+            if (contactId !in infoByContactId &&
                 cursor.getString(3) != null && cursor.getString(5) != null
             ) {
                 infoByContactId[contactId] = ContactInfo(

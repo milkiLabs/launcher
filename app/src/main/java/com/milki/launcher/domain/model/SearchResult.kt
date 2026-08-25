@@ -78,7 +78,15 @@ data class ContactSearchResult(
     val contact: Contact
 ) : SearchResult() {
     override val title: String = contact.displayName
-    override val id: String = "contact_${contact.id}_${contact.lookupKey}"
+
+    // Unresolved placeholder contacts all share the sentinel id, so fall back
+    // to their phone number to keep LazyColumn keys unique.
+    override val id: String =
+        if (contact.id == Contact.UNRESOLVED_CONTACT_ID) {
+            "contact_unresolved_${contact.phoneNumbers.firstOrNull() ?: contact.displayName}"
+        } else {
+            "contact_${contact.id}_${contact.lookupKey}"
+        }
 }
 
 /**

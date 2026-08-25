@@ -32,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.milki.launcher.domain.model.AppSearchResult
 import com.milki.launcher.domain.model.ContactSearchResult
@@ -231,6 +232,10 @@ private fun MixedResultsList(
     val accentColor = providerVisual?.accentColor
     val listState = rememberLazyListState()
 
+    // LazyColumn requires unique keys; drop any accidental duplicate ids
+    // so a data quirk can never crash composition.
+    val uniqueResults = remember(results) { results.distinctBy { it.id } }
+
     LaunchedEffect(results, reverseOrder) {
         if (!reverseOrder && results.isNotEmpty()) {
             listState.scrollToItem(0)
@@ -250,7 +255,7 @@ private fun MixedResultsList(
         }
 
         items(
-            items = results,
+            items = uniqueResults,
             key = { it.id }
         ) { result ->
             when (result) {
