@@ -62,7 +62,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --console=plain
+        run: ./gradlew :app:testBenchmarkUnitTest --console=plain
 
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --console=plain
