@@ -93,7 +93,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run unit tests
-        run: ./gradlew :app:testDebugUnitTest --console=plain
+        run: ./gradlew :app:testBenchmarkUnitTest --console=plain
 
       - name: Build signed release APK
         run: ./gradlew :app:assembleRelease --console=plain
