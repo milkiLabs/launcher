@@ -56,6 +56,17 @@ sealed interface BackupStatusEvent {
     data class ImportCompleted(override val message: String) : BackupStatusEvent
 }
 
+/**
+ * Shown before an import when the backup contains pinned items the app cannot
+ * access yet (files need storage access, contacts need READ_CONTACTS). The
+ * user can grant access so everything is restored, or dismiss and proceed —
+ * inaccessible items are then skipped and reported in the import report.
+ */
+data class ImportFileAccessPrompt(
+    val pinnedFileCount: Int,
+    val pinnedContactCount: Int
+)
+
 class SettingsViewModel(
     private val settingsReader: SettingsReader,
     private val searchSourceRepository: SearchSourceRepository,
@@ -63,7 +74,9 @@ class SettingsViewModel(
     private val homeTriggerRepository: HomeTriggerRepository,
     appRepository: AppRepository,
     private val actionShortcutRepository: ActionShortcutRepository,
-    private val launcherBackupRepository: () -> LauncherBackupRepository
+    private val launcherBackupRepository: () -> LauncherBackupRepository,
+    private val hasFilesPermission: () -> Boolean,
+    private val hasContactsPermission: () -> Boolean
 ) : ViewModel() {
 
     companion object {
@@ -100,6 +113,11 @@ class SettingsViewModel(
 
     private val _lastImportReport = MutableStateFlow<LauncherImportResult?>(null)
     val lastImportReport: StateFlow<LauncherImportResult?> = _lastImportReport
+
+    private val _importFileAccessPrompt = MutableStateFlow<ImportFileAccessPrompt?>(null)
+    val importFileAccessPrompt: StateFlow<ImportFileAccessPrompt?> = _importFileAccessPrompt
+
+    private var pendingFileAccessImport: PendingBackupImport? = null
 
     // ========================================================================
     // HOME SCREEN
@@ -319,18 +337,64 @@ class SettingsViewModel(
         requestWidgetBindPermission: WidgetBindPermissionRequester
     ) {
         viewModelScope.launch {
-            val result = launcherBackupRepository().importFromUri(
-                uri = sourceUri,
-                requestWidgetBindPermission = requestWidgetBindPermission
-            )
-            _lastImportReport.value = result
-            _backupStatusEvents.send(BackupStatusEvent.ImportCompleted(result.message))
+            val inspection = launcherBackupRepository().inspectBackup(sourceUri)
+            val needsFileAccess = !hasFilesPermission() && inspection.pinnedFileCount > 0
+            val needsContactsAccess = !hasContactsPermission() && inspection.pinnedContactCount > 0
+
+            if (needsFileAccess || needsContactsAccess) {
+                pendingFileAccessImport = PendingBackupImport(
+                    sourceUri = sourceUri,
+                    requestWidgetBindPermission = requestWidgetBindPermission
+                )
+                _importFileAccessPrompt.value = ImportFileAccessPrompt(
+                    pinnedFileCount = if (needsFileAccess) inspection.pinnedFileCount else 0,
+                    pinnedContactCount = if (needsContactsAccess) inspection.pinnedContactCount else 0
+                )
+                return@launch
+            }
+            runBackupImport(sourceUri, requestWidgetBindPermission)
+        }
+    }
+
+    /**
+     * Resumes (or abandons) an import that was paused on the file-access
+     * prompt. Called both after the user grants/denies file access and after
+     * they dismiss the prompt; the import always proceeds, with inaccessible
+     * files skipped and reported.
+     */
+    fun continuePendingImportAfterFileAccessPrompt() {
+        val pending = pendingFileAccessImport ?: run {
+            _importFileAccessPrompt.value = null
+            return
+        }
+        pendingFileAccessImport = null
+        _importFileAccessPrompt.value = null
+
+        viewModelScope.launch {
+            runBackupImport(pending.sourceUri, pending.requestWidgetBindPermission)
         }
     }
 
     fun clearLastImportReport() {
         _lastImportReport.value = null
     }
+
+    private suspend fun runBackupImport(
+        sourceUri: String,
+        requestWidgetBindPermission: WidgetBindPermissionRequester
+    ) {
+        val result = launcherBackupRepository().importFromUri(
+            uri = sourceUri,
+            requestWidgetBindPermission = requestWidgetBindPermission
+        )
+        _lastImportReport.value = result
+        _backupStatusEvents.send(BackupStatusEvent.ImportCompleted(result.message))
+    }
+
+    private data class PendingBackupImport(
+        val sourceUri: String,
+        val requestWidgetBindPermission: WidgetBindPermissionRequester
+    )
 
     fun getDefaultPrefix(providerId: String): String {
         return PrefixConfig.defaults[providerId]?.primaryPrefix.orEmpty()

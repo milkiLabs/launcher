@@ -141,6 +141,12 @@
     <string name="reset_settings_message">This will restore all settings to their default values. This action cannot be undone.</string>
     <string name="delete_source_title">Delete source</string>
     <string name="delete_source_message">Delete this source and all of its prefixes?</string>
+    <string name="import_access_title">Permissions needed</string>
+    <string name="import_access_message">This backup contains items the app cannot access yet. Grant access so they can be restored to your home screen. You can skip this, but those items will not be imported.</string>
+    <string name="import_access_files_bullet">• %1$d pinned file(s) — needs file access</string>
+    <string name="import_access_contacts_bullet">• %1$d pinned contact(s) — needs contacts access</string>
+    <string name="import_access_grant">Grant access</string>
+    <string name="import_access_dismiss">Not now</string>
     <string name="import_report_title">Import Report</string>
     <string name="import_report_imported_count">Imported items: %1$d</string>
     <string name="import_report_skipped_count">Skipped items: %1$d</string>

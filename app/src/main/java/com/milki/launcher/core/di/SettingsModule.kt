@@ -1,5 +1,6 @@
 package com.milki.launcher.core.di
 
+import com.milki.launcher.core.permission.PermissionChecker
 import com.milki.launcher.presentation.settings.DefaultLauncherPromoter
 import com.milki.launcher.presentation.settings.SettingsViewModel
 import org.koin.core.module.dsl.viewModel
@@ -20,7 +21,9 @@ val settingsModule = module {
             actionShortcutRepository = get(),
             // Resolved lazily on first export/import so opening Settings does
             // not instantiate the backup graph (WidgetHostManager, etc.).
-            launcherBackupRepository = { get() }
+            launcherBackupRepository = { get() },
+            hasFilesPermission = { PermissionChecker.hasFilesPermission(get()) },
+            hasContactsPermission = { PermissionChecker.hasContactsPermission(get()) }
         )
     }
 }

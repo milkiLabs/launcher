@@ -31,6 +31,7 @@ import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.LauncherTriggerAction
 import com.milki.launcher.domain.model.LauncherTriggerTarget
 import com.milki.launcher.domain.model.backup.LauncherImportResult
+import com.milki.launcher.presentation.settings.ImportFileAccessPrompt
 import com.milki.launcher.domain.model.targetForTrigger
 import kotlinx.serialization.Serializable
 
@@ -79,6 +80,9 @@ fun SettingsNavHost(
     backupStatusMessage: String?,
     importReport: LauncherImportResult?,
     onDismissImportReport: () -> Unit,
+    importFileAccessPrompt: ImportFileAccessPrompt?,
+    onGrantImportFileAccess: () -> Unit,
+    onSkipImportFileAccess: () -> Unit,
     actions: SettingsActions,
     onExitSettings: () -> Unit
 ) {
@@ -212,6 +216,15 @@ fun SettingsNavHost(
         ImportReportDialog(
             importReport = importReport,
             onDismiss = onDismissImportReport
+        )
+    }
+
+    importFileAccessPrompt?.let { prompt ->
+        ImportFileAccessDialog(
+            pinnedFileCount = prompt.pinnedFileCount,
+            pinnedContactCount = prompt.pinnedContactCount,
+            onGrant = onGrantImportFileAccess,
+            onDismiss = onSkipImportFileAccess
         )
     }
 }

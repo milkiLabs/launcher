@@ -10,6 +10,7 @@ import com.milki.launcher.core.util.lenientJson
 import com.milki.launcher.domain.widget.WidgetHostPort
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.backup.LauncherBackupFile
+import com.milki.launcher.domain.model.backup.LauncherBackupInspection
 import com.milki.launcher.domain.model.backup.LauncherBackupResult
 import com.milki.launcher.domain.model.backup.LauncherBackupSnapshot
 import com.milki.launcher.domain.model.backup.LauncherImportResult
@@ -75,20 +76,25 @@ class LauncherBackupRepositoryImpl(
         }
     }
 
+    override suspend fun inspectBackup(uri: String): LauncherBackupInspection {
+        return runCatching {
+            val snapshot = readBackupSnapshot(Uri.parse(uri))
+            LauncherBackupInspection(
+                pinnedFileCount = countPinnedItemsOfType(snapshot.homeItems) { it is HomeItem.PinnedFile },
+                pinnedContactCount = countPinnedItemsOfType(snapshot.homeItems) { it is HomeItem.PinnedContact }
+            )
+        }.getOrElse { throwable ->
+            Log.e(TAG, "Failed to inspect backup from $uri", throwable)
+            LauncherBackupInspection(pinnedFileCount = 0, pinnedContactCount = 0)
+        }
+    }
+
     override suspend fun importFromUri(
         uri: String,
         requestWidgetBindPermission: WidgetBindPermissionRequester
     ): LauncherImportResult {
         return runCatching {
-            val sourceUri = Uri.parse(uri)
-            val filePayload = appContext.contentResolver.openInputStream(sourceUri)
-                ?.bufferedReader()
-                ?.use { it.readText() }
-                ?: error("Could not open input stream")
-
-            val backupFile = backupJson.decodeFromString<LauncherBackupFile>(filePayload)
-            val snapshot = backupFile.snapshot
-
+            val snapshot = readBackupSnapshot(Uri.parse(uri))
             if (snapshot.schemaVersion > LauncherBackupSnapshot.CURRENT_SCHEMA_VERSION) {
                 return LauncherImportResult(
                     success = false,
@@ -152,6 +158,30 @@ class LauncherBackupRepositoryImpl(
                 skippedCount = 0,
                 skippedReasons = emptyList()
             )
+        }
+    }
+
+    private fun readBackupSnapshot(sourceUri: Uri): LauncherBackupSnapshot {
+        val payload = appContext.contentResolver.openInputStream(sourceUri)
+            ?.bufferedReader()
+            ?.use { it.readText() }
+            ?: error("Could not open input stream")
+
+        return backupJson.decodeFromString<LauncherBackupFile>(payload).snapshot
+    }
+
+    private fun countPinnedItemsOfType(
+        items: List<HomeItem>,
+        isMatch: (HomeItem) -> Boolean
+    ): Int {
+        return items.sumOf { item ->
+            when {
+                item is HomeItem.FolderItem ->
+                    countPinnedItemsOfType(item.children, isMatch)
+
+                isMatch(item) -> 1
+                else -> 0
+            }
         }
     }
 

@@ -74,6 +74,47 @@ internal fun DeleteSourceDialog(
 }
 
 @Composable
+internal fun ImportFileAccessDialog(
+    pinnedFileCount: Int,
+    pinnedContactCount: Int,
+    onGrant: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.import_access_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.import_access_message))
+                Spacer(modifier = Modifier.height(Spacing.small))
+                if (pinnedFileCount > 0) {
+                    Text(
+                        stringResource(R.string.import_access_files_bullet, pinnedFileCount),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                if (pinnedContactCount > 0) {
+                    Text(
+                        stringResource(R.string.import_access_contacts_bullet, pinnedContactCount),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onGrant) {
+                Text(stringResource(R.string.import_access_grant))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.import_access_dismiss))
+            }
+        }
+    )
+}
+
+@Composable
 internal fun ImportReportDialog(
     importReport: LauncherImportResult,
     onDismiss: () -> Unit

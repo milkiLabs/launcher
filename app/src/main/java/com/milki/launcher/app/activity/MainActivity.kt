@@ -220,6 +220,8 @@ class MainActivity : ComponentActivity() {
         }
         val importReport by
         settingsViewModel.lastImportReport.collectAsStateWithLifecycle()
+        val importFileAccessPrompt by
+        settingsViewModel.importFileAccessPrompt.collectAsStateWithLifecycle()
         val isDefaultLauncher by
         defaultLauncherPromoter.isDefaultLauncher.collectAsStateWithLifecycle()
 
@@ -241,6 +243,18 @@ class MainActivity : ComponentActivity() {
                 importReport = importReport,
                 onDismissImportReport =
                     settingsViewModel::clearLastImportReport,
+                importFileAccessPrompt = importFileAccessPrompt,
+                onGrantImportFileAccess = {
+                    val prompt = importFileAccessPrompt
+                    backupCoordinator.requestMissingImportAccess(
+                        needsFileAccess = (prompt?.pinnedFileCount ?: 0) > 0,
+                        needsContactsAccess = (prompt?.pinnedContactCount ?: 0) > 0
+                    ) {
+                        settingsViewModel.continuePendingImportAfterFileAccessPrompt()
+                    }
+                },
+                onSkipImportFileAccess =
+                    settingsViewModel::continuePendingImportAfterFileAccessPrompt,
                 actions = settingsActions,
                 onExitSettings = onExitSettings
             )
