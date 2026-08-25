@@ -19,3 +19,6 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Needed when minifying the benchmark androidTest APK (error-prone annotations).
+-dontwarn javax.lang.model.element.Modifier
