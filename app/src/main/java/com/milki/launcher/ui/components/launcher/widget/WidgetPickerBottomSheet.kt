@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
@@ -32,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import com.milki.launcher.R
 import com.milki.launcher.data.widget.WidgetAppGroup
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
+import com.milki.launcher.domain.search.QueryRanker
 import com.milki.launcher.domain.search.QueryTextMatcher
 import com.milki.launcher.ui.components.search.UnifiedSearchInputField
 import com.milki.launcher.ui.theme.CornerRadius
@@ -68,10 +71,10 @@ fun WidgetPickerBottomSheet(
 
     val normalizedQuery = QueryTextMatcher.normalize(searchQuery)
     val filteredGroups = remember(appGroups, normalizedQuery) {
-        appGroups.mapNotNull { group ->
-            if (normalizedQuery.isBlank()) {
-                group
-            } else {
+        if (normalizedQuery.isBlank()) {
+            appGroups
+        } else {
+            val filtered = appGroups.mapNotNull { group ->
                 val appMatches = QueryTextMatcher.containsNormalized(
                     text = group.appLabel,
                     normalizedQuery = normalizedQuery
@@ -93,10 +96,28 @@ fun WidgetPickerBottomSheet(
                     group.copy(widgets = matchingWidgets)
                 }
             }
+            QueryRanker.rank(
+                items = filtered,
+                query = normalizedQuery,
+                nameSelector = { it.appLabel },
+                secondaryTextSelector = { group ->
+                    group.widgets.firstOrNull {
+                        it.label.lowercase().contains(normalizedQuery)
+                    }?.label ?: group.widgets.first().label
+                },
+                identitySelector = { it.packageName },
+            )
         }
     }
     val totalWidgetCount = appGroups.sumOf { it.widgets.size }
     val visibleWidgetCount = filteredGroups.sumOf { it.widgets.size }
+
+    val listState = rememberLazyListState()
+    LaunchedEffect(normalizedQuery) {
+        if (filteredGroups.isNotEmpty()) {
+            listState.scrollToItem(0)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -128,6 +149,7 @@ fun WidgetPickerBottomSheet(
             )
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     start = Spacing.mediumLarge,
