@@ -57,6 +57,15 @@ internal fun AdvancedSection(
         icon = Icons.Default.BugReport
     )
 
+    HorizontalDivider(
+        modifier = Modifier.padding(
+            horizontal = Spacing.mediumLarge,
+            vertical = Spacing.smallMedium
+        ),
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+        thickness = 1.dp
+    )
+
     ActionSettingItem(
         title = stringResource(R.string.advanced_reset_title),
         subtitle = stringResource(R.string.advanced_reset_subtitle),
