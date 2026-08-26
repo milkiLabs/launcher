@@ -283,7 +283,7 @@ internal class LauncherHostRuntime(
                 searchViewModelProvider().saveRecentApp(componentName)
             },
             openAppWidgets = { appName ->
-                launcherNavigator.navigate(LauncherRoute.WidgetPicker(appName))
+                launcherNavigator.openWidgetPicker(appName)
             }
         )
 

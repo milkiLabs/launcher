@@ -27,7 +27,7 @@ sealed interface LauncherRoute : NavKey {
     data object AppDrawer : LauncherRoute
 
     @Serializable
-    data class WidgetPicker(val query: String = "") : LauncherRoute
+    data object WidgetPicker : LauncherRoute
 
     @Serializable
     data object ShortcutManager : LauncherRoute
@@ -59,6 +59,9 @@ class LauncherNavigator(
 
     private var wasResumed = false
 
+    var widgetPickerQuery by mutableStateOf("")
+        private set
+
     /**
      * Hot projection of "is the search route open". Updated only from
      * [openRoute]/[closeRoute] so it can never diverge from [backStack].
@@ -82,7 +85,7 @@ class LauncherNavigator(
         get() = currentRoute == LauncherRoute.AppDrawer
 
     val isWidgetPickerOpen: Boolean
-        get() = currentRoute is LauncherRoute.WidgetPicker
+        get() = currentRoute == LauncherRoute.WidgetPicker
 
     val isShortcutManagerOpen: Boolean
         get() = currentRoute == LauncherRoute.ShortcutManager
@@ -106,10 +109,15 @@ class LauncherNavigator(
 
     fun updateWidgetPickerOpen(isOpen: Boolean) {
         if (isOpen) {
-            navigate(LauncherRoute.WidgetPicker())
+            openWidgetPicker()
         } else if (isWidgetPickerOpen) {
             pop()
         }
+    }
+
+    fun openWidgetPicker(initialQuery: String = "") {
+        widgetPickerQuery = initialQuery
+        navigate(LauncherRoute.WidgetPicker)
     }
 
     fun updateShortcutManagerOpen(isOpen: Boolean) {
@@ -129,9 +137,8 @@ class LauncherNavigator(
     }
 
     fun updateWidgetPickerQuery(query: String) {
-        val route = currentRoute as? LauncherRoute.WidgetPicker ?: return
-        if (route.query == query) return
-        backStack[backStack.lastIndex] = route.copy(query = query)
+        if (!isWidgetPickerOpen || widgetPickerQuery == query) return
+        widgetPickerQuery = query
     }
 
     fun navigate(route: LauncherRoute) {
@@ -230,7 +237,7 @@ class LauncherNavigator(
             LauncherRoute.AppDrawer -> onAppDrawerVisibilityChanged(true)
             is LauncherRoute.Folder -> openFolder(route.folderId)
             LauncherRoute.Home,
-            is LauncherRoute.WidgetPicker,
+            LauncherRoute.WidgetPicker,
             LauncherRoute.ShortcutManager -> Unit
         }
     }
@@ -240,8 +247,8 @@ class LauncherNavigator(
             LauncherRoute.Search -> searchVisibility.value = false
             LauncherRoute.AppDrawer -> onAppDrawerVisibilityChanged(false)
             is LauncherRoute.Folder -> closeFolder()
+            LauncherRoute.WidgetPicker -> widgetPickerQuery = ""
             LauncherRoute.Home,
-            is LauncherRoute.WidgetPicker,
             LauncherRoute.ShortcutManager -> Unit
         }
     }
