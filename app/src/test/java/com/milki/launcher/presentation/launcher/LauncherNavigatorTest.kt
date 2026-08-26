@@ -18,12 +18,13 @@ class LauncherNavigatorTest {
         )
 
         navigator.navigate(LauncherRoute.AppDrawer)
-        navigator.navigate(LauncherRoute.WidgetPicker("clock"))
+        navigator.openWidgetPicker("clock")
 
         assertEquals(
-            listOf(LauncherRoute.Home, LauncherRoute.WidgetPicker("clock")),
+            listOf(LauncherRoute.Home, LauncherRoute.WidgetPicker),
             navigator.backStack.toList()
         )
+        assertEquals("clock", navigator.widgetPickerQuery)
         assertEquals(listOf(true, false), visibilityChanges)
     }
 
@@ -83,13 +84,28 @@ class LauncherNavigatorTest {
     }
 
     @Test
-    fun widget_picker_query_updates_current_route() {
+    fun widget_picker_query_updates_without_replacing_route() {
         val navigator = navigator()
 
-        navigator.navigate(LauncherRoute.WidgetPicker())
+        navigator.openWidgetPicker()
         navigator.updateWidgetPickerQuery("weather")
 
-        assertEquals(LauncherRoute.WidgetPicker("weather"), navigator.currentRoute)
+        assertEquals(LauncherRoute.WidgetPicker, navigator.currentRoute)
+        assertEquals("weather", navigator.widgetPickerQuery)
+        assertEquals(
+            listOf(LauncherRoute.Home, LauncherRoute.WidgetPicker),
+            navigator.backStack.toList()
+        )
+    }
+
+    @Test
+    fun closing_widget_picker_resets_query() {
+        val navigator = navigator()
+
+        navigator.openWidgetPicker("weather")
+        navigator.pop()
+
+        assertEquals("", navigator.widgetPickerQuery)
     }
 
     @Test

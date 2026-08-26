@@ -188,10 +188,10 @@ fun LauncherScreen(
                     )
                 }
 
-                is LauncherRoute.WidgetPicker -> overlayEntry(route) {
+                LauncherRoute.WidgetPicker -> overlayEntry(route) {
                     WidgetPickerHost(
                         widgetPickerSheetState = widgetPickerSheetState,
-                        widgetPickerQuery = route.query,
+                        widgetPickerQuery = navigator.widgetPickerQuery,
                         widgetPickerCatalogStore =
                             current.widgetPickerCatalogStore,
                         widgetActions = current.actions.widget
