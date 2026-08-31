@@ -26,7 +26,7 @@ class CrashLogWriter(
             appendLine(HEADER_DIVIDER)
             appendLine("Milki Launcher crash report")
             appendLine("Timestamp      : ${formatTimestamp(timestamp)}")
-            appendLine("Thread         : ${thread.name} (id=${thread.id})")
+            appendLine("Thread         : ${thread.name} (id=${threadIdCompat(thread)})")
             appendDeviceSection(this)
             appendStackTrace(throwable, this)
         }
@@ -117,6 +117,13 @@ class CrashLogWriter(
         builder.appendLine("Stack trace:")
         builder.appendLine(writer.toString())
     }
+
+    private fun threadIdCompat(thread: Thread): Long =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            thread.threadId()
+        } else {
+            @Suppress("DEPRECATION") thread.id
+        }
 
     companion object {
         private const val DIRECTORY_NAME = "crash-logs"

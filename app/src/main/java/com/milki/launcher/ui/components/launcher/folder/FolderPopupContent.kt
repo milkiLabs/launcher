@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,11 +34,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.milki.launcher.R
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
 import com.milki.launcher.ui.components.common.buildHomeItemMenuActions
@@ -55,7 +51,6 @@ internal fun FolderNameHeader(
     name: String,
     isEditing: Boolean,
     focusRequester: FocusRequester,
-    itemCount: Int,
     onNameChange: (String) -> Unit,
     onEditingChanged: (Boolean) -> Unit,
     onEditRequested: () -> Unit
@@ -64,43 +59,30 @@ internal fun FolderNameHeader(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onEditRequested
-                    )
-            ) {
-                BasicTextField(
-                    value = name,
-                    onValueChange = onNameChange,
-                    textStyle = MaterialTheme.typography.titleMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center
-                    ),
-                    singleLine = true,
-                    modifier = Modifier
-                        .widthIn(max = FOLDER_NAME_MAX_WIDTH)
-                        .focusRequester(focusRequester)
-                        .onFocusChanged { focusState ->
-                            onEditingChanged(focusState.isFocused)
-                        },
-                    readOnly = !isEditing
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onEditRequested
                 )
-            }
-
-            Spacer(modifier = Modifier.width(Spacing.extraSmall))
-            Text(
-                text = pluralStringResource(R.plurals.folder_item_count, itemCount, itemCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+        ) {
+            BasicTextField(
+                value = name,
+                onValueChange = onNameChange,
+                textStyle = MaterialTheme.typography.titleMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                ),
+                singleLine = true,
+                modifier = Modifier
+                    .widthIn(max = FOLDER_NAME_MAX_WIDTH)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focusState ->
+                        onEditingChanged(focusState.isFocused)
+                    },
+                readOnly = !isEditing
             )
         }
 
@@ -310,7 +292,7 @@ private fun FolderPopupItem(
 private const val FOLDER_DRAG_THRESHOLD_PX = 20f
 private const val FOLDER_DRAG_GHOST_ALPHA = 0.18f
 
-/** Max width of the folder name text field before it wraps into the item count. */
+/** Max width of the folder name text field. */
 private val FOLDER_NAME_MAX_WIDTH: Dp = 220.dp
 
 /** Max width of the underline shown under the folder name while editing. */

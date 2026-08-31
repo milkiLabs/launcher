@@ -150,7 +150,6 @@ fun FolderPopupDialog(
                         name = editingName,
                         isEditing = isEditingName,
                         focusRequester = nameFocusRequester,
-                        itemCount = localChildren.size,
                         onNameChange = { editingName = it },
                         onEditingChanged = { isEditing ->
                             val wasEditing = isEditingName
