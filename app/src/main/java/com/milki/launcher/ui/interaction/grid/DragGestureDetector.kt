@@ -324,6 +324,14 @@ private suspend fun AwaitPointerEventScope.handlePostLongPressDrag(
             onLongPressRelease()
         }
     } catch (e: CancellationException) {
+        // Pointer input is cancelled when the composable or its Activity leaves
+        // the foreground. Perform the same state cleanup as any other aborted
+        // drag before preserving coroutine cancellation semantics.
+        if (dragStarted) {
+            onDragCancel()
+        } else {
+            onLongPressRelease()
+        }
         throw e
     } catch (e: Exception) {
         if (dragStarted) {

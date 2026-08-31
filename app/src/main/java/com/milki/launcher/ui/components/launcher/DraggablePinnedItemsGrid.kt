@@ -3,6 +3,7 @@ package com.milki.launcher.ui.components.launcher
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -12,6 +13,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.reorder.ReorderInput
 import com.milki.launcher.domain.model.GridOccupancy
@@ -55,6 +59,25 @@ fun DraggablePinnedItemsGrid(
     val dragController = rememberAppDragDropController<HomeItem>(config)
     val interactionController = rememberHomeSurfaceInteractionController(dragController)
     val reorderEngine = remember { GridReorderEngine() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // The Home route remains composed while the activity is backgrounded, but
+    // Android cancels active pointer streams in that transition. Clear all
+    // transient interaction state at the lifecycle boundary so a cancelled
+    // drag/menu/popup cannot keep background gestures disabled on return.
+    DisposableEffect(lifecycleOwner, interactionController) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                interactionController.cancelAllInteractions()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            interactionController.cancelAllInteractions()
+        }
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val cellWidthPx = with(LocalDensity.current) { maxWidth.toPx() / config.columns }

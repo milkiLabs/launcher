@@ -159,6 +159,25 @@ internal class HomeSurfaceInteractionController(
         menuRegistry.cancelGesture()
     }
 
+    /**
+     * Returns the homescreen to an input-ready state after its UI is no longer
+     * active.
+     *
+     * Pointer input is cancelled when the activity is backgrounded. Unlike a
+     * normal pointer-up, that cancellation may bypass item-level callbacks, so
+     * no individual interaction can be relied on to clean itself up. Keeping
+     * this reset at the owner of all interaction state prevents a stale drag,
+     * menu, widget popup, or resize session from disabling background gestures
+     * when the launcher is shown again.
+     */
+    fun cancelAllInteractions() {
+        dragController.cancelDrag()
+        menuRegistry.cancelGesture()
+        widgetPopupShownForItemId = null
+        widgetTransformSession = null
+        externalDragState = HomeSurfaceExternalDragState()
+    }
+
     fun onExternalDragStarted() {
         widgetTransformSession = null
         dismissMenu()

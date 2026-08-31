@@ -175,6 +175,33 @@ class HomeSurfaceInteractionControllerTest {
         assertTrue(controller.showItemMenu("app:1"))
     }
 
+    @Test
+    fun cancel_all_interactions_restores_background_gestures_after_lifecycle_interruption() {
+        val controller = HomeSurfaceInteractionController(
+            dragController = AppDragDropController(GridConfig.Default)
+        )
+        val item = samplePinnedApp(id = "app:drag")
+        val bindings = HomeBackgroundGestureBindings(
+            onTrigger = {},
+            configuredTriggers = setOf(LauncherTrigger.HOME_SWIPE_UP)
+        )
+
+        assertTrue(controller.startInternalDrag(item))
+        controller.onExternalDragStarted()
+        controller.startWidgetTransform("widget:42")
+
+        assertFalse(controller.backgroundGesturePolicy(bindings).canStartBackgroundGesture)
+
+        controller.cancelAllInteractions()
+
+        assertFalse(controller.snapshot.hasInternalDrag)
+        assertFalse(controller.externalDragState.isActive)
+        assertFalse(controller.snapshot.isResizeModeActive)
+        assertFalse(controller.snapshot.isAnyContextMenuOpen)
+        assertFalse(controller.snapshot.isWidgetPopupOpen)
+        assertTrue(controller.backgroundGesturePolicy(bindings).canStartBackgroundGesture)
+    }
+
     private fun samplePinnedApp(id: String): HomeItem.PinnedApp {
         return HomeItem.PinnedApp(
             id = id,
