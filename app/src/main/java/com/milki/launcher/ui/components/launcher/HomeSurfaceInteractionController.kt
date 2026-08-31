@@ -10,13 +10,36 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.ui.components.common.ItemContextMenuRegistry
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropResult
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragDropItem
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGesturePolicy
+
+/**
+ * The one interaction the home surface is currently handling.
+ *
+ * A home surface cannot sensibly be resizing a widget while showing a context
+ * menu or accepting a drag. Background gestures are available precisely when
+ * this state is [Idle].
+ */
+internal sealed interface HomeSurfaceInteraction {
+    data object Idle : HomeSurfaceInteraction
+
+    data class ContextMenu(
+        val itemId: String,
+        val longPressInProgress: Boolean
+    ) : HomeSurfaceInteraction
+
+    data class WidgetPopup(val itemId: String) : HomeSurfaceInteraction
+
+    data class InternalDrag(val itemId: String) : HomeSurfaceInteraction
+
+    data class ExternalDrag(val state: HomeSurfaceExternalDragState) : HomeSurfaceInteraction
+
+    data class WidgetTransform(val widgetId: String) : HomeSurfaceInteraction
+}
 
 internal data class HomeSurfaceExternalDragState(
     val isActive: Boolean = false,
@@ -28,109 +51,107 @@ internal data class HomeWidgetTransformSession(
     val widgetId: String
 )
 
-internal data class HomeSurfaceInteractionSnapshot(
-    val hasInternalDrag: Boolean,
-    val isExternalDragActive: Boolean,
-    val isResizeModeActive: Boolean,
-    val isAnyContextMenuOpen: Boolean,
-    val isWidgetPopupOpen: Boolean
-)
-
-internal fun HomeSurfaceInteractionSnapshot.toBackgroundGesturePolicy(
+internal fun HomeSurfaceInteraction.toBackgroundGesturePolicy(
     bindings: HomeBackgroundGestureBindings
 ): HomeBackgroundGesturePolicy {
     return HomeBackgroundGesturePolicy(
-        canStartBackgroundGesture =
-            !isExternalDragActive &&
-            !hasInternalDrag &&
-                    !isResizeModeActive &&
-                    !isAnyContextMenuOpen &&
-                    !isWidgetPopupOpen,
+        canStartBackgroundGesture = this is HomeSurfaceInteraction.Idle,
         enabledTriggers = bindings.enabledTriggers()
     )
 }
 
+/**
+ * Single owner for all temporary home-surface interaction state.
+ *
+ * This controller owns no persisted data. It coordinates exclusive UI
+ * interactions and delegates movement geometry to [AppDragDropController].
+ * Every exit path calls [reset], so lifecycle and pointer cancellation are
+ * handled exactly like an ordinary cancelled action.
+ */
 @Stable
 internal class HomeSurfaceInteractionController(
     private val dragController: AppDragDropController<HomeItem>
 ) {
-    private val menuRegistry = ItemContextMenuRegistry()
+    var interaction: HomeSurfaceInteraction by mutableStateOf(HomeSurfaceInteraction.Idle)
+        private set
 
     val menuShownForItemId: String?
-        get() = menuRegistry.shownForItemId
+        get() = (interaction as? HomeSurfaceInteraction.ContextMenu)?.itemId
 
     val isMenuGestureActive: Boolean
-        get() = menuRegistry.isGestureActive
+        get() = (interaction as? HomeSurfaceInteraction.ContextMenu)?.longPressInProgress == true
 
-    var widgetPopupShownForItemId: String? by mutableStateOf(null)
-        private set
+    val widgetPopupShownForItemId: String?
+        get() = (interaction as? HomeSurfaceInteraction.WidgetPopup)?.itemId
 
-    var widgetTransformSession: HomeWidgetTransformSession? by mutableStateOf(null)
-        private set
+    val widgetTransformSession: HomeWidgetTransformSession?
+        get() = (interaction as? HomeSurfaceInteraction.WidgetTransform)
+            ?.let { HomeWidgetTransformSession(widgetId = it.widgetId) }
 
-    var externalDragState: HomeSurfaceExternalDragState by mutableStateOf(HomeSurfaceExternalDragState())
-        private set
-
-    val snapshot: HomeSurfaceInteractionSnapshot
-        get() = HomeSurfaceInteractionSnapshot(
-            hasInternalDrag = dragController.session != null,
-            isExternalDragActive = externalDragState.isActive,
-            isResizeModeActive = widgetTransformSession != null,
-            isAnyContextMenuOpen = menuShownForItemId != null,
-            isWidgetPopupOpen = widgetPopupShownForItemId != null
-        )
+    val externalDragState: HomeSurfaceExternalDragState
+        get() = (interaction as? HomeSurfaceInteraction.ExternalDrag)?.state
+            ?: HomeSurfaceExternalDragState()
 
     fun backgroundGesturePolicy(bindings: HomeBackgroundGestureBindings): HomeBackgroundGesturePolicy {
-        return snapshot.toBackgroundGesturePolicy(bindings)
+        return interaction.toBackgroundGesturePolicy(bindings)
     }
 
     fun showItemMenu(itemId: String): Boolean {
-        if (dragController.session != null || widgetTransformSession != null) return false
-        widgetPopupShownForItemId = null
-        return menuRegistry.show(itemId)
+        if (!canReplacePassiveInteraction()) return false
+        interaction = HomeSurfaceInteraction.ContextMenu(
+            itemId = itemId,
+            longPressInProgress = true
+        )
+        return true
     }
 
     fun showWidgetPopup(itemId: String) {
-        if (dragController.session != null || widgetTransformSession != null) return
-        menuRegistry.dismiss()
-        widgetPopupShownForItemId = itemId
+        if (!canReplacePassiveInteraction()) return
+        interaction = HomeSurfaceInteraction.WidgetPopup(itemId)
     }
 
     fun dismissWidgetPopup() {
-        widgetPopupShownForItemId = null
+        if (interaction is HomeSurfaceInteraction.WidgetPopup) {
+            interaction = HomeSurfaceInteraction.Idle
+        }
     }
 
     fun dismissMenu() {
-        menuRegistry.dismiss()
+        if (interaction is HomeSurfaceInteraction.ContextMenu) {
+            interaction = HomeSurfaceInteraction.Idle
+        }
     }
 
-    fun updateMenuGestureState(isActive: Boolean) {
-        if (!isActive) menuRegistry.endLongPressGesture()
+    fun endLongPressGesture() {
+        val menu = interaction as? HomeSurfaceInteraction.ContextMenu ?: return
+        interaction = menu.copy(longPressInProgress = false)
     }
 
-    fun startWidgetTransform(widgetId: String) {
-        dismissMenu()
-        dismissWidgetPopup()
-        widgetTransformSession = HomeWidgetTransformSession(widgetId = widgetId)
+    fun startWidgetTransform(widgetId: String): Boolean {
+        if (!canReplacePassiveInteraction()) return false
+        interaction = HomeSurfaceInteraction.WidgetTransform(widgetId)
+        return true
     }
 
     fun finishWidgetTransform() {
-        widgetTransformSession = null
+        if (interaction is HomeSurfaceInteraction.WidgetTransform) {
+            interaction = HomeSurfaceInteraction.Idle
+        }
     }
 
     fun cancelWidgetTransform() {
-        widgetTransformSession = null
+        finishWidgetTransform()
     }
 
     fun startInternalDrag(item: HomeItem): Boolean {
-        if (dragController.session != null || widgetTransformSession != null) return false
-        dismissMenu()
-        dismissWidgetPopup()
+        if (!canReplacePassiveInteraction()) return false
+
         dragController.startDrag(
             item = item,
             itemId = item.id,
             startPosition = item.position
         )
+        interaction = HomeSurfaceInteraction.InternalDrag(item.id)
         return true
     }
 
@@ -140,7 +161,12 @@ internal class HomeSurfaceInteractionController(
         dragAmount: Offset,
         layoutMetrics: AppDragDropLayoutMetrics
     ) {
-        if (!dragController.isDraggingItem(itemId)) return
+        if (interaction !is HomeSurfaceInteraction.InternalDrag ||
+            !dragController.isDraggingItem(itemId)
+        ) {
+            return
+        }
+
         change?.consume()
         dragController.updateDrag(dragAmount, layoutMetrics)
     }
@@ -149,50 +175,39 @@ internal class HomeSurfaceInteractionController(
         item: HomeItem,
         layoutMetrics: AppDragDropLayoutMetrics
     ): AppDragDropResult<HomeItem>? {
-        if (!dragController.isDraggingItem(item.id)) return null
-        menuRegistry.endLongPressGesture()
+        val activeDrag = interaction as? HomeSurfaceInteraction.InternalDrag
+            ?: return null
+        if (activeDrag.itemId != item.id || !dragController.isDraggingItem(item.id)) {
+            reset()
+            return null
+        }
+
+        interaction = HomeSurfaceInteraction.Idle
         return dragController.endDrag(layoutMetrics)
     }
 
     fun cancelInternalDrag() {
-        dragController.cancelDrag()
-        menuRegistry.cancelGesture()
-    }
-
-    /**
-     * Returns the homescreen to an input-ready state after its UI is no longer
-     * active.
-     *
-     * Pointer input is cancelled when the activity is backgrounded. Unlike a
-     * normal pointer-up, that cancellation may bypass item-level callbacks, so
-     * no individual interaction can be relied on to clean itself up. Keeping
-     * this reset at the owner of all interaction state prevents a stale drag,
-     * menu, widget popup, or resize session from disabling background gestures
-     * when the launcher is shown again.
-     */
-    fun cancelAllInteractions() {
-        dragController.cancelDrag()
-        menuRegistry.cancelGesture()
-        widgetPopupShownForItemId = null
-        widgetTransformSession = null
-        externalDragState = HomeSurfaceExternalDragState()
+        reset()
     }
 
     fun onExternalDragStarted() {
-        widgetTransformSession = null
-        dismissMenu()
-        dismissWidgetPopup()
-        externalDragState = HomeSurfaceExternalDragState(isActive = true)
+        // A platform drag supersedes any local interaction. This also prevents
+        // a stale internal session from surviving a transition to external drag.
+        dragController.cancelDrag()
+        interaction = HomeSurfaceInteraction.ExternalDrag(HomeSurfaceExternalDragState(isActive = true))
     }
 
     fun onExternalDragMoved(
         targetPosition: GridPosition,
         item: ExternalDragDropItem?
     ) {
-        externalDragState = externalDragState.copy(
-            isActive = true,
-            targetPosition = targetPosition,
-            item = item ?: externalDragState.item
+        val externalDrag = interaction as? HomeSurfaceInteraction.ExternalDrag ?: return
+        interaction = externalDrag.copy(
+            state = externalDrag.state.copy(
+                isActive = true,
+                targetPosition = targetPosition,
+                item = item ?: externalDrag.state.item
+            )
         )
     }
 
@@ -200,15 +215,32 @@ internal class HomeSurfaceInteractionController(
         targetPosition: GridPosition,
         item: ExternalDragDropItem
     ) {
-        externalDragState = externalDragState.copy(
-            isActive = true,
-            targetPosition = targetPosition,
-            item = item
+        val externalDrag = interaction as? HomeSurfaceInteraction.ExternalDrag ?: return
+        interaction = externalDrag.copy(
+            state = externalDrag.state.copy(
+                isActive = true,
+                targetPosition = targetPosition,
+                item = item
+            )
         )
     }
 
     fun onExternalDragEnded() {
-        externalDragState = HomeSurfaceExternalDragState()
+        if (interaction is HomeSurfaceInteraction.ExternalDrag) {
+            interaction = HomeSurfaceInteraction.Idle
+        }
+    }
+
+    /** Clears every transient interaction, including a cancelled pointer drag. */
+    fun reset() {
+        dragController.cancelDrag()
+        interaction = HomeSurfaceInteraction.Idle
+    }
+
+    private fun canReplacePassiveInteraction(): Boolean {
+        return interaction is HomeSurfaceInteraction.Idle ||
+                interaction is HomeSurfaceInteraction.ContextMenu ||
+                interaction is HomeSurfaceInteraction.WidgetPopup
     }
 }
 

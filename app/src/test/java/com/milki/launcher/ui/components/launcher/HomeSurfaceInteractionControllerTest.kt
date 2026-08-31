@@ -3,8 +3,8 @@ package com.milki.launcher.ui.components.launcher
 import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherTrigger
-import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
+import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import org.junit.Assert.assertEquals
@@ -16,75 +16,39 @@ import org.junit.Test
 
 class HomeSurfaceInteractionControllerTest {
 
+    private val directionalBindings = HomeBackgroundGestureBindings(
+        onEmptyAreaTap = {},
+        onTrigger = {},
+        configuredTriggers = setOf(
+            LauncherTrigger.HOME_TAP,
+            LauncherTrigger.HOME_SWIPE_UP,
+            LauncherTrigger.HOME_SWIPE_DOWN
+        )
+    )
+
     @Test
-    fun snapshot_blocks_background_gestures_when_any_transient_interaction_is_active() {
-        val bindings = HomeBackgroundGestureBindings(
-            onEmptyAreaTap = {},
-            onTrigger = {},
-            configuredTriggers = setOf(
-                LauncherTrigger.HOME_TAP,
-                LauncherTrigger.HOME_SWIPE_UP,
-                LauncherTrigger.HOME_SWIPE_DOWN
-            )
+    fun only_idle_interaction_allows_background_gestures() {
+        val blockingModes = listOf(
+            HomeSurfaceInteraction.ContextMenu("app:1", longPressInProgress = false),
+            HomeSurfaceInteraction.WidgetPopup("widget:1"),
+            HomeSurfaceInteraction.InternalDrag("app:1"),
+            HomeSurfaceInteraction.ExternalDrag(HomeSurfaceExternalDragState(isActive = true)),
+            HomeSurfaceInteraction.WidgetTransform("widget:1")
         )
 
-        val blockedByMenu = HomeSurfaceInteractionSnapshot(
-            hasInternalDrag = false,
-            isExternalDragActive = false,
-            isResizeModeActive = false,
-            isAnyContextMenuOpen = true,
-            isWidgetPopupOpen = false
+        assertTrue(
+            HomeSurfaceInteraction.Idle
+                .toBackgroundGesturePolicy(directionalBindings)
+                .canStartBackgroundGesture
         )
-
-        val blockedByDrag = blockedByMenu.copy(
-            hasInternalDrag = true,
-            isAnyContextMenuOpen = false
-        )
-        val blockedByWidgetPopup = blockedByMenu.copy(
-            isAnyContextMenuOpen = false,
-            isWidgetPopupOpen = true
-        )
-
-        assertFalse(blockedByMenu.toBackgroundGesturePolicy(bindings).canStartBackgroundGesture)
-        assertFalse(blockedByDrag.toBackgroundGesturePolicy(bindings).canStartBackgroundGesture)
-        assertFalse(blockedByWidgetPopup.toBackgroundGesturePolicy(bindings).canStartBackgroundGesture)
+        blockingModes.forEach { mode ->
+            assertFalse(mode.toBackgroundGesturePolicy(directionalBindings).canStartBackgroundGesture)
+        }
     }
 
     @Test
-    fun snapshot_exposes_enabled_triggers_from_bindings() {
-        val policy = HomeSurfaceInteractionSnapshot(
-            hasInternalDrag = false,
-            isExternalDragActive = false,
-            isResizeModeActive = false,
-            isAnyContextMenuOpen = false,
-            isWidgetPopupOpen = false
-        ).toBackgroundGesturePolicy(
-            HomeBackgroundGestureBindings(
-                onEmptyAreaTap = {},
-                onTrigger = {},
-                configuredTriggers = setOf(
-                    LauncherTrigger.HOME_TAP,
-                    LauncherTrigger.HOME_SWIPE_UP,
-                    LauncherTrigger.HOME_SWIPE_DOWN
-                )
-            )
-        )
-
-        assertTrue(policy.canStartBackgroundGesture)
-        assertTrue(LauncherTrigger.HOME_TAP in policy.enabledTriggers)
-        assertTrue(LauncherTrigger.HOME_SWIPE_UP in policy.enabledTriggers)
-        assertTrue(LauncherTrigger.HOME_SWIPE_DOWN in policy.enabledTriggers)
-    }
-
-    @Test
-    fun snapshot_only_enables_tap_when_directional_trigger_handler_is_missing() {
-        val policy = HomeSurfaceInteractionSnapshot(
-            hasInternalDrag = false,
-            isExternalDragActive = false,
-            isResizeModeActive = false,
-            isAnyContextMenuOpen = false,
-            isWidgetPopupOpen = false
-        ).toBackgroundGesturePolicy(
+    fun policy_exposes_only_bound_gestures() {
+        val policy = HomeSurfaceInteraction.Idle.toBackgroundGesturePolicy(
             HomeBackgroundGestureBindings(
                 onEmptyAreaTap = {},
                 configuredTriggers = setOf(
@@ -101,41 +65,42 @@ class HomeSurfaceInteractionControllerTest {
     }
 
     @Test
-    fun controller_clears_menu_when_internal_drag_starts() {
-        val controller = HomeSurfaceInteractionController(
-            dragController = AppDragDropController(GridConfig.Default)
-        )
+    fun internal_drag_replaces_menu_and_popup() {
+        val controller = newController()
         val item = samplePinnedApp(id = "app:drag")
 
         assertTrue(controller.showItemMenu(item.id))
         assertTrue(controller.startInternalDrag(item))
 
+        assertEquals(HomeSurfaceInteraction.InternalDrag(item.id), controller.interaction)
         assertNull(controller.menuShownForItemId)
         assertFalse(controller.isMenuGestureActive)
-        assertTrue(controller.snapshot.hasInternalDrag)
+
+        controller.reset()
+        controller.showWidgetPopup("widget:7")
+
+        assertTrue(controller.startInternalDrag(item))
+        assertEquals(HomeSurfaceInteraction.InternalDrag(item.id), controller.interaction)
+        assertNull(controller.widgetPopupShownForItemId)
     }
 
     @Test
-    fun controller_clears_widget_popup_when_internal_drag_starts() {
-        val controller = HomeSurfaceInteractionController(
-            dragController = AppDragDropController(GridConfig.Default)
-        )
+    fun active_drag_cannot_be_replaced_by_other_interactions() {
+        val controller = newController()
         val item = samplePinnedApp(id = "app:drag")
-
-        controller.showWidgetPopup("widget:7")
-        assertEquals("widget:7", controller.widgetPopupShownForItemId)
 
         assertTrue(controller.startInternalDrag(item))
 
-        assertNull(controller.widgetPopupShownForItemId)
-        assertTrue(controller.snapshot.hasInternalDrag)
+        assertFalse(controller.showItemMenu("app:other"))
+        controller.showWidgetPopup("widget:7")
+        assertFalse(controller.startWidgetTransform("widget:42"))
+        assertEquals(HomeSurfaceInteraction.InternalDrag(item.id), controller.interaction)
     }
 
     @Test
-    fun controller_tracks_and_clears_external_drag_state() {
-        val controller = HomeSurfaceInteractionController(
-            dragController = AppDragDropController(GridConfig.Default)
-        )
+    fun external_drag_supersedes_local_interaction_and_clears_when_finished() {
+        val controller = newController()
+        val item = samplePinnedApp(id = "app:drag")
         val target = GridPosition(row = 2, column = 1)
         val payload = ExternalDragItem.App(
             appInfo = com.milki.launcher.domain.model.AppInfo(
@@ -145,61 +110,41 @@ class HomeSurfaceInteractionControllerTest {
             )
         )
 
+        assertTrue(controller.startInternalDrag(item))
         controller.onExternalDragStarted()
         controller.onExternalDragMoved(targetPosition = target, item = payload)
 
+        assertFalse(controller.interaction is HomeSurfaceInteraction.InternalDrag)
         assertTrue(controller.externalDragState.isActive)
         assertEquals(target, controller.externalDragState.targetPosition)
         assertNotNull(controller.externalDragState.item)
 
         controller.onExternalDragEnded()
 
+        assertEquals(HomeSurfaceInteraction.Idle, controller.interaction)
         assertFalse(controller.externalDragState.isActive)
         assertNull(controller.externalDragState.targetPosition)
         assertNull(controller.externalDragState.item)
     }
 
     @Test
-    fun controller_blocks_menu_while_widget_transform_is_active() {
-        val controller = HomeSurfaceInteractionController(
-            dragController = AppDragDropController(GridConfig.Default)
-        )
-
-        controller.startWidgetTransform("widget:42")
-
-        assertFalse(controller.showItemMenu("app:1"))
-        assertTrue(controller.snapshot.isResizeModeActive)
-
-        controller.finishWidgetTransform()
-
-        assertTrue(controller.showItemMenu("app:1"))
-    }
-
-    @Test
-    fun cancel_all_interactions_restores_background_gestures_after_lifecycle_interruption() {
-        val controller = HomeSurfaceInteractionController(
-            dragController = AppDragDropController(GridConfig.Default)
-        )
+    fun reset_returns_to_idle_and_restores_background_gestures() {
+        val controller = newController()
         val item = samplePinnedApp(id = "app:drag")
-        val bindings = HomeBackgroundGestureBindings(
-            onTrigger = {},
-            configuredTriggers = setOf(LauncherTrigger.HOME_SWIPE_UP)
-        )
 
         assertTrue(controller.startInternalDrag(item))
-        controller.onExternalDragStarted()
-        controller.startWidgetTransform("widget:42")
+        assertFalse(controller.backgroundGesturePolicy(directionalBindings).canStartBackgroundGesture)
 
-        assertFalse(controller.backgroundGesturePolicy(bindings).canStartBackgroundGesture)
+        controller.reset()
 
-        controller.cancelAllInteractions()
+        assertEquals(HomeSurfaceInteraction.Idle, controller.interaction)
+        assertTrue(controller.backgroundGesturePolicy(directionalBindings).canStartBackgroundGesture)
+    }
 
-        assertFalse(controller.snapshot.hasInternalDrag)
-        assertFalse(controller.externalDragState.isActive)
-        assertFalse(controller.snapshot.isResizeModeActive)
-        assertFalse(controller.snapshot.isAnyContextMenuOpen)
-        assertFalse(controller.snapshot.isWidgetPopupOpen)
-        assertTrue(controller.backgroundGesturePolicy(bindings).canStartBackgroundGesture)
+    private fun newController(): HomeSurfaceInteractionController {
+        return HomeSurfaceInteractionController(
+            dragController = AppDragDropController(GridConfig.Default)
+        )
     }
 
     private fun samplePinnedApp(id: String): HomeItem.PinnedApp {

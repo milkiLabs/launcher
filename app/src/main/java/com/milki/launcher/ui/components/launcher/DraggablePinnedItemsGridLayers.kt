@@ -31,7 +31,6 @@ import com.milki.launcher.domain.reorder.GridReorderEngine
 import com.milki.launcher.domain.model.GridOccupancy
 import com.milki.launcher.domain.model.GridSpan
 import com.milki.launcher.domain.model.HomeItem
-import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.domain.model.WidgetDisplayMode
 import com.milki.launcher.domain.model.homeGridSpan
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
@@ -102,33 +101,10 @@ internal fun InternalGridDragLayer(
     // pending tap mid-double-tap.
     val doubleTapArbiter = remember { DoubleTapArbiter() }
 
-    // Structured restart key for the background gesture detector.
-    //
-    // The previous implementation built a sorted/joined string on every
-    // recomposition of this layer even though pointerInput only compares keys
-    // for restart eligibility. Computing it via remember means the (cheap)
-    // equality comparison still happens each recomposition, but allocation and
-    // trigger-set sorting only occur when one of the identity components
-    // actually changes. Reading the interaction/drag state here preserves the
-    // same composition subscriptions as before, so invalidation behavior is
-    // unchanged.
-    val backgroundGestureRestartKey = remember(
-        items.size,
-        interactionController.menuShownForItemId,
-        interactionController.externalDragState.isActive,
-        dragController.session?.itemId,
-        interactionController.widgetTransformSession?.widgetId,
-        backgroundGesturePolicy.enabledTriggers
-    ) {
-        BackgroundGestureRestartKey(
-            itemCount = items.size,
-            menuShownForItemId = interactionController.menuShownForItemId,
-            isExternalDragActive = interactionController.externalDragState.isActive,
-            internalDragItemId = dragController.session?.itemId,
-            widgetTransformWidgetId = interactionController.widgetTransformSession?.widgetId,
-            enabledTriggers = backgroundGesturePolicy.enabledTriggers
-        )
-    }
+    // The complete interaction mode is the detector's lifecycle key. This is
+    // both easier to audit and prevents a new interaction mode from being
+    // accidentally omitted from a hand-maintained list of restart fields.
+    val backgroundGestureRestartKey = interactionController.interaction
 
     fun showItemMenu(item: HomeItem) {
         if (!interactionController.showItemMenu(item.id)) return
@@ -256,7 +232,7 @@ internal fun InternalGridDragLayer(
                             },
                             onLongPressRelease = {
                                 if (interactions.gridGesturesEnabled) {
-                                    interactionController.updateMenuGestureState(false)
+                                    interactionController.endLongPressGesture()
                                 }
                             },
                             onDragStart = {
@@ -283,7 +259,7 @@ internal fun InternalGridDragLayer(
                                 showItemMenu(item)
                             },
                             onWidgetLongPressRelease = {
-                                interactionController.updateMenuGestureState(false)
+                                interactionController.endLongPressGesture()
                             },
                             onWidgetDragStart = {
                                 startItemDrag(item)
@@ -359,22 +335,6 @@ internal fun InternalGridDragLayer(
         }
     }
 }
-
-/**
- * Identity of the background gesture detector's pointerInput session.
- *
- * Structured replacement for a hand-rolled concatenated string: data-class
- * equality gives identical restart semantics for detectHomeBackgroundGestures
- * without per-recomposition string building or trigger-set sorting.
- */
-private data class BackgroundGestureRestartKey(
-    val itemCount: Int,
-    val menuShownForItemId: String?,
-    val isExternalDragActive: Boolean,
-    val internalDragItemId: String?,
-    val widgetTransformWidgetId: String?,
-    val enabledTriggers: Set<LauncherTrigger>
-)
 
 /**
  * Per-item gesture and menu strategy, resolved once per item instead of being

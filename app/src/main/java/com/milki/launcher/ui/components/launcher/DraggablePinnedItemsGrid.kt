@@ -68,14 +68,14 @@ fun DraggablePinnedItemsGrid(
     DisposableEffect(lifecycleOwner, interactionController) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
-                interactionController.cancelAllInteractions()
+                interactionController.reset()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            interactionController.cancelAllInteractions()
+            interactionController.reset()
         }
     }
 
