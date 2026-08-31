@@ -8,8 +8,8 @@ plugins {
 import java.util.Properties
 import java.io.FileInputStream
 
-val appVersionCode = 10301
-val appVersionName = "1.3.1"
+val appVersionCode = 10303
+val appVersionName = "1.3.3"
 
 // LOAD KEYSTORE PROPERTIES
 val keystorePropertiesFile = rootProject.file("keystore.properties")
