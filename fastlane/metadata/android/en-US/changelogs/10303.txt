@@ -1,0 +1,6 @@
+Fixes and polish.
+
+- Fixed stuck drag/menu after backgrounding
+- Folder header centered, item count removed
+- Widget picker ranked search
+- Polished Advanced settings
