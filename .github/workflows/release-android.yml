@@ -110,11 +110,9 @@ jobs:
             exit 1
           fi
 
-          # cp "$RELEASE_APK" "dist/milki_launcher_${TAG_NAME}.apk"
-          # cp "$RELEASE_APK" "dist/milki_launcher_latest.apk"
+          cp "$RELEASE_APK" "dist/milki_launcher_${TAG_NAME}.apk"
 
-          # Compatibility alias for existing F-Droid metadata:
-          # Binaries: .../releases/download/v%v/app-release.apk
+          # kept for F-Droid.
           cp "$RELEASE_APK" "dist/app-release.apk"
 
           # Archive the R8 mapping per release so stack traces can always be
@@ -132,7 +130,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apks-${{ github.ref_name }}
-          path: dist/*.apk
+          path: |
+            dist/*.apk
+            dist/mapping_*.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -140,6 +140,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.apk
-          fail_on_unmatched_files: true
+          files: |
+            dist/*.apk
+            dist/mapping_*.txt
+          fail_on_unmatched_files: false
           generate_release_notes: true
