@@ -34,12 +34,15 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: website/pnpm-lock.yaml
 
       - name: Install dependencies
+        working-directory: website
         run: pnpm install --frozen-lockfile
 
       - name: Build with VitePress
-        run: pnpm --filter website build
+        working-directory: website
+        run: pnpm build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
