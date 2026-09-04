@@ -63,9 +63,7 @@ internal fun Modifier.detectHomeBackgroundGestures(
                 val occupant = occupancy.occupantAt(pressedCell)
                 val startCellOccupied = occupant != null
 
-                // Popup widget icons handle their own swipe-up gesture to launch
-                // the provider app. Suppress background directional gestures when
-                // the touch starts on one so both don't fire simultaneously.
+                // Suppress background directional gestures for widgets
                 val isWidgetCell = occupant is HomeItem.WidgetItem
 
                 if (!policy.canStartBackgroundGesture) {
