@@ -66,8 +66,7 @@ internal fun Modifier.detectHomeBackgroundGestures(
                 // Popup widget icons handle their own swipe-up gesture to launch
                 // the provider app. Suppress background directional gestures when
                 // the touch starts on one so both don't fire simultaneously.
-                val isPopupWidgetCell = (occupant as? HomeItem.WidgetItem)
-                    ?.displayMode == com.milki.launcher.domain.model.WidgetDisplayMode.PopupIcon
+                val isWidgetCell = occupant is HomeItem.WidgetItem
 
                 if (!policy.canStartBackgroundGesture) {
                     return@awaitEachGesture
@@ -108,7 +107,7 @@ internal fun Modifier.detectHomeBackgroundGestures(
                     longPressTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
                     policy = policy,
                     bindings = bindings,
-                    suppressDirectionalGestures = isPopupWidgetCell
+                    suppressDirectionalGestures = isWidgetCell
                 )
 
                 when (outcome) {
