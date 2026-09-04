@@ -64,6 +64,7 @@ import com.milki.launcher.domain.search.AppQueryRanker
 import com.milki.launcher.domain.search.ParsedQuery
 import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
+import com.milki.launcher.domain.search.SearchSourceAppMapper
 import com.milki.launcher.domain.search.SuggestionResolver
 import com.milki.launcher.domain.search.parseSearchQuery
 import com.milki.launcher.presentation.common.ViewModelSharingStarted
@@ -167,6 +168,7 @@ class SearchViewModel(
         observeRecentApps()
         observeSearchSettings()
         observeQuerySuggestions()
+        observeSourceAppMapping()
     }
 
     // ========================================================================
@@ -363,9 +365,35 @@ class SearchViewModel(
             querySuggestion = if (isSearchVisible) qSuggestion else null,
             providerAccentColorById = cfg.providerAccentColorById,
             suggestedActionSources = if (visible) settings.searchSources else emptyList(),
-            defaultSearchSourceId = settings.defaultSearchSourceId
+            defaultSearchSourceId = settings.defaultSearchSourceId,
+            sourceAppPackages = cfg.sourceAppPackages
         )
     }.stateIn(viewModelScope, ViewModelSharingStarted, SearchUiState())
+
+    /**
+     * Derives sourceId → installed package mapping for icon-first pills.
+     *
+     * Pure in-memory set lookup (no PackageManager IPC), so per-install change
+     * cost is negligible and dialog open is unaffected.
+     */
+    private fun observeSourceAppMapping() {
+        viewModelScope.launch {
+            combine(
+                stateHolder.backgroundState,
+                stateHolder.runtimeSettings
+            ) { background, settings ->
+                val installedPackages = background.installedApps
+                    .map { it.packageName }
+                    .toSet()
+                SearchSourceAppMapper.packagesFor(
+                    sources = settings.searchSources,
+                    installedPackages = installedPackages
+                )
+            }.collect { mapping ->
+                stateHolder.sourceAppPackages.value = mapping
+            }
+        }
+    }
 
     private fun observeQuerySuggestions() {
         viewModelScope.launch {

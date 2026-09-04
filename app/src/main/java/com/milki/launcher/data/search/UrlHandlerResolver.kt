@@ -28,12 +28,14 @@ class UrlHandlerResolver(
 
     private val scope = applicationScope
     private val browserPackagesCache = SnapshotCache(BrowserPackagesSnapshot.Empty)
+    private val defaultBrowserCache = SnapshotCache(DefaultBrowserSnapshot.Empty)
     private val handlerAppCache = LruCache<String, UrlHandlerApp>(HANDLER_CACHE_SIZE)
 
     init {
         // Warm the browser set off the main thread so isBrowserPackage never
         // pays for a MATCH_ALL PackageManager query on the caller.
         scope.launch { refreshBrowserPackages() }
+        scope.launch { resolveDefaultBrowser() }
         scope.launch {
             packageChangeMonitor.events.collectLatest { event ->
                 if (event.packageName != null) {
@@ -41,6 +43,7 @@ class UrlHandlerResolver(
                 } else {
                     handlerAppCache.evictAll()
                 }
+                defaultBrowserCache.replace(DefaultBrowserSnapshot.Empty)
                 refreshBrowserPackages()
             }
         }
@@ -119,7 +122,19 @@ class UrlHandlerResolver(
         return resolveNonBrowserUrlHandler(url) != null
     }
 
-    fun resolveDefaultBrowser(): UrlHandlerApp? {
+    override fun resolveDefaultBrowser(): UrlHandlerApp? {
+        defaultBrowserCache.get().takeIf { it.isLoaded }?.let { return it.app }
+
+        synchronized(this) {
+            defaultBrowserCache.get().takeIf { it.isLoaded }?.let { return it.app }
+
+            val resolved = queryDefaultBrowser()
+            defaultBrowserCache.replace(DefaultBrowserSnapshot(isLoaded = true, app = resolved))
+            return resolved
+        }
+    }
+
+    private fun queryDefaultBrowser(): UrlHandlerApp? {
         val genericHttpUrl = "https://example.com"
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(genericHttpUrl))
 
@@ -242,6 +257,18 @@ private data class BrowserPackagesSnapshot(
         val Empty = BrowserPackagesSnapshot(
             isLoaded = false,
             packageNames = emptySet()
+        )
+    }
+}
+
+private data class DefaultBrowserSnapshot(
+    val isLoaded: Boolean,
+    val app: UrlHandlerApp?
+) {
+    companion object {
+        val Empty = DefaultBrowserSnapshot(
+            isLoaded = false,
+            app = null
         )
     }
 }

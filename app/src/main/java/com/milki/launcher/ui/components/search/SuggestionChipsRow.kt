@@ -11,10 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ElevatedFilterChip
@@ -27,13 +25,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.milki.launcher.core.util.hexToColor
 import com.milki.launcher.domain.model.SearchSource
-import com.milki.launcher.domain.model.UrlSearchResult
 import com.milki.launcher.domain.search.ActionSuggestion
+import com.milki.launcher.domain.search.FaviconHost
 import com.milki.launcher.presentation.search.SearchResultAction
+import com.milki.launcher.ui.components.common.AppIcon
 import com.milki.launcher.ui.theme.IconSize
 import com.milki.launcher.ui.theme.Spacing
 
@@ -45,7 +46,8 @@ fun SuggestionChipsRow(
     defaultSourceId: String?,
     actionHandler: (SearchResultAction) -> Unit,
     isOneHanded: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    appPackageBySourceId: Map<String, String> = emptyMap()
 ) {
     Column(
         modifier = modifier
@@ -82,22 +84,30 @@ fun SuggestionChipsRow(
                             AssistChip(
                                 onClick = { actionHandler(SearchResultAction.Tap(url)) },
                                 label = { ChipLabel(url.handlerApp.label) },
-                                leadingIcon = { ChipIcon(Icons.Filled.Language) }
+                                leadingIcon = {
+                                    AppIcon(
+                                        packageName = url.handlerApp.packageName,
+                                        size = IconSize.small
+                                    )
+                                }
                             )
                         }
                     }
 
                     item(key = "browser_fallback") {
+                        val browserApp = url.browserApp
                         AssistChip(
                             onClick = { actionHandler(SearchResultAction.OpenUrlInExternalBrowser(url.url)) },
-                            label = { ChipLabel("Open in browser") },
+                            label = { ChipLabel(browserApp?.label ?: "Browser") },
                             leadingIcon = {
-                                val icon = if (url.handlerApp != null) {
-                                    Icons.AutoMirrored.Filled.OpenInNew
+                                if (browserApp != null) {
+                                    AppIcon(
+                                        packageName = browserApp.packageName,
+                                        size = IconSize.small
+                                    )
                                 } else {
-                                    Icons.Filled.Language
+                                    ChipIcon(Icons.Filled.Language)
                                 }
-                                ChipIcon(icon)
                             }
                         )
                     }
@@ -119,12 +129,20 @@ fun SuggestionChipsRow(
                         val encodedText = remember(suggestion.queryText) { Uri.encode(suggestion.queryText) }
                         val accentColor = remember(source.accentColorHex) { hexToColor(source.accentColorHex) }
                         val searchUrl = source.buildUrl(encodedText)
+                        val appPackage = appPackageBySourceId[source.id]
+                        // Favicon only matters when no native app matched; the
+                        // icon chain falls back to monogram while loading / on fail.
+                        val faviconHost = remember(source.urlTemplate) {
+                            FaviconHost.fromSource(source)
+                        }
 
                         if (source.id == defaultSourceId) {
                             DefaultSearchSourceChip(
                                 source = source,
                                 accentColor = accentColor,
                                 searchUrl = searchUrl,
+                                appPackage = appPackage,
+                                faviconHost = faviconHost,
                                 actionHandler = actionHandler
                             )
                         } else {
@@ -132,6 +150,8 @@ fun SuggestionChipsRow(
                                 source = source,
                                 accentColor = accentColor,
                                 searchUrl = searchUrl,
+                                appPackage = appPackage,
+                                faviconHost = faviconHost,
                                 actionHandler = actionHandler
                             )
                         }
@@ -147,16 +167,25 @@ private fun DefaultSearchSourceChip(
     source: SearchSource,
     accentColor: Color?,
     searchUrl: String,
+    appPackage: String?,
+    faviconHost: String?,
     actionHandler: (SearchResultAction) -> Unit
 ) {
+    val shortLabel = remember(source.name) { monogramInitials(source.name) }
     ElevatedFilterChip(
         selected = true,
         onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
+        modifier = Modifier.semantics { contentDescription = source.name },
         label = {
-            ChipLabel(source.name)
+            ChipLabel(shortLabel)
         },
         leadingIcon = {
-            ChipIcon(Icons.Filled.Search)
+            AppOrMonogramIcon(
+                packageName = appPackage,
+                fallbackText = source.name,
+                accentColor = accentColor,
+                faviconHost = faviconHost
+            )
         },
         colors = FilterChipDefaults.elevatedFilterChipColors(
             selectedContainerColor = accentColor ?: MaterialTheme.colorScheme.primaryContainer,
@@ -171,15 +200,24 @@ private fun SecondarySearchSourceChip(
     source: SearchSource,
     accentColor: Color?,
     searchUrl: String,
+    appPackage: String?,
+    faviconHost: String?,
     actionHandler: (SearchResultAction) -> Unit
 ) {
+    val shortLabel = remember(source.name) { monogramInitials(source.name) }
     AssistChip(
         onClick = { actionHandler(SearchResultAction.OpenUrlInBrowser(searchUrl)) },
+        modifier = Modifier.semantics { contentDescription = source.name },
         label = {
-            ChipLabel(source.name)
+            ChipLabel(shortLabel)
         },
         leadingIcon = {
-            ChipIcon(Icons.Filled.Search)
+            AppOrMonogramIcon(
+                packageName = appPackage,
+                fallbackText = source.name,
+                accentColor = accentColor,
+                faviconHost = faviconHost
+            )
         },
         colors = AssistChipDefaults.assistChipColors(
             leadingIconContentColor = accentColor ?: MaterialTheme.colorScheme.onSurfaceVariant
@@ -237,5 +275,3 @@ private fun ChipIcon(imageVector: androidx.compose.ui.graphics.vector.ImageVecto
         modifier = Modifier.size(IconSize.small)
     )
 }
-
-

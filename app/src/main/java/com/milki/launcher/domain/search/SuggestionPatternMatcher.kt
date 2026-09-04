@@ -14,11 +14,13 @@ internal object SuggestionPatternMatcher {
     ): UrlSearchResult? {
         val validationResult = UrlValidator.validateUrl(rawText) ?: return null
         val handlerApp = urlHandlerPort.resolveNonBrowserUrlHandler(validationResult.url)
+        val browserApp = runCatching { urlHandlerPort.resolveDefaultBrowser() }.getOrNull()
 
         return UrlSearchResult(
             url = validationResult.url,
             displayUrl = validationResult.displayUrl,
             handlerApp = handlerApp,
+            browserApp = browserApp,
             browserFallback = true
         )
     }

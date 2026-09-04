@@ -3,8 +3,13 @@ package com.milki.launcher.domain.search
 import com.milki.launcher.domain.model.UrlHandlerApp
 
 /**
- * Resolves the non-browser app that would handle a given URL, if any.
+ * Resolves apps that can handle a given URL.
+ *
+ * Both methods are binder IPC under the hood and must be called off the main
+ * thread (SuggestionResolver already runs on Dispatchers.IO).
  */
-fun interface UrlHandlerPort {
+interface UrlHandlerPort {
     fun resolveNonBrowserUrlHandler(url: String): UrlHandlerApp?
+
+    fun resolveDefaultBrowser(): UrlHandlerApp?
 }

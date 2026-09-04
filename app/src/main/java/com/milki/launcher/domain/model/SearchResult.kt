@@ -211,12 +211,14 @@ data class UrlHandlerApp(
  * @property url The complete URL to open (normalized with https:// if needed)
  * @property displayUrl The URL as shown to the user (may be truncated for display)
  * @property handlerApp The non-browser app that will open the URL (null = browser fallback)
+ * @property browserApp The system's default browser for the generic fallback pill (null = unknown)
  * @property browserFallback Always true - browser is always an option
  */
 data class UrlSearchResult(
     val url: String,
     val displayUrl: String,
     val handlerApp: UrlHandlerApp? = null,
+    val browserApp: UrlHandlerApp? = null,
     val browserFallback: Boolean = true
 ) : SearchResult() {
     override val title: String = if (handlerApp != null) {

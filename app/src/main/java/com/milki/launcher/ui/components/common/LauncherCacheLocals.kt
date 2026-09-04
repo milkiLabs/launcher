@@ -3,6 +3,7 @@ package com.milki.launcher.ui.components.common
 import com.milki.launcher.data.contextmenu.AppContextDataCache
 import com.milki.launcher.data.icon.AppIconMemoryCache
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.milki.launcher.data.icon.FaviconCache
 
 /**
  * Composition access to the DI-managed process-wide icon cache.
@@ -20,4 +21,11 @@ val LocalAppIconMemoryCache = staticCompositionLocalOf<AppIconMemoryCache> {
  */
 val LocalAppContextDataCache = staticCompositionLocalOf<AppContextDataCache> {
     error("LocalAppContextDataCache not provided at composition root")
+}
+
+/**
+ * Composition access to the DI-managed favicon cache (fetch-once + disk).
+ */
+val LocalFaviconCache = staticCompositionLocalOf<FaviconCache> {
+    error("LocalFaviconCache not provided at composition root")
 }

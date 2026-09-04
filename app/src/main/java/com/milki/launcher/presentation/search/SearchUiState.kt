@@ -78,7 +78,9 @@ data class SearchUiState(
     /** Enabled search sources used to render the suggested-action chip row. */
     val suggestedActionSources: List<SearchSource> = emptyList(),
     /** The user's preferred default search engine source ID. */
-    val defaultSearchSourceId: String? = null
+    val defaultSearchSourceId: String? = null,
+    /** sourceId → installed native app package for icon-first pills. */
+    val sourceAppPackages: Map<String, String> = emptyMap()
 ) {
     /**
      * Controls clipboard chip visibility.

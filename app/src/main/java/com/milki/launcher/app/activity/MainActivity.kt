@@ -26,6 +26,7 @@ import com.milki.launcher.core.launcher.openDefaultLauncherSettingsFallback
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.contextmenu.AppContextDataCache
 import com.milki.launcher.data.icon.AppIconMemoryCache
+import com.milki.launcher.data.icon.FaviconCache
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
 import com.milki.launcher.domain.repository.ActionShortcutRepository
 import com.milki.launcher.domain.repository.AppRepository
@@ -45,6 +46,7 @@ import com.milki.launcher.ui.screens.settings.SettingsNavHost
 import com.milki.launcher.ui.screens.settings.rememberSettingsActions
 import com.milki.launcher.ui.components.common.LocalAppContextDataCache
 import com.milki.launcher.ui.components.common.LocalAppIconMemoryCache
+import com.milki.launcher.ui.components.common.LocalFaviconCache
 import com.milki.launcher.ui.theme.LauncherTheme
 import kotlinx.serialization.Serializable
 import org.koin.android.ext.android.inject
@@ -89,6 +91,7 @@ class MainActivity : ComponentActivity() {
             com.milki.launcher.domain.repository.FilesRepository by inject()
     private val widgetPickerCatalogStore: WidgetPickerCatalogStore by inject()
     private val appIconMemoryCache: AppIconMemoryCache by inject()
+    private val faviconCache: FaviconCache by inject()
     private val contextDataCache: AppContextDataCache by inject()
     private val crashLogWriter: CrashLogWriter by inject()
 
@@ -150,6 +153,7 @@ class MainActivity : ComponentActivity() {
                 setContent {
                     CompositionLocalProvider(
                         LocalAppIconMemoryCache provides appIconMemoryCache,
+                        LocalFaviconCache provides faviconCache,
                         LocalAppContextDataCache provides contextDataCache
                     ) {
                         MainNavigationRoot()

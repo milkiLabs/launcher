@@ -41,6 +41,8 @@ internal class SearchState(
     val clipboardSuggestion = MutableStateFlow<ActionSuggestion?>(null)
     val querySuggestion = MutableStateFlow<ActionSuggestion?>(null)
     val providerAccentColorById = MutableStateFlow<Map<String, String>>(emptyMap())
+    /** sourceId → installed native app package, derived from installedApps + settings. */
+    val sourceAppPackages = MutableStateFlow<Map<String, String>>(emptyMap())
 
     // All inputs are hot flows (repository snapshot flow + in-memory
     // MutableStateFlows), so the shared cold-sharing policy is safe here: on
@@ -66,8 +68,12 @@ internal class SearchState(
         VisibilityInput(currentQuery, visible)
     }
 
-    val config = combine(runtimeSettings, providerAccentColorById) { settings, colorMap ->
-        SearchConfig(settings, colorMap)
+    val config = combine(
+        runtimeSettings,
+        providerAccentColorById,
+        sourceAppPackages
+    ) { settings, colorMap, appPackages ->
+        SearchConfig(settings, colorMap, appPackages)
     }
 
     data class VisibilityInput(
@@ -77,6 +83,7 @@ internal class SearchState(
 
     data class SearchConfig(
         val settings: SearchRuntimeSettings,
-        val providerAccentColorById: Map<String, String>
+        val providerAccentColorById: Map<String, String>,
+        val sourceAppPackages: Map<String, String> = emptyMap()
     )
 }

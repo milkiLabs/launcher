@@ -243,6 +243,7 @@ private fun SearchSuggestion(uiState: SearchUiState) {
         sources = uiState.orderedSuggestedSources,
         defaultSourceId = uiState.defaultSearchSourceId,
         actionHandler = actionHandler,
-        isOneHanded = uiState.searchLayout == SearchLayout.ONE_HANDED
+        isOneHanded = uiState.searchLayout == SearchLayout.ONE_HANDED,
+        appPackageBySourceId = uiState.sourceAppPackages
     )
 }

@@ -4,6 +4,7 @@ import android.content.Context
 import com.milki.launcher.data.contextmenu.AppContextDataCache
 import com.milki.launcher.data.icon.AppIconDiskSnapshotStore
 import com.milki.launcher.data.icon.AppIconMemoryCache
+import com.milki.launcher.data.icon.FaviconCache
 import com.milki.launcher.domain.icon.IconPriorityStore
 import org.koin.dsl.module
 
@@ -21,6 +22,10 @@ val iconModule = module {
 
     single {
         AppIconMemoryCache(diskSnapshotStore = get())
+    }
+
+    single {
+        FaviconCache(context = get<Context>())
     }
 
     single<IconPriorityStore> { get<AppIconMemoryCache>() }
