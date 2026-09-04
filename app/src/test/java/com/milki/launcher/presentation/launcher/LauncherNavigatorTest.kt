@@ -84,6 +84,34 @@ class LauncherNavigatorTest {
     }
 
     @Test
+    fun second_home_intent_before_resume_opens_search() = runBlocking {
+        val navigator = navigator()
+
+        navigator.navigate(LauncherRoute.Search)
+        navigator.onStop()
+        navigator.handleHomeIntent()
+        navigator.handleHomeIntent()
+
+        assertEquals(LauncherRoute.Search, navigator.currentRoute)
+        assertTrue(navigator.searchVisibilityFlow.first())
+    }
+
+    @Test
+    fun resume_clears_pending_return_to_front() = runBlocking {
+        val navigator = navigator()
+
+        navigator.onStop()
+        navigator.handleHomeIntent()
+        navigator.onResume()
+        navigator.handleHomeIntent()
+
+        // The pre-resume press was consumed by the resume; this press is a
+        // normal resumed press and opens search exactly once.
+        assertEquals(LauncherRoute.Search, navigator.currentRoute)
+        assertTrue(navigator.searchVisibilityFlow.first())
+    }
+
+    @Test
     fun widget_picker_query_updates_without_replacing_route() {
         val navigator = navigator()
 

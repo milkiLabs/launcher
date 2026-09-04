@@ -108,4 +108,15 @@ internal class DoubleTapArbiter {
         pendingTap = null
         return hadPendingTap
     }
+
+    /**
+     * Discards any pending tap without emitting anything.
+     *
+     * Called when the homescreen leaves the interactive lifecycle (pause/stop):
+     * a tap recorded just before backgrounding must never fire late or pair
+     * with a tap from the next foreground session.
+     */
+    fun clear() {
+        pendingTap = null
+    }
 }

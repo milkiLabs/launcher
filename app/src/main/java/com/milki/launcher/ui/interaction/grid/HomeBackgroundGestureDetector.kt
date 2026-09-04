@@ -38,15 +38,20 @@ private const val DOUBLE_TAP_SLOP_TOUCH_SLOP_MULTIPLIER = 2f
 
 internal fun Modifier.detectHomeBackgroundGestures(
     key: Any? = null,
-    items: List<HomeItem>,
-    occupancy: GridOccupancy,
+    occupancyProvider: () -> GridOccupancy,
     layoutMetrics: AppDragDropLayoutMetrics,
     policy: HomeBackgroundGesturePolicy,
     doubleTapArbiter: DoubleTapArbiter,
     gestureThresholdPx: Float,
-    bindings: HomeBackgroundGestureBindings
+    bindingsProvider: () -> HomeBackgroundGestureBindings
 ): Modifier {
-    return pointerInput(key, items, occupancy, layoutMetrics, policy, gestureThresholdPx, bindings) {
+    // The pointerInput key covers only the gesture *configuration* (interaction
+    // mode, policy, metrics). Grid contents (items/occupancy) and action
+    // bindings are read through providers at gesture time: pinning, moving, or
+    // unpinning an item must not restart the detector mid-gesture and swallow
+    // the in-flight swipe. Occupancy is snapshotted once per gesture at
+    // finger-down so a mid-gesture mutation cannot retarget the pressed cell.
+    return pointerInput(key, layoutMetrics, policy, gestureThresholdPx) {
         coroutineScope {
             var pendingTapJob: Job? = null
 
@@ -57,10 +62,11 @@ internal fun Modifier.detectHomeBackgroundGestures(
 
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
+                val bindings = bindingsProvider()
                 // Raw (unclamped) cell on purpose: out-of-range cells have no
                 // occupant, so presses outside the grid count as empty area.
                 val pressedCell = layoutMetrics.pixelToCell(down.position)
-                val occupant = occupancy.occupantAt(pressedCell)
+                val occupant = occupancyProvider().occupantAt(pressedCell)
                 val startCellOccupied = occupant != null
 
                 // Popup widget icons handle their own swipe-up gesture to launch

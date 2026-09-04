@@ -71,6 +71,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -108,8 +109,14 @@ import kotlinx.coroutines.withContext
  * @property settingsRepository Repository for settings (including prefix configs)
  * @property providerRegistry Registry of search providers
  * @property suggestionResolver Resolver that classifies text into one smart action suggestion
- * @property isSearchVisible Visibility stream owned by the launcher navigator
- * ([com.milki.launcher.presentation.launcher.LauncherNavigator.searchVisibilityFlow]).
+ *
+ * SEARCH VISIBILITY:
+ * The navigator remains the single owner of search visibility, but the
+ * ViewModel must NOT capture its flow in the constructor: the ViewModel
+ * survives Activity recreation while the navigator does not, so a captured
+ * flow goes stale (dialog never opens, route stays open blocking gestures).
+ * The Activity calls [bindSearchVisible] with the current navigator's flow on
+ * every onCreate instead.
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class SearchViewModel(
@@ -117,13 +124,32 @@ class SearchViewModel(
     private val settingsRepository: SettingsReader,
     private val providerRegistry: SearchProviderRegistry,
     private val searchProviderFactory: SearchProviderFactory,
-    private val suggestionResolver: SuggestionResolver,
-    private val isSearchVisible: Flow<Boolean>
+    private val suggestionResolver: SuggestionResolver
 ) : ViewModel() {
+    /**
+     * Current navigator-owned visibility, rebound on every Activity creation.
+     */
+    private val searchVisible = MutableStateFlow(false)
+    private var visibilityBinding: Job? = null
+
+    /**
+     * Observes the current launcher navigator's visibility flow.
+     *
+     * Must be called from Activity.onCreate (including after config changes):
+     * it drops any previous binding so visibility always follows the live
+     * navigator instead of a destroyed one.
+     */
+    fun bindSearchVisible(visible: Flow<Boolean>) {
+        visibilityBinding?.cancel()
+        visibilityBinding = viewModelScope.launch {
+            visible.collect { searchVisible.value = it }
+        }
+    }
+
     private val stateHolder = SearchState(
         scope = viewModelScope,
         installedApps = appRepository.observeInstalledApps(),
-        isSearchVisible = isSearchVisible
+        isSearchVisible = searchVisible
     )
     private val searchPrefixConfigurations = MutableStateFlow<ProviderPrefixConfiguration>(emptyMap())
 
@@ -160,7 +186,7 @@ class SearchViewModel(
     private fun observeSearchVisibilityEffects() {
         viewModelScope.launch {
             var wasVisible = false
-            isSearchVisible.collect { isVisible ->
+            searchVisible.collect { isVisible ->
                 when {
                     isVisible && !wasVisible -> {
                         stateHolder.clipboardSuggestion.value = withContext(Dispatchers.IO) {
@@ -249,8 +275,7 @@ class SearchViewModel(
             searchSources = settings.searchSources.filter { it.showAsSuggestedAction },
             defaultSearchSourceId = settings.defaultSearchSourceId,
             searchLayout = settings.searchLayout,
-            fileSearchExtensionConfig = settings.fileSearchExtensionConfig,
-            isSettingsLoaded = true
+            fileSearchExtensionConfig = settings.fileSearchExtensionConfig
         )
         searchPrefixConfigurations.value = mergedConfigurations
         stateHolder.providerAccentColorById.value = settings.searchSources.associate { it.id to it.accentColorHex }
@@ -266,7 +291,7 @@ class SearchViewModel(
     private val searchOutput: StateFlow<SearchPipelineOutput> =
         combine(
             stateHolder.query,
-            isSearchVisible,
+            searchVisible,
             stateHolder.backgroundState,
             stateHolder.runtimeSettings,
             searchPrefixConfigurations
@@ -320,8 +345,12 @@ class SearchViewModel(
         stateHolder.config
     ) { input, output, clipSuggestion, qSuggestion, cfg ->
         val settings = cfg.settings
+        // Visibility follows the navigator only. It must NOT wait for settings:
+        // gating the dialog on settings once produced an open route with no
+        // visible dialog, which blocks all background gestures with a normal
+        // homescreen on screen. An early frame may use the default layout.
         val visible = input.visible
-        val isSearchVisible = visible && settings.isSettingsLoaded
+        val isSearchVisible = visible
 
         SearchUiState(
             query = input.query,
@@ -528,13 +557,5 @@ internal data class SearchRuntimeSettings(
     val searchSources: List<SearchSource> = emptyList(),
     val defaultSearchSourceId: String? = null,
     val searchLayout: SearchLayout = SearchLayout.CLASSIC,
-    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig(),
-    /**
-     * Whether the real settings have been loaded at least once.
-     *
-     * The search dialog is gated on this flag so it never renders with the
-     * default CLASSIC placeholder layout for a frame, then jumps to the
-     * user's chosen layout once settings arrive.
-     */
-    val isSettingsLoaded: Boolean = false
+    val fileSearchExtensionConfig: FileSearchExtensionConfig = FileSearchExtensionConfig()
 )

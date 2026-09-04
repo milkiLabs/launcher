@@ -117,4 +117,24 @@ class DoubleTapArbiterTest {
         assertTrue(arbiter.resolvePendingTap())
         assertFalse(arbiter.resolvePendingTap())
     }
+
+    @Test
+    fun clear_discards_pending_tap_without_emitting() {
+        val arbiter = arbiterWithPendingTap()
+
+        arbiter.clear()
+
+        assertFalse(arbiter.resolvePendingTap())
+        assertEquals(
+            DoubleTapDownDecision.NO_PENDING_TAP,
+            arbiter.arbitrateDown(
+                downTimeMillis = 1_100L,
+                downPosition = Offset.Zero,
+                landsOnEmptyCell = true,
+                supportsDoubleTap = true,
+                doubleTapTimeoutMillis = 300L,
+                doubleTapSlopPx = 32f
+            )
+        )
+    }
 }

@@ -4,6 +4,7 @@ import com.milki.launcher.domain.model.GridPosition
 import com.milki.launcher.domain.model.HomeItem
 import com.milki.launcher.domain.model.LauncherTrigger
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
+import androidx.compose.ui.geometry.Offset
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragPayloadCodec.ExternalDragItem
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
@@ -139,6 +140,20 @@ class HomeSurfaceInteractionControllerTest {
 
         assertEquals(HomeSurfaceInteraction.Idle, controller.interaction)
         assertTrue(controller.backgroundGesturePolicy(directionalBindings).canStartBackgroundGesture)
+    }
+
+    @Test
+    fun reset_clears_pending_double_tap_reservation() {
+        val controller = newController()
+
+        controller.doubleTapArbiter.recordTap(
+            uptimeMillis = 1_000L,
+            position = Offset.Zero
+        )
+
+        controller.reset()
+
+        assertFalse(controller.doubleTapArbiter.resolvePendingTap())
     }
 
     private fun newController(): HomeSurfaceInteractionController {

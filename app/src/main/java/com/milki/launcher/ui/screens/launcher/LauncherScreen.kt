@@ -56,8 +56,18 @@ import com.milki.launcher.ui.components.launcher.widget.WidgetPickerBottomSheet
 import com.milki.launcher.ui.components.search.AppSearchDialog
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.theme.Spacing
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+
+/**
+ * Grace period before a folder route with no matching item pops itself.
+ *
+ * Covers the normal open path (item state arrives just after navigation)
+ * while guaranteeing a deleted-while-open folder can never strand an
+ * invisible overlay that blocks background gestures.
+ */
+private const val FOLDER_NULL_ROUTE_GRACE_MS = 1000L
 
 /**
  * Main launcher surface.
@@ -211,13 +221,24 @@ fun LauncherScreen(
                     val folder = current.openFolderItem
                         ?.takeIf { it.id == route.folderId }
 
-                    FolderOverlayHost(
-                        openFolderItem = folder,
-                        folderActions = current.actions.folder,
-                        anchorBounds = folder?.let {
-                            homeItemBoundsById[it.id]
+                    if (folder == null) {
+                        // The route outlived its item (deleted while open, or a
+                        // slow state emission). Never sit on an invisible route:
+                        // it blocks all background gestures with a normal
+                        // homescreen on screen. The grace period covers the
+                        // normal open path, where the item arrives a frame or
+                        // two after navigation.
+                        LaunchedEffect(route.folderId) {
+                            delay(FOLDER_NULL_ROUTE_GRACE_MS)
+                            if (navigator.currentRoute == route) navigator.pop()
                         }
-                    )
+                    } else {
+                        FolderOverlayHost(
+                            openFolderItem = folder,
+                            folderActions = current.actions.folder,
+                            anchorBounds = homeItemBoundsById[folder.id]
+                        )
+                    }
                 }
             }
         }
@@ -463,8 +484,10 @@ private fun SearchOverlayHost(
     searchUiState: SearchUiState,
     searchActions: SearchActions
 ) {
-    if (!searchUiState.isSearchVisible) return
-
+    // No visibility gate here: this host only exists while the Search route is
+    // open, and dialog visibility follows that same route 1:1. Gating on a
+    // second source once produced an open route with no dialog, blocking all
+    // background gestures behind a normal-looking homescreen.
     AppSearchDialog(
         uiState = searchUiState,
         onQueryChange = searchActions.onQueryChange,

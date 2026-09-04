@@ -14,7 +14,6 @@ import com.milki.launcher.domain.search.SearchProviderFactory
 import com.milki.launcher.domain.search.SearchProviderRegistry
 import com.milki.launcher.domain.search.UrlHandlerPort
 import com.milki.launcher.presentation.search.SearchViewModel
-import kotlinx.coroutines.flow.Flow
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -59,14 +58,13 @@ val searchModule = module {
         )
     }
 
-    viewModel { (isSearchVisible: Flow<Boolean>) ->
+    viewModel {
         SearchViewModel(
             appRepository = get(),
             settingsRepository = get(),
             providerRegistry = get(),
             searchProviderFactory = get(),
-            suggestionResolver = get(),
-            isSearchVisible = isSearchVisible
+            suggestionResolver = get()
         )
     }
 }

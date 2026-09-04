@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +35,6 @@ import com.milki.launcher.domain.model.homeGridSpan
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropResult
-import com.milki.launcher.ui.interaction.grid.DoubleTapArbiter
 import com.milki.launcher.ui.interaction.grid.GridConfig
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.interaction.grid.animateDragVisuals
@@ -96,14 +94,24 @@ internal fun InternalGridDragLayer(
 
     val backgroundGesturePolicy = interactionController.backgroundGesturePolicy(backgroundGestures)
 
-    // Double-tap state holder, remembered across recompositions AND detector
-    // restarts: pointerInput restarts (grid mutations) must not discard a
-    // pending tap mid-double-tap.
-    val doubleTapArbiter = remember { DoubleTapArbiter() }
+    // Latest grid contents and bindings for the background detector. Held in
+    // updated-state refs (not the detector key) so grid mutations never
+    // restart an in-flight gesture.
+    val latestOccupancy by rememberUpdatedState(occupancy)
+    val latestBackgroundBindings by rememberUpdatedState(
+        backgroundGestures.copy(
+            onEmptyAreaLongPress = { longPressOffset ->
+                hapticLongPress()
+                backgroundGestures.onEmptyAreaLongPress(longPressOffset)
+            }
+        )
+    )
 
     // The complete interaction mode is the detector's lifecycle key. This is
     // both easier to audit and prevents a new interaction mode from being
     // accidentally omitted from a hand-maintained list of restart fields.
+    // The double-tap arbiter lives in the interaction controller so lifecycle
+    // resets clear tap tracking together with drag/menu/popup state.
     val backgroundGestureRestartKey = interactionController.interaction
 
     fun showItemMenu(item: HomeItem) {
@@ -151,18 +159,12 @@ internal fun InternalGridDragLayer(
             .fillMaxSize()
             .detectHomeBackgroundGestures(
                 key = backgroundGestureRestartKey,
-                items = items,
-                occupancy = occupancy,
+                occupancyProvider = { latestOccupancy },
                 layoutMetrics = layoutMetrics,
                 policy = backgroundGesturePolicy,
-                doubleTapArbiter = doubleTapArbiter,
+                doubleTapArbiter = interactionController.doubleTapArbiter,
                 gestureThresholdPx = cellHeightPx,
-                bindings = backgroundGestures.copy(
-                    onEmptyAreaLongPress = { longPressOffset ->
-                        hapticLongPress()
-                        backgroundGestures.onEmptyAreaLongPress(longPressOffset)
-                    }
-                )
+                bindingsProvider = { latestBackgroundBindings }
             )
     ) {
         items.forEach { item ->
@@ -311,8 +313,13 @@ internal fun InternalGridDragLayer(
                             focusable = !interactionController.isMenuGestureActive,
                             displayMode = widgetItem.displayMode,
                             onEdit = {
-                                if (isPopupMode) interactionController.dismissWidgetPopup()
-                                interactionController.startWidgetTransform(widgetItem.id)
+                                // Start first: it replaces the menu state on
+                                // success. Dismiss the popup only then, so a
+                                // rejected start cannot strand the user with no
+                                // menu and no transform session.
+                                if (interactionController.startWidgetTransform(widgetItem.id)) {
+                                    if (isPopupMode) interactionController.dismissWidgetPopup()
+                                }
                             },
                             onModeAction = {
                                 interactionController.dismissMenu()

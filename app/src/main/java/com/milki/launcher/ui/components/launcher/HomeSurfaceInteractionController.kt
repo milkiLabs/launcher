@@ -14,6 +14,7 @@ import com.milki.launcher.ui.interaction.dragdrop.AppDragDropController
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropLayoutMetrics
 import com.milki.launcher.ui.interaction.dragdrop.AppDragDropResult
 import com.milki.launcher.ui.interaction.dragdrop.ExternalDragDropItem
+import com.milki.launcher.ui.interaction.grid.DoubleTapArbiter
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGestureBindings
 import com.milki.launcher.ui.interaction.grid.HomeBackgroundGesturePolicy
 
@@ -74,6 +75,14 @@ internal class HomeSurfaceInteractionController(
 ) {
     var interaction: HomeSurfaceInteraction by mutableStateOf(HomeSurfaceInteraction.Idle)
         private set
+
+    /**
+     * Double-tap arbitration state. Owned here — alongside every other piece
+     * of transient homescreen interaction — so [reset] clears tap tracking
+     * together with drag/menu/popup state instead of leaving a stale pending
+     * tap that could mis-fire after a lifecycle boundary.
+     */
+    val doubleTapArbiter = DoubleTapArbiter()
 
     val menuShownForItemId: String?
         get() = (interaction as? HomeSurfaceInteraction.ContextMenu)?.itemId
@@ -235,6 +244,7 @@ internal class HomeSurfaceInteractionController(
     fun reset() {
         dragController.cancelDrag()
         interaction = HomeSurfaceInteraction.Idle
+        doubleTapArbiter.clear()
     }
 
     private fun canReplacePassiveInteraction(): Boolean {

@@ -49,7 +49,6 @@ import com.milki.launcher.ui.theme.LauncherTheme
 import kotlinx.serialization.Serializable
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import org.koin.core.parameter.parametersOf
 
 @Serializable
 internal sealed interface MainRoute : NavKey {
@@ -80,9 +79,7 @@ class MainActivity : ComponentActivity() {
     private val actionShortcutRepository: ActionShortcutRepository by inject()
     private val widgetHost: WidgetHostPort by inject()
 
-    private val searchViewModel: SearchViewModel by viewModel(
-        parameters = { parametersOf(runtime.launcherNavigator.searchVisibilityFlow) }
-    )
+    private val searchViewModel: SearchViewModel by viewModel()
     private val appDrawerViewModel: AppDrawerViewModel by viewModel()
     private val settingsViewModel: SettingsViewModel by viewModel()
     private val defaultLauncherPromoter: DefaultLauncherPromoter by viewModel()
@@ -136,6 +133,11 @@ class MainActivity : ComponentActivity() {
                         widgetHost = widgetHost
                     )
                 runtime.initialize()
+                // Rebind on every creation: SearchViewModel survives config
+                // changes while the navigator does not. A stale binding leaves
+                // the dialog following a dead flow (route open, dialog hidden,
+                // gestures blocked) after any recreation.
+                searchViewModel.bindSearchVisible(runtime.launcherNavigator.searchVisibilityFlow)
                 rootNavigation = RootNavigationController(
                     initial = MainRoute.Home,
                     onResetExtras = { runtime.launcherNavigator.clearTransientRoutes() }

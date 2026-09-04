@@ -59,6 +59,14 @@ class LauncherNavigator(
 
     private var wasResumed = false
 
+    /**
+     * A home press that arrived while stopped is swallowed (first press only
+     * returns to the front). The latch remembers it so a second press still
+     * opens search even if it arrives before onResume runs — otherwise rapid
+     * presses during a stop/start flap are all swallowed and home feels dead.
+     */
+    private var returnedToFront = false
+
     var widgetPickerQuery by mutableStateOf("")
         private set
 
@@ -92,6 +100,7 @@ class LauncherNavigator(
 
     fun onResume() {
         wasResumed = true
+        returnedToFront = false
     }
 
     fun updateHomescreenMenuOpen(isOpen: Boolean) {
@@ -199,8 +208,17 @@ class LauncherNavigator(
     fun handleHomeIntent() {
         when {
             !isAtHome -> clearTransientRoutes()
+            !wasResumed && returnedToFront -> {
+                returnedToFront = false
+                if (isHomescreenMenuOpen) {
+                    updateHomescreenMenuOpen(false)
+                }
+                navigate(LauncherRoute.Search)
+            }
+
             !wasResumed -> {
                 isHomescreenMenuOpen = false
+                returnedToFront = true
             }
 
             isHomescreenMenuOpen -> {
@@ -214,6 +232,7 @@ class LauncherNavigator(
 
     fun onStop() {
         wasResumed = false
+        returnedToFront = false
         clearTransientRoutes()
     }
 

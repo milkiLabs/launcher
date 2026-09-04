@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.milki.launcher.core.intent.BENCHMARK_DRAWER_SCROLL_SEQUENCE_DOWN_UP
 import com.milki.launcher.core.intent.LauncherBenchmarkTarget
+import com.milki.launcher.core.intent.isHomeIntent
 import com.milki.launcher.core.intent.toLauncherBenchmarkRequestOrNull
 import com.milki.launcher.core.perf.traceSection
 import com.milki.launcher.data.widget.WidgetPickerCatalogStore
@@ -154,28 +155,35 @@ internal class LauncherHostRuntime(
     }
 
     fun handleInitialIntent(intent: Intent) {
-        if (handlePinShortcutIntent(intent)) {
-            return
-        }
-
-        if (handleBenchmarkIntent(intent)) {
-            return
-        }
-
+        handleTransientIntent(intent)
     }
 
     fun onNewIntent(intent: Intent) {
-        if (handlePinShortcutIntent(intent)) {
-            return
-        }
-
-        if (handleBenchmarkIntent(intent)) {
+        if (handleTransientIntent(intent)) {
             return
         }
 
         when {
-            isLauncherHomeIntent(intent) -> launcherNavigator.handleHomeIntent()
+            intent.isHomeIntent() -> launcherNavigator.handleHomeIntent()
         }
+    }
+
+    /**
+     * One-shot intents (pin-shortcut confirmation, benchmark runs). Shared by
+     * initial and new intents so the two entry points cannot drift apart.
+     *
+     * @return true when the intent was consumed.
+     */
+    private fun handleTransientIntent(intent: Intent): Boolean {
+        if (handlePinShortcutIntent(intent)) {
+            return true
+        }
+
+        if (handleBenchmarkIntent(intent)) {
+            return true
+        }
+
+        return false
     }
 
     private fun handlePinShortcutIntent(intent: Intent): Boolean {
@@ -297,10 +305,6 @@ internal class LauncherHostRuntime(
         permissionHandler.updateStates()
     }
 
-
-    private fun isLauncherHomeIntent(intent: Intent): Boolean {
-        return intent.action == Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)
-    }
 
     private fun resetTransientSurfacesForBenchmark() {
         launcherNavigator.clearTransientRoutes()

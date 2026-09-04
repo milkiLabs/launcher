@@ -65,9 +65,13 @@ fun DraggablePinnedItemsGrid(
     // Android cancels active pointer streams in that transition. Clear all
     // transient interaction state at the lifecycle boundary so a cancelled
     // drag/menu/popup cannot keep background gestures disabled on return.
+    //
+    // Pause (not stop) is the boundary: it always precedes stop, and
+    // translucent surfaces pause without stopping while still cancelling the
+    // pointer stream and stealing the rest of the gesture.
     DisposableEffect(lifecycleOwner, interactionController) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
+            if (event == Lifecycle.Event.ON_PAUSE) {
                 interactionController.reset()
             }
         }
