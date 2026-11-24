@@ -166,7 +166,7 @@ class LauncherNavigator(
         if (backStack.size <= 1) return false
 
         isHomescreenMenuOpen = false
-        val oldRoute = backStack.removeLast()
+        val oldRoute = backStack.removeAt(backStack.lastIndex)
         closeRoute(oldRoute)
         openRoute(currentRoute)
         return true
@@ -242,7 +242,7 @@ class LauncherNavigator(
             return
         }
         while (backStack.size > 1) {
-            backStack.removeLast()
+            backStack.removeAt(backStack.lastIndex)
         }
         if (backStack.first() != LauncherRoute.Home) {
             backStack.clear()
